@@ -1,44 +1,180 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Synapse AI Support and Privacy</title>
-    <link rel="stylesheet" href="./site.css">
+    <title>Synapse AI — планировщик, который помнит, зачем</title>
+    <meta name="description" content="Synapse AI превращает цели в понятные шаги и держит день в фокусе. Задачи, цели с этапами, карта целей и ассистент Syn — в одном приложении.">
+    <meta property="og:title" content="Synapse AI — планировщик, который помнит, зачем">
+    <meta property="og:description" content="Цели превращаются в этапы, этапы — в задачи на сегодня. А Syn подскажет, с чего начать.">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="./screens/logo.png">
+    <link rel="stylesheet" href="./landing.css">
   </head>
   <body>
-    <main class="shell">
+    <header class="nav">
+      <a class="brand" href="./">
+        <img src="./screens/logo.png" alt="" width="28" height="28">
+        <span>Synapse AI</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#different">Чем отличается</a>
+        <a href="#features">Возможности</a>
+        <a href="#privacy">Приватность</a>
+      </nav>
+      <a class="btn btn-small" href="https://t.me/synapseapp">Telegram</a>
+    </header>
+
+    <main>
       <section class="hero">
-        <span class="eyebrow">Synapse AI</span>
-        <h1>Support and privacy in one simple place.</h1>
-        <p class="lead">
-          Synapse AI is an AI planner for goals, tasks, and focus. This page gives users a clean path to support details and the current privacy policy.
-        </p>
-        <div class="actions">
-          <a class="button" href="./support/">Open support</a>
-          <a class="button secondary" href="./privacy/">Open privacy policy</a>
+        <div class="hero-text">
+          <span class="eyebrow">Планировщик с ИИ</span>
+          <h1>Списки дел говорят, <em>что</em> делать.<br>Synapse помнит, <em>зачем</em>.</h1>
+          <p class="lead">
+            Цель превращается в этапы, этапы — в задачи на сегодня. Видно не только
+            сегодняшний день, но и куда он ведёт.
+          </p>
+          <div class="cta">
+            <span class="btn btn-primary btn-disabled">Скоро в App Store</span>
+            <a class="btn btn-ghost" href="https://t.me/synapseapp">Узнать о запуске</a>
+          </div>
+          <p class="cta-note">Русский и ещё 9 языков. Планирование работает без интернета.</p>
+        </div>
+        <div class="hero-shot">
+          <img src="./screens/screen-1.png" alt="Экран задач Synapse AI: блоки Сегодня, Завтра, Послезавтра, На неделе и Потом" width="414" height="900">
         </div>
       </section>
 
-      <section class="grid">
-        <article class="card stack">
-          <h2>Support</h2>
-          <p>
-            If something feels broken, confusing, or missing, the support page explains what to include in a report and the fastest path to getting help.
-          </p>
-          <a class="button secondary" href="./support/">Go to support</a>
-        </article>
-
-        <article class="card stack">
-          <h2>Privacy</h2>
-          <p>
-            The privacy page explains what Synapse may process, how Syn works with the backend and AI provider, and what users can control or delete.
-          </p>
-          <a class="button secondary" href="./privacy/">Go to privacy policy</a>
-        </article>
+      <section class="section" id="different">
+        <h2 class="section-title">Три вещи, которых нет в обычном списке дел</h2>
+        <div class="cards">
+          <article class="card">
+            <div class="card-icon">◎</div>
+            <h3>Цели, а не только задачи</h3>
+            <p>
+              У цели есть этапы, у этапов — свои задачи. Прогресс считается сам,
+              и видно, какая задача сегодня реально двигает большое.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon">✦</div>
+            <h3>Ассистент Syn</h3>
+            <p>
+              Скажи словами: «перенеси созвон на пятницу», «разбери мой день»,
+              «сделай из этого цель». Syn меняет план сам и показывает, что именно сделал.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon">⬡</div>
+            <h3>Карта целей</h3>
+            <p>
+              Все цели, этапы и связанные задачи на одном полотне. Видно, где
+              движение есть, а где месяц ничего не происходило.
+            </p>
+          </article>
+        </div>
       </section>
 
-      <p class="footer">Synapse AI public support and privacy hub.</p>
+      <section class="section" id="features">
+        <h2 class="section-title">Что внутри</h2>
+        <div class="grid">
+          <div class="feature">
+            <h3>Дни, а не бесконечный список</h3>
+            <p>Сегодня, Завтра, Послезавтра, На неделе и Потом. Всё видно сразу, без переключений.</p>
+          </div>
+          <div class="feature">
+            <h3>Сроки, которые не врут</h3>
+            <p>Мягкая дата, жёсткий срок «до 18:00» или окно «с 10:00 до 11:30» — задача сама знает, когда её можно закрыть.</p>
+          </div>
+          <div class="feature">
+            <h3>Повторы без возни</h3>
+            <p>Каждый день, по дням недели, по числам месяца. Пропустил — приложение честно это покажет, а не притворится.</p>
+          </div>
+          <div class="feature">
+            <h3>Голосом</h3>
+            <p>Продиктуй задачу или целый разбор дня. Знаки препинания расставятся сами.</p>
+          </div>
+          <div class="feature">
+            <h3>Заметки и списки</h3>
+            <p>Папки с заметками и списки покупок рядом с планом, а не в отдельном приложении.</p>
+          </div>
+          <div class="feature">
+            <h3>Помодоро и медитация</h3>
+            <p>Таймер фокуса и звуки для передышки — дождь, лес, костёр. Работают офлайн.</p>
+          </div>
+          <div class="feature">
+            <h3>Аналитика без самообмана</h3>
+            <p>Сколько наметил, сколько закрыл, что просрочено. По дню, неделе или за всё время.</p>
+          </div>
+          <div class="feature">
+            <h3>Свой вид</h3>
+            <p>Восемь палитр, светлая и тёмная тема, размер шрифта и плотность списка — под себя.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section screens">
+        <h2 class="section-title">Как это выглядит</h2>
+        <div class="shots">
+          <figure>
+            <img src="./screens/screen-2.png" alt="Экран целей: обзор, фильтры и список целей с этапами" loading="lazy" width="414" height="900">
+            <figcaption>Цели с этапами</figcaption>
+          </figure>
+          <figure>
+            <img src="./screens/screen-3.png" alt="Экран «Мой фокус»: сценарии Syn и фокус дня" loading="lazy" width="414" height="900">
+            <figcaption>Фокус дня</figcaption>
+          </figure>
+          <figure>
+            <img src="./screens/screen-4.png" alt="Экран аналитики: карта целей и статистика" loading="lazy" width="414" height="900">
+            <figcaption>Карта целей</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section band" id="privacy">
+        <h2 class="section-title">Про данные — честно</h2>
+        <div class="grid grid-3">
+          <div class="feature">
+            <h3>Ни одного трекера</h3>
+            <p>В приложении нет рекламных SDK и рекламного идентификатора. Мы не следим за вами между приложениями и не продаём данные.</p>
+          </div>
+          <div class="feature">
+            <h3>План живёт на телефоне</h3>
+            <p>Задачи, цели и заметки хранятся у вас. Наружу уходит только то, что вы сами отправляете Syn.</p>
+          </div>
+          <div class="feature">
+            <h3>Данные можно забрать</h3>
+            <p>Полная резервная копия одним файлом и очистка памяти ассистента — в настройках, без писем в поддержку.</p>
+          </div>
+        </div>
+        <p class="fineprint">
+          Подробности — в <a href="./privacy/">политике конфиденциальности</a>.
+        </p>
+      </section>
+
+      <section class="section closing">
+        <h2>Собрать первый план — минута</h2>
+        <p class="lead">Приложение открывается сразу, без регистрации. Внутри уже есть примеры, чтобы было с чего начать.</p>
+        <div class="cta cta-center">
+          <span class="btn btn-primary btn-disabled">Скоро в App Store</span>
+          <a class="btn btn-ghost" href="https://t.me/synapseapp">Написать нам</a>
+        </div>
+      </section>
     </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img src="./screens/logo.png" alt="" width="24" height="24">
+          <span>Synapse AI</span>
+        </div>
+        <nav class="footer-links">
+          <a href="./support/">Поддержка</a>
+          <a href="./privacy/">Конфиденциальность</a>
+          <a href="https://t.me/synapseapp">Telegram</a>
+        </nav>
+        <p class="copy">© 2026 Synapse AI</p>
+      </div>
+    </footer>
   </body>
 </html>

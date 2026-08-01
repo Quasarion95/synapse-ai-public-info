@@ -1,0 +1,382 @@
+/*
+  Landing page styles. Kept separate from site.css on purpose: the support and
+  privacy pages are linked from App Store Connect and still use site.css, so
+  nothing here can break them.
+*/
+
+:root {
+  color-scheme: light dark;
+  --accent: #7854f2;
+  --accent-soft: rgba(120, 84, 242, 0.12);
+  --accent-strong: #6a45e8;
+  --bg: #fbfaff;
+  --bg-band: #f4f1ff;
+  --surface: #ffffff;
+  --text: #1d1830;
+  --muted: #635c7d;
+  --stroke: rgba(90, 70, 170, 0.14);
+  --shadow: 0 24px 60px rgba(66, 44, 130, 0.10);
+  --radius: 20px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #a996ff;
+    --accent-soft: rgba(169, 150, 255, 0.16);
+    --accent-strong: #b9a9ff;
+    --bg: #131120;
+    --bg-band: #191630;
+    --surface: #1e1a33;
+    --text: #f2effd;
+    --muted: #a9a2c4;
+    --stroke: rgba(180, 160, 255, 0.18);
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  background:
+    radial-gradient(circle at 12% -10%, rgba(120, 84, 242, 0.16), transparent 42%),
+    radial-gradient(circle at 92% 4%, rgba(70, 150, 255, 0.14), transparent 38%),
+    var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--accent-strong); }
+
+/* ---------- nav ---------- */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 24px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(160%) blur(14px);
+  border-bottom: 1px solid var(--stroke);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.brand img { width: 28px; height: 28px; }
+
+.nav-links {
+  display: flex;
+  gap: 22px;
+  margin-left: auto;
+  font-size: 14px;
+}
+
+.nav-links a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.nav-links a:hover { color: var(--text); }
+
+/* ---------- buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 22px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.btn-small { padding: 8px 15px; font-size: 14px; }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #5b8cff);
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(120, 84, 242, 0.28);
+}
+
+.btn-ghost {
+  background: var(--surface);
+  border-color: var(--stroke);
+  color: var(--text);
+}
+
+.btn-small:not(.btn-primary) {
+  background: var(--surface);
+  border-color: var(--stroke);
+  color: var(--text);
+}
+
+/* The store is not open yet — the button says so and does not pretend to work. */
+.btn-disabled { opacity: 0.75; cursor: default; }
+
+/* ---------- hero ---------- */
+
+.hero {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 72px 24px 32px;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.eyebrow {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.hero h1 {
+  margin: 18px 0 0;
+  font-size: clamp(32px, 5vw, 50px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+
+.hero h1 em {
+  font-style: normal;
+  color: var(--accent-strong);
+}
+
+.lead {
+  color: var(--muted);
+  font-size: 17px;
+  margin: 18px 0 0;
+  max-width: 46ch;
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.cta-center { justify-content: center; }
+
+.cta-note {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.hero-shot img {
+  width: 100%;
+  max-width: 340px;
+  margin-inline: auto;
+  border-radius: 30px;
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+}
+
+/* ---------- sections ---------- */
+
+.section {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 56px 24px;
+}
+
+.section-title {
+  font-size: clamp(23px, 3.2vw, 31px);
+  letter-spacing: -0.015em;
+  margin: 0 0 28px;
+  font-weight: 800;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.card-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 19px;
+  margin-bottom: 14px;
+}
+
+.card h3, .feature h3 {
+  margin: 0 0 8px;
+  font-size: 17.5px;
+  font-weight: 700;
+}
+
+.card p, .feature p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 26px 24px;
+}
+
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+/* ---------- screenshots ---------- */
+
+.shots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.shots figure { margin: 0; }
+
+.shots img {
+  width: 100%;
+  border-radius: 24px;
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+}
+
+.shots figcaption {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ---------- trust band ---------- */
+
+.band {
+  background: var(--bg-band);
+  max-width: none;
+  border-block: 1px solid var(--stroke);
+}
+
+.band > * { max-width: 1080px; margin-inline: auto; }
+
+.fineprint {
+  margin: 26px auto 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ---------- closing ---------- */
+
+.closing {
+  text-align: center;
+  padding-block: 76px;
+}
+
+.closing h2 {
+  font-size: clamp(24px, 3.4vw, 33px);
+  margin: 0 0 12px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.closing .lead { margin-inline: auto; }
+
+/* ---------- footer ---------- */
+
+.footer {
+  border-top: 1px solid var(--stroke);
+  padding: 28px 24px 44px;
+}
+
+.footer-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.footer-links {
+  display: flex;
+  gap: 20px;
+  margin-left: auto;
+  font-size: 14.5px;
+}
+
+.footer-links a { color: var(--muted); text-decoration: none; }
+.footer-links a:hover { color: var(--text); }
+
+.copy {
+  width: 100%;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding-top: 44px;
+    gap: 34px;
+  }
+  .hero-shot { order: -1; }
+  .hero-shot img { max-width: 270px; }
+  .cards, .grid, .grid-3, .shots { grid-template-columns: repeat(2, 1fr); }
+  .nav-links { display: none; }
+}
+
+@media (max-width: 560px) {
+  .cards, .grid, .grid-3, .shots { grid-template-columns: 1fr; }
+  .section { padding-block: 40px; }
+  .cta .btn { flex: 1 1 100%; }
+  .footer-links { margin-left: 0; }
+}
