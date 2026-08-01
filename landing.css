@@ -82,7 +82,13 @@ a { color: var(--accent-strong); }
   text-decoration: none;
 }
 
-.brand img { width: 28px; height: 28px; }
+/* The app icon itself, so the site and the home screen read as the same product. */
+.mark {
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(29, 24, 48, 0.16);
+}
+
+.brand .mark { width: 30px; height: 30px; }
 
 .nav-links {
   display: flex;
@@ -127,14 +133,63 @@ a { color: var(--accent-strong); }
   color: var(--text);
 }
 
-.btn-small:not(.btn-primary) {
-  background: var(--surface);
-  border-color: var(--stroke);
-  color: var(--text);
+.ico {
+  width: 19px;
+  height: 19px;
+  flex: none;
+  margin-right: 9px;
+}
+
+/* Black pill with the Apple mark, the way Apple's own download badge reads. */
+.btn-store {
+  background: #111018;
+  color: #fff;
+  padding: 10px 22px 10px 18px;
+  box-shadow: 0 12px 28px rgba(17, 16, 24, 0.28);
+}
+
+.btn-store .ico { width: 23px; height: 23px; }
+
+.btn-store-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.btn-store-text small {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.72;
+  letter-spacing: 0.02em;
+}
+
+/* Telegram blue, so the button is recognisable before the label is read. */
+.btn-tg {
+  background: linear-gradient(135deg, #37aee2, #1e96c8);
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(46, 160, 210, 0.30);
+}
+
+.btn-small.btn-tg {
+  padding: 8px 15px;
+  box-shadow: none;
+}
+
+.btn-small.btn-tg .ico { width: 16px; height: 16px; margin-right: 7px; }
+
+@media (prefers-color-scheme: dark) {
+  .btn-store {
+    background: #f4f2ff;
+    color: #14121f;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* The store is not open yet — the button says so and does not pretend to work. */
-.btn-disabled { opacity: 0.75; cursor: default; }
+.btn-disabled { opacity: 0.82; cursor: default; }
 
 /* ---------- hero ---------- */
 
