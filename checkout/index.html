@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Оформление Synapse Pro</title>
+    <link rel="icon" href="../screens/mark.png">
+    <link rel="stylesheet" href="../site.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <span class="eyebrow">Synapse Pro</span>
+        <h1 id="planTitle">Оформление подписки</h1>
+        <p class="lead" id="planLead">
+          Загружаем детали заказа…
+        </p>
+      </section>
+
+      <section class="stack">
+        <article class="card" id="testModeCard">
+          <h2>Тестовый режим</h2>
+          <p>
+            Приём платежей ещё не подключён (ждём публикации приложения для
+            подключения ЮKassa). Пока идёт разработка, здесь можно
+            подтвердить оплату вручную, чтобы проверить весь путь целиком —
+            от входа с Apple ID до разблокировки Pro в приложении.
+          </p>
+          <p class="muted" id="tokenStatus">Проверяем ссылку…</p>
+
+          <div id="testForm" style="display: none; margin-top: 12px;">
+            <label class="muted" for="backendURL">Адрес backend</label><br>
+            <input
+              id="backendURL"
+              type="text"
+              value="https://synapse-backend-free.onrender.com"
+              style="width: 100%; padding: 10px; margin: 6px 0 14px; border-radius: 12px; border: 1px solid var(--stroke); font-size: 15px;"
+            >
+
+            <label class="muted" for="devSecret">Тестовый секрет (SYNAPSE_BACKEND_TOKEN)</label><br>
+            <input
+              id="devSecret"
+              type="password"
+              placeholder="только для внутреннего тестирования"
+              style="width: 100%; padding: 10px; margin: 6px 0 14px; border-radius: 12px; border: 1px solid var(--stroke); font-size: 15px;"
+            >
+
+            <div class="actions">
+              <button class="button" id="activateButton" style="border: none; cursor: pointer; font: inherit;">
+                Подтвердить оплату (тест)
+              </button>
+            </div>
+          </div>
+
+          <p id="resultMessage" style="display: none; margin-top: 14px; font-weight: 700;"></p>
+        </article>
+      </section>
+
+      <p class="footer">
+        <a href="../offer/">Публичная оферта</a> ·
+        <a href="../privacy/">Политика конфиденциальности</a>
+      </p>
+    </main>
+
+    <script>
+      const PLAN_LABELS = {
+        "pro.monthly": { title: "Synapse Pro — на месяц", price: "349 ₽/мес" },
+        "pro.yearly": { title: "Synapse Pro — на год", price: "3 490 ₽/год" },
+      };
+
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("token") || "";
+      const plan = params.get("plan") || "";
+      const planInfo = PLAN_LABELS[plan];
+
+      const planTitleEl = document.getElementById("planTitle");
+      const planLeadEl = document.getElementById("planLead");
+      const tokenStatusEl = document.getElementById("tokenStatus");
+      const testFormEl = document.getElementById("testForm");
+      const resultEl = document.getElementById("resultMessage");
+
+      if (planInfo) {
+        planTitleEl.textContent = planInfo.title;
+      }
+
+      if (!token) {
+        planLeadEl.textContent =
+          "Ссылка неполная — в ней нет токена оплаты. Вернитесь в приложение и откройте оформление подписки заново.";
+        tokenStatusEl.textContent = "Токен оплаты не найден в ссылке.";
+      } else {
+        planLeadEl.textContent = planInfo
+          ? `${planInfo.price}. Оплата картой российского банка или через СБП, когда приём платежей будет подключён.`
+          : "Оплата картой российского банка или через СБП, когда приём платежей будет подключён.";
+        tokenStatusEl.textContent = "Ссылка на оплату действительна.";
+        testFormEl.style.display = "block";
+      }
+
+      document.getElementById("activateButton").addEventListener("click", async () => {
+        const backendURL = document.getElementById("backendURL").value.trim().replace(/\/$/, "");
+        const devSecret = document.getElementById("devSecret").value;
+        const button = document.getElementById("activateButton");
+
+        if (!backendURL || !devSecret) {
+          showResult("Заполните адрес backend и тестовый секрет.", false);
+          return;
+        }
+
+        button.disabled = true;
+        button.textContent = "Проверяем…";
+
+        try {
+          const response = await fetch(`${backendURL}/v1/synapse/checkout/dev-activate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ checkoutToken: token, devSecret }),
+          });
+          const data = await response.json().catch(() => ({}));
+
+          if (response.ok && data.ok) {
+            showResult(
+              "Готово — подписка активирована. Вернитесь в приложение, Pro включится автоматически.",
+              true
+            );
+          } else {
+            showResult(data.error || `Backend вернул код ${response.status}.`, false);
+          }
+        } catch (error) {
+          showResult(`Не удалось связаться с backend: ${error}`, false);
+        } finally {
+          button.disabled = false;
+          button.textContent = "Подтвердить оплату (тест)";
+        }
+      });
+
+      function showResult(text, isSuccess) {
+        resultEl.textContent = text;
+        resultEl.style.display = "block";
+        resultEl.style.color = isSuccess ? "#2f9e44" : "#e03131";
+      }
+    </script>
+  </body>
+</html>
