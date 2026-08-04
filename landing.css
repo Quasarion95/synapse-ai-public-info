@@ -17,6 +17,13 @@
   --stroke: rgba(90, 70, 170, 0.14);
   --shadow: 0 24px 60px rgba(66, 44, 130, 0.10);
   --radius: 20px;
+  /* Two faces on purpose. Manrope is the voice: geometric, very heavy at 800,
+     with a wide Cyrillic set — it carries the headlines. Inter is the reading
+     face for everything that has to be read rather than glanced at. Both are
+     self-hosted: the audience sits behind blocks where a Google Fonts request
+     is exactly the kind of thing that fails. */
+  --font-display: 'Manrope', ui-rounded, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-text: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,7 +49,7 @@ html, body {
 }
 
 body {
-  font-family: ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  font-family: var(--font-text);
   background:
     radial-gradient(circle at 12% -10%, rgba(120, 84, 242, 0.16), transparent 42%),
     radial-gradient(circle at 92% 4%, rgba(70, 150, 255, 0.14), transparent 38%),
@@ -73,6 +80,7 @@ a { color: var(--accent-strong); }
 }
 
 .brand {
+  font-family: var(--font-display);
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -204,6 +212,7 @@ a { color: var(--accent-strong); }
 }
 
 .eyebrow {
+  font-family: var(--font-display);
   display: inline-block;
   padding: 5px 12px;
   border-radius: 999px;
@@ -215,16 +224,25 @@ a { color: var(--accent-strong); }
 }
 
 .hero h1 {
-  margin: 18px 0 0;
-  font-size: clamp(32px, 5vw, 50px);
-  line-height: 1.12;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  margin: 20px 0 0;
+  font-size: clamp(36px, 6.2vw, 66px);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
   font-weight: 800;
 }
 
+/* Each half of the slogan on its own line, so «глобально» and «локально» sit
+   under one another and the contrast the sentence is built on is visible
+   rather than merely stated. */
+.h1-line { display: block; }
+
 .hero h1 em {
   font-style: normal;
-  color: var(--accent-strong);
+  background: linear-gradient(100deg, var(--accent-strong), #4f8cff 70%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .lead {
@@ -267,10 +285,24 @@ a { color: var(--accent-strong); }
 }
 
 .section-title {
-  font-size: clamp(23px, 3.2vw, 31px);
-  letter-spacing: -0.015em;
-  margin: 0 0 28px;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.8vw, 40px);
+  letter-spacing: -0.028em;
+  line-height: 1.1;
+  margin: 6px 0 30px;
   font-weight: 800;
+}
+
+/* A small label above each heading: gives the eye a rung to land on and makes
+   a long page feel like chapters instead of one scroll. */
+.section-eyebrow {
+  font-family: var(--font-display);
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
 }
 
 .cards {
@@ -287,19 +319,21 @@ a { color: var(--accent-strong); }
   box-shadow: var(--shadow);
 }
 
-.card-icon {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  border-radius: 13px;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-size: 19px;
+/* Numbered rather than decorated. A glyph is ornament; a number tells the
+   reader there are exactly three things and they are being counted through. */
+.card-num {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--accent-strong) 55%, transparent);
   margin-bottom: 14px;
 }
 
 .card h3, .feature h3 {
+  font-family: var(--font-display);
   margin: 0 0 8px;
   font-size: 17.5px;
   font-weight: 700;
@@ -367,10 +401,12 @@ a { color: var(--accent-strong); }
 }
 
 .closing h2 {
-  font-size: clamp(24px, 3.4vw, 33px);
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4.2vw, 44px);
   margin: 0 0 12px;
   font-weight: 800;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
 }
 
 .closing .lead { margin-inline: auto; }
@@ -434,4 +470,94 @@ a { color: var(--accent-strong); }
   .section { padding-block: 40px; }
   .cta .btn { flex: 1 1 100%; }
   .footer-links { margin-left: 0; }
+}
+
+
+/* ---------- creed ---------- */
+
+/*
+  The one screen that is not about features. It sits right after the hero
+  because the promise above it — break the big thing into steps — only means
+  something once you know why the product believes in effort over outcome.
+*/
+.creed {
+  max-width: 1080px;
+  margin: 8px auto 0;
+  padding: 64px 24px 72px;
+  text-align: center;
+}
+
+.creed-kicker {
+  font-family: var(--font-display);
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.creed-line {
+  font-family: var(--font-display);
+  margin: 18px 0 0;
+  font-size: clamp(52px, 12vw, 132px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  background: linear-gradient(160deg, var(--text) 20%, var(--accent-strong));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.creed-text {
+  margin: 26px auto 0;
+  max-width: 56ch;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+/* ---------- hero shot ---------- */
+
+.hero-shot { position: relative; }
+
+/* Light behind the phone rather than a border around it: the screenshot is the
+   product, and a halo lifts it off the page without framing it like a picture. */
+.shot-glow {
+  position: absolute;
+  inset: 6% 10% 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 84, 242, 0.30), transparent 68%);
+  filter: blur(46px);
+  z-index: 0;
+}
+
+.hero-shot img { position: relative; z-index: 1; }
+
+/* ---------- captions ---------- */
+
+.shots figcaption b {
+  font-family: var(--font-display);
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.closing-motto {
+  font-family: var(--font-display);
+  margin: 40px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+/* Four shots now, so they wrap instead of forcing a fourth narrow column. */
+@media (min-width: 901px) {
+  .shots { grid-template-columns: repeat(4, 1fr); gap: 18px; }
 }

@@ -3,24 +3,29 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Synapse AI — планировщик, который помнит, зачем</title>
-    <meta name="description" content="Synapse AI превращает цели в понятные шаги и держит день в фокусе. Задачи, цели с этапами, карта целей и ассистент Syn — в одном приложении.">
-    <meta property="og:title" content="Synapse AI — планировщик, который помнит, зачем">
-    <meta property="og:description" content="Цели превращаются в этапы, этапы — в задачи на сегодня. А Syn подскажет, с чего начать.">
+    <title>Synapse — умный планировщик. Создавай причины</title>
+    <meta name="description" content="Мысли глобально, действуй локально. Synapse превращает большую цель в этапы, этапы — в задачи на сегодня, а ассистент Syn держит день в фокусе.">
+    <meta property="og:title" content="Synapse — умный планировщик. Создавай причины">
+    <meta property="og:description" content="Мысли глобально, действуй локально. Большая цель превращается в шаги на сегодня.">
     <meta property="og:type" content="website">
+    <meta property="og:image" content="./screens/screen-1.png">
+    <meta name="theme-color" content="#7854f2">
     <link rel="icon" href="./screens/mark.png">
+    <link rel="preload" as="font" type="font/woff2" href="./fonts/Manrope-cyrillic.woff2" crossorigin>
+    <link rel="stylesheet" href="./fonts/fonts.css">
     <link rel="stylesheet" href="./landing.css">
   </head>
   <body>
     <header class="nav">
       <a class="brand" href="./">
         <img class="mark" src="./screens/mark.png" alt="" width="30" height="30">
-        <span>Synapse AI</span>
+        <span>Synapse</span>
       </a>
       <nav class="nav-links">
-        <a href="#different">Чем отличается</a>
+        <a href="#idea">Идея</a>
+        <a href="#different">Отличия</a>
         <a href="#features">Возможности</a>
-        <a href="#privacy">Приватность</a>
+        <a href="#privacy">Данные</a>
       </nav>
       <a class="btn btn-small btn-tg" href="https://t.me/synapseapp"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.7 3.5 2.9 10.8c-1.1.42-1.1 1.02-.2 1.3l4.8 1.5 1.85 5.65c.22.6.11.84.74.84.49 0 .7-.22.98-.49l2.36-2.3 4.9 3.62c.9.5 1.55.24 1.78-.84l3.2-15.1c.33-1.32-.5-1.92-1.6-1.48zM8.6 13.9l10.6-6.7c.52-.32 1-.15.6.2l-9.07 8.2-.35 3.77-1.78-5.47z"/></svg>Telegram</a>
     </header>
@@ -28,36 +33,51 @@
     <main>
       <section class="hero">
         <div class="hero-text">
-          <span class="eyebrow">Планировщик с ИИ</span>
-          <h1>Списки дел говорят, <em>что</em> делать.<br>Synapse помнит, <em>зачем</em>.</h1>
+          <span class="eyebrow">Умный планировщик с ассистентом</span>
+          <h1>
+            <span class="h1-line">Мысли <em>глобально</em>,</span>
+            <span class="h1-line">действуй <em>локально</em>.</span>
+          </h1>
           <p class="lead">
-            Цель превращается в этапы, этапы — в задачи на сегодня. Видно не только
-            сегодняшний день, но и куда он ведёт.
+            Большая цель разбирается на этапы, этапы — на задачи, которые можно
+            сделать сегодня. Один шаг за раз, но в ту сторону.
           </p>
           <div class="cta">
             <span class="btn btn-store btn-disabled"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.36 12.58c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.79-.41 6.92 1.15 9.19.77 1.11 1.68 2.35 2.87 2.31 1.15-.05 1.58-.74 2.98-.74 1.39 0 1.79.74 3.01.72 1.24-.02 2.03-1.13 2.79-2.24.88-1.29 1.24-2.54 1.26-2.6-.03-.01-2.41-.93-2.43-3.71zM14.1 5.4c.63-.77 1.06-1.83.94-2.9-.91.04-2.02.61-2.67 1.37-.58.68-1.09 1.77-.95 2.81 1.02.08 2.05-.52 2.68-1.28z"/></svg><span class="btn-store-text"><small>Скоро в</small>App Store</span></span>
             <a class="btn btn-tg" href="https://t.me/synapseapp"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.7 3.5 2.9 10.8c-1.1.42-1.1 1.02-.2 1.3l4.8 1.5 1.85 5.65c.22.6.11.84.74.84.49 0 .7-.22.98-.49l2.36-2.3 4.9 3.62c.9.5 1.55.24 1.78-.84l3.2-15.1c.33-1.32-.5-1.92-1.6-1.48zM8.6 13.9l10.6-6.7c.52-.32 1-.15.6.2l-9.07 8.2-.35 3.77-1.78-5.47z"/></svg>Узнать о запуске</a>
           </div>
-          <p class="cta-note">Русский и ещё 9 языков. Планирование работает без интернета.</p>
+          <p class="cta-note">Без регистрации. Планирование работает без интернета. Русский и ещё 9 языков.</p>
         </div>
         <div class="hero-shot">
-          <img src="./screens/screen-1.png" alt="Экран задач Synapse AI: блоки Сегодня, Завтра, Послезавтра, На неделе и Потом" width="414" height="900">
+          <div class="shot-glow" aria-hidden="true"></div>
+          <img src="./screens/screen-1.png" alt="Экран задач Synapse: блоки Сегодня, Завтра, Послезавтра и На неделе" width="552" height="1200" fetchpriority="high">
         </div>
       </section>
 
+      <section class="creed" id="idea">
+        <p class="creed-kicker">Смысл, ради которого всё это</p>
+        <p class="creed-line">Создавай<br>причины</p>
+        <p class="creed-text">
+          Результат никогда не в наших руках целиком. В наших руках — усилие.
+          Ты создаёшь причины: делаешь шаг, потом ещё один, и ещё. Synapse нужен
+          для того, чтобы эти шаги не терялись и складывались в путь.
+        </p>
+      </section>
+
       <section class="section" id="different">
+        <p class="section-eyebrow">Отличия</p>
         <h2 class="section-title">Три вещи, которых нет в обычном списке дел</h2>
         <div class="cards">
           <article class="card">
-            <div class="card-icon">◎</div>
-            <h3>Цели, а не только задачи</h3>
+            <div class="card-num">01</div>
+            <h3>Цель, а не только задачи</h3>
             <p>
               У цели есть этапы, у этапов — свои задачи. Прогресс считается сам,
-              и видно, какая задача сегодня реально двигает большое.
+              и сразу видно, какое дело сегодня реально двигает большое.
             </p>
           </article>
           <article class="card">
-            <div class="card-icon">✦</div>
+            <div class="card-num">02</div>
             <h3>Ассистент Syn</h3>
             <p>
               Скажи словами: «перенеси созвон на пятницу», «разбери мой день»,
@@ -65,17 +85,41 @@
             </p>
           </article>
           <article class="card">
-            <div class="card-icon">⬡</div>
+            <div class="card-num">03</div>
             <h3>Карта целей</h3>
             <p>
-              Все цели, этапы и связанные задачи на одном полотне. Видно, где
-              движение есть, а где месяц ничего не происходило.
+              Все цели, этапы и связанные задачи на одном полотне. Видно, где есть
+              движение, а где месяц ничего не происходило.
             </p>
           </article>
         </div>
       </section>
 
+      <section class="section screens">
+        <p class="section-eyebrow">Как это выглядит</p>
+        <h2 class="section-title">День, цель и путь — в одном приложении</h2>
+        <div class="shots">
+          <figure>
+            <img src="./screens/screen-2.png" alt="Экран целей: обзор, фильтры и цели с этапами" loading="lazy" width="552" height="1200">
+            <figcaption><b>Цели с этапами</b>Большое разложено на понятные части</figcaption>
+          </figure>
+          <figure>
+            <img src="./screens/screen-3.png" alt="Экран «Мой фокус»: сценарии Syn и фокус дня" loading="lazy" width="552" height="1200">
+            <figcaption><b>Фокус дня</b>Одно главное дело вместо двадцати</figcaption>
+          </figure>
+          <figure>
+            <img src="./screens/screen-4.png" alt="Экран аналитики: карта целей и статистика" loading="lazy" width="552" height="1200">
+            <figcaption><b>Карта целей</b>Весь путь на одном полотне</figcaption>
+          </figure>
+          <figure>
+            <img src="./screens/screen-5.png" alt="Экран списков: шаблоны и списки с прогрессом" loading="lazy" width="552" height="1200">
+            <figcaption><b>Списки</b>Покупки, книги, сборы — рядом с планом</figcaption>
+          </figure>
+        </div>
+      </section>
+
       <section class="section" id="features">
+        <p class="section-eyebrow">Возможности</p>
         <h2 class="section-title">Что внутри</h2>
         <div class="grid">
           <div class="feature">
@@ -92,7 +136,7 @@
           </div>
           <div class="feature">
             <h3>Голосом</h3>
-            <p>Продиктуй задачу или целый разбор дня. Знаки препинания расставятся сами.</p>
+            <p>Продиктуй задачу, заметку или целый разбор дня. Знаки препинания расставятся сами.</p>
           </div>
           <div class="feature">
             <h3>Заметки и списки</h3>
@@ -108,30 +152,13 @@
           </div>
           <div class="feature">
             <h3>Свой вид</h3>
-            <p>Восемь палитр, светлая и тёмная тема, размер шрифта и плотность списка — под себя.</p>
+            <p>Девять палитр, светлая и тёмная тема, размер шрифта и плотность списка — под себя.</p>
           </div>
         </div>
       </section>
 
-      <section class="section screens">
-        <h2 class="section-title">Как это выглядит</h2>
-        <div class="shots">
-          <figure>
-            <img src="./screens/screen-2.png" alt="Экран целей: обзор, фильтры и список целей с этапами" loading="lazy" width="414" height="900">
-            <figcaption>Цели с этапами</figcaption>
-          </figure>
-          <figure>
-            <img src="./screens/screen-3.png" alt="Экран «Мой фокус»: сценарии Syn и фокус дня" loading="lazy" width="414" height="900">
-            <figcaption>Фокус дня</figcaption>
-          </figure>
-          <figure>
-            <img src="./screens/screen-4.png" alt="Экран аналитики: карта целей и статистика" loading="lazy" width="414" height="900">
-            <figcaption>Карта целей</figcaption>
-          </figure>
-        </div>
-      </section>
-
       <section class="section band" id="privacy">
+        <p class="section-eyebrow">Данные</p>
         <h2 class="section-title">Про данные — честно</h2>
         <div class="grid grid-3">
           <div class="feature">
@@ -153,12 +180,13 @@
       </section>
 
       <section class="section closing">
-        <h2>Собрать первый план — минута</h2>
-        <p class="lead">Приложение открывается сразу, без регистрации. Внутри уже есть примеры, чтобы было с чего начать.</p>
+        <h2>Первый шаг занимает минуту</h2>
+        <p class="lead">Приложение открывается сразу, без регистрации и без карты. Внутри уже есть примеры, чтобы было с чего начать.</p>
         <div class="cta cta-center">
           <span class="btn btn-primary btn-disabled">Скоро в App Store</span>
           <a class="btn btn-ghost" href="https://t.me/synapseapp">Написать нам</a>
         </div>
+        <p class="closing-motto">Создавай причины</p>
       </section>
     </main>
 
@@ -166,7 +194,7 @@
       <div class="footer-inner">
         <div class="footer-brand">
           <img class="mark" src="./screens/mark.png" alt="" width="26" height="26">
-          <span>Synapse AI</span>
+          <span>Synapse</span>
         </div>
         <nav class="footer-links">
           <a href="./support/">Поддержка</a>
@@ -175,7 +203,7 @@
           <a href="./offer/">Оферта</a>
           <a href="https://t.me/synapseapp">Telegram</a>
         </nav>
-        <p class="copy">© 2026 Synapse AI</p>
+        <p class="copy">© 2026 Synapse</p>
       </div>
     </footer>
   </body>
