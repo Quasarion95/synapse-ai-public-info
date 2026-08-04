@@ -472,7 +472,6 @@ a { color: var(--accent-strong); }
   .footer-links { margin-left: 0; }
 }
 
-
 /* ---------- creed ---------- */
 
 /*
@@ -547,17 +546,22 @@ a { color: var(--accent-strong); }
   margin-bottom: 3px;
 }
 
-.closing-motto {
-  font-family: var(--font-display);
-  margin: 40px 0 0;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: var(--accent-strong);
-}
 
 /* Four shots now, so they wrap instead of forcing a fourth narrow column. */
 @media (min-width: 901px) {
   .shots { grid-template-columns: repeat(4, 1fr); gap: 18px; }
+}
+
+/* Closing call to action: blockier than the pills in the hero. This is the last
+   thing on the page and the only decision left, so the targets are big and
+   evenly sized rather than sized by their labels. */
+.closing .cta .btn {
+  min-width: 236px;
+  padding: 20px 32px;
+  border-radius: 22px;
+  font-size: 16px;
+}
+
+@media (max-width: 560px) {
+  .closing .cta .btn { min-width: 0; width: 100%; }
 }
