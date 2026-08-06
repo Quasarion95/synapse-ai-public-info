@@ -363,15 +363,59 @@ a { color: var(--accent-strong); }
 
 .shots figure { margin: 0; }
 
-.shots img {
+/* --- Рамка телефона -----------------------------------------------------
+   Собрана стилями, а не картинкой: экраны приложения будут меняться, и
+   пересобирать под каждый новый скриншот PNG с корпусом — работа на каждый
+   релиз. Здесь корпус остаётся, меняется только содержимое. */
+.device {
+  position: relative;
+  padding: 9px;
+  border-radius: 44px;
+  background: linear-gradient(160deg, #d8d3ea 0%, #f3f1fb 22%, #cfc9e4 60%, #efedf9 100%);
+  box-shadow:
+    0 26px 60px rgba(66, 44, 130, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.device-screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 36px;
+  background: #000;
+  line-height: 0;
+}
+
+.device-screen img {
   width: 100%;
-  border-radius: 24px;
-  border: 1px solid var(--stroke);
-  box-shadow: var(--shadow);
+  display: block;
+  border-radius: 36px;
+}
+
+/* The pill, not a notch: this is what the current phones look like, and a
+   wrong-shaped cut-out is the first thing the eye catches as fake. */
+.device-island {
+  position: absolute;
+  top: 2.4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 31%;
+  height: 2.6%;
+  min-height: 12px;
+  border-radius: 999px;
+  background: #0b0b12;
+}
+
+@media (prefers-color-scheme: dark) {
+  .device {
+    background: linear-gradient(160deg, #4a4560 0%, #6b6588 24%, #3b3750 62%, #6a6488 100%);
+    box-shadow:
+      0 26px 60px rgba(0, 0, 0, 0.5),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  }
 }
 
 .shots figcaption {
-  margin-top: 12px;
+  margin-top: 16px;
   text-align: center;
   font-size: 14px;
   color: var(--muted);
@@ -571,9 +615,20 @@ a { color: var(--accent-strong); }
    Same idiom as the rest of the page on purpose: pixels, --radius, --shadow,
    the display face for numbers. The first attempt used its own units and its
    own band and read as a bolt-on from another site. */
+.plans-band .section-eyebrow,
+.plans-band .section-title {
+  text-align: center;
+}
+
+.plans-band .section-title {
+  margin-bottom: 14px;
+  letter-spacing: -0.03em;
+}
+
 .plans-lead {
-  max-width: 680px;
-  margin: -18px 0 26px;
+  max-width: 620px;
+  margin: 0 auto 30px;
+  text-align: center;
   color: var(--muted);
   font-size: 16px;
   line-height: 1.55;
@@ -590,7 +645,7 @@ a { color: var(--accent-strong); }
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 24px 20px 62px;
+  padding: 34px 20px 62px;
   border-radius: 26px;
   background: var(--surface);
   border: 1px solid var(--stroke);
@@ -630,12 +685,13 @@ a { color: var(--accent-strong); }
   text-align: center;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 13px;
+  font-size: 12.5px;
   letter-spacing: 0.01em;
+  white-space: nowrap;
   box-shadow: 0 10px 24px rgba(36, 28, 77, 0.28);
 }
 
-.plan-hero { margin-top: 14px; }
+
 
 @media (max-width: 700px) {
   .plan-hero { margin-top: 22px; }
@@ -671,14 +727,16 @@ a { color: var(--accent-strong); }
 
 .plan-per {
   margin: 10px 0 0;
+  min-height: 40px;
   font-size: 14.5px;
+  line-height: 1.4;
   color: var(--muted);
 }
 
 .plan-hero .plan-per { color: rgba(255, 255, 255, 0.82); }
 
 .plan-list {
-  margin: 20px 0 22px;
+  margin: 18px 0 22px;
   padding: 0;
   list-style: none;
   display: grid;
@@ -769,8 +827,14 @@ a { color: var(--accent-strong); }
 @media (max-width: 700px) {
   .plans { grid-template-columns: 1fr; }
   .plans .plan-hero { grid-column: auto; }
-  .plan { padding: 24px; }
-  .plan-badge { position: static; display: inline-block; margin-bottom: 14px; }
+  .plan { padding: 24px 24px 62px; }
+  /* Stacked, the chip has no edge to hang over — it becomes a normal line. */
+  .plan-badge {
+    position: static;
+    display: inline-block;
+    margin: 0 0 14px;
+    white-space: normal;
+  }
 }
 
 
