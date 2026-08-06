@@ -64,6 +64,9 @@
         <p class="account-state"><span class="dot"></span>Вы вошли</p>
         <p class="account-status" id="status-line">Проверяем подписку…</p>
         <div class="account-plans" id="plan-buttons">
+          <button class="btn btn-primary" type="button" data-plan="pro.weekly">
+            На неделю — 149 ₽
+          </button>
           <button class="btn btn-primary" type="button" data-plan="pro.monthly">
             На месяц — 590 ₽
           </button>
@@ -294,9 +297,12 @@
                 (planWord(data.plan) ? " (" + planWord(data.plan) + ")" : "") +
                 (until ? ", до " + until.toLocaleDateString("ru-RU") : "") + ".";
               document.querySelectorAll("#plan-buttons .btn").forEach(function (button) {
-                button.textContent = button.dataset.plan === "pro.yearly"
-                  ? "Продлить на год — 4 990 ₽"
-                  : "Продлить на месяц — 590 ₽";
+                var labels = {
+                  "pro.weekly": "Продлить на неделю — 149 ₽",
+                  "pro.monthly": "Продлить на месяц — 590 ₽",
+                  "pro.yearly": "Продлить на год — 4 990 ₽"
+                };
+                button.textContent = labels[button.dataset.plan] || button.textContent;
               });
             } else {
               line.textContent = "Подписки нет. Ассистент отвечает на 30 обращений в месяц.";
