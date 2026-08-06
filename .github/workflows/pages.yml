@@ -1,0 +1,39 @@
+# Публикация сайта через GitHub Actions.
+#
+# Раньше публиковала встроенная сборка Pages. 6 августа она зависла на
+# несколько часов в статусе building и до этого дважды падала на коммите,
+# который часом раньше собрался успешно, — то есть без нашего участия и без
+# внятной ошибки. Здесь у каждой публикации есть лог, и её видно.
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Одна публикация за раз; лишние ожидающие отбрасываются, потому что важен
+# только последний коммит.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      # Сайт статический: выкладываем репозиторий как есть, без сборки.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
