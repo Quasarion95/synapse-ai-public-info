@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Аккаунт — Synapse AI</title>
+    <link rel="icon" href="../screens/mark.png">
+    <link rel="stylesheet" href="../site.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <span class="eyebrow">Аккаунт</span>
+        <h1>Вход в Synapse.</h1>
+        <p class="lead">
+          Аккаунт нужен, чтобы подписка знала, кому принадлежит,
+          и не потерялась при смене телефона.
+        </p>
+      </section>
+
+      <section class="stack">
+        <article class="card" id="signed-out" hidden>
+          <h2>Войдите через Apple</h2>
+          <p>
+            Тот же Apple ID, что и в приложении, — иначе подписка привяжется
+            к другому аккаунту.
+          </p>
+          <p class="actions">
+            <a class="button" id="signin" href="#">Войти через Apple</a>
+            <a class="button secondary" href="../pricing/">Тарифы</a>
+          </p>
+        </article>
+
+        <article class="card" id="signed-in" hidden>
+          <h2>Вы вошли</h2>
+          <p id="status-line">Проверяем подписку…</p>
+          <p class="actions">
+            <a class="button" id="subscribe" href="../checkout/">Оформить подписку</a>
+            <a class="button secondary" href="#" id="signout">Выйти</a>
+          </p>
+          <p class="muted">
+            Удалить аккаунт вместе с подпиской можно в приложении:
+            «Настройки» → «Аккаунт» → «Удалить аккаунт». Задачи и цели на телефоне
+            это не затронет.
+          </p>
+        </article>
+
+        <article class="card" id="error-card" hidden>
+          <h2>Не получилось войти</h2>
+          <p id="error-line"></p>
+          <p class="actions">
+            <a class="button" id="retry" href="#">Попробовать ещё раз</a>
+            <a class="button secondary" href="https://t.me/synapseapp">Написать нам</a>
+          </p>
+        </article>
+      </section>
+
+      <footer class="footer">
+        <p class="muted">
+          <a href="../">на главную</a> ·
+          <a href="../pricing/">тарифы</a> ·
+          <a href="../offer/">оферта</a> ·
+          <a href="../requisites/">реквизиты</a>
+        </p>
+      </footer>
+    </main>
+
+    <script>
+      var BACKEND = "https://synapse-backend-free.onrender.com";
+      var SERVICES_ID = "ru.synapseapp.web";
+      var STORAGE_KEY = "synapse.account.token";
+
+      function show(id) {
+        ["signed-out", "signed-in", "error-card"].forEach(function (name) {
+          document.getElementById(name).hidden = name !== id;
+        });
+      }
+
+      function fail(message) {
+        document.getElementById("error-line").textContent = message;
+        show("error-card");
+      }
+
+      // Apple hands the identity to the backend, the backend hands a session
+      // back here in the URL fragment. Fragments never reach a server and never
+      // land in an access log, which is why the token travels this way.
+      function takeTokenFromFragment() {
+        var hash = window.location.hash.replace(/^#/, "");
+        if (!hash) return null;
+        var parts = {};
+        hash.split("&").forEach(function (pair) {
+          var kv = pair.split("=");
+          if (kv.length === 2) parts[kv[0]] = decodeURIComponent(kv[1]);
+        });
+        history.replaceState(null, "", window.location.pathname);
+        if (parts.error) {
+          fail(
+            parts.error === "invalid_token"
+              ? "Apple не подтвердил вход. Попробуйте ещё раз."
+              : "Вход прервался. Попробуйте ещё раз."
+          );
+          return null;
+        }
+        return parts.token || null;
+      }
+
+      function authorizeURL() {
+        var state = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        sessionStorage.setItem("synapse.account.state", state);
+        return (
+          "https://appleid.apple.com/auth/authorize" +
+          "?client_id=" + encodeURIComponent(SERVICES_ID) +
+          "&redirect_uri=" + encodeURIComponent(BACKEND + "/v1/synapse/auth/apple/web") +
+          "&response_type=code%20id_token" +
+          "&response_mode=form_post" +
+          "&scope=name%20email" +
+          "&state=" + encodeURIComponent(state)
+        );
+      }
+
+      function planWord(plan) {
+        if (plan === "pro.yearly") return "годовая";
+        if (plan === "pro.monthly") return "месячная";
+        return "";
+      }
+
+      function refreshStatus(token) {
+        fetch(BACKEND + "/v1/synapse/subscription/status", {
+          headers: { Authorization: "Bearer " + token }
+        })
+          .then(function (response) {
+            if (response.status === 401) {
+              localStorage.removeItem(STORAGE_KEY);
+              show("signed-out");
+              return null;
+            }
+            return response.json();
+          })
+          .then(function (data) {
+            if (!data) return;
+            var line = document.getElementById("status-line");
+            var subscribe = document.getElementById("subscribe");
+            if (data.status === "active") {
+              var until = data.expiresAt ? new Date(data.expiresAt) : null;
+              line.textContent =
+                "Подписка активна" +
+                (planWord(data.plan) ? " (" + planWord(data.plan) + ")" : "") +
+                (until ? ", до " + until.toLocaleDateString("ru-RU") : "") + ".";
+              subscribe.textContent = "Продлить";
+            } else {
+              line.textContent = "Подписки нет. Ассистент отвечает на 30 обращений в месяц.";
+              subscribe.textContent = "Оформить подписку";
+            }
+          })
+          .catch(function () {
+            document.getElementById("status-line").textContent =
+              "Не удалось проверить подписку. Обновите страницу.";
+          });
+      }
+
+      (function start() {
+        var fresh = takeTokenFromFragment();
+        if (fresh) localStorage.setItem(STORAGE_KEY, fresh);
+
+        var token = localStorage.getItem(STORAGE_KEY);
+        if (token) {
+          show("signed-in");
+          refreshStatus(token);
+        } else if (document.getElementById("error-card").hidden) {
+          show("signed-out");
+        }
+
+        document.getElementById("signin").addEventListener("click", function (event) {
+          event.preventDefault();
+          window.location.href = authorizeURL();
+        });
+        document.getElementById("retry").addEventListener("click", function (event) {
+          event.preventDefault();
+          window.location.href = authorizeURL();
+        });
+        document.getElementById("signout").addEventListener("click", function (event) {
+          event.preventDefault();
+          localStorage.removeItem(STORAGE_KEY);
+          show("signed-out");
+        });
+      })();
+    </script>
+  </body>
+</html>
