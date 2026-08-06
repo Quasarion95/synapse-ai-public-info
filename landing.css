@@ -725,3 +725,96 @@ a { color: var(--accent-strong); }
   .plan { padding: 24px; }
   .plan-badge { position: static; display: inline-block; margin-bottom: 14px; }
 }
+
+
+/* --- Личный кабинет -----------------------------------------------------
+   Same shell as the landing: sticky nav, one column, the page's own cards.
+   It used the plain document stylesheet from the legal pages, which is right
+   for a privacy policy and wrong for the screen where someone becomes a
+   customer. */
+.account {
+  max-width: 620px;
+  padding-top: 44px;
+  padding-bottom: 64px;
+}
+
+.account-lead {
+  margin: -18px 0 26px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.account-card {
+  padding: 28px;
+  border-radius: 26px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+}
+
+.account-state {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-display);
+  margin: 0 0 8px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* A live dot rather than a word: the state is read before anything else. */
+.account-state .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #34c07a;
+  box-shadow: 0 0 0 4px rgba(52, 192, 122, 0.18);
+}
+
+.account-status {
+  margin: 0 0 20px;
+  font-size: 15.5px;
+  color: var(--muted);
+}
+
+.account-text {
+  margin: 0 0 20px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.account-note {
+  margin: 18px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.account-card-error .account-state { color: #d1495b; }
+
+/* Apple's own black button, because that is what the person expects to press
+   for Sign in with Apple — anything else reads as a third-party imitation. */
+.btn-apple {
+  background: #111018;
+  color: #fff;
+  gap: 9px;
+  padding: 15px 26px;
+  box-shadow: 0 12px 28px rgba(17, 16, 24, 0.26);
+}
+
+.btn-apple .ico { width: 19px; height: 19px; }
+
+@media (prefers-color-scheme: dark) {
+  .btn-apple { background: #f6f4ff; color: #14121f; }
+}
+
+@media (max-width: 560px) {
+  .account-actions .btn { flex: 1 1 100%; }
+}

@@ -4,67 +4,86 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
-    <title>Аккаунт — Synapse AI</title>
+    <meta name="theme-color" content="#7854f2">
+    <title>Аккаунт — Synapse</title>
     <link rel="icon" href="../screens/mark.png">
-    <link rel="stylesheet" href="../site.css">
+    <link rel="preload" as="font" type="font/woff2" href="../fonts/Manrope-cyrillic.woff2" crossorigin>
+    <link rel="stylesheet" href="../fonts/fonts.css">
+    <link rel="stylesheet" href="../landing.css">
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
-        <span class="eyebrow">Аккаунт</span>
-        <h1>Вход в Synapse.</h1>
-        <p class="lead">
-          Аккаунт нужен, чтобы подписка знала, кому принадлежит,
-          и не потерялась при смене телефона.
+    <header class="nav">
+      <a class="brand" href="../">
+        <img class="mark" src="../screens/mark.png" alt="" width="30" height="30">
+        <span>Synapse</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#pricing">Тарифы</a>
+        <a href="../offer/">Оферта</a>
+      </nav>
+      <a class="btn btn-small btn-ghost" href="../">На главную</a>
+    </header>
+
+    <main class="section account">
+      <p class="section-eyebrow">Аккаунт</p>
+      <h1 class="section-title">Вход в Synapse</h1>
+      <p class="account-lead">
+        Аккаунт нужен, чтобы подписка знала, кому принадлежит,
+        и не терялась при смене телефона.
+      </p>
+
+      <article class="account-card" id="signed-out" hidden>
+        <p class="account-state">Вы не вошли</p>
+        <p class="account-text">
+          Входите тем же Apple ID, что и в приложении, — иначе подписка
+          привяжется к другому аккаунту.
         </p>
-      </section>
+        <a class="btn btn-apple" id="signin" href="#">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.36 12.72c.02 2.6 2.28 3.47 2.3 3.48-.02.06-.36 1.24-1.2 2.46-.72 1.05-1.47 2.1-2.65 2.12-1.16.02-1.53-.69-2.86-.69-1.32 0-1.74.67-2.83.71-1.14.04-2.01-1.13-2.74-2.18-1.48-2.14-2.62-6.06-1.1-8.7.76-1.32 2.11-2.15 3.58-2.17 1.11-.02 2.17.75 2.85.75.68 0 1.96-.93 3.31-.79.56.02 2.14.23 3.15 1.71-.08.05-1.88 1.1-1.86 3.3M14.2 5.4c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.55 1.31-.56.65-1.05 1.69-.92 2.68.97.08 1.96-.49 2.57-1.23"/></svg>
+          Войти через Apple
+        </a>
+      </article>
 
-      <section class="stack">
-        <article class="card" id="signed-out" hidden>
-          <h2>Войдите через Apple</h2>
-          <p>
-            Тот же Apple ID, что и в приложении, — иначе подписка привяжется
-            к другому аккаунту.
-          </p>
-          <p class="actions">
-            <a class="button" id="signin" href="#">Войти через Apple</a>
-            <a class="button secondary" href="../pricing/">Тарифы</a>
-          </p>
-        </article>
-
-        <article class="card" id="signed-in" hidden>
-          <h2>Вы вошли</h2>
-          <p id="status-line">Проверяем подписку…</p>
-          <p class="actions">
-            <a class="button" id="subscribe" href="../checkout/">Оформить подписку</a>
-            <a class="button secondary" href="#" id="signout">Выйти</a>
-          </p>
-          <p class="muted">
-            Удалить аккаунт вместе с подпиской можно в приложении:
-            «Настройки» → «Аккаунт» → «Удалить аккаунт». Задачи и цели на телефоне
-            это не затронет.
-          </p>
-        </article>
-
-        <article class="card" id="error-card" hidden>
-          <h2>Не получилось войти</h2>
-          <p id="error-line"></p>
-          <p class="actions">
-            <a class="button" id="retry" href="#">Попробовать ещё раз</a>
-            <a class="button secondary" href="https://t.me/synapseapp">Написать нам</a>
-          </p>
-        </article>
-      </section>
-
-      <footer class="footer">
-        <p class="muted">
-          <a href="../">на главную</a> ·
-          <a href="../pricing/">тарифы</a> ·
-          <a href="../offer/">оферта</a> ·
-          <a href="../requisites/">реквизиты</a>
+      <article class="account-card" id="signed-in" hidden>
+        <p class="account-state"><span class="dot"></span>Вы вошли</p>
+        <p class="account-status" id="status-line">Проверяем подписку…</p>
+        <div class="account-actions">
+          <a class="btn btn-primary" id="subscribe" href="../checkout/">Оформить подписку</a>
+          <a class="btn btn-ghost" href="#" id="signout">Выйти</a>
+        </div>
+        <p class="account-note">
+          Удалить аккаунт вместе с подпиской можно в приложении:
+          «Настройки» → «Аккаунт» → «Удалить аккаунт». Задачи и цели
+          на телефоне это не затронет.
         </p>
-      </footer>
+      </article>
+
+      <article class="account-card account-card-error" id="error-card" hidden>
+        <p class="account-state">Не получилось войти</p>
+        <p class="account-text" id="error-line"></p>
+        <div class="account-actions">
+          <a class="btn btn-primary" id="retry" href="#">Попробовать ещё раз</a>
+          <a class="btn btn-ghost" href="https://t.me/synapseapp">Написать нам</a>
+        </div>
+      </article>
     </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img class="mark" src="../screens/mark.png" alt="" width="26" height="26">
+          <span>Synapse</span>
+        </div>
+        <nav class="footer-links">
+          <a href="../pricing/">Тарифы</a>
+          <a href="../offer/">Оферта</a>
+          <a href="../requisites/">Реквизиты</a>
+          <a href="../privacy/">Конфиденциальность</a>
+          <a href="https://t.me/synapseapp">Telegram</a>
+        </nav>
+        <p class="copy">© 2026 Synapse</p>
+      </div>
+    </footer>
 
     <script>
       var BACKEND = "https://synapse-backend-free.onrender.com";
