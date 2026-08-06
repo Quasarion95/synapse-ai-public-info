@@ -581,8 +581,8 @@ a { color: var(--accent-strong); }
 
 .plans {
   display: grid;
-  grid-template-columns: 1fr 1.08fr;
-  gap: 18px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
   align-items: stretch;
 }
 
@@ -590,7 +590,7 @@ a { color: var(--accent-strong); }
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 28px;
+  padding: 26px 24px;
   border-radius: 26px;
   background: var(--surface);
   border: 1px solid var(--stroke);
@@ -635,14 +635,14 @@ a { color: var(--accent-strong); }
 .plan-price {
   font-family: var(--font-display);
   margin: 0;
-  font-size: clamp(40px, 6vw, 58px);
+  font-size: clamp(34px, 4.4vw, 46px);
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1;
 }
 
 .plan-unit {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.02em;
   opacity: 0.7;
@@ -657,7 +657,7 @@ a { color: var(--accent-strong); }
 .plan-hero .plan-per { color: rgba(255, 255, 255, 0.82); }
 
 .plan-list {
-  margin: 22px 0 24px;
+  margin: 20px 0 22px;
   padding: 0;
   list-style: none;
   display: grid;
@@ -720,8 +720,29 @@ a { color: var(--accent-strong); }
   color: rgba(255, 255, 255, 0.78);
 }
 
-@media (max-width: 860px) {
+/* What a row is missing has to be visible, not absent: an empty line reads as
+   an oversight, a struck-through one reads as the difference between plans. */
+.plan-list li.off {
+  opacity: 0.55;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+
+.plan-list li.off::before {
+  content: "–";
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+@media (max-width: 1000px) {
+  .plans { grid-template-columns: 1fr 1fr; }
+  .plans .plan-hero { grid-column: 1 / -1; }
+}
+
+@media (max-width: 700px) {
   .plans { grid-template-columns: 1fr; }
+  .plans .plan-hero { grid-column: auto; }
   .plan { padding: 24px; }
   .plan-badge { position: static; display: inline-block; margin-bottom: 14px; }
 }
