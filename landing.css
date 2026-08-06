@@ -839,3 +839,55 @@ a { color: var(--accent-strong); }
 @media (max-width: 560px) {
   .account-actions .btn { flex: 1 1 100%; }
 }
+
+
+/* --- Поля входа --------------------------------------------------------- */
+.account-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* A class that sets `display` beats the browser's own rule for [hidden], so
+   the code form showed up next to the phone form before anything was sent. */
+[hidden] { display: none !important; }
+
+.field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.field {
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--stroke);
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent-soft));
+  color: var(--text);
+  font-family: var(--font-text);
+  font-size: 17px;
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* Wide tracking on the code field: six digits are read back one by one when
+   someone is checking them against an SMS. */
+.field-code {
+  letter-spacing: 0.34em;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+}
+
+.account-error {
+  margin: 14px 0 0;
+  font-size: 14px;
+  color: #d1495b;
+}
+
+.account-form .btn-plan { margin-top: 4px; }

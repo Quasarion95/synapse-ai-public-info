@@ -33,15 +33,31 @@
       </p>
 
       <article class="account-card" id="signed-out" hidden>
-        <p class="account-state">Вы не вошли</p>
+        <p class="account-state">Вход по номеру телефона</p>
         <p class="account-text">
-          Входите тем же Apple ID, что и в приложении, — иначе подписка
-          привяжется к другому аккаунту.
+          Пришлём код в SMS. Тот же номер потом введите в приложении —
+          подписка привяжется к нему.
         </p>
-        <a class="btn btn-apple" id="signin" href="#">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.36 12.72c.02 2.6 2.28 3.47 2.3 3.48-.02.06-.36 1.24-1.2 2.46-.72 1.05-1.47 2.1-2.65 2.12-1.16.02-1.53-.69-2.86-.69-1.32 0-1.74.67-2.83.71-1.14.04-2.01-1.13-2.74-2.18-1.48-2.14-2.62-6.06-1.1-8.7.76-1.32 2.11-2.15 3.58-2.17 1.11-.02 2.17.75 2.85.75.68 0 1.96-.93 3.31-.79.56.02 2.14.23 3.15 1.71-.08.05-1.88 1.1-1.86 3.3M14.2 5.4c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.55 1.31-.56.65-1.05 1.69-.92 2.68.97.08 1.96-.49 2.57-1.23"/></svg>
-          Войти через Apple
-        </a>
+
+        <form id="phone-form" class="account-form" novalidate>
+          <label class="field-label" for="phone">Номер телефона</label>
+          <input class="field" id="phone" type="tel" inputmode="tel"
+                 autocomplete="tel" placeholder="+7 900 123-45-67">
+          <button class="btn btn-primary btn-plan" type="submit" id="phone-submit">Получить код</button>
+        </form>
+
+        <form id="code-form" class="account-form" hidden novalidate>
+          <label class="field-label" for="code">Код из SMS</label>
+          <input class="field field-code" id="code" type="text" inputmode="numeric"
+                 autocomplete="one-time-code" maxlength="6" placeholder="123456">
+          <button class="btn btn-primary btn-plan" type="submit" id="code-submit">Войти</button>
+          <div class="account-actions">
+            <button class="btn btn-ghost" type="button" id="resend" disabled>Отправить ещё раз</button>
+            <button class="btn btn-ghost" type="button" id="change-phone">Другой номер</button>
+          </div>
+        </form>
+
+        <p class="account-error" id="form-error" hidden></p>
       </article>
 
       <article class="account-card" id="signed-in" hidden>
@@ -87,8 +103,9 @@
 
     <script>
       var BACKEND = "https://synapse-backend-free.onrender.com";
-      var SERVICES_ID = "ru.synapseapp.web";
       var STORAGE_KEY = "synapse.account.token";
+      var phoneValue = "";
+      var resendTimer = null;
 
       function show(id) {
         ["signed-out", "signed-in", "error-card"].forEach(function (name) {
@@ -96,52 +113,107 @@
         });
       }
 
-      function fail(message) {
-        document.getElementById("error-line").textContent = message;
-        show("error-card");
-      }
-
-      // Apple hands the identity to the backend, the backend hands a session
-      // back here in the URL fragment. Fragments never reach a server and never
-      // land in an access log, which is why the token travels this way.
-      function takeTokenFromFragment() {
-        var hash = window.location.hash.replace(/^#/, "");
-        if (!hash) return null;
-        var parts = {};
-        hash.split("&").forEach(function (pair) {
-          var kv = pair.split("=");
-          if (kv.length === 2) parts[kv[0]] = decodeURIComponent(kv[1]);
-        });
-        history.replaceState(null, "", window.location.pathname);
-        if (parts.error) {
-          fail(
-            parts.error === "invalid_token"
-              ? "Apple не подтвердил вход. Попробуйте ещё раз."
-              : "Вход прервался. Попробуйте ещё раз."
-          );
-          return null;
-        }
-        return parts.token || null;
-      }
-
-      function authorizeURL() {
-        var state = Math.random().toString(36).slice(2) + Date.now().toString(36);
-        sessionStorage.setItem("synapse.account.state", state);
-        return (
-          "https://appleid.apple.com/auth/authorize" +
-          "?client_id=" + encodeURIComponent(SERVICES_ID) +
-          "&redirect_uri=" + encodeURIComponent(BACKEND + "/v1/synapse/auth/apple/web") +
-          "&response_type=code%20id_token" +
-          "&response_mode=form_post" +
-          "&scope=name%20email" +
-          "&state=" + encodeURIComponent(state)
-        );
+      function setError(message) {
+        var box = document.getElementById("form-error");
+        box.textContent = message || "";
+        box.hidden = !message;
       }
 
       function planWord(plan) {
         if (plan === "pro.yearly") return "годовая";
         if (plan === "pro.monthly") return "месячная";
         return "";
+      }
+
+      function post(path, body) {
+        return fetch(BACKEND + path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            return { ok: response.ok, data: data || {} };
+          });
+        });
+      }
+
+      // A visible countdown, because "отправить ещё раз" that silently refuses
+      // for a minute reads as a broken button.
+      function startResendCountdown(seconds) {
+        var button = document.getElementById("resend");
+        var left = seconds || 60;
+        clearInterval(resendTimer);
+        button.disabled = true;
+        button.textContent = "Отправить ещё раз через " + left;
+        resendTimer = setInterval(function () {
+          left -= 1;
+          if (left <= 0) {
+            clearInterval(resendTimer);
+            button.disabled = false;
+            button.textContent = "Отправить ещё раз";
+            return;
+          }
+          button.textContent = "Отправить ещё раз через " + left;
+        }, 1000);
+      }
+
+      function requestCode() {
+        var input = document.getElementById("phone");
+        var submit = document.getElementById("phone-submit");
+        phoneValue = input.value;
+        setError("");
+        submit.disabled = true;
+        submit.textContent = "Отправляем…";
+
+        return post("/v1/synapse/auth/phone/request", { phone: phoneValue })
+          .then(function (result) {
+            submit.disabled = false;
+            submit.textContent = "Получить код";
+            if (!result.ok) {
+              setError(result.data.error || "Не удалось отправить код.");
+              if (result.data.retryAfter) startResendCountdown(result.data.retryAfter);
+              return;
+            }
+            document.getElementById("phone-form").hidden = true;
+            document.getElementById("code-form").hidden = false;
+            document.getElementById("code").focus();
+            startResendCountdown(result.data.resendIn || 60);
+          })
+          .catch(function () {
+            submit.disabled = false;
+            submit.textContent = "Получить код";
+            setError("Сеть недоступна. Попробуйте ещё раз.");
+          });
+      }
+
+      function verifyCode() {
+        var submit = document.getElementById("code-submit");
+        setError("");
+        submit.disabled = true;
+        submit.textContent = "Проверяем…";
+
+        return post("/v1/synapse/auth/phone/verify", {
+          phone: phoneValue,
+          code: document.getElementById("code").value,
+          installID: "web-" + (localStorage.getItem("synapse.web.id") || "")
+        })
+          .then(function (result) {
+            submit.disabled = false;
+            submit.textContent = "Войти";
+            if (!result.ok || !result.data.accountToken) {
+              setError(result.data.error || "Неверный код.");
+              return;
+            }
+            localStorage.setItem(STORAGE_KEY, result.data.accountToken);
+            clearInterval(resendTimer);
+            show("signed-in");
+            refreshStatus(result.data.accountToken);
+          })
+          .catch(function () {
+            submit.disabled = false;
+            submit.textContent = "Войти";
+            setError("Сеть недоступна. Попробуйте ещё раз.");
+          });
       }
 
       function refreshStatus(token) {
@@ -179,24 +251,36 @@
       }
 
       (function start() {
-        var fresh = takeTokenFromFragment();
-        if (fresh) localStorage.setItem(STORAGE_KEY, fresh);
+        if (!localStorage.getItem("synapse.web.id")) {
+          localStorage.setItem("synapse.web.id", Math.random().toString(36).slice(2) + Date.now().toString(36));
+        }
 
         var token = localStorage.getItem(STORAGE_KEY);
         if (token) {
           show("signed-in");
           refreshStatus(token);
-        } else if (document.getElementById("error-card").hidden) {
+        } else {
           show("signed-out");
         }
 
-        document.getElementById("signin").addEventListener("click", function (event) {
+        document.getElementById("phone-form").addEventListener("submit", function (event) {
           event.preventDefault();
-          window.location.href = authorizeURL();
+          requestCode();
         });
-        document.getElementById("retry").addEventListener("click", function (event) {
+        document.getElementById("code-form").addEventListener("submit", function (event) {
           event.preventDefault();
-          window.location.href = authorizeURL();
+          verifyCode();
+        });
+        document.getElementById("resend").addEventListener("click", function () {
+          requestCode();
+        });
+        document.getElementById("change-phone").addEventListener("click", function () {
+          clearInterval(resendTimer);
+          setError("");
+          document.getElementById("code").value = "";
+          document.getElementById("code-form").hidden = true;
+          document.getElementById("phone-form").hidden = false;
+          document.getElementById("phone").focus();
         });
         document.getElementById("signout").addEventListener("click", function (event) {
           event.preventDefault();
