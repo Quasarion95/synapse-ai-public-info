@@ -565,3 +565,146 @@ a { color: var(--accent-strong); }
 @media (max-width: 560px) {
   .closing .cta .btn { min-width: 0; width: 100%; }
 }
+
+
+/* --- Тарифы -------------------------------------------------------------
+   Deliberately the loudest block on the page. It sat in three grey feature
+   cards indistinguishable from the ones above it, which is the one place on a
+   landing where blending in costs money. */
+.plans-band {
+  background: var(--bg-band);
+}
+
+.plans-lead {
+  max-width: 46rem;
+  margin: 0 auto 2.4rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.plan {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1.75rem;
+  border-radius: 28px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+}
+
+/* The paid card carries the page's accent as a full field rather than a hint:
+   at a glance the eye should land here first and know which one is the offer. */
+.plan-hero {
+  background: linear-gradient(155deg, var(--accent) 0%, var(--accent-strong) 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 30px 70px rgba(94, 62, 205, 0.35);
+}
+
+.plan-badge {
+  position: absolute;
+  top: -0.85rem;
+  left: 1.75rem;
+  margin: 0;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent-strong);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+  box-shadow: 0 8px 20px rgba(60, 40, 130, 0.22);
+}
+
+.plan-kicker {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+
+.plan-price {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  line-height: 1;
+}
+
+.plan-per {
+  display: block;
+  margin-top: 0.35rem;
+  font-family: var(--font-text);
+  font-weight: 500;
+  font-size: 0.95rem;
+  opacity: 0.72;
+}
+
+.plan-alt {
+  margin: 0.6rem 0 0;
+  font-size: 0.98rem;
+  opacity: 0.9;
+}
+
+.plan-list {
+  margin: 1.5rem 0 1.75rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.7rem;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.plan-list li {
+  position: relative;
+  padding-left: 1.6rem;
+}
+
+.plan-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.plan-hero .plan-list li::before {
+  background: #fff;
+}
+
+.plan-note {
+  margin: auto 0 0;
+  padding-top: 1rem;
+  font-size: 0.85rem;
+  opacity: 0.72;
+}
+
+.btn-plan {
+  align-self: flex-start;
+  margin-bottom: 0.25rem;
+}
+
+.plan-hero .btn-plan {
+  background: #fff;
+  color: var(--accent-strong);
+}
+
+.plan-hero .btn-plan:hover {
+  background: #f3efff;
+}
