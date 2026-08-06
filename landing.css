@@ -369,8 +369,11 @@ a { color: var(--accent-strong); }
    релиз. Здесь корпус остаётся, меняется только содержимое. */
 .device {
   position: relative;
-  padding: 14px;
-  border-radius: 52px;
+  /* Доли, а не пиксели: в галерее телефон 260 пикселей шириной, в шапке — 470,
+     и одна и та же рамка в 14 пикселей на маленьком выглядит оправой, а на
+     большом теряется. */
+  padding: 2.2%;
+  border-radius: 13%;
   background: linear-gradient(160deg, #d8d3ea 0%, #f3f1fb 22%, #cfc9e4 60%, #efedf9 100%);
   box-shadow:
     0 26px 60px rgba(66, 44, 130, 0.22),
@@ -380,7 +383,7 @@ a { color: var(--accent-strong); }
 .device-screen {
   position: relative;
   overflow: hidden;
-  border-radius: 38px;
+  border-radius: 10.5%;
   background: #000;
   line-height: 0;
 }
@@ -388,7 +391,7 @@ a { color: var(--accent-strong); }
 .device-screen img {
   width: 100%;
   display: block;
-  border-radius: 38px;
+  border-radius: 10.5%;
 }
 
 /* The pill, not a notch: this is what the current phones look like, and a
