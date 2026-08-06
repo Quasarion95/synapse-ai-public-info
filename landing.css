@@ -267,13 +267,18 @@ a { color: var(--accent-strong); }
   color: var(--muted);
 }
 
-.hero-shot img {
+.hero-shot .device {
   width: 100%;
   max-width: 340px;
   margin-inline: auto;
-  border-radius: 30px;
-  border: 1px solid var(--stroke);
-  box-shadow: var(--shadow);
+}
+
+/* Внутри корпуса у картинки не должно быть своей рамки и тени — иначе экран
+   обведён дважды. */
+.hero-shot img {
+  width: 100%;
+  border: 0;
+  box-shadow: none;
 }
 
 /* ---------- sections ---------- */
@@ -372,8 +377,8 @@ a { color: var(--accent-strong); }
   /* Доли, а не пиксели: в галерее телефон 260 пикселей шириной, в шапке — 470,
      и одна и та же рамка в 14 пикселей на маленьком выглядит оправой, а на
      большом теряется. */
-  padding: 2.2%;
-  border-radius: 13%;
+  padding: 1.6%;
+  border-radius: 12.5%;
   background: linear-gradient(160deg, #d8d3ea 0%, #f3f1fb 22%, #cfc9e4 60%, #efedf9 100%);
   box-shadow:
     0 26px 60px rgba(66, 44, 130, 0.22),
@@ -383,7 +388,7 @@ a { color: var(--accent-strong); }
 .device-screen {
   position: relative;
   overflow: hidden;
-  border-radius: 10.5%;
+  border-radius: 11%;
   background: #000;
   line-height: 0;
 }
@@ -391,7 +396,7 @@ a { color: var(--accent-strong); }
 .device-screen img {
   width: 100%;
   display: block;
-  border-radius: 10.5%;
+  border-radius: 11%;
 }
 
 /* The pill, not a notch: this is what the current phones look like, and a
@@ -507,7 +512,7 @@ a { color: var(--accent-strong); }
     gap: 34px;
   }
   .hero-shot { order: -1; }
-  .hero-shot img { max-width: 270px; }
+  .hero-shot .device { max-width: 270px; }
   .cards, .grid, .grid-3, .shots { grid-template-columns: repeat(2, 1fr); }
   .nav-links { display: none; }
 }
