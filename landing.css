@@ -891,3 +891,15 @@ a { color: var(--accent-strong); }
 }
 
 .account-form .btn-plan { margin-top: 4px; }
+
+
+.account-plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 520px) {
+  .account-plans { grid-template-columns: 1fr; }
+}

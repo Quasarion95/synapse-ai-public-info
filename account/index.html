@@ -63,10 +63,18 @@
       <article class="account-card" id="signed-in" hidden>
         <p class="account-state"><span class="dot"></span>Вы вошли</p>
         <p class="account-status" id="status-line">Проверяем подписку…</p>
+        <div class="account-plans" id="plan-buttons">
+          <button class="btn btn-primary" type="button" data-plan="pro.monthly">
+            На месяц — 590 ₽
+          </button>
+          <button class="btn btn-primary" type="button" data-plan="pro.yearly">
+            На год — 4 990 ₽
+          </button>
+        </div>
         <div class="account-actions">
-          <a class="btn btn-primary" id="subscribe" href="../checkout/">Оформить подписку</a>
           <a class="btn btn-ghost" href="#" id="signout">Выйти</a>
         </div>
+        <p class="account-error" id="pay-error" hidden></p>
         <p class="account-note">
           Удалить аккаунт вместе с подпиской можно в приложении:
           «Настройки» → «Аккаунт» → «Удалить аккаунт». Задачи и цели
@@ -211,6 +219,8 @@
               return;
             }
             localStorage.setItem(STORAGE_KEY, result.data.accountToken);
+            // Kept for the receipt a self-employed seller owes on every payment.
+            localStorage.setItem("synapse.account.phone", phoneValue);
             clearInterval(resendTimer);
             show("signed-in");
             refreshStatus(result.data.accountToken);
@@ -219,6 +229,46 @@
             submit.disabled = false;
             submit.textContent = "Войти";
             setError("Сеть недоступна. Попробуйте ещё раз.");
+          });
+      }
+
+      function startCheckout(plan, button) {
+        var box = document.getElementById("pay-error");
+        box.hidden = true;
+        var label = button.textContent;
+        button.disabled = true;
+        button.textContent = "Готовим оплату…";
+
+        fetch(BACKEND + "/v1/synapse/checkout/create-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + localStorage.getItem(STORAGE_KEY)
+          },
+          body: JSON.stringify({ plan: plan, phone: localStorage.getItem("synapse.account.phone") || "" })
+        })
+          .then(function (response) {
+            return response.json().then(function (data) {
+              return { ok: response.ok, data: data || {} };
+            });
+          })
+          .then(function (result) {
+            if (!result.ok || !result.data.confirmationURL) {
+              button.disabled = false;
+              button.textContent = label;
+              box.textContent = result.data.error || "Не удалось начать оплату.";
+              box.hidden = false;
+              return;
+            }
+            // YooKassa's own page takes it from here; the card is never typed
+            // on our side and never passes through our server.
+            window.location.href = result.data.confirmationURL;
+          })
+          .catch(function () {
+            button.disabled = false;
+            button.textContent = label;
+            box.textContent = "Сеть недоступна. Попробуйте ещё раз.";
+            box.hidden = false;
           });
       }
 
@@ -237,17 +287,19 @@
           .then(function (data) {
             if (!data) return;
             var line = document.getElementById("status-line");
-            var subscribe = document.getElementById("subscribe");
             if (data.status === "active") {
               var until = data.expiresAt ? new Date(data.expiresAt) : null;
               line.textContent =
                 "Подписка активна" +
                 (planWord(data.plan) ? " (" + planWord(data.plan) + ")" : "") +
                 (until ? ", до " + until.toLocaleDateString("ru-RU") : "") + ".";
-              subscribe.textContent = "Продлить";
+              document.querySelectorAll("#plan-buttons .btn").forEach(function (button) {
+                button.textContent = button.dataset.plan === "pro.yearly"
+                  ? "Продлить на год — 4 990 ₽"
+                  : "Продлить на месяц — 590 ₽";
+              });
             } else {
               line.textContent = "Подписки нет. Ассистент отвечает на 30 обращений в месяц.";
-              subscribe.textContent = "Оформить подписку";
             }
           })
           .catch(function () {
@@ -287,6 +339,11 @@
           document.getElementById("code-form").hidden = true;
           document.getElementById("phone-form").hidden = false;
           document.getElementById("phone").focus();
+        });
+        document.querySelectorAll("#plan-buttons .btn").forEach(function (button) {
+          button.addEventListener("click", function () {
+            startCheckout(button.dataset.plan, button);
+          });
         });
         document.getElementById("signout").addEventListener("click", function (event) {
           event.preventDefault();
