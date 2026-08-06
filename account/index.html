@@ -171,7 +171,13 @@
             submit.textContent = "Получить код";
             if (!result.ok) {
               setError(result.data.error || "Не удалось отправить код.");
-              if (result.data.retryAfter) startResendCountdown(result.data.retryAfter);
+              // "Already sent, wait a minute" is not a dead end: the code is in
+              // the person's hand, so show the field for it anyway.
+              if (result.data.retryAfter) {
+                document.getElementById("phone-form").hidden = true;
+                document.getElementById("code-form").hidden = false;
+                startResendCountdown(result.data.retryAfter);
+              }
               return;
             }
             document.getElementById("phone-form").hidden = true;
