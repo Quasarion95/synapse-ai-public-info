@@ -599,25 +599,46 @@ a { color: var(--accent-strong); }
 
 /* The paid card wears the brand colour as a full field: on a page of white
    cards the eye has to land here first and know which one is the offer. */
-.plan-hero {
-  background: linear-gradient(150deg, var(--accent) 0%, #5b8cff 118%);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 26px 60px rgba(120, 84, 242, 0.34);
+/* The middle plan is tinted rather than white: three white cards in a row give
+   the eye nothing to hold, and this one is a paid plan too. */
+.plan-soft {
+  background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 13%, var(--surface)) 0%, var(--surface) 78%);
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--stroke));
 }
 
+/* Lavender, not ink: the old fill was so saturated that the white text sat on
+   it like a warning sign. */
+.plan-hero {
+  background: linear-gradient(152deg, #7f63f0 0%, #9b81f7 58%, #b6a2fb 125%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 26px 60px rgba(120, 84, 242, 0.32);
+}
+
+/* The saving is the argument for the yearly plan, so it is the one thing on the
+   page that is not in the brand palette: a pale chip on a lavender card was
+   invisible next to the monthly one. */
 .plan-badge {
   position: absolute;
-  top: 20px;
-  right: 22px;
-  padding: 7px 13px;
+  top: -14px;
+  left: 24px;
+  right: 24px;
+  padding: 9px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: #e9ff6b;
+  color: #241c4d;
+  text-align: center;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 12px;
-  letter-spacing: 0.02em;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 24px rgba(36, 28, 77, 0.28);
+}
+
+.plan-hero { margin-top: 14px; }
+
+@media (max-width: 700px) {
+  .plan-hero { margin-top: 22px; }
 }
 
 .plan-kicker {
