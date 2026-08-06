@@ -75,6 +75,7 @@
           </button>
         </div>
         <div class="account-actions">
+          <button class="btn btn-ghost" type="button" id="cancel-renew" hidden>Отключить автопродление</button>
           <a class="btn btn-ghost" href="#" id="signout">Выйти</a>
         </div>
         <p class="account-error" id="pay-error" hidden></p>
@@ -290,12 +291,15 @@
           .then(function (data) {
             if (!data) return;
             var line = document.getElementById("status-line");
+            var cancel = document.getElementById("cancel-renew");
             if (data.status === "active") {
               var until = data.expiresAt ? new Date(data.expiresAt) : null;
+              var untilText = until ? until.toLocaleDateString("ru-RU") : "";
               line.textContent =
                 "Подписка активна" +
                 (planWord(data.plan) ? " (" + planWord(data.plan) + ")" : "") +
-                (until ? ", до " + until.toLocaleDateString("ru-RU") : "") + ".";
+                (untilText ? (data.autoRenew ? ", продлится " : ", действует до ") + untilText : "") + ".";
+              cancel.hidden = !data.autoRenew;
               document.querySelectorAll("#plan-buttons .btn").forEach(function (button) {
                 var labels = {
                   "pro.weekly": "Продлить на неделю — 149 ₽",
@@ -306,6 +310,7 @@
               });
             } else {
               line.textContent = "Подписки нет. Ассистент отвечает на 30 обращений в месяц.";
+              cancel.hidden = true;
             }
           })
           .catch(function () {
@@ -350,6 +355,24 @@
           button.addEventListener("click", function () {
             startCheckout(button.dataset.plan, button);
           });
+        });
+        document.getElementById("cancel-renew").addEventListener("click", function () {
+          var button = document.getElementById("cancel-renew");
+          button.disabled = true;
+          button.textContent = "Отключаем…";
+          fetch(BACKEND + "/v1/synapse/subscription/cancel", {
+            method: "POST",
+            headers: { Authorization: "Bearer " + localStorage.getItem(STORAGE_KEY) }
+          })
+            .then(function () {
+              button.disabled = false;
+              button.textContent = "Отключить автопродление";
+              refreshStatus(localStorage.getItem(STORAGE_KEY));
+            })
+            .catch(function () {
+              button.disabled = false;
+              button.textContent = "Отключить автопродление";
+            });
         });
         document.getElementById("signout").addEventListener("click", function (event) {
           event.preventDefault();
