@@ -65,6 +65,19 @@
     <script>
       var BACKEND = "https://api.synapseapp.ru";
 
+      // Верх воронки. Считается здесь, а не на /pricing/: между просмотром цен
+      // и нажатием «оплатить» стоит именно эта страница, и только её показ
+      // сопоставим с checkout_started. Ошибку глотаем — счётчик не должен
+      // мешать человеку платить.
+      try {
+        fetch(BACKEND + "/v1/synapse/checkout/viewed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+          keepalive: true
+        }).catch(function () {});
+      } catch (error) {}
+
       var PLANS = {
         "pro.weekly":  { title: "Неделя",  price: "149 ₽",  note: "Попробовать без длинного обязательства." },
         "pro.monthly": { title: "Месяц",   price: "590 ₽",  note: "Основной тариф." },
@@ -119,13 +132,25 @@
         payEl.disabled = true;
         payEl.textContent = "Готовим оплату…";
 
+        // Без срока ожидания заглушенное соединение не падает, а висит: кнопка
+        // остаётся на «Готовим оплату…» до конца времён и человек решает, что
+        // сломана оплата. Пятнадцати секунд хватает любому живому каналу.
+        var abort = ("AbortController" in window) ? new AbortController() : null;
+        var timedOut = false;
+        var timer = setTimeout(function () {
+          timedOut = true;
+          if (abort) { abort.abort(); }
+        }, 15000);
+
         fetch(BACKEND + "/v1/synapse/checkout/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: selectedPlan, phone: phone })
+          body: JSON.stringify({ plan: selectedPlan, phone: phone }),
+          signal: abort ? abort.signal : undefined
         })
           .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
           .then(function (result) {
+            clearTimeout(timer);
             if (!result.ok || !result.data.paymentURL) {
               showError(result.data.error || "Не получилось начать оплату. Попробуйте ещё раз.");
               payEl.disabled = false;
@@ -138,7 +163,15 @@
             window.location.href = result.data.paymentURL;
           })
           .catch(function () {
-            showError("Сервер не ответил. Проверьте связь и попробуйте ещё раз.");
+            clearTimeout(timer);
+            // Два разных отказа, и чинятся они по-разному: сорванный запрос —
+            // это связь, а молчание до самого срока обычно значит, что до нас
+            // не пускает провайдер. Второму случаю нужен другой совет.
+            showError(
+              timedOut
+                ? "Сервер не ответил за 15 секунд. Похоже, ваш провайдер не пропускает запрос: попробуйте мобильный интернет вместо домашнего или напишите на support@synapseapp.ru — выдадим доступ вручную."
+                : "Сервер не ответил. Проверьте связь и попробуйте ещё раз."
+            );
             payEl.disabled = false;
             payEl.textContent = "Перейти к оплате";
           });
