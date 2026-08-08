@@ -237,6 +237,18 @@
               spellcheck="false"
               maxlength="14"
               placeholder="KX7M-4PQR-92TD">
+            <label class="muted" for="phoneInput" style="margin-top: 14px;">
+              Последние 4 цифры телефона, указанного при оплате
+            </label>
+            <input
+              class="field"
+              id="phoneInput"
+              name="phoneLast4"
+              type="tel"
+              inputmode="numeric"
+              autocomplete="off"
+              maxlength="4"
+              placeholder="0000">
             <button class="button" type="submit" id="checkButton">Показать подписку</button>
           </form>
           <p class="error" id="askError" hidden></p>
@@ -446,11 +458,17 @@
         return "Что-то пошло не так. Попробуйте ещё раз через минуту.";
       }
 
+      // Код открывает подписку только вместе с последними цифрами номера:
+      // сам по себе он слишком легко утекает — скриншотом, перепиской, чужим
+      // браузером, — а один утёкший код не должен давать управление чужой
+      // подпиской.
+      var phoneLast4 = "";
+
       function call(path, code) {
         return fetch(BACKEND + path, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: code })
+          body: JSON.stringify({ code: code, phoneLast4: phoneLast4 })
         }).then(function (response) {
           return response.json().catch(function () { return {}; }).then(function (body) {
             return { status: response.status, body: body };
@@ -663,4 +681,5 @@
       }
     </script>
   </body>
+        phoneLast4 = (document.getElementById("phoneInput").value || "").replace(/\D/g, "").slice(-4);
 </html>
