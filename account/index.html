@@ -3,97 +3,664 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Мой код Synapse Pro</title>
+    <title>Управление подпиской Synapse Pro</title>
     <link rel="icon" href="../screens/mark.png">
     <link rel="stylesheet" href="../site.css">
+    <style>
+      /* Только то, чего нет в site.css: строки «поле — значение», модальное
+         окно и красная кнопка. Всё остальное — card, button, muted, shell,
+         hero, actions — берётся из общего файла. */
+      .rows {
+        display: grid;
+        gap: 2px;
+        margin: 18px 0 0;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 4px 16px;
+        padding: 12px 0;
+        border-top: 1px solid var(--stroke);
+      }
+
+      .row:first-child {
+        border-top: none;
+      }
+
+      .row-label {
+        margin: 0;
+        font-size: 15px;
+        color: var(--muted);
+      }
+
+      .row-value {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        text-align: right;
+        /* На 375px «Synapse Pro — подписка на 12 месяцев» не должно
+           выталкивать строку за край карточки. */
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .state {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .state .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #34c07a;
+        box-shadow: 0 0 0 4px rgba(52, 192, 122, 0.18);
+        flex: none;
+      }
+
+      .state.off .dot {
+        background: #b3aac9;
+        box-shadow: 0 0 0 4px rgba(179, 170, 201, 0.18);
+      }
+
+      .field {
+        display: block;
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid var(--stroke);
+        background: rgba(255, 255, 255, 0.75);
+        color: var(--text);
+        font: inherit;
+        font-size: 17px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .field::placeholder {
+        color: var(--muted);
+        opacity: 0.7;
+      }
+
+      .field:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+
+      .form {
+        display: grid;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .form label {
+        font-size: 14px;
+      }
+
+      .error {
+        margin: 14px 0 0;
+        font-size: 15px;
+        color: #d1495b;
+      }
+
+      .done {
+        margin: 18px 0 0;
+        font-size: 15px;
+        color: #2f8f5b;
+      }
+
+      button.button {
+        border: none;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+      }
+
+      .button.danger {
+        background: #d1495b;
+        box-shadow: 0 14px 28px rgba(209, 73, 91, 0.25);
+      }
+
+      .button.plain {
+        background: none;
+        box-shadow: none;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .button[disabled] {
+        opacity: 0.55;
+        cursor: default;
+      }
+
+      .backdrop {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(34, 27, 52, 0.45);
+        z-index: 10;
+      }
+
+      .modal {
+        width: 100%;
+        max-width: 420px;
+        padding: 26px;
+        /* Длинная модалка на маленьком экране должна скроллиться сама,
+           а не уезжать за пределы окна. */
+        max-height: calc(100vh - 36px);
+        overflow-y: auto;
+      }
+
+      .modal h2 {
+        font-size: 22px;
+      }
+
+      .modal .actions {
+        display: grid;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      /* Код набирают глазами, поэтому он крупный — но на 375px «KX7M-4PQR-92TD»
+         в 30px переносится на вторую строку и перестаёт читаться как одно
+         целое. Пусть шрифт уступает ширине экрана, а не наоборот. */
+      .code {
+        margin: 16px 0;
+        font-size: clamp(22px, 6.4vw, 30px);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--text);
+        user-select: all;
+        overflow-wrap: anywhere;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      @media (max-width: 420px) {
+        .row {
+          /* На узком экране значение уходит под подпись: иначе длинный тариф
+             и дата дерутся за одну строку. */
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .row-value {
+          text-align: left;
+        }
+      }
+    </style>
   </head>
   <body>
     <main class="shell">
       <section class="hero">
         <span class="eyebrow">Synapse Pro</span>
-        <h1>Мой код</h1>
+        <h1>Подписка</h1>
         <p class="lead">
-          Никаких аккаунтов и паролей. Подписку включает код, который вы получили после оплаты.
+          Никаких аккаунтов и паролей. Всё, что нужно, — код, который вы
+          получили после оплаты.
         </p>
       </section>
 
       <section class="stack">
-        <article class="card" id="haveCode" style="display: none;">
-          <h2>Ваш код</h2>
-          <p
-            id="code"
-            style="font-size: 30px; letter-spacing: 0.08em; font-weight: 700; margin: 16px 0; user-select: all;">
-          </p>
-          <p style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="button" id="copyButton" style="border: none; cursor: pointer; font: inherit;">
-              Скопировать код
-            </button>
-            <a class="button" id="openButton" href="#">Открыть в Synapse</a>
-          </p>
+        <!-- Ввод кода: показывается, пока подписка не найдена. -->
+        <article class="card" id="askCard" hidden>
+          <h2>Введите код</h2>
           <p class="muted">
-            Код работает на одном устройстве. Ввели на новом телефоне — на старом Pro выключится.
+            12 знаков со страницы, которая открылась после оплаты, — например,
+            KX7M-4PQR-92TD. Тот же код хранится в приложении, если вы уже
+            включили Pro.
+          </p>
+          <form class="form" id="codeForm">
+            <label class="muted" for="codeInput">Код подписки</label>
+            <input
+              class="field"
+              id="codeInput"
+              name="code"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              autocorrect="off"
+              spellcheck="false"
+              maxlength="14"
+              placeholder="KX7M-4PQR-92TD">
+            <button class="button" type="submit" id="checkButton">Показать подписку</button>
+          </form>
+          <p class="error" id="askError" hidden></p>
+          <p class="muted" style="margin-top: 18px;">
+            Потеряли код? Он остаётся на странице, куда вас вернуло после
+            оплаты, — её можно открыть из истории браузера. Если и её нет,
+            напишите в <a href="../support/">поддержку</a>.
           </p>
         </article>
 
-        <article class="card" id="noCode">
-          <h2>Кода пока нет</h2>
-          <p class="muted">
-            Код выдаётся сразу после оплаты, на странице возврата. Он же остаётся
-            в этом браузере и в самом приложении, если вы уже активировали подписку.
+        <!-- Состояние подписки. -->
+        <article class="card" id="statusCard" hidden>
+          <h2>Ваша подписка</h2>
+          <p class="state" id="stateLine"><span class="dot"></span><span id="stateText"></span></p>
+
+          <div class="rows">
+            <div class="row">
+              <p class="row-label">Тариф</p>
+              <p class="row-value" id="planValue">—</p>
+            </div>
+            <div class="row" id="dateRow">
+              <p class="row-label" id="dateLabel">Следующее списание</p>
+              <p class="row-value" id="dateValue">—</p>
+            </div>
+            <div class="row">
+              <p class="row-label">Способ оплаты</p>
+              <p class="row-value" id="methodValue">—</p>
+            </div>
+            <div class="row">
+              <p class="row-label">Автопродление</p>
+              <p class="row-value" id="renewValue">—</p>
+            </div>
+          </div>
+
+          <p class="done" id="doneNote" hidden></p>
+
+          <p class="actions">
+            <button class="button danger" type="button" id="cancelButton">Отменить подписку</button>
+            <button class="button plain" type="button" id="otherCodeButton">Другой код</button>
+          </p>
+          <p class="error" id="statusError" hidden></p>
+        </article>
+
+        <!-- Код и переход в приложение. -->
+        <article class="card" id="codeCard" hidden>
+          <h2>Ваш код</h2>
+          <p class="code" id="code"></p>
+          <p style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="button" type="button" id="copyButton">Скопировать код</button>
+            <a class="button" id="openButton" href="#">Открыть в Synapse</a>
           </p>
           <p class="muted">
-            Если вы оплачивали в другом браузере или на другом устройстве — откройте
-            ту страницу по ссылке из истории: она остаётся рабочей.
-          </p>
-          <p style="margin-top: 16px;">
-            <a class="button" href="../checkout/?plan=pro.monthly">Оформить подписку</a>
+            Код работает на одном устройстве. Ввели на новом телефоне — на
+            старом Pro выключится.
           </p>
         </article>
 
         <article class="card">
           <h2>Как это работает</h2>
           <p class="muted">
-            Приложение бесплатное, и большая часть в нём бесплатна навсегда: задачи,
-            цели, списки, заметки. Подписка снимает ограничения на обращения к Syn и
-            открывает то, что работает на сервере.
+            Приложение бесплатное, и большая часть в нём бесплатна навсегда:
+            задачи, цели, списки, заметки. Подписка снимает ограничения на
+            обращения к Syn и открывает то, что работает на сервере.
           </p>
           <p class="muted">
-            Оплата и управление подпиской — здесь, на сайте. В приложении вы только
-            вводите код.
+            Оплата и управление подпиской — здесь, на сайте. В приложении вы
+            только вводите код.
           </p>
         </article>
       </section>
+
+      <footer class="footer">
+        <p class="muted">
+          <a href="../offer/">оферта</a> ·
+          <a href="../requisites/">реквизиты</a> ·
+          <a href="../privacy/">политика конфиденциальности</a> ·
+          <a href="../terms/">условия использования</a> ·
+          <a href="../support/">поддержка</a>
+        </p>
+      </footer>
     </main>
 
-    <script>
-      var saved = null;
-      try { saved = localStorage.getItem("synapse.code"); } catch (error) {}
+    <!-- Подтверждение отмены. -->
+    <div class="backdrop" id="backdrop" hidden>
+      <div class="card modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal">
+        <h2 id="modalTitle">Отменить подписку?</h2>
+        <p class="muted" id="modalMethod"></p>
+        <p class="muted" id="modalAccess"></p>
+        <p class="muted">
+          Вернуть подписку можно в любой момент — просто оформите её заново.
+        </p>
+        <p class="error" id="modalError" hidden></p>
+        <div class="actions">
+          <button class="button danger" type="button" id="confirmButton">Да, отменить</button>
+          <button class="button secondary" type="button" id="dismissButton">Оставить подписку</button>
+        </div>
+      </div>
+    </div>
 
-      if (saved) {
-        document.getElementById("code").textContent = saved;
-        document.getElementById("openButton").href = "synapse://activate?code=" + encodeURIComponent(saved);
-        document.getElementById("haveCode").style.display = "block";
-        document.getElementById("noCode").style.display = "none";
+    <script>
+      var BACKEND = "https://api.synapseapp.ru";
+
+      var MONTHS = [
+        "января", "февраля", "марта", "апреля", "мая", "июня",
+        "июля", "августа", "сентября", "октября", "ноября", "декабря"
+      ];
+
+      // Сервер присылает полное название тарифа, но в строку «Тариф» на экране
+      // 375px оно не помещается. Короткое — здесь, длинное — запасной вариант
+      // на случай тарифа, о котором эта страница ещё не знает.
+      var PLAN_NAMES = {
+        "pro.weekly": "Pro, неделя",
+        "pro.monthly": "Pro, месяц",
+        "pro.yearly": "Pro, год"
+      };
+
+      var CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+      var CODE_LENGTH = 12;
+
+      function element(id) { return document.getElementById(id); }
+
+      var askCard = element("askCard");
+      var statusCard = element("statusCard");
+      var codeCard = element("codeCard");
+      var backdrop = element("backdrop");
+      var cancelButton = element("cancelButton");
+
+      var state = null;
+      var currentCode = "";
+      var cancelled = false;
+      var lastFocused = null;
+
+      function readStoredCode() {
+        try { return localStorage.getItem("synapse.code") || ""; } catch (error) { return ""; }
       }
 
-      document.getElementById("copyButton").addEventListener("click", function () {
+      function storeCode(code) {
+        try { localStorage.setItem("synapse.code", code); } catch (error) {}
+      }
+
+      // Код набирают как угодно: строчными, с пробелами, без дефисов.
+      function normalizeCode(raw) {
+        var upper = String(raw || "").toUpperCase();
+        var cleaned = "";
+        for (var index = 0; index < upper.length; index += 1) {
+          if (CODE_ALPHABET.indexOf(upper.charAt(index)) >= 0) {
+            cleaned += upper.charAt(index);
+          }
+        }
+        return cleaned;
+      }
+
+      function formatCode(raw) {
+        var cleaned = normalizeCode(raw);
+        var groups = [];
+        for (var index = 0; index < cleaned.length; index += 4) {
+          groups.push(cleaned.slice(index, index + 4));
+        }
+        return groups.join("-");
+      }
+
+      function formatDate(iso) {
+        if (!iso) { return ""; }
+        // Python отдаёт микросекунды, а их разбирает не каждый браузер:
+        // подрезаем дробную часть до миллисекунд.
+        var trimmed = String(iso).replace(/(\.\d{3})\d+/, "$1");
+        var parsed = new Date(trimmed);
+        if (isNaN(parsed.getTime())) { return ""; }
+        return parsed.getDate() + " " + MONTHS[parsed.getMonth()] + " " + parsed.getFullYear();
+      }
+
+      function hasMethod() {
+        return Boolean(state && state.paymentMethod && state.paymentMethod.present);
+      }
+
+      function describeMethod() {
+        if (!hasMethod()) { return "Не сохранён"; }
+        if (state.paymentMethod.last4) { return "Карта •••• " + state.paymentMethod.last4; }
+        return "Сохранённая карта";
+      }
+
+      // То же самое, но внутри фразы: «удалим сохранённую карту •••• 4242».
+      function describeCardInline() {
+        if (state.paymentMethod.last4) {
+          return "сохранённую карту •••• " + state.paymentMethod.last4;
+        }
+        return "сохранённую карту";
+      }
+
+      function show(node, visible) {
+        node.hidden = !visible;
+      }
+
+      function showError(node, text) {
+        node.textContent = text || "";
+        show(node, Boolean(text));
+      }
+
+      function messageForFailure(status, body) {
+        if (status === 429) {
+          return "Слишком много попыток подряд. Подождите минуту и попробуйте снова.";
+        }
+        if (status === 0) {
+          return "Не получается связаться с сервером. Проверьте интернет и попробуйте снова.";
+        }
+        if (body && body.error) { return body.error; }
+        return "Что-то пошло не так. Попробуйте ещё раз через минуту.";
+      }
+
+      function call(path, code) {
+        return fetch(BACKEND + path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: code })
+        }).then(function (response) {
+          return response.json().catch(function () { return {}; }).then(function (body) {
+            return { status: response.status, body: body };
+          });
+        }).catch(function () {
+          return { status: 0, body: {} };
+        });
+      }
+
+      function render() {
+        if (!state) {
+          show(askCard, true);
+          show(statusCard, false);
+          show(codeCard, false);
+          return;
+        }
+
+        show(askCard, false);
+        show(statusCard, true);
+        show(codeCard, true);
+
+        var renews = Boolean(state.autoRenew);
+        var until = formatDate(state.expiresAt);
+
+        element("stateLine").className = state.active ? "state" : "state off";
+        element("stateText").textContent = state.active
+          ? (renews ? "Активна, продлевается" : "Активна, продление отключено")
+          : "Не активна";
+
+        element("planValue").textContent = PLAN_NAMES[state.plan] || state.planTitle || "—";
+
+        // Списание происходит после конца оплаченного периода, так что это
+        // одна и та же дата — но означает она разное, и подпись должна
+        // говорить, что именно.
+        element("dateLabel").textContent = renews ? "Следующее списание" : "Доступ до";
+        element("dateValue").textContent = until || "—";
+        show(element("dateRow"), Boolean(until));
+
+        element("methodValue").textContent = describeMethod();
+        element("renewValue").textContent = renews ? "Включено" : "Отключено";
+
+        // Кнопка нужна, пока есть что отменять: либо продление, либо карта,
+        // которая осталась сохранённой после неудачных списаний.
+        show(cancelButton, renews || hasMethod());
+        cancelButton.textContent = renews ? "Отменить подписку" : "Удалить сохранённую карту";
+
+        showError(element("statusError"), "");
+        if (cancelled) {
+          element("doneNote").textContent = until
+            ? "Готово. Автопродление выключено, сохранённых способов оплаты не осталось. Pro работает до " + until + "."
+            : "Готово. Автопродление выключено, сохранённых способов оплаты не осталось.";
+          show(element("doneNote"), true);
+        } else {
+          show(element("doneNote"), false);
+        }
+
+        element("code").textContent = formatCode(currentCode);
+        element("openButton").href = "synapse://activate?code=" + encodeURIComponent(formatCode(currentCode));
+      }
+
+      function lookup(code) {
+        var cleaned = normalizeCode(code);
+        if (cleaned.length !== CODE_LENGTH) {
+          showError(element("askError"), "В коде 12 знаков. Проверьте, что он введён целиком.");
+          return;
+        }
+
+        var button = element("checkButton");
+        showError(element("askError"), "");
+        button.disabled = true;
+        button.textContent = "Проверяем…";
+
+        call("/v1/synapse/subscription/manage", cleaned).then(function (result) {
+          button.disabled = false;
+          button.textContent = "Показать подписку";
+
+          if (result.status !== 200) {
+            showError(element("askError"), messageForFailure(result.status, result.body));
+            return;
+          }
+
+          state = result.body;
+          currentCode = cleaned;
+          cancelled = false;
+          storeCode(formatCode(cleaned));
+          render();
+        });
+      }
+
+      // --- модальное окно ---
+
+      function openModal() {
+        lastFocused = document.activeElement;
+        showError(element("modalError"), "");
+
+        element("modalTitle").textContent = state.autoRenew
+          ? "Отменить подписку?"
+          : "Удалить сохранённую карту?";
+
+        element("modalMethod").textContent = hasMethod()
+          ? "Удалим " + describeCardInline() + ": списывать с неё больше не будем."
+          : "Сохранённого способа оплаты нет — списывать не с чего.";
+
+        var until = formatDate(state.expiresAt);
+        element("modalAccess").textContent = until
+          ? "Pro останется до " + until + ": этот период уже оплачен. После этой даты приложение продолжит работать бесплатно."
+          : "Оплаченный период остаётся за вами до конца.";
+
+        element("confirmButton").textContent = state.autoRenew ? "Да, отменить" : "Да, удалить карту";
+        element("dismissButton").textContent = state.autoRenew ? "Оставить подписку" : "Оставить как есть";
+
+        show(backdrop, true);
+        document.body.style.overflow = "hidden";
+        element("confirmButton").focus();
+      }
+
+      function closeModal() {
+        show(backdrop, false);
+        document.body.style.overflow = "";
+        if (lastFocused && lastFocused.focus) { lastFocused.focus(); }
+      }
+
+      function confirmCancel() {
+        var button = element("confirmButton");
+        var label = button.textContent;
+        button.disabled = true;
+        button.textContent = "Отправляем…";
+
+        call("/v1/synapse/subscription/unbind", currentCode).then(function (result) {
+          button.disabled = false;
+          button.textContent = label;
+
+          if (result.status !== 200) {
+            showError(element("modalError"), messageForFailure(result.status, result.body));
+            return;
+          }
+
+          state = result.body;
+          cancelled = true;
+          closeModal();
+          render();
+        });
+      }
+
+      // --- события ---
+
+      element("codeForm").addEventListener("submit", function (event) {
+        event.preventDefault();
+        lookup(element("codeInput").value);
+      });
+
+      cancelButton.addEventListener("click", openModal);
+      element("dismissButton").addEventListener("click", closeModal);
+      element("confirmButton").addEventListener("click", confirmCancel);
+
+      backdrop.addEventListener("click", function (event) {
+        // Клик мимо окна закрывает его, клик внутри — нет.
+        if (event.target === backdrop) { closeModal(); }
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !backdrop.hidden) { closeModal(); }
+      });
+
+      element("otherCodeButton").addEventListener("click", function () {
+        state = null;
+        currentCode = "";
+        cancelled = false;
+        element("codeInput").value = "";
+        showError(element("askError"), "");
+        render();
+        element("codeInput").focus();
+      });
+
+      element("copyButton").addEventListener("click", function () {
         var button = this;
-        var code = document.getElementById("code").textContent;
+        var value = element("code").textContent;
         var done = function () {
           button.textContent = "Скопировано";
           setTimeout(function () { button.textContent = "Скопировать код"; }, 2000);
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(code).then(done, function () {});
+          navigator.clipboard.writeText(value).then(done, function () {});
           return;
         }
         var field = document.createElement("textarea");
-        field.value = code;
+        field.value = value;
         document.body.appendChild(field);
         field.select();
         try { document.execCommand("copy"); done(); } catch (error) {}
         document.body.removeChild(field);
       });
+
+      // --- запуск ---
+
+      var params = new URLSearchParams(window.location.search);
+      var fromLink = normalizeCode(params.get("code") || "");
+      var initial = fromLink || normalizeCode(readStoredCode());
+
+      // Код — это ключ от подписки, и в адресной строке ему не место: оттуда
+      // он попадает в историю браузера и в реферер. Прочитали — убрали.
+      if (fromLink && window.history && window.history.replaceState) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+
+      render();
+      if (initial.length === CODE_LENGTH) {
+        element("codeInput").value = formatCode(initial);
+        lookup(initial);
+      }
     </script>
   </body>
 </html>
