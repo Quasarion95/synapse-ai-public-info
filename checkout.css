@@ -1,0 +1,553 @@
+/*
+  The paid flow: /checkout/, /checkout/success/ and /account/.
+
+  Loaded *after* landing.css and on purpose: the tokens, the two type faces,
+  the nav, the footer and .btn all come from there, so these pages cannot drift
+  away from the landing the way they had. What is here is only the parts a
+  landing page has no use for — a plan chooser, a phone field, a code to copy,
+  and something honest to look at while a bank thinks.
+
+  site.css is left alone. The support and privacy pages are linked from App
+  Store Connect and still use it.
+*/
+
+/* ---------- page shell ---------- */
+
+.flow {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 56px 24px 72px;
+}
+
+.flow-head {
+  max-width: 640px;
+  margin-bottom: 34px;
+}
+
+.flow-head h1 {
+  font-family: var(--font-display);
+  margin: 16px 0 0;
+  font-size: clamp(30px, 4.6vw, 46px);
+  line-height: 1.04;
+  letter-spacing: -0.033em;
+  font-weight: 800;
+}
+
+.flow-head .lead {
+  margin-top: 14px;
+  max-width: 52ch;
+}
+
+/* The form on the left, what you are buying on the right. Two columns rather
+   than one long scroll, because the price should stay in view while the plan
+   is being chosen — a total that scrolls away is how people end up unsure what
+   they just agreed to. */
+.flow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.flow-narrow {
+  max-width: 620px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 26px;
+}
+
+.panel + .panel { margin-top: 18px; }
+
+.panel-title {
+  font-family: var(--font-display);
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.panel-note {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.panel-note:last-child { margin-bottom: 0; }
+
+/* ---------- plan chooser ---------- */
+
+.pick {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Real radios, visually hidden rather than replaced by click handlers on divs:
+   arrow keys, the label-click target and the focus ring all come free, and a
+   payment form is the last place to be reimplementing those by hand. */
+.pick-item input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pick-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 17px;
+  border: 1.5px solid var(--stroke);
+  border-radius: 15px;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.pick-item:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--stroke)); }
+
+.pick-item:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.pick-item:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The dot is drawn here rather than by the browser so it matches the accent in
+   both themes; the native control is the one that still holds the state. */
+.pick-dot {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 55%, transparent);
+  display: grid;
+  place-items: center;
+}
+
+.pick-dot::after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: scale(0);
+  transition: transform 0.16s ease;
+}
+
+.pick-item:has(input:checked) .pick-dot { border-color: var(--accent); }
+.pick-item:has(input:checked) .pick-dot::after { transform: scale(1); }
+
+.pick-body { flex: 1 1 auto; min-width: 0; }
+
+.pick-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pick-note {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin-top: 2px;
+}
+
+.pick-price {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.tag {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* ---------- fields ---------- */
+
+.fld { margin: 0; }
+
+.fld-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+
+/* The country code is part of the field's furniture, not something to type.
+   It sits inside the border so the whole thing still reads as one control. */
+.phone-field {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid var(--stroke);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  max-width: 340px;
+}
+
+.phone-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.phone-field.is-bad { border-color: #e5484d; }
+
+.phone-prefix {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16.5px;
+  padding: 0 2px 0 15px;
+  color: var(--muted);
+  user-select: none;
+}
+
+/* Tabular figures so the groups keep their width as digits arrive: without it
+   a 1 and a 0 are different widths and the whole number twitches sideways
+   while it is being typed. */
+.phone-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 16.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  padding: 13px 15px 13px 8px;
+}
+
+.phone-field input::placeholder {
+  color: color-mix(in srgb, var(--muted) 62%, transparent);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.hint {
+  margin: 9px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------- buttons in the flow ---------- */
+
+.btn-wide { width: 100%; padding-block: 15px; font-size: 16px; }
+
+.btn[disabled] { opacity: 0.6; cursor: default; box-shadow: none; }
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn-row .btn { flex: 1 1 190px; }
+
+/* ---------- order summary ---------- */
+
+.summary { position: sticky; top: 84px; }
+
+.summary-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.summary-total b {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.summary-total span { color: var(--muted); font-size: 14px; }
+
+.ticks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 11px;
+}
+
+.ticks li {
+  display: flex;
+  gap: 10px;
+  font-size: 14.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.ticks svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+/* ---------- numbered steps ---------- */
+
+.steps {
+  list-style: none;
+  counter-reset: step;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 12px;
+  align-items: start;
+  font-size: 14.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.steps li::before {
+  content: counter(step);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.steps b { color: var(--text); font-weight: 600; }
+
+/* ---------- the code itself ---------- */
+
+/*
+  The one thing on the page that matters. Big, monospaced, selectable in one
+  click, and inside a dashed frame so it reads as something to be taken away
+  rather than another line of copy.
+*/
+.code-box {
+  display: block;
+  width: 100%;
+  margin: 4px 0 18px;
+  padding: 22px 16px;
+  border: 1.5px dashed var(--accent);
+  border-radius: 16px;
+  background: var(--accent-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: clamp(22px, 4.6vw, 31px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: center;
+  color: var(--text);
+  user-select: all;
+  word-break: break-all;
+}
+
+/* ---------- waiting, done, failed ---------- */
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 16px;
+}
+
+.state-text { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+
+/* A ring that turns, not a bar that fills: nothing here knows how far along
+   the bank is, and a progress bar would be inventing a number. */
+.spinner {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2.4s; }
+  .pick-item, .pick-dot::after, .phone-field { transition: none; }
+}
+
+.badge-ok {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent), #5b8cff);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(120, 84, 242, 0.30);
+}
+
+.badge-ok svg { width: 16px; height: 16px; }
+
+/* ---------- messages ---------- */
+
+.alert {
+  margin: 16px 0 0;
+  padding: 13px 15px;
+  border-radius: 13px;
+  border: 1px solid rgba(229, 72, 77, 0.35);
+  background: rgba(229, 72, 77, 0.09);
+  color: #c62b30;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .alert { color: #ff9d9f; }
+}
+
+.alert a { color: inherit; }
+
+.notice {
+  margin: 16px 0 0;
+  padding: 13px 15px;
+  border-radius: 13px;
+  border: 1px solid var(--stroke);
+  background: var(--bg-band);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.fine {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.fine a { color: var(--muted); }
+
+/* ---------- account rows ---------- */
+
+.rows { display: grid; margin: 2px 0 0; }
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.row:last-child { border-bottom: 0; }
+
+.row-label { margin: 0; color: var(--muted); font-size: 14px; }
+
+.row-value {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  text-align: right;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+
+.status-dot.on { background: #2fa36b; box-shadow: 0 0 0 4px rgba(47, 163, 107, 0.16); }
+.status-dot.off { background: #e5484d; box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.14); }
+
+.btn-danger {
+  background: transparent;
+  border-color: rgba(229, 72, 77, 0.45);
+  color: #d33b40;
+}
+
+.btn-danger:hover { background: rgba(229, 72, 77, 0.08); }
+
+@media (prefers-color-scheme: dark) {
+  .btn-danger { color: #ff9d9f; }
+}
+
+/* ---------- modal ---------- */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(20, 16, 40, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.modal {
+  max-width: 460px;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 26px;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 860px) {
+  .flow-grid { grid-template-columns: 1fr; }
+  /* Off the sticky rail: on one column it would follow the page down and sit
+     on top of the form it is supposed to be summarising. */
+  .summary { position: static; }
+  .flow { padding: 40px 20px 56px; }
+}
+
+@media (max-width: 560px) {
+  .panel { padding: 20px; border-radius: 17px; }
+  .phone-field { max-width: none; }
+  .btn-row .btn { flex: 1 1 100%; }
+}

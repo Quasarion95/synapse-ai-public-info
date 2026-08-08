@@ -3,9 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
     <title>Оформление Synapse Pro</title>
-    <link rel="icon" href="../screens/mark.png">
-    <link rel="stylesheet" href="../site.css">
+    <link rel="icon" href="/screens/mark.png">
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/Manrope-cyrillic.woff2" crossorigin>
+    <link rel="stylesheet" href="/fonts/fonts.css">
+    <link rel="stylesheet" href="/landing.css">
+    <link rel="stylesheet" href="/checkout.css">
       <!-- Yandex.Metrika counter -->
     <script type="text/javascript">
       (function(m,e,t,r,i,k,a){
@@ -21,46 +25,125 @@
     <!-- /Yandex.Metrika counter -->
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
+    <header class="nav">
+      <a class="brand" href="/">
+        <img class="mark" src="/screens/mark.png" alt="" width="40" height="40">
+        <span>Synapse</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#features">Возможности</a>
+        <a href="/pricing/">Тарифы</a>
+        <a href="/account/">Подписка</a>
+        <a href="/support/">Поддержка</a>
+      </nav>
+    </header>
+
+    <main class="flow">
+      <div class="flow-head">
         <span class="eyebrow">Synapse Pro</span>
-        <h1 id="planTitle">Оформление подписки</h1>
-        <p class="lead" id="planLead">Выберите тариф.</p>
-      </section>
+        <h1>Оформление подписки</h1>
+        <p class="lead">
+          Ни аккаунта, ни пароля. После оплаты вы получите код — он включает Pro
+          в приложении на одном устройстве.
+        </p>
+      </div>
 
-      <section class="stack">
-        <article class="card">
-          <h2>Тариф</h2>
-          <div id="planPicker" style="display: grid; gap: 8px; margin-top: 12px;"></div>
+      <div class="flow-grid">
+        <div>
+          <section class="panel">
+            <h2 class="panel-title">Тариф</h2>
+            <p class="panel-note">Списание разовое. Продлевать или нет — решаете сами.</p>
+            <fieldset class="pick" id="plans"></fieldset>
+          </section>
 
-          <h2 style="margin-top: 24px;">Телефон для чека</h2>
-          <p class="muted">
-            Нужен только для чека — его требует закон. Ни аккаунта, ни пароля
-            заводить не нужно: после оплаты вы получите код, который включает Pro
-            в приложении.
-          </p>
-          <input
-            id="phone"
-            type="tel"
-            inputmode="tel"
-            autocomplete="tel"
-            placeholder="+7 900 000-00-00"
-            style="width: 100%; max-width: 320px; padding: 12px; margin-top: 8px; font: inherit;">
+          <section class="panel">
+            <h2 class="panel-title">Телефон для чека</h2>
+            <p class="panel-note">
+              Нужен только для чека — его требует закон. Больше мы им никуда
+              не пользуемся и никому не передаём.
+            </p>
 
-          <p id="error" class="muted" style="color: #e03131; display: none; margin-top: 12px;"></p>
+            <div class="fld">
+              <label class="fld-label" for="phone">Номер телефона</label>
+              <div class="phone-field" id="phoneField">
+                <span class="phone-prefix" aria-hidden="true">+7</span>
+                <input
+                  id="phone"
+                  type="tel"
+                  inputmode="numeric"
+                  autocomplete="tel-national"
+                  maxlength="16"
+                  aria-describedby="phoneHint"
+                  placeholder="(900) 000-00-00">
+              </div>
+              <p class="hint" id="phoneHint">Мобильный, на который придёт чек.</p>
+            </div>
 
-          <p style="margin-top: 20px;">
-            <button class="button" id="payButton" style="border: none; cursor: pointer; font: inherit;">
-              Перейти к оплате
-            </button>
-          </p>
-          <p class="muted" style="margin-top: 12px;">
-            Оплата проходит на стороне ЮKassa. Нажимая кнопку, вы соглашаетесь с
-            <a href="../offer/">условиями</a>.
-          </p>
-        </article>
-      </section>
+            <p id="error" class="alert" hidden></p>
+
+            <p style="margin: 22px 0 0;">
+              <button class="btn btn-primary btn-wide" id="payButton" type="button">
+                Перейти к оплате
+              </button>
+            </p>
+
+            <p class="fine">
+              Оплата проходит на стороне ЮKassa — карта вводится там, мы её не
+              видим. Нажимая кнопку, вы соглашаетесь с <a href="/offer/">офертой</a>
+              и <a href="/privacy/">политикой конфиденциальности</a>.
+            </p>
+          </section>
+        </div>
+
+        <aside class="summary">
+          <section class="panel">
+            <div class="summary-total">
+              <span id="totalLabel">Месяц</span>
+              <b id="totalPrice">590 ₽</b>
+            </div>
+
+            <ul class="ticks">
+              <li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Ассистент Syn без ограничений по числу запросов</li>
+              <li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Голосовой ввод и разбор задач на шаги</li>
+              <li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Цели, этапы и аналитика без лимитов</li>
+              <li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Все темы оформления</li>
+            </ul>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">Как это работает</h2>
+            <ol class="steps" style="margin-top: 14px;">
+              <li><span><b>Оплата на стороне ЮKassa.</b> Карта, СБП или Apple&nbsp;Pay.</span></li>
+              <li><span><b>Код появится сразу после оплаты.</b> На странице возврата, её же можно открыть повторно.</span></li>
+              <li><span><b>Настройки → Аккаунт в приложении.</b> Вводите код — Pro включается.</span></li>
+            </ol>
+          </section>
+        </aside>
+      </div>
     </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img class="mark" src="/screens/mark.png" alt="" width="26" height="26">
+          <span>Synapse</span>
+        </div>
+        <nav class="footer-links">
+          <a href="/pricing/">Тарифы</a>
+          <a href="/account/">Подписка</a>
+          <a href="/support/">Поддержка</a>
+          <a href="/privacy/">Конфиденциальность</a>
+          <a href="/terms/">Условия</a>
+          <a href="/offer/">Оферта</a>
+          <a href="/requisites/">Реквизиты</a>
+        </nav>
+        <p class="copy">© 2026 Synapse</p>
+      </div>
+    </footer>
 
     <script>
       var BACKEND = "https://api.synapseapp.ru";
@@ -79,55 +162,154 @@
       } catch (error) {}
 
       var PLANS = {
-        "pro.weekly":  { title: "Неделя",  price: "149 ₽",  note: "Попробовать без длинного обязательства." },
-        "pro.monthly": { title: "Месяц",   price: "590 ₽",  note: "Основной тариф." },
-        "pro.yearly":  { title: "Год",     price: "4990 ₽", note: "Примерно 416 ₽ в месяц." }
+        "pro.weekly":  { title: "Неделя", price: 149,  note: "Попробовать без длинного обязательства.", tag: "" },
+        "pro.monthly": { title: "Месяц",  price: 590,  note: "Основной тариф.",                        tag: "" },
+        "pro.yearly":  { title: "Год",    price: 4990, note: "Примерно 416 ₽ в месяц.",                tag: "выгодно" }
+      };
+
+      var money = function (value) {
+        // Неразрывный пробел между разрядами: иначе «4 990 ₽» переносится
+        // посреди числа, когда карточка становится узкой.
+        return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " ₽";
       };
 
       var params = new URLSearchParams(window.location.search);
       var selectedPlan = PLANS[params.get("plan")] ? params.get("plan") : "pro.monthly";
 
-      var pickerEl = document.getElementById("planPicker");
+      var plansEl = document.getElementById("plans");
       var phoneEl = document.getElementById("phone");
+      var phoneFieldEl = document.getElementById("phoneField");
       var payEl = document.getElementById("payButton");
       var errorEl = document.getElementById("error");
-      var leadEl = document.getElementById("planLead");
+      var totalLabelEl = document.getElementById("totalLabel");
+      var totalPriceEl = document.getElementById("totalPrice");
 
-      function renderPicker() {
-        pickerEl.innerHTML = "";
-        Object.keys(PLANS).forEach(function (key) {
+      function renderPlans() {
+        plansEl.innerHTML = Object.keys(PLANS).map(function (key) {
           var plan = PLANS[key];
-          var chosen = key === selectedPlan;
-          var row = document.createElement("button");
-          row.type = "button";
-          row.style.cssText =
-            "display:flex;justify-content:space-between;gap:12px;width:100%;padding:14px 16px;" +
-            "font:inherit;text-align:left;cursor:pointer;border-radius:12px;" +
-            "border:1px solid " + (chosen ? "#1c7ed6" : "rgba(0,0,0,0.16)") + ";" +
-            "background:" + (chosen ? "rgba(28,126,214,0.08)" : "transparent") + ";";
-          row.innerHTML =
-            "<span><strong>" + plan.title + "</strong><br><span class='muted'>" + plan.note + "</span></span>" +
-            "<strong>" + plan.price + "</strong>";
-          row.addEventListener("click", function () {
-            selectedPlan = key;
-            renderPicker();
+          return '' +
+            '<label class="pick-item">' +
+              '<input type="radio" name="plan" value="' + key + '"' +
+                (key === selectedPlan ? " checked" : "") + '>' +
+              '<span class="pick-dot" aria-hidden="true"></span>' +
+              '<span class="pick-body">' +
+                '<span class="pick-name">' + plan.title +
+                  (plan.tag ? ' <span class="tag">' + plan.tag + "</span>" : "") +
+                "</span>" +
+                '<span class="pick-note">' + plan.note + "</span>" +
+              "</span>" +
+              '<span class="pick-price">' + money(plan.price) + "</span>" +
+            "</label>";
+        }).join("");
+
+        Array.prototype.forEach.call(plansEl.querySelectorAll("input"), function (input) {
+          input.addEventListener("change", function () {
+            selectedPlan = input.value;
+            renderTotal();
           });
-          pickerEl.appendChild(row);
         });
-        leadEl.textContent = PLANS[selectedPlan].price + " — " + PLANS[selectedPlan].note;
+        renderTotal();
+      }
+
+      function renderTotal() {
+        totalLabelEl.textContent = PLANS[selectedPlan].title;
+        totalPriceEl.textContent = money(PLANS[selectedPlan].price);
+      }
+
+      /* ---------- телефон ----------
+         Номер набирается блоками: (900) 000-00-00. Скобки и дефисы ставятся
+         сами по мере появления цифр и сами исчезают при стирании, так что в
+         поле не бывает висящей открытой скобки. Код страны живёт слева от
+         поля отдельной подписью, а не в его значении: удалить его случайно
+         нельзя, и курсор никогда не оказывается перед ним. */
+
+      function digitsOf(value) {
+        var digits = value.replace(/\D/g, "");
+        // Вставили номер целиком, вместе с кодом страны — 8 или 7 впереди
+        // относится к стране, а не к номеру. Срабатывает только на длинных
+        // строках, поэтому набранная руками первая цифра не пропадает.
+        if (digits.length > 10 && (digits[0] === "7" || digits[0] === "8")) {
+          digits = digits.slice(1);
+        }
+        return digits.slice(0, 10);
+      }
+
+      function formatPhone(digits) {
+        if (!digits) { return ""; }
+        var out = "(" + digits.slice(0, 3);
+        if (digits.length >= 3) { out += ")"; }
+        if (digits.length > 3) { out += " " + digits.slice(3, 6); }
+        if (digits.length > 6) { out += "-" + digits.slice(6, 8); }
+        if (digits.length > 8) { out += "-" + digits.slice(8, 10); }
+        return out;
+      }
+
+      // Курсор ставится после того же количества цифр, что и был. Без этого
+      // правка в середине номера отбрасывает каретку в конец на каждом нажатии.
+      function digitsBefore(value, position) {
+        return value.slice(0, position).replace(/\D/g, "").length;
+      }
+
+      function positionAfterDigits(value, count) {
+        if (count <= 0) { return 0; }
+        var seen = 0;
+        for (var index = 0; index < value.length; index += 1) {
+          if (/\d/.test(value[index])) {
+            seen += 1;
+            if (seen === count) { return index + 1; }
+          }
+        }
+        return value.length;
+      }
+
+      function reformat(event) {
+        var before = phoneEl.value;
+        var caret = phoneEl.selectionStart;
+        // При стирании разделителя убираем цифру перед ним, иначе Backspace
+        // на «)» ничего не делает и поле выглядит зависшим.
+        var eating = event && event.inputType === "deleteContentBackward";
+        var countBefore = digitsBefore(before, caret);
+        if (eating && caret === phoneEl.selectionEnd && !/\d/.test(before[caret] || "")) {
+          var removed = before.slice(0, caret).replace(/\D/g, "");
+          countBefore = removed.length;
+        }
+
+        var digits = digitsOf(before);
+        var formatted = formatPhone(digits);
+        if (formatted !== before) {
+          phoneEl.value = formatted;
+          var place = positionAfterDigits(formatted, countBefore);
+          try { phoneEl.setSelectionRange(place, place); } catch (error) {}
+        }
+        phoneFieldEl.classList.remove("is-bad");
+      }
+
+      phoneEl.addEventListener("input", reformat);
+      phoneEl.addEventListener("paste", function () { setTimeout(reformat, 0); });
+
+      function phoneDigits() {
+        return phoneEl.value.replace(/\D/g, "");
       }
 
       function showError(text) {
-        errorEl.textContent = text;
-        errorEl.style.display = text ? "block" : "none";
+        errorEl.innerHTML = text || "";
+        errorEl.hidden = !text;
+      }
+
+      function resetButton() {
+        payEl.disabled = false;
+        payEl.textContent = "Перейти к оплате";
       }
 
       payEl.addEventListener("click", function () {
-        var phone = phoneEl.value.trim();
-        if (phone.replace(/\D/g, "").length < 10) {
-          showError("Введите номер телефона — он нужен для чека.");
+        var digits = phoneDigits();
+        if (digits.length !== 10) {
+          phoneFieldEl.classList.add("is-bad");
+          phoneEl.focus();
+          showError("Введите номер полностью — десять цифр после +7. Он нужен для чека.");
           return;
         }
+
         showError("");
         payEl.disabled = true;
         payEl.textContent = "Готовим оплату…";
@@ -145,7 +327,7 @@
         fetch(BACKEND + "/v1/synapse/checkout/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: selectedPlan, phone: phone }),
+          body: JSON.stringify({ plan: selectedPlan, phone: "+7" + digits }),
           signal: abort ? abort.signal : undefined
         })
           .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
@@ -153,8 +335,7 @@
             clearTimeout(timer);
             if (!result.ok || !result.data.paymentURL) {
               showError(result.data.error || "Не получилось начать оплату. Попробуйте ещё раз.");
-              payEl.disabled = false;
-              payEl.textContent = "Перейти к оплате";
+              resetButton();
               return;
             }
             // Кладём ссылку на код заранее: если человек закроет страницу после
@@ -169,15 +350,14 @@
             // не пускает провайдер. Второму случаю нужен другой совет.
             showError(
               timedOut
-                ? "Сервер не ответил за 15 секунд. Похоже, ваш провайдер не пропускает запрос: попробуйте мобильный интернет вместо домашнего или напишите на support@synapseapp.ru — выдадим доступ вручную."
+                ? 'Сервер не ответил за 15 секунд. Похоже, ваш провайдер не пропускает запрос: попробуйте мобильный интернет вместо домашнего или напишите на <a href="mailto:support@synapseapp.ru">support@synapseapp.ru</a> — выдадим доступ вручную.'
                 : "Сервер не ответил. Проверьте связь и попробуйте ещё раз."
             );
-            payEl.disabled = false;
-            payEl.textContent = "Перейти к оплате";
+            resetButton();
           });
       });
 
-      renderPicker();
+      renderPlans();
     </script>
   </body>
 </html>

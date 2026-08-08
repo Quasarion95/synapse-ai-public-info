@@ -3,203 +3,59 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Управление подпиской Synapse Pro</title>
-    <link rel="icon" href="../screens/mark.png">
-    <link rel="stylesheet" href="../site.css">
+    <meta name="robots" content="noindex">
+    <title>Подписка Synapse Pro</title>
+    <link rel="icon" href="/screens/mark.png">
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/Manrope-cyrillic.woff2" crossorigin>
+    <link rel="stylesheet" href="/fonts/fonts.css">
+    <link rel="stylesheet" href="/landing.css">
+    <link rel="stylesheet" href="/checkout.css">
     <style>
-      /* Только то, чего нет в site.css: строки «поле — значение», модальное
-         окно и красная кнопка. Всё остальное — card, button, muted, shell,
-         hero, actions — берётся из общего файла. */
-      .rows {
-        display: grid;
-        gap: 2px;
-        margin: 18px 0 0;
-      }
-
-      .row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 4px 16px;
-        padding: 12px 0;
-        border-top: 1px solid var(--stroke);
-      }
-
-      .row:first-child {
-        border-top: none;
-      }
-
-      .row-label {
-        margin: 0;
-        font-size: 15px;
-        color: var(--muted);
-      }
-
-      .row-value {
-        margin: 0;
-        font-size: 15px;
-        font-weight: 700;
-        color: var(--text);
-        text-align: right;
-        /* На 375px «Synapse Pro — подписка на 12 месяцев» не должно
-           выталкивать строку за край карточки. */
-        min-width: 0;
-        overflow-wrap: anywhere;
-      }
-
-      .state {
-        display: inline-flex;
-        align-items: center;
-        gap: 9px;
-        font-size: 15px;
-        font-weight: 700;
-        color: var(--text);
-      }
-
-      .state .dot {
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        background: #34c07a;
-        box-shadow: 0 0 0 4px rgba(52, 192, 122, 0.18);
-        flex: none;
-      }
-
-      .state.off .dot {
-        background: #b3aac9;
-        box-shadow: 0 0 0 4px rgba(179, 170, 201, 0.18);
-      }
-
-      .field {
-        display: block;
+      /* Только то, что нужно одной этой странице: поле кода набирается
+         группами по четыре знака, как он и напечатан на странице оплаты. */
+      .code-field {
         width: 100%;
-        padding: 14px 16px;
-        border-radius: 16px;
-        border: 1px solid var(--stroke);
-        background: rgba(255, 255, 255, 0.75);
+        max-width: 340px;
+        padding: 13px 15px;
+        border: 1.5px solid var(--stroke);
+        border-radius: 14px;
+        background: var(--surface);
         color: var(--text);
-        font: inherit;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 17px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-
-      .field::placeholder {
-        color: var(--muted);
-        opacity: 0.7;
-      }
-
-      .field:focus {
-        outline: 2px solid var(--accent);
-        outline-offset: 1px;
-      }
-
-      .form {
-        display: grid;
-        gap: 10px;
-        margin-top: 18px;
-      }
-
-      .form label {
-        font-size: 14px;
-      }
-
-      .error {
-        margin: 14px 0 0;
-        font-size: 15px;
-        color: #d1495b;
-      }
-
-      .done {
-        margin: 18px 0 0;
-        font-size: 15px;
-        color: #2f8f5b;
-      }
-
-      button.button {
-        border: none;
-        cursor: pointer;
-        font: inherit;
-        font-weight: 700;
-      }
-
-      .button.danger {
-        background: #d1495b;
-        box-shadow: 0 14px 28px rgba(209, 73, 91, 0.25);
-      }
-
-      .button.plain {
-        background: none;
-        box-shadow: none;
-        color: var(--muted);
         font-weight: 600;
-      }
-
-      .button[disabled] {
-        opacity: 0.55;
-        cursor: default;
-      }
-
-      .backdrop {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 18px;
-        background: rgba(34, 27, 52, 0.45);
-        z-index: 10;
-      }
-
-      .modal {
-        width: 100%;
-        max-width: 420px;
-        padding: 26px;
-        /* Длинная модалка на маленьком экране должна скроллиться сама,
-           а не уезжать за пределы окна. */
-        max-height: calc(100vh - 36px);
-        overflow-y: auto;
-      }
-
-      .modal h2 {
-        font-size: 22px;
-      }
-
-      .modal .actions {
-        display: grid;
-        gap: 10px;
-        margin-top: 22px;
-      }
-
-      /* Код набирают глазами, поэтому он крупный — но на 375px «KX7M-4PQR-92TD»
-         в 30px переносится на вторую строку и перестаёт читаться как одно
-         целое. Пусть шрифт уступает ширине экрана, а не наоборот. */
-      .code {
-        margin: 16px 0;
-        font-size: clamp(22px, 6.4vw, 30px);
-        font-weight: 700;
         letter-spacing: 0.08em;
-        color: var(--text);
-        user-select: all;
-        overflow-wrap: anywhere;
+        outline: none;
+        transition: border-color 0.16s ease, box-shadow 0.16s ease;
       }
 
-      [hidden] {
-        display: none !important;
+      .code-field:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-soft);
       }
 
-      @media (max-width: 420px) {
-        .row {
-          /* На узком экране значение уходит под подпись: иначе длинный тариф
-             и дата дерутся за одну строку. */
-          flex-direction: column;
-          align-items: flex-start;
-        }
+      .code-field.is-bad { border-color: #e5484d; }
 
-        .row-value {
-          text-align: left;
-        }
+      .code-field::placeholder {
+        color: color-mix(in srgb, var(--muted) 55%, transparent);
+        font-weight: 500;
+      }
+
+      .short-field { max-width: 140px; letter-spacing: 0.14em; text-align: center; }
+
+      .done-note {
+        margin: 16px 0 0;
+        padding: 13px 15px;
+        border-radius: 13px;
+        border: 1px solid rgba(47, 163, 107, 0.35);
+        background: rgba(47, 163, 107, 0.10);
+        color: #1f7a4f;
+        font-size: 14.5px;
+        line-height: 1.5;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .done-note { color: #7fd6a6; }
       }
     </style>
       <!-- Yandex.Metrika counter -->
@@ -217,65 +73,92 @@
     <!-- /Yandex.Metrika counter -->
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
+    <header class="nav">
+      <a class="brand" href="/">
+        <img class="mark" src="/screens/mark.png" alt="" width="40" height="40">
+        <span>Synapse</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#features">Возможности</a>
+        <a href="/pricing/">Тарифы</a>
+        <a href="/checkout/">Оформить</a>
+        <a href="/support/">Поддержка</a>
+      </nav>
+    </header>
+
+    <main class="flow">
+      <div class="flow-head">
         <span class="eyebrow">Synapse Pro</span>
         <h1>Подписка</h1>
         <p class="lead">
           Никаких аккаунтов и паролей. Всё, что нужно, — код, который вы
           получили после оплаты.
         </p>
-      </section>
+      </div>
 
-      <section class="stack">
+      <div class="flow-narrow">
         <!-- Ввод кода: показывается, пока подписка не найдена. -->
-        <article class="card" id="askCard" hidden>
-          <h2>Введите код</h2>
-          <p class="muted">
-            12 знаков со страницы, которая открылась после оплаты, — например,
-            KX7M-4PQR-92TD. Тот же код хранится в приложении, если вы уже
-            включили Pro.
+        <section class="panel" id="askCard" hidden>
+          <h2 class="panel-title">Вход по коду</h2>
+          <p class="panel-note">
+            12 знаков со страницы, которая открылась после оплаты. Тот же код
+            хранится в приложении, если вы уже включили Pro.
           </p>
-          <form class="form" id="codeForm">
-            <label class="muted" for="codeInput">Код подписки</label>
-            <input
-              class="field"
-              id="codeInput"
-              name="code"
-              type="text"
-              inputmode="text"
-              autocomplete="off"
-              autocapitalize="characters"
-              autocorrect="off"
-              spellcheck="false"
-              maxlength="14"
-              placeholder="KX7M-4PQR-92TD">
-            <label class="muted" for="phoneInput" style="margin-top: 14px;">
-              Последние 4 цифры телефона, указанного при оплате
-            </label>
-            <input
-              class="field"
-              id="phoneInput"
-              name="phoneLast4"
-              type="tel"
-              inputmode="numeric"
-              autocomplete="off"
-              maxlength="4"
-              placeholder="0000">
-            <button class="button" type="submit" id="checkButton">Показать подписку</button>
+
+          <form id="codeForm">
+            <div class="fld">
+              <label class="fld-label" for="codeInput">Код подписки</label>
+              <input
+                class="code-field"
+                id="codeInput"
+                name="code"
+                type="text"
+                inputmode="text"
+                autocomplete="off"
+                autocapitalize="characters"
+                autocorrect="off"
+                spellcheck="false"
+                maxlength="14"
+                placeholder="KX7M-4PQR-92TD">
+            </div>
+
+            <div class="fld" style="margin-top: 18px;">
+              <label class="fld-label" for="phoneInput">Последние 4 цифры телефона, указанного при оплате</label>
+              <input
+                class="code-field short-field"
+                id="phoneInput"
+                name="phoneLast4"
+                type="tel"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="4"
+                placeholder="0000">
+              <p class="hint">
+                Один код без этих цифр не открывает управление подпиской — так
+                скриншот или чужой браузер не дают доступа к ней.
+              </p>
+            </div>
+
+            <p style="margin: 22px 0 0;">
+              <button class="btn btn-primary btn-wide" type="submit" id="checkButton">Показать подписку</button>
+            </p>
           </form>
-          <p class="error" id="askError" hidden></p>
-          <p class="muted" style="margin-top: 18px;">
+
+          <p class="alert" id="askError" hidden></p>
+
+          <p class="fine">
             Потеряли код? Он остаётся на странице, куда вас вернуло после
             оплаты, — её можно открыть из истории браузера. Если и её нет,
-            напишите в <a href="../support/">поддержку</a>.
+            напишите в <a href="/support/">поддержку</a>.
           </p>
-        </article>
+        </section>
 
         <!-- Состояние подписки. -->
-        <article class="card" id="statusCard" hidden>
-          <h2>Ваша подписка</h2>
-          <p class="state" id="stateLine"><span class="dot"></span><span id="stateText"></span></p>
+        <section class="panel" id="statusCard" hidden>
+          <div class="state" id="stateLine">
+            <span class="status-dot"></span>
+            <span class="state-text" id="stateText"></span>
+          </div>
 
           <div class="rows">
             <div class="row">
@@ -296,67 +179,80 @@
             </div>
           </div>
 
-          <p class="done" id="doneNote" hidden></p>
+          <p class="done-note" id="doneNote" hidden></p>
 
-          <p class="actions">
-            <button class="button danger" type="button" id="cancelButton">Отменить подписку</button>
-            <button class="button plain" type="button" id="otherCodeButton">Другой код</button>
-          </p>
-          <p class="error" id="statusError" hidden></p>
-        </article>
+          <div class="btn-row" style="margin-top: 20px;">
+            <button class="btn btn-ghost btn-danger" type="button" id="cancelButton">Отменить подписку</button>
+            <button class="btn btn-ghost" type="button" id="otherCodeButton">Другой код</button>
+          </div>
+          <p class="alert" id="statusError" hidden></p>
+        </section>
 
         <!-- Код и переход в приложение. -->
-        <article class="card" id="codeCard" hidden>
-          <h2>Ваш код</h2>
-          <p class="code" id="code"></p>
-          <p style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="button" type="button" id="copyButton">Скопировать код</button>
-            <a class="button" id="openButton" href="#">Открыть в Synapse</a>
-          </p>
-          <p class="muted">
-            Код работает на одном устройстве. Ввели на новом телефоне — на
-            старом Pro выключится.
-          </p>
-        </article>
+        <section class="panel" id="codeCard" hidden>
+          <h2 class="panel-title">Ваш код</h2>
+          <p class="panel-note">Он же включает Pro на новом телефоне.</p>
 
-        <article class="card">
-          <h2>Как это работает</h2>
-          <p class="muted">
+          <code class="code-box" id="code"></code>
+
+          <div class="btn-row">
+            <button class="btn btn-primary" type="button" id="copyButton">Скопировать код</button>
+            <a class="btn btn-ghost" id="openButton" href="#">Открыть в Synapse</a>
+          </div>
+
+          <p class="fine">
+            Код работает на одном устройстве одновременно. Ввели на новом
+            телефоне — на старом Pro выключится.
+          </p>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-title">Как это работает</h2>
+          <p class="panel-note">
             Приложение бесплатное, и большая часть в нём бесплатна навсегда:
             задачи, цели, списки, заметки. Подписка снимает ограничения на
             обращения к Syn и открывает то, что работает на сервере.
           </p>
-          <p class="muted">
+          <p class="panel-note" style="margin-bottom: 0;">
             Оплата и управление подпиской — здесь, на сайте. В приложении вы
             только вводите код.
           </p>
-        </article>
-      </section>
-
-      <footer class="footer">
-        <p class="muted">
-          <a href="../offer/">оферта</a> ·
-          <a href="../requisites/">реквизиты</a> ·
-          <a href="../privacy/">политика конфиденциальности</a> ·
-          <a href="../terms/">условия использования</a> ·
-          <a href="../support/">поддержка</a>
-        </p>
-      </footer>
+        </section>
+      </div>
     </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img class="mark" src="/screens/mark.png" alt="" width="26" height="26">
+          <span>Synapse</span>
+        </div>
+        <nav class="footer-links">
+          <a href="/pricing/">Тарифы</a>
+          <a href="/checkout/">Оформить</a>
+          <a href="/support/">Поддержка</a>
+          <a href="/privacy/">Конфиденциальность</a>
+          <a href="/terms/">Условия</a>
+          <a href="/offer/">Оферта</a>
+          <a href="/requisites/">Реквизиты</a>
+        </nav>
+        <p class="copy">© 2026 Synapse</p>
+      </div>
+    </footer>
 
     <!-- Подтверждение отмены. -->
     <div class="backdrop" id="backdrop" hidden>
-      <div class="card modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal">
-        <h2 id="modalTitle">Отменить подписку?</h2>
-        <p class="muted" id="modalMethod"></p>
-        <p class="muted" id="modalAccess"></p>
-        <p class="muted">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal">
+        <h2 class="panel-title" id="modalTitle">Отменить подписку?</h2>
+        <p class="panel-note" id="modalMethod"></p>
+        <p class="panel-note" id="modalAccess"></p>
+        <p class="panel-note">
           Вернуть подписку можно в любой момент — просто оформите её заново.
         </p>
-        <p class="error" id="modalError" hidden></p>
-        <div class="actions">
-          <button class="button danger" type="button" id="confirmButton">Да, отменить</button>
-          <button class="button secondary" type="button" id="dismissButton">Оставить подписку</button>
+        <p class="alert" id="modalError" hidden></p>
+        <div class="btn-row" style="margin-top: 20px;">
+          <button class="btn btn-ghost btn-danger" type="button" id="confirmButton">Да, отменить</button>
+          <button class="btn btn-primary" type="button" id="dismissButton">Оставить подписку</button>
         </div>
       </div>
     </div>
@@ -388,6 +284,7 @@
       var codeCard = element("codeCard");
       var backdrop = element("backdrop");
       var cancelButton = element("cancelButton");
+      var codeInput = element("codeInput");
 
       var state = null;
       var currentCode = "";
@@ -422,6 +319,25 @@
         }
         return groups.join("-");
       }
+
+      // Дефисы расставляются по мере набора, теми же группами по четыре, что и
+      // на странице оплаты: код везде выглядит одинаково, и человек сверяет
+      // его глазами, а не пересчитывает знаки.
+      codeInput.addEventListener("input", function () {
+        var caretAtEnd = codeInput.selectionStart === codeInput.value.length;
+        var formatted = formatCode(codeInput.value);
+        if (formatted !== codeInput.value) {
+          codeInput.value = formatted;
+          if (caretAtEnd) {
+            try { codeInput.setSelectionRange(formatted.length, formatted.length); } catch (error) {}
+          }
+        }
+        codeInput.classList.remove("is-bad");
+      });
+
+      element("phoneInput").addEventListener("input", function () {
+        this.value = this.value.replace(/\D/g, "").slice(0, 4);
+      });
 
       function formatDate(iso) {
         if (!iso) { return ""; }
@@ -506,7 +422,7 @@
         var renews = Boolean(state.autoRenew);
         var until = formatDate(state.expiresAt);
 
-        element("stateLine").className = state.active ? "state" : "state off";
+        element("stateLine").querySelector(".status-dot").className = state.active ? "status-dot on" : "status-dot off";
         element("stateText").textContent = state.active
           ? (renews ? "Активна, продлевается" : "Активна, продление отключено")
           : "Не активна";
@@ -544,8 +460,9 @@
 
       function lookup(code) {
         var cleaned = normalizeCode(code);
-        phoneLast4 = (document.getElementById("phoneInput").value || "").replace(/\D/g, "").slice(-4);
+        phoneLast4 = (element("phoneInput").value || "").replace(/\D/g, "").slice(-4);
         if (cleaned.length !== CODE_LENGTH) {
+          codeInput.classList.add("is-bad");
           showError(element("askError"), "В коде 12 знаков. Проверьте, что он введён целиком.");
           return;
         }
@@ -631,7 +548,7 @@
 
       element("codeForm").addEventListener("submit", function (event) {
         event.preventDefault();
-        lookup(element("codeInput").value);
+        lookup(codeInput.value);
       });
 
       cancelButton.addEventListener("click", openModal);
@@ -651,10 +568,10 @@
         state = null;
         currentCode = "";
         cancelled = false;
-        element("codeInput").value = "";
+        codeInput.value = "";
         showError(element("askError"), "");
         render();
-        element("codeInput").focus();
+        codeInput.focus();
       });
 
       element("copyButton").addEventListener("click", function () {
@@ -690,7 +607,7 @@
 
       render();
       if (initial.length === CODE_LENGTH) {
-        element("codeInput").value = formatCode(initial);
+        codeInput.value = formatCode(initial);
         lookup(initial);
       }
     </script>

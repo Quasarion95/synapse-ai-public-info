@@ -3,9 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
     <title>Ваш код Synapse Pro</title>
-    <link rel="icon" href="../../screens/mark.png">
-    <link rel="stylesheet" href="../../site.css">
+    <link rel="icon" href="/screens/mark.png">
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/Manrope-cyrillic.woff2" crossorigin>
+    <link rel="stylesheet" href="/fonts/fonts.css">
+    <link rel="stylesheet" href="/landing.css">
+    <link rel="stylesheet" href="/checkout.css">
       <!-- Yandex.Metrika counter -->
     <script type="text/javascript">
       (function(m,e,t,r,i,k,a){
@@ -21,59 +25,120 @@
     <!-- /Yandex.Metrika counter -->
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
+    <header class="nav">
+      <a class="brand" href="/">
+        <img class="mark" src="/screens/mark.png" alt="" width="40" height="40">
+        <span>Synapse</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/#features">Возможности</a>
+        <a href="/pricing/">Тарифы</a>
+        <a href="/account/">Подписка</a>
+        <a href="/support/">Поддержка</a>
+      </nav>
+    </header>
+
+    <main class="flow">
+      <div class="flow-head">
         <span class="eyebrow">Synapse Pro</span>
-        <h1 id="title">Проверяем оплату…</h1>
+        <h1 id="title">Проверяем оплату</h1>
         <p class="lead" id="lead">Это занимает несколько секунд.</p>
-      </section>
+      </div>
 
-      <section class="stack">
-        <article class="card" id="codeCard" style="display: none;">
-          <h2>Ваш код для активации подписки Synapse Pro</h2>
-          <p
-            id="code"
-            style="font-size: 30px; letter-spacing: 0.08em; font-weight: 700; margin: 16px 0; user-select: all;">
+      <div class="flow-narrow">
+        <!-- ЖДЁМ ------------------------------------------------------- -->
+        <section class="panel" id="waitCard">
+          <div class="state">
+            <div class="spinner" id="spinner" role="status" aria-live="polite"></div>
+            <div class="state-text" id="waitTitle">Ждём подтверждения от банка</div>
+          </div>
+          <p class="panel-note" id="waitText">
+            Страницу можно не закрывать — код появится здесь сам. Деньги уже
+            списаны, банку осталось только сообщить нам об этом.
           </p>
+          <p class="notice">
+            Закрыли случайно? Ссылка остаётся рабочей: откройте её снова, и код
+            будет здесь.
+          </p>
+        </section>
 
-          <p style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="button" id="copyButton" style="border: none; cursor: pointer; font: inherit;">
-              Скопировать код
-            </button>
-            <a class="button" id="openButton" href="#">Открыть в Synapse</a>
-          </p>
+        <!-- ГОТОВО ----------------------------------------------------- -->
+        <section class="panel" id="codeCard" hidden>
+          <div class="state">
+            <div class="badge-ok" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="state-text">Подписка оформлена</div>
+          </div>
 
-          <h2 style="margin-top: 28px;">Что с ним делать</h2>
-          <p class="muted">
-            Откройте приложение, зайдите в Настройки → Аккаунт и введите код.
-            Кнопка выше делает это за вас: приложение откроется, код подставится сам.
+          <p class="panel-note">Вот код, который включает Pro. Он же откроет доступ на новом телефоне.</p>
+
+          <code class="code-box" id="code"></code>
+
+          <div class="btn-row">
+            <button class="btn btn-primary" id="copyButton" type="button">Скопировать код</button>
+            <a class="btn btn-ghost" id="openButton" href="#">Открыть в Synapse</a>
+          </div>
+
+          <p class="fine">
+            Кнопка «Открыть в Synapse» работает на том телефоне, где стоит
+            приложение. С компьютера — просто перепишите код.
           </p>
-          <p class="muted">
-            Код работает <strong>на одном устройстве</strong>. Ввели его на новом
-            телефоне — на старом Pro выключится. Так что телефон можно менять
+        </section>
+
+        <section class="panel" id="howCard" hidden>
+          <h2 class="panel-title">Что дальше</h2>
+          <ol class="steps" style="margin-top: 14px;">
+            <li><span><b>Откройте приложение</b> и зайдите в Настройки&nbsp;→&nbsp;Аккаунт.</span></li>
+            <li><span><b>Введите код.</b> Pro включится сразу, перезапускать ничего не нужно.</span></li>
+            <li><span><b>Сохраните эту страницу.</b> Ссылка рабочая, по ней код открывается снова.</span></li>
+          </ol>
+
+          <p class="notice">
+            Код работает <b>на одном устройстве одновременно</b>. Ввели его на
+            новом телефоне — на старом Pro выключится. Менять телефон можно
             сколько угодно, а поделиться кодом с другим человеком не получится.
           </p>
-          <p class="muted">
-            Сохраните код или эту страницу: ссылка остаётся рабочей, по ней код
-            открывается снова. После активации код виден и в самом приложении.
-          </p>
 
-          <h2 style="margin-top: 28px;">Управление подпиской</h2>
-          <p class="muted">
-            Отменить подписку, отвязать карту и посмотреть, до какого числа она
-            действует, можно на странице <a href="../../account/">Подписка</a> —
-            туда нужно ввести этот же код. Обращаться в поддержку не нужно.
+          <p class="fine">
+            Отменить подписку, отвязать карту и посмотреть срок действия можно
+            на странице <a href="/account/">Подписка</a> — туда нужен этот же код.
+            Писать в поддержку для этого не нужно.
           </p>
-        </article>
+        </section>
 
-        <article class="card" id="waitCard">
-          <h2>Ждём подтверждения от банка</h2>
-          <p class="muted" id="waitText">
-            Обычно это несколько секунд. Страницу можно не закрывать — код появится сам.
-          </p>
-        </article>
-      </section>
+        <!-- НЕ НАШЛИ --------------------------------------------------- -->
+        <section class="panel" id="failCard" hidden>
+          <div class="state">
+            <div class="state-text" id="failTitle">Не нашли оплату</div>
+          </div>
+          <p class="panel-note" id="failText"></p>
+          <div class="btn-row" style="margin-top: 18px;">
+            <a class="btn btn-ghost" href="/account/">Ввести код вручную</a>
+            <a class="btn btn-ghost" href="/support/">Написать в поддержку</a>
+          </div>
+        </section>
+      </div>
     </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img class="mark" src="/screens/mark.png" alt="" width="26" height="26">
+          <span>Synapse</span>
+        </div>
+        <nav class="footer-links">
+          <a href="/pricing/">Тарифы</a>
+          <a href="/account/">Подписка</a>
+          <a href="/support/">Поддержка</a>
+          <a href="/privacy/">Конфиденциальность</a>
+          <a href="/terms/">Условия</a>
+          <a href="/offer/">Оферта</a>
+          <a href="/requisites/">Реквизиты</a>
+        </nav>
+        <p class="copy">© 2026 Synapse</p>
+      </div>
+    </footer>
 
     <script>
       var BACKEND = "https://api.synapseapp.ru";
@@ -88,9 +153,14 @@
 
       var titleEl = document.getElementById("title");
       var leadEl = document.getElementById("lead");
-      var codeCardEl = document.getElementById("codeCard");
       var waitCardEl = document.getElementById("waitCard");
+      var waitTitleEl = document.getElementById("waitTitle");
       var waitTextEl = document.getElementById("waitText");
+      var spinnerEl = document.getElementById("spinner");
+      var codeCardEl = document.getElementById("codeCard");
+      var howCardEl = document.getElementById("howCard");
+      var failCardEl = document.getElementById("failCard");
+      var failTextEl = document.getElementById("failText");
       var codeEl = document.getElementById("code");
       var copyEl = document.getElementById("copyButton");
       var openEl = document.getElementById("openButton");
@@ -99,16 +169,28 @@
         codeEl.textContent = code;
         openEl.href = "synapse://activate?code=" + encodeURIComponent(code);
         titleEl.textContent = "Готово";
-        leadEl.textContent = "Подписка оформлена. Вот код, который включает Pro.";
-        codeCardEl.style.display = "block";
-        waitCardEl.style.display = "none";
+        leadEl.textContent = "Осталось ввести код в приложении — это занимает полминуты.";
+        waitCardEl.hidden = true;
+        failCardEl.hidden = true;
+        codeCardEl.hidden = false;
+        howCardEl.hidden = false;
         try { localStorage.setItem("synapse.code", code); } catch (error) {}
       }
 
       function fail(text) {
         titleEl.textContent = "Не нашли оплату";
-        leadEl.textContent = text;
-        waitCardEl.style.display = "none";
+        leadEl.textContent = "Деньги при этом никуда не пропали.";
+        failTextEl.textContent = text;
+        waitCardEl.hidden = true;
+        failCardEl.hidden = false;
+      }
+
+      // Ожидание, которое затянулось, перестаёт быть ожиданием: колесо
+      // крутится дальше, а текст должен честно сказать, что делать.
+      function stillWaiting(text) {
+        spinnerEl.remove();
+        waitTitleEl.textContent = "Банк пока не подтвердил платёж";
+        waitTextEl.textContent = text;
       }
 
       copyEl.addEventListener("click", function () {
@@ -135,7 +217,7 @@
         if (saved) {
           showCode(saved);
         } else {
-          fail("В ссылке нет отметки об оплате. Откройте страницу по ссылке, на которую вас вернуло после платежа.");
+          fail("В ссылке нет отметки об оплате. Откройте страницу по той ссылке, на которую вас вернуло после платежа, — или введите код вручную, если он у вас уже есть.");
         }
       } else {
         var attempts = 0;
@@ -151,15 +233,14 @@
               // Банк иногда думает дольше нескольких секунд, поэтому ждём до
               // двух минут, а потом честно говорим, что делать.
               if (attempts > 40) {
-                waitTextEl.textContent =
-                  "Банк пока не подтвердил платёж. Если деньги списались, вернитесь на эту страницу через несколько минут — код появится здесь.";
+                stillWaiting("Если деньги списались, вернитесь на эту страницу через несколько минут — код появится здесь. Ссылка остаётся рабочей.");
                 return;
               }
               setTimeout(poll, 3000);
             })
             .catch(function () {
               if (attempts > 40) {
-                waitTextEl.textContent = "Не получается связаться с сервером. Откройте страницу позже — ссылка остаётся рабочей.";
+                stillWaiting("Не получается связаться с сервером. Откройте страницу позже — ссылка остаётся рабочей.");
                 return;
               }
               setTimeout(poll, 3000);
