@@ -83,9 +83,10 @@ a { color: var(--accent-strong); }
   font-family: var(--font-display);
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 11px;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 18px;
+  letter-spacing: -0.015em;
   color: var(--text);
   text-decoration: none;
 }
@@ -96,21 +97,60 @@ a { color: var(--accent-strong); }
   box-shadow: 0 3px 10px rgba(29, 24, 48, 0.16);
 }
 
-.brand .mark { width: 30px; height: 30px; }
+/* 40px is what the bar gives away for free: the Telegram pill beside it is
+   ~40px tall, so the mark grows into height the header already occupied and
+   the row does not get taller. The source PNG is 128px, so there are still
+   pixels to spare on a 3x screen. */
+.brand .mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+}
 
+/* Manrope, small and letterspaced, rather than the body face at its default
+   setting: these are labels to be glanced at, not sentences to be read, and
+   the caps give the bar a deliberate line without shouting. */
 .nav-links {
   display: flex;
-  gap: 22px;
+  gap: 26px;
   margin-left: auto;
-  font-size: 14px;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .nav-links a {
+  position: relative;
+  padding-block: 3px;
   color: var(--muted);
   text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+/* The rule grows in from the left rather than blinking on. */
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--accent-strong);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.22s ease;
 }
 
 .nav-links a:hover { color: var(--text); }
+.nav-links a:hover::after { transform: scaleX(1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-links a,
+  .nav-links a::after { transition: none; }
+}
 
 /* ---------- buttons ---------- */
 
@@ -146,6 +186,10 @@ a { color: var(--accent-strong); }
   height: 19px;
   flex: none;
   margin-right: 9px;
+  /* These glyphs are drawn on a 24px grid and used at 16-19px. Precision
+     rendering keeps the curves from being snapped to the pixel grid, which is
+     what made the small one look smeared. */
+  shape-rendering: geometricPrecision;
 }
 
 /* Black pill with the Apple mark, the way Apple's own download badge reads. */
@@ -514,6 +558,9 @@ a { color: var(--accent-strong); }
   .hero-shot .device { max-width: 270px; }
   .cards, .grid, .grid-3, .shots { grid-template-columns: repeat(2, 1fr); }
   .nav-links { display: none; }
+  /* The links carried margin-left:auto and held the button against the right
+     edge. With them hidden the button needs to hold that edge itself. */
+  .nav .btn-small { margin-left: auto; }
 }
 
 @media (max-width: 560px) {
@@ -521,6 +568,11 @@ a { color: var(--accent-strong); }
   .section { padding-block: 40px; }
   .cta .btn { flex: 1 1 100%; }
   .footer-links { margin-left: 0; }
+  /* Narrower gutters and a slightly smaller mark so the brand and the pill
+     still sit on one line at 375px with room left over. */
+  .nav { padding: 12px 16px; gap: 12px; }
+  .brand { font-size: 17px; }
+  .brand .mark { width: 36px; height: 36px; border-radius: 10px; }
 }
 
 /* ---------- creed ---------- */
@@ -630,15 +682,6 @@ a { color: var(--accent-strong); }
 .plans-band .section-title {
   margin-bottom: 14px;
   letter-spacing: -0.03em;
-}
-
-.plans-lead {
-  max-width: 620px;
-  margin: 0 auto 30px;
-  text-align: center;
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1.55;
 }
 
 .plans {
