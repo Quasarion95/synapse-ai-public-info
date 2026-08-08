@@ -531,6 +531,7 @@
 
       function lookup(code) {
         var cleaned = normalizeCode(code);
+        phoneLast4 = (document.getElementById("phoneInput").value || "").replace(/\D/g, "").slice(-4);
         if (cleaned.length !== CODE_LENGTH) {
           showError(element("askError"), "В коде 12 знаков. Проверьте, что он введён целиком.");
           return;
@@ -681,5 +682,4 @@
       }
     </script>
   </body>
-        phoneLast4 = (document.getElementById("phoneInput").value || "").replace(/\D/g, "").slice(-4);
 </html>
