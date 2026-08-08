@@ -3,7 +3,6 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex">
     <title>Оформление Synapse Pro</title>
     <link rel="icon" href="../screens/mark.png">
     <link rel="stylesheet" href="../site.css">
@@ -13,131 +12,126 @@
       <section class="hero">
         <span class="eyebrow">Synapse Pro</span>
         <h1 id="planTitle">Оформление подписки</h1>
-        <p class="lead" id="planLead">
-          Загружаем детали заказа…
-        </p>
+        <p class="lead" id="planLead">Выберите тариф.</p>
       </section>
 
       <section class="stack">
-        <article class="card" id="testModeCard">
-          <h2>Тестовый режим</h2>
-          <p>
-            Приём платежей ещё не подключён (ждём публикации приложения для
-            подключения ЮKassa). Пока идёт разработка, здесь можно
-            подтвердить оплату вручную, чтобы проверить весь путь целиком —
-            от входа с Apple ID до разблокировки Pro в приложении.
+        <article class="card">
+          <h2>Тариф</h2>
+          <div id="planPicker" style="display: grid; gap: 8px; margin-top: 12px;"></div>
+
+          <h2 style="margin-top: 24px;">Телефон для чека</h2>
+          <p class="muted">
+            Нужен только для чека — его требует закон. Ни аккаунта, ни пароля
+            заводить не нужно: после оплаты вы получите код, который включает Pro
+            в приложении.
           </p>
-          <p class="muted" id="tokenStatus">Проверяем ссылку…</p>
+          <input
+            id="phone"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel"
+            placeholder="+7 900 000-00-00"
+            style="width: 100%; max-width: 320px; padding: 12px; margin-top: 8px; font: inherit;">
 
-          <div id="testForm" style="display: none; margin-top: 12px;">
-            <label class="muted" for="backendURL">Адрес backend</label><br>
-            <input
-              id="backendURL"
-              type="text"
-              value="https://api.synapseapp.ru"
-              style="width: 100%; padding: 10px; margin: 6px 0 14px; border-radius: 12px; border: 1px solid var(--stroke); font-size: 15px;"
-            >
+          <p id="error" class="muted" style="color: #e03131; display: none; margin-top: 12px;"></p>
 
-            <label class="muted" for="devSecret">Тестовый секрет (SYNAPSE_BACKEND_TOKEN)</label><br>
-            <input
-              id="devSecret"
-              type="password"
-              placeholder="только для внутреннего тестирования"
-              style="width: 100%; padding: 10px; margin: 6px 0 14px; border-radius: 12px; border: 1px solid var(--stroke); font-size: 15px;"
-            >
-
-            <div class="actions">
-              <button class="button" id="activateButton" style="border: none; cursor: pointer; font: inherit;">
-                Подтвердить оплату (тест)
-              </button>
-            </div>
-          </div>
-
-          <p id="resultMessage" style="display: none; margin-top: 14px; font-weight: 700;"></p>
+          <p style="margin-top: 20px;">
+            <button class="button" id="payButton" style="border: none; cursor: pointer; font: inherit;">
+              Перейти к оплате
+            </button>
+          </p>
+          <p class="muted" style="margin-top: 12px;">
+            Оплата проходит на стороне ЮKassa. Нажимая кнопку, вы соглашаетесь с
+            <a href="../offer/">условиями</a>.
+          </p>
         </article>
       </section>
-
-      <p class="footer">
-        <a href="../offer/">Публичная оферта</a> ·
-        <a href="../privacy/">Политика конфиденциальности</a>
-      </p>
     </main>
 
     <script>
-      const PLAN_LABELS = {
-        "pro.monthly": { title: "Synapse Pro — на месяц", price: "590 ₽/мес" },
-        "pro.yearly": { title: "Synapse Pro — на год", price: "4 990 ₽/год" },
+      var BACKEND = "https://api.synapseapp.ru";
+
+      var PLANS = {
+        "pro.weekly":  { title: "Неделя",  price: "149 ₽",  note: "Попробовать без длинного обязательства." },
+        "pro.monthly": { title: "Месяц",   price: "590 ₽",  note: "Основной тариф." },
+        "pro.yearly":  { title: "Год",     price: "4990 ₽", note: "Примерно 416 ₽ в месяц." }
       };
 
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get("token") || "";
-      const plan = params.get("plan") || "";
-      const planInfo = PLAN_LABELS[plan];
+      var params = new URLSearchParams(window.location.search);
+      var selectedPlan = PLANS[params.get("plan")] ? params.get("plan") : "pro.monthly";
 
-      const planTitleEl = document.getElementById("planTitle");
-      const planLeadEl = document.getElementById("planLead");
-      const tokenStatusEl = document.getElementById("tokenStatus");
-      const testFormEl = document.getElementById("testForm");
-      const resultEl = document.getElementById("resultMessage");
+      var pickerEl = document.getElementById("planPicker");
+      var phoneEl = document.getElementById("phone");
+      var payEl = document.getElementById("payButton");
+      var errorEl = document.getElementById("error");
+      var leadEl = document.getElementById("planLead");
 
-      if (planInfo) {
-        planTitleEl.textContent = planInfo.title;
+      function renderPicker() {
+        pickerEl.innerHTML = "";
+        Object.keys(PLANS).forEach(function (key) {
+          var plan = PLANS[key];
+          var chosen = key === selectedPlan;
+          var row = document.createElement("button");
+          row.type = "button";
+          row.style.cssText =
+            "display:flex;justify-content:space-between;gap:12px;width:100%;padding:14px 16px;" +
+            "font:inherit;text-align:left;cursor:pointer;border-radius:12px;" +
+            "border:1px solid " + (chosen ? "#1c7ed6" : "rgba(0,0,0,0.16)") + ";" +
+            "background:" + (chosen ? "rgba(28,126,214,0.08)" : "transparent") + ";";
+          row.innerHTML =
+            "<span><strong>" + plan.title + "</strong><br><span class='muted'>" + plan.note + "</span></span>" +
+            "<strong>" + plan.price + "</strong>";
+          row.addEventListener("click", function () {
+            selectedPlan = key;
+            renderPicker();
+          });
+          pickerEl.appendChild(row);
+        });
+        leadEl.textContent = PLANS[selectedPlan].price + " — " + PLANS[selectedPlan].note;
       }
 
-      if (!token) {
-        planLeadEl.textContent =
-          "Ссылка неполная — в ней нет токена оплаты. Вернитесь в приложение и откройте оформление подписки заново.";
-        tokenStatusEl.textContent = "Токен оплаты не найден в ссылке.";
-      } else {
-        planLeadEl.textContent = planInfo
-          ? `${planInfo.price}. Оплата картой российского банка или через СБП, когда приём платежей будет подключён.`
-          : "Оплата картой российского банка или через СБП, когда приём платежей будет подключён.";
-        tokenStatusEl.textContent = "Ссылка на оплату действительна.";
-        testFormEl.style.display = "block";
+      function showError(text) {
+        errorEl.textContent = text;
+        errorEl.style.display = text ? "block" : "none";
       }
 
-      document.getElementById("activateButton").addEventListener("click", async () => {
-        const backendURL = document.getElementById("backendURL").value.trim().replace(/\/$/, "");
-        const devSecret = document.getElementById("devSecret").value;
-        const button = document.getElementById("activateButton");
-
-        if (!backendURL || !devSecret) {
-          showResult("Заполните адрес backend и тестовый секрет.", false);
+      payEl.addEventListener("click", function () {
+        var phone = phoneEl.value.trim();
+        if (phone.replace(/\D/g, "").length < 10) {
+          showError("Введите номер телефона — он нужен для чека.");
           return;
         }
+        showError("");
+        payEl.disabled = true;
+        payEl.textContent = "Готовим оплату…";
 
-        button.disabled = true;
-        button.textContent = "Проверяем…";
-
-        try {
-          const response = await fetch(`${backendURL}/v1/synapse/checkout/dev-activate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ checkoutToken: token, devSecret }),
+        fetch(BACKEND + "/v1/synapse/checkout/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: selectedPlan, phone: phone })
+        })
+          .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+          .then(function (result) {
+            if (!result.ok || !result.data.paymentURL) {
+              showError(result.data.error || "Не получилось начать оплату. Попробуйте ещё раз.");
+              payEl.disabled = false;
+              payEl.textContent = "Перейти к оплате";
+              return;
+            }
+            // Кладём ссылку на код заранее: если человек закроет страницу после
+            // оплаты, он вернётся сюда и найдёт свой код без всякого входа.
+            try { localStorage.setItem("synapse.claim", result.data.claim); } catch (error) {}
+            window.location.href = result.data.paymentURL;
+          })
+          .catch(function () {
+            showError("Сервер не ответил. Проверьте связь и попробуйте ещё раз.");
+            payEl.disabled = false;
+            payEl.textContent = "Перейти к оплате";
           });
-          const data = await response.json().catch(() => ({}));
-
-          if (response.ok && data.ok) {
-            showResult(
-              "Готово — подписка активирована. Вернитесь в приложение, Pro включится автоматически.",
-              true
-            );
-          } else {
-            showResult(data.error || `Backend вернул код ${response.status}.`, false);
-          }
-        } catch (error) {
-          showResult(`Не удалось связаться с backend: ${error}`, false);
-        } finally {
-          button.disabled = false;
-          button.textContent = "Подтвердить оплату (тест)";
-        }
       });
 
-      function showResult(text, isSuccess) {
-        resultEl.textContent = text;
-        resultEl.style.display = "block";
-        resultEl.style.color = isSuccess ? "#2f9e44" : "#e03131";
-      }
+      renderPicker();
     </script>
   </body>
 </html>

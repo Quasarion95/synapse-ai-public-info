@@ -3,383 +3,97 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex">
-    <meta name="theme-color" content="#7854f2">
-    <title>Аккаунт — Synapse</title>
+    <title>Мой код Synapse Pro</title>
     <link rel="icon" href="../screens/mark.png">
-    <link rel="preload" as="font" type="font/woff2" href="../fonts/Manrope-cyrillic.woff2" crossorigin>
-    <link rel="stylesheet" href="../fonts/fonts.css">
-    <link rel="stylesheet" href="../landing.css">
+    <link rel="stylesheet" href="../site.css">
   </head>
   <body>
-    <header class="nav">
-      <a class="brand" href="../">
-        <img class="mark" src="../screens/mark.png" alt="" width="40" height="40">
-        <span>Synapse</span>
-      </a>
-      <nav class="nav-links">
-        <a href="../#pricing">Тарифы</a>
-        <a href="../offer/">Оферта</a>
-      </nav>
-      <a class="btn btn-small btn-ghost" href="../">На главную</a>
-    </header>
-
-    <main class="section account">
-      <p class="section-eyebrow">Аккаунт</p>
-      <h1 class="section-title">Вход в Synapse</h1>
-      <p class="account-lead">
-        Аккаунт нужен, чтобы подписка знала, кому принадлежит,
-        и не терялась при смене телефона.
-      </p>
-
-      <article class="account-card" id="signed-out" hidden>
-        <p class="account-state">Вход по номеру телефона</p>
-        <p class="account-text">
-          Пришлём код в SMS. Тот же номер потом введите в приложении —
-          подписка привяжется к нему.
+    <main class="shell">
+      <section class="hero">
+        <span class="eyebrow">Synapse Pro</span>
+        <h1>Мой код</h1>
+        <p class="lead">
+          Никаких аккаунтов и паролей. Подписку включает код, который вы получили после оплаты.
         </p>
+      </section>
 
-        <form id="phone-form" class="account-form" novalidate>
-          <label class="field-label" for="phone">Номер телефона</label>
-          <input class="field" id="phone" type="tel" inputmode="tel"
-                 autocomplete="tel" placeholder="+7 900 123-45-67">
-          <button class="btn btn-primary btn-plan" type="submit" id="phone-submit">Получить код</button>
-        </form>
+      <section class="stack">
+        <article class="card" id="haveCode" style="display: none;">
+          <h2>Ваш код</h2>
+          <p
+            id="code"
+            style="font-size: 30px; letter-spacing: 0.08em; font-weight: 700; margin: 16px 0; user-select: all;">
+          </p>
+          <p style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="button" id="copyButton" style="border: none; cursor: pointer; font: inherit;">
+              Скопировать код
+            </button>
+            <a class="button" id="openButton" href="#">Открыть в Synapse</a>
+          </p>
+          <p class="muted">
+            Код работает на одном устройстве. Ввели на новом телефоне — на старом Pro выключится.
+          </p>
+        </article>
 
-        <form id="code-form" class="account-form" hidden novalidate>
-          <label class="field-label" for="code">Код из SMS</label>
-          <input class="field field-code" id="code" type="text" inputmode="numeric"
-                 autocomplete="one-time-code" maxlength="6" placeholder="123456">
-          <button class="btn btn-primary btn-plan" type="submit" id="code-submit">Войти</button>
-          <div class="account-actions">
-            <button class="btn btn-ghost" type="button" id="resend" disabled>Отправить ещё раз</button>
-            <button class="btn btn-ghost" type="button" id="change-phone">Другой номер</button>
-          </div>
-        </form>
+        <article class="card" id="noCode">
+          <h2>Кода пока нет</h2>
+          <p class="muted">
+            Код выдаётся сразу после оплаты, на странице возврата. Он же остаётся
+            в этом браузере и в самом приложении, если вы уже активировали подписку.
+          </p>
+          <p class="muted">
+            Если вы оплачивали в другом браузере или на другом устройстве — откройте
+            ту страницу по ссылке из истории: она остаётся рабочей.
+          </p>
+          <p style="margin-top: 16px;">
+            <a class="button" href="../checkout/?plan=pro.monthly">Оформить подписку</a>
+          </p>
+        </article>
 
-        <p class="account-error" id="form-error" hidden></p>
-      </article>
-
-      <article class="account-card" id="signed-in" hidden>
-        <p class="account-state"><span class="dot"></span>Вы вошли</p>
-        <p class="account-status" id="status-line">Проверяем подписку…</p>
-        <div class="account-plans" id="plan-buttons">
-          <button class="btn btn-primary" type="button" data-plan="pro.weekly">
-            На неделю — 149 ₽
-          </button>
-          <button class="btn btn-primary" type="button" data-plan="pro.monthly">
-            На месяц — 590 ₽
-          </button>
-          <button class="btn btn-primary" type="button" data-plan="pro.yearly">
-            На год — 4 990 ₽
-          </button>
-        </div>
-        <div class="account-actions">
-          <button class="btn btn-ghost" type="button" id="cancel-renew" hidden>Отключить автопродление</button>
-          <a class="btn btn-ghost" href="#" id="signout">Выйти</a>
-        </div>
-        <p class="account-error" id="pay-error" hidden></p>
-        <p class="account-note">
-          Удалить аккаунт вместе с подпиской можно в приложении:
-          «Настройки» → «Аккаунт» → «Удалить аккаунт». Задачи и цели
-          на телефоне это не затронет.
-        </p>
-      </article>
-
-      <article class="account-card account-card-error" id="error-card" hidden>
-        <p class="account-state">Не получилось войти</p>
-        <p class="account-text" id="error-line"></p>
-        <div class="account-actions">
-          <a class="btn btn-primary" id="retry" href="#">Попробовать ещё раз</a>
-          <a class="btn btn-ghost" href="https://t.me/synapseapp">Написать нам</a>
-        </div>
-      </article>
+        <article class="card">
+          <h2>Как это работает</h2>
+          <p class="muted">
+            Приложение бесплатное, и большая часть в нём бесплатна навсегда: задачи,
+            цели, списки, заметки. Подписка снимает ограничения на обращения к Syn и
+            открывает то, что работает на сервере.
+          </p>
+          <p class="muted">
+            Оплата и управление подпиской — здесь, на сайте. В приложении вы только
+            вводите код.
+          </p>
+        </article>
+      </section>
     </main>
 
-    <footer class="footer">
-      <div class="footer-inner">
-        <div class="footer-brand">
-          <img class="mark" src="../screens/mark.png" alt="" width="26" height="26">
-          <span>Synapse</span>
-        </div>
-        <nav class="footer-links">
-          <a href="../pricing/">Тарифы</a>
-          <a href="../offer/">Оферта</a>
-          <a href="../requisites/">Реквизиты</a>
-          <a href="../privacy/">Конфиденциальность</a>
-          <a href="https://t.me/synapseapp">Telegram</a>
-        </nav>
-        <p class="copy">© 2026 Synapse</p>
-      </div>
-    </footer>
-
     <script>
-      var BACKEND = "https://api.synapseapp.ru";
-      var STORAGE_KEY = "synapse.account.token";
-      var phoneValue = "";
-      var resendTimer = null;
+      var saved = null;
+      try { saved = localStorage.getItem("synapse.code"); } catch (error) {}
 
-      function show(id) {
-        ["signed-out", "signed-in", "error-card"].forEach(function (name) {
-          document.getElementById(name).hidden = name !== id;
-        });
+      if (saved) {
+        document.getElementById("code").textContent = saved;
+        document.getElementById("openButton").href = "synapse://activate?code=" + encodeURIComponent(saved);
+        document.getElementById("haveCode").style.display = "block";
+        document.getElementById("noCode").style.display = "none";
       }
 
-      function setError(message) {
-        var box = document.getElementById("form-error");
-        box.textContent = message || "";
-        box.hidden = !message;
-      }
-
-      function planWord(plan) {
-        if (plan === "pro.yearly") return "годовая";
-        if (plan === "pro.monthly") return "месячная";
-        return "";
-      }
-
-      function post(path, body) {
-        return fetch(BACKEND + path, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        }).then(function (response) {
-          return response.json().then(function (data) {
-            return { ok: response.ok, data: data || {} };
-          });
-        });
-      }
-
-      // A visible countdown, because "отправить ещё раз" that silently refuses
-      // for a minute reads as a broken button.
-      function startResendCountdown(seconds) {
-        var button = document.getElementById("resend");
-        var left = seconds || 60;
-        clearInterval(resendTimer);
-        button.disabled = true;
-        button.textContent = "Отправить ещё раз через " + left;
-        resendTimer = setInterval(function () {
-          left -= 1;
-          if (left <= 0) {
-            clearInterval(resendTimer);
-            button.disabled = false;
-            button.textContent = "Отправить ещё раз";
-            return;
-          }
-          button.textContent = "Отправить ещё раз через " + left;
-        }, 1000);
-      }
-
-      function requestCode() {
-        var input = document.getElementById("phone");
-        var submit = document.getElementById("phone-submit");
-        phoneValue = input.value;
-        setError("");
-        submit.disabled = true;
-        submit.textContent = "Отправляем…";
-
-        return post("/v1/synapse/auth/phone/request", { phone: phoneValue })
-          .then(function (result) {
-            submit.disabled = false;
-            submit.textContent = "Получить код";
-            if (!result.ok) {
-              setError(result.data.error || "Не удалось отправить код.");
-              // "Already sent, wait a minute" is not a dead end: the code is in
-              // the person's hand, so show the field for it anyway.
-              if (result.data.retryAfter) {
-                document.getElementById("phone-form").hidden = true;
-                document.getElementById("code-form").hidden = false;
-                startResendCountdown(result.data.retryAfter);
-              }
-              return;
-            }
-            document.getElementById("phone-form").hidden = true;
-            document.getElementById("code-form").hidden = false;
-            document.getElementById("code").focus();
-            startResendCountdown(result.data.resendIn || 60);
-          })
-          .catch(function () {
-            submit.disabled = false;
-            submit.textContent = "Получить код";
-            setError("Сеть недоступна. Попробуйте ещё раз.");
-          });
-      }
-
-      function verifyCode() {
-        var submit = document.getElementById("code-submit");
-        setError("");
-        submit.disabled = true;
-        submit.textContent = "Проверяем…";
-
-        return post("/v1/synapse/auth/phone/verify", {
-          phone: phoneValue,
-          code: document.getElementById("code").value,
-          installID: "web-" + (localStorage.getItem("synapse.web.id") || "")
-        })
-          .then(function (result) {
-            submit.disabled = false;
-            submit.textContent = "Войти";
-            if (!result.ok || !result.data.accountToken) {
-              setError(result.data.error || "Неверный код.");
-              return;
-            }
-            localStorage.setItem(STORAGE_KEY, result.data.accountToken);
-            // Kept for the receipt a self-employed seller owes on every payment.
-            localStorage.setItem("synapse.account.phone", phoneValue);
-            clearInterval(resendTimer);
-            show("signed-in");
-            refreshStatus(result.data.accountToken);
-          })
-          .catch(function () {
-            submit.disabled = false;
-            submit.textContent = "Войти";
-            setError("Сеть недоступна. Попробуйте ещё раз.");
-          });
-      }
-
-      function startCheckout(plan, button) {
-        var box = document.getElementById("pay-error");
-        box.hidden = true;
-        var label = button.textContent;
-        button.disabled = true;
-        button.textContent = "Готовим оплату…";
-
-        fetch(BACKEND + "/v1/synapse/checkout/create-payment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + localStorage.getItem(STORAGE_KEY)
-          },
-          body: JSON.stringify({ plan: plan, phone: localStorage.getItem("synapse.account.phone") || "" })
-        })
-          .then(function (response) {
-            return response.json().then(function (data) {
-              return { ok: response.ok, data: data || {} };
-            });
-          })
-          .then(function (result) {
-            if (!result.ok || !result.data.confirmationURL) {
-              button.disabled = false;
-              button.textContent = label;
-              box.textContent = result.data.error || "Не удалось начать оплату.";
-              box.hidden = false;
-              return;
-            }
-            // YooKassa's own page takes it from here; the card is never typed
-            // on our side and never passes through our server.
-            window.location.href = result.data.confirmationURL;
-          })
-          .catch(function () {
-            button.disabled = false;
-            button.textContent = label;
-            box.textContent = "Сеть недоступна. Попробуйте ещё раз.";
-            box.hidden = false;
-          });
-      }
-
-      function refreshStatus(token) {
-        fetch(BACKEND + "/v1/synapse/subscription/status", {
-          headers: { Authorization: "Bearer " + token }
-        })
-          .then(function (response) {
-            if (response.status === 401) {
-              localStorage.removeItem(STORAGE_KEY);
-              show("signed-out");
-              return null;
-            }
-            return response.json();
-          })
-          .then(function (data) {
-            if (!data) return;
-            var line = document.getElementById("status-line");
-            var cancel = document.getElementById("cancel-renew");
-            if (data.status === "active") {
-              var until = data.expiresAt ? new Date(data.expiresAt) : null;
-              var untilText = until ? until.toLocaleDateString("ru-RU") : "";
-              line.textContent =
-                "Подписка активна" +
-                (planWord(data.plan) ? " (" + planWord(data.plan) + ")" : "") +
-                (untilText ? (data.autoRenew ? ", продлится " : ", действует до ") + untilText : "") + ".";
-              cancel.hidden = !data.autoRenew;
-              document.querySelectorAll("#plan-buttons .btn").forEach(function (button) {
-                var labels = {
-                  "pro.weekly": "Продлить на неделю — 149 ₽",
-                  "pro.monthly": "Продлить на месяц — 590 ₽",
-                  "pro.yearly": "Продлить на год — 4 990 ₽"
-                };
-                button.textContent = labels[button.dataset.plan] || button.textContent;
-              });
-            } else {
-              line.textContent = "Подписки нет. Ассистент отвечает на 30 обращений в месяц.";
-              cancel.hidden = true;
-            }
-          })
-          .catch(function () {
-            document.getElementById("status-line").textContent =
-              "Не удалось проверить подписку. Обновите страницу.";
-          });
-      }
-
-      (function start() {
-        if (!localStorage.getItem("synapse.web.id")) {
-          localStorage.setItem("synapse.web.id", Math.random().toString(36).slice(2) + Date.now().toString(36));
+      document.getElementById("copyButton").addEventListener("click", function () {
+        var button = this;
+        var code = document.getElementById("code").textContent;
+        var done = function () {
+          button.textContent = "Скопировано";
+          setTimeout(function () { button.textContent = "Скопировать код"; }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(done, function () {});
+          return;
         }
-
-        var token = localStorage.getItem(STORAGE_KEY);
-        if (token) {
-          show("signed-in");
-          refreshStatus(token);
-        } else {
-          show("signed-out");
-        }
-
-        document.getElementById("phone-form").addEventListener("submit", function (event) {
-          event.preventDefault();
-          requestCode();
-        });
-        document.getElementById("code-form").addEventListener("submit", function (event) {
-          event.preventDefault();
-          verifyCode();
-        });
-        document.getElementById("resend").addEventListener("click", function () {
-          requestCode();
-        });
-        document.getElementById("change-phone").addEventListener("click", function () {
-          clearInterval(resendTimer);
-          setError("");
-          document.getElementById("code").value = "";
-          document.getElementById("code-form").hidden = true;
-          document.getElementById("phone-form").hidden = false;
-          document.getElementById("phone").focus();
-        });
-        document.querySelectorAll("#plan-buttons .btn").forEach(function (button) {
-          button.addEventListener("click", function () {
-            startCheckout(button.dataset.plan, button);
-          });
-        });
-        document.getElementById("cancel-renew").addEventListener("click", function () {
-          var button = document.getElementById("cancel-renew");
-          button.disabled = true;
-          button.textContent = "Отключаем…";
-          fetch(BACKEND + "/v1/synapse/subscription/cancel", {
-            method: "POST",
-            headers: { Authorization: "Bearer " + localStorage.getItem(STORAGE_KEY) }
-          })
-            .then(function () {
-              button.disabled = false;
-              button.textContent = "Отключить автопродление";
-              refreshStatus(localStorage.getItem(STORAGE_KEY));
-            })
-            .catch(function () {
-              button.disabled = false;
-              button.textContent = "Отключить автопродление";
-            });
-        });
-        document.getElementById("signout").addEventListener("click", function (event) {
-          event.preventDefault();
-          localStorage.removeItem(STORAGE_KEY);
-          show("signed-out");
-        });
-      })();
+        var field = document.createElement("textarea");
+        field.value = code;
+        document.body.appendChild(field);
+        field.select();
+        try { document.execCommand("copy"); done(); } catch (error) {}
+        document.body.removeChild(field);
+      });
     </script>
   </body>
 </html>

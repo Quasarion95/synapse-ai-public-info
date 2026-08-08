@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ваш код Synapse Pro</title>
+    <link rel="icon" href="../../screens/mark.png">
+    <link rel="stylesheet" href="../../site.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <span class="eyebrow">Synapse Pro</span>
+        <h1 id="title">Проверяем оплату…</h1>
+        <p class="lead" id="lead">Это занимает несколько секунд.</p>
+      </section>
+
+      <section class="stack">
+        <article class="card" id="codeCard" style="display: none;">
+          <h2>Ваш код</h2>
+          <p
+            id="code"
+            style="font-size: 30px; letter-spacing: 0.08em; font-weight: 700; margin: 16px 0; user-select: all;">
+          </p>
+
+          <p style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="button" id="copyButton" style="border: none; cursor: pointer; font: inherit;">
+              Скопировать код
+            </button>
+            <a class="button" id="openButton" href="#">Открыть в Synapse</a>
+          </p>
+
+          <h2 style="margin-top: 28px;">Что с ним делать</h2>
+          <p class="muted">
+            Откройте приложение, зайдите в Настройки → Аккаунт и введите код.
+            Кнопка выше делает это за вас: приложение откроется, код подставится сам.
+          </p>
+          <p class="muted">
+            Код работает <strong>на одном устройстве</strong>. Ввели его на новом
+            телефоне — на старом Pro выключится. Так что телефон можно менять
+            сколько угодно, а поделиться кодом с другим человеком не получится.
+          </p>
+          <p class="muted">
+            Сохраните код или эту страницу: ссылка остаётся рабочей, по ней код
+            открывается снова. После активации код виден и в самом приложении.
+          </p>
+        </article>
+
+        <article class="card" id="waitCard">
+          <h2>Ждём подтверждения от банка</h2>
+          <p class="muted" id="waitText">
+            Обычно это несколько секунд. Страницу можно не закрывать — код появится сам.
+          </p>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      var BACKEND = "https://api.synapseapp.ru";
+
+      var params = new URLSearchParams(window.location.search);
+      var claim = params.get("claim") || "";
+      // Человек мог вернуться сюда позже без ссылки — тогда берём ту, что
+      // сохранили при оплате на этом устройстве.
+      if (!claim) {
+        try { claim = localStorage.getItem("synapse.claim") || ""; } catch (error) {}
+      }
+
+      var titleEl = document.getElementById("title");
+      var leadEl = document.getElementById("lead");
+      var codeCardEl = document.getElementById("codeCard");
+      var waitCardEl = document.getElementById("waitCard");
+      var waitTextEl = document.getElementById("waitText");
+      var codeEl = document.getElementById("code");
+      var copyEl = document.getElementById("copyButton");
+      var openEl = document.getElementById("openButton");
+
+      function showCode(code) {
+        codeEl.textContent = code;
+        openEl.href = "synapse://activate?code=" + encodeURIComponent(code);
+        titleEl.textContent = "Готово";
+        leadEl.textContent = "Подписка оформлена. Вот код, который включает Pro.";
+        codeCardEl.style.display = "block";
+        waitCardEl.style.display = "none";
+        try { localStorage.setItem("synapse.code", code); } catch (error) {}
+      }
+
+      function fail(text) {
+        titleEl.textContent = "Не нашли оплату";
+        leadEl.textContent = text;
+        waitCardEl.style.display = "none";
+      }
+
+      copyEl.addEventListener("click", function () {
+        var code = codeEl.textContent;
+        var done = function () {
+          copyEl.textContent = "Скопировано";
+          setTimeout(function () { copyEl.textContent = "Скопировать код"; }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(done, function () {});
+          return;
+        }
+        var field = document.createElement("textarea");
+        field.value = code;
+        document.body.appendChild(field);
+        field.select();
+        try { document.execCommand("copy"); done(); } catch (error) {}
+        document.body.removeChild(field);
+      });
+
+      if (!claim) {
+        var saved = null;
+        try { saved = localStorage.getItem("synapse.code"); } catch (error) {}
+        if (saved) {
+          showCode(saved);
+        } else {
+          fail("В ссылке нет отметки об оплате. Откройте страницу по ссылке, на которую вас вернуло после платежа.");
+        }
+      } else {
+        var attempts = 0;
+        var poll = function () {
+          attempts += 1;
+          fetch(BACKEND + "/v1/synapse/checkout/code?claim=" + encodeURIComponent(claim))
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+              if (data && data.ready && data.code) {
+                showCode(data.code);
+                return;
+              }
+              // Банк иногда думает дольше нескольких секунд, поэтому ждём до
+              // двух минут, а потом честно говорим, что делать.
+              if (attempts > 40) {
+                waitTextEl.textContent =
+                  "Банк пока не подтвердил платёж. Если деньги списались, вернитесь на эту страницу через несколько минут — код появится здесь.";
+                return;
+              }
+              setTimeout(poll, 3000);
+            })
+            .catch(function () {
+              if (attempts > 40) {
+                waitTextEl.textContent = "Не получается связаться с сервером. Откройте страницу позже — ссылка остаётся рабочей.";
+                return;
+              }
+              setTimeout(poll, 3000);
+            });
+        };
+        poll();
+      }
+    </script>
+  </body>
+</html>
