@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Активация Synapse Pro</title>
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="../screens/mark.png">
+    <link rel="stylesheet" href="../site.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <span class="eyebrow">Synapse Pro</span>
+        <h1 id="title">Активация подписки</h1>
+        <p class="lead" id="lead">Открываем приложение…</p>
+      </section>
+
+      <section class="stack">
+        <article class="card" id="codeCard" style="display: none;">
+          <h2>Ваш код для активации подписки Synapse Pro</h2>
+          <p
+            id="code"
+            style="font-size: 30px; letter-spacing: 0.08em; font-weight: 700; margin: 16px 0; user-select: all;">
+          </p>
+
+          <p style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="button" id="copyButton" style="border: none; cursor: pointer; font: inherit;">
+              Скопировать код
+            </button>
+            <a class="button" id="openButton" href="#">Открыть в Synapse</a>
+          </p>
+
+          <p class="muted">
+            Если приложение установлено, эта страница обычно даже не успевает
+            показаться — ссылка открывает Synapse сама и подставляет код.
+            Если вы её видите, откройте приложение и введите код в
+            Настройки → Аккаунт, либо нажмите кнопку выше.
+          </p>
+          <p class="muted">
+            Код работает <strong>на одном устройстве</strong>. Ввели его на новом
+            телефоне — на старом Pro выключится.
+          </p>
+          <p class="muted">
+            Отменить подписку и посмотреть срок можно на странице
+            <a href="../account/">Подписка</a> — туда нужен этот же код.
+          </p>
+        </article>
+
+        <article class="card" id="emptyCard" style="display: none;">
+          <h2>В ссылке нет кода</h2>
+          <p class="muted">
+            Эта страница открывает подписку в приложении по ссылке с кодом.
+            Ссылку мы показываем сразу после оплаты, и она остаётся рабочей —
+            её можно открыть снова из истории браузера.
+          </p>
+          <p class="muted">
+            Код всегда можно посмотреть на странице
+            <a href="../account/">Подписка</a>, если вы помните его хотя бы
+            частично, или написать нам:
+            <a href="mailto:support@synapseapp.ru">support@synapseapp.ru</a>.
+          </p>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      var ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+      var CODE_LENGTH = 12;
+      var GROUP = 4;
+
+      function normalizeCode(raw) {
+        var out = "";
+        var text = String(raw || "").toUpperCase();
+        for (var i = 0; i < text.length; i += 1) {
+          if (ALPHABET.indexOf(text[i]) !== -1) { out += text[i]; }
+        }
+        return out.slice(0, CODE_LENGTH);
+      }
+
+      function formatCode(code) {
+        var groups = [];
+        for (var i = 0; i < code.length; i += GROUP) {
+          groups.push(code.slice(i, i + GROUP));
+        }
+        return groups.join("-");
+      }
+
+      var params = new URLSearchParams(window.location.search);
+      var code = normalizeCode(params.get("code"));
+
+      var titleEl = document.getElementById("title");
+      var leadEl = document.getElementById("lead");
+
+      if (code.length !== CODE_LENGTH) {
+        titleEl.textContent = "Активация подписки";
+        leadEl.textContent = "Ссылка неполная.";
+        document.getElementById("emptyCard").style.display = "";
+      } else {
+        var pretty = formatCode(code);
+        titleEl.textContent = "Код готов";
+        leadEl.textContent = "Приложение должно было открыться само.";
+        document.getElementById("code").textContent = pretty;
+        document.getElementById("openButton").href =
+          "synapse://activate?code=" + encodeURIComponent(pretty);
+        document.getElementById("codeCard").style.display = "";
+
+        var copyEl = document.getElementById("copyButton");
+        copyEl.addEventListener("click", function () {
+          var done = function () {
+            copyEl.textContent = "Скопировано";
+            setTimeout(function () { copyEl.textContent = "Скопировать код"; }, 2000);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(pretty).then(done, function () {});
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
