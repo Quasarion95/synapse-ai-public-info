@@ -35,6 +35,10 @@
       }
 
       .code-field.is-bad { border-color: #e5484d; }
+      .linklike {
+        border: none; background: none; padding: 0; font: inherit;
+        color: inherit; text-decoration: underline; cursor: pointer;
+      }
 
       .code-field::placeholder {
         color: color-mix(in srgb, var(--muted) 55%, transparent);
@@ -148,8 +152,60 @@
 
           <p class="fine">
             Потеряли код? Он остаётся на странице, куда вас вернуло после
-            оплаты, — её можно открыть из истории браузера. Если и её нет,
-            напишите в <a href="/support/">поддержку</a>.
+            оплаты, — её можно открыть из истории браузера. Если и её нет —
+            <button type="button" class="linklike" id="noCodeButton">откройте подписку без кода</button>.
+          </p>
+        </section>
+
+        <!-- Вторая дверь: код теряется чаще, чем кажется, и без него у
+             человека не должно оставаться единственного выхода — писать нам. -->
+        <section class="panel" id="noCodeCard" hidden>
+          <h2 class="panel-title">Подписка без кода</h2>
+          <p class="panel-note">
+            Назовите номер, на который пришёл чек, и последние четыре цифры
+            карты, с которой списали. Больше ничего не потребуется.
+          </p>
+
+          <form id="noCodeForm">
+            <div class="fld">
+              <label class="fld-label" for="phoneFullInput">Телефон, указанный при оплате</label>
+              <input
+                class="code-field"
+                id="phoneFullInput"
+                name="phone"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                maxlength="20"
+                placeholder="+7 999 123-45-67">
+            </div>
+
+            <div class="fld" style="margin-top: 18px;">
+              <label class="fld-label" for="cardInput">Последние 4 цифры карты</label>
+              <input
+                class="code-field short-field"
+                id="cardInput"
+                name="cardLast4"
+                type="tel"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="4"
+                placeholder="0000">
+              <p class="hint">
+                Эти цифры видно в выписке банка рядом со списанием, а также в
+                СМС от банка об оплате.
+              </p>
+            </div>
+
+            <p style="margin: 22px 0 0;">
+              <button class="btn btn-primary btn-wide" type="submit" id="noCodeButton2">Показать подписку</button>
+            </p>
+          </form>
+
+          <p class="alert" id="noCodeError" hidden></p>
+
+          <p class="fine">
+            Вспомнили код? <button type="button" class="linklike" id="backToCodeButton">Вернуться ко входу по коду</button>.
           </p>
         </section>
 
@@ -392,12 +448,16 @@
       // браузером, — а один утёкший код не должен давать управление чужой
       // подпиской.
       var phoneLast4 = "";
+      // Чем человек себя опознал в этот раз. Отмена потом повторяет ровно то
+      // же самое — иначе войти можно было бы одним способом, а отменить только
+      // другим.
+      var credentials = null;
 
-      function call(path, code) {
+      function call(path) {
         return fetch(BACKEND + path, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: code, phoneLast4: phoneLast4 })
+          body: JSON.stringify(credentials || {})
         }).then(function (response) {
           return response.json().catch(function () { return {}; }).then(function (body) {
             return { status: response.status, body: body };
@@ -407,15 +467,20 @@
         });
       }
 
+      // Какую из двух форм входа показываем, пока подписка не найдена.
+      var askingWithoutCode = false;
+
       function render() {
         if (!state) {
-          show(askCard, true);
+          show(askCard, !askingWithoutCode);
+          show(element("noCodeCard"), askingWithoutCode);
           show(statusCard, false);
           show(codeCard, false);
           return;
         }
 
         show(askCard, false);
+        show(element("noCodeCard"), false);
         show(statusCard, true);
         show(codeCard, true);
 
@@ -454,8 +519,13 @@
           show(element("doneNote"), false);
         }
 
-        element("code").textContent = formatCode(currentCode);
-        element("openButton").href = "synapse://activate?code=" + encodeURIComponent(formatCode(currentCode));
+        // Войти без кода можно, а узнать его так — нет: это отдало бы код
+        // всякому, кто знает чужой номер и четыре цифры с чека.
+        show(codeCard, !!currentCode);
+        if (currentCode) {
+          element("code").textContent = formatCode(currentCode);
+          element("openButton").href = "synapse://activate?code=" + encodeURIComponent(formatCode(currentCode));
+        }
       }
 
       function lookup(code) {
@@ -471,8 +541,9 @@
         showError(element("askError"), "");
         button.disabled = true;
         button.textContent = "Проверяем…";
+        credentials = { code: cleaned, phoneLast4: phoneLast4 };
 
-        call("/v1/synapse/subscription/manage", cleaned).then(function (result) {
+        call("/v1/synapse/subscription/manage").then(function (result) {
           button.disabled = false;
           button.textContent = "Показать подписку";
 
@@ -488,6 +559,56 @@
           render();
         });
       }
+
+      function lookupWithoutCode() {
+        var phone = (element("phoneFullInput").value || "").replace(/\D/g, "");
+        var card = (element("cardInput").value || "").replace(/\D/g, "").slice(-4);
+
+        if (phone.length < 10 || card.length !== 4) {
+          showError(element("noCodeError"), "Нужен номер телефона, указанный при оплате, и последние 4 цифры карты.");
+          return;
+        }
+
+        var button = element("noCodeButton2");
+        showError(element("noCodeError"), "");
+        button.disabled = true;
+        button.textContent = "Проверяем…";
+        credentials = { phone: phone, cardLast4: card };
+
+        call("/v1/synapse/subscription/manage").then(function (result) {
+          button.disabled = false;
+          button.textContent = "Показать подписку";
+
+          if (result.status !== 200) {
+            showError(element("noCodeError"), messageForFailure(result.status, result.body));
+            return;
+          }
+
+          state = result.body;
+          currentCode = "";
+          cancelled = false;
+          render();
+        });
+      }
+
+      element("noCodeForm").addEventListener("submit", function (event) {
+        event.preventDefault();
+        lookupWithoutCode();
+      });
+
+      element("noCodeButton").addEventListener("click", function () {
+        askingWithoutCode = true;
+        showError(element("noCodeError"), "");
+        render();
+        element("phoneFullInput").focus();
+      });
+
+      element("backToCodeButton").addEventListener("click", function () {
+        askingWithoutCode = false;
+        showError(element("askError"), "");
+        render();
+        codeInput.focus();
+      });
 
       // --- модальное окно ---
 
@@ -528,7 +649,7 @@
         button.disabled = true;
         button.textContent = "Отправляем…";
 
-        call("/v1/synapse/subscription/unbind", currentCode).then(function (result) {
+        call("/v1/synapse/subscription/unbind").then(function (result) {
           button.disabled = false;
           button.textContent = label;
 
@@ -568,6 +689,8 @@
         state = null;
         currentCode = "";
         cancelled = false;
+        credentials = null;
+        askingWithoutCode = false;
         codeInput.value = "";
         showError(element("askError"), "");
         render();
