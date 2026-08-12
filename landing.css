@@ -33,7 +33,8 @@
   --forest-deep: #1d2a23;     /* наведение и тёмные секции */
   --forest-active: #17211b;   /* нажатие */
   --olive: #5c6857;           /* вторичный брендовый, обычный прогресс */
-  --brass: #9a8052;           /* микроакцент: номера, тонкие линии, бейджи */
+  --brass: #9a8052;           /* микроакцент: номера, тонкие линии, бейджи, цены */
+  --brass-light: #c2a876;     /* та же латунь, но читаемая на тёмном лесу */
   --burgundy: #6a3f3b;        /* редкий эмоциональный акцент и ошибки */
 
   /* Поверхности */
@@ -99,6 +100,7 @@
     --forest-active: #9ab8a2;
     --olive: #8c9a86;
     --brass: #b19a6c;
+    --brass-light: #c9b489;
     --burgundy: #b98782;
 
     --bg: #1d2420;
@@ -500,8 +502,30 @@ a { color: var(--accent-strong); }
 .card h3, .feature h3 {
   font-family: var(--font-display);
   margin: 0 0 8px;
-  font-size: 17.5px;
+  font-size: 16.5px;
   font-weight: 700;
+}
+
+/* Восемь возможностей одного веса — это стена, в которой не читается ни одна.
+   Две первые ведут: они про то, чем продукт отличается от списка дел, и стоят
+   во всю ширину полосы. Остальные шесть — перечисление, и выглядеть должны как
+   перечисление. */
+.feature-lead {
+  grid-column: span 2;
+  border-top: 1px solid var(--stroke);
+  padding-top: 18px;
+}
+
+.feature-lead h3 {
+  font-size: 21px;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+
+.feature-lead p { font-size: 15.5px; }
+
+@media (max-width: 1000px) {
+  .feature-lead { grid-column: span 1; }
 }
 
 .card p, .feature p {
@@ -820,6 +844,26 @@ a { color: var(--accent-strong); }
    Same idiom as the rest of the page on purpose: pixels, --radius, --shadow,
    the display face for numbers. The first attempt used its own units and its
    own band and read as a bolt-on from another site. */
+/* Призыв на странице должен быть один. Две кнопки одного веса заставляют
+   выбирать между ними вместо того, чтобы нажать главную; вторая стала
+   ссылкой — она никуда не делась, просто перестала спорить. */
+.cta-link {
+  align-self: center;
+  color: var(--forest);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--forest) 35%, transparent);
+  padding-bottom: 2px;
+}
+
+.cta-link:hover { border-bottom-color: var(--forest); }
+
+/* Латунный бейдж висит на 13px выше карточки и на широком экране заходил под
+   верхний край полосы. Запас сверху — чтобы он оставался деталью, а не
+   обрезком. */
+.plans-band { padding-top: 64px; }
+
 .plans-band .section-eyebrow,
 .plans-band .section-title {
   text-align: center;
@@ -910,6 +954,11 @@ a { color: var(--accent-strong); }
 
 .plan-hero .plan-kicker { color: rgba(255, 255, 255, 0.86); }
 
+/* Цена — латунью, как бейдж. Это единственная цифра на странице, ради которой
+   человек сюда пришёл, и она из того же металла, что и пометка о выгоде: цена
+   и её оправдание говорят одним голосом.
+   Кегль здесь крупный, поэтому 3.6 на карточке — рабочий контраст: порог для
+   крупного текста ниже, и латунь не превращается в коричневый. */
 .plan-price {
   font-family: var(--font-display);
   margin: 0;
@@ -917,7 +966,11 @@ a { color: var(--accent-strong); }
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1;
+  color: var(--brass);
 }
+
+/* На тёмной карточке та же латунь тонет — там она светлее на два тона. */
+.plan-hero .plan-price { color: var(--brass-light); }
 
 .plan-unit {
   font-size: 19px;
