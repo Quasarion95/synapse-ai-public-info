@@ -607,3 +607,12 @@
   font-size: 12.5px;
   line-height: 1.45;
 }
+
+/* Ссылка внутри подсказки. Подчёркивание оставлено: без него ссылка в мелком
+   приглушённом тексте не читается как ссылка, а именно по ней человек и
+   отменяет подписку. */
+.renew-hint a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
