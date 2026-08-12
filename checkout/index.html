@@ -58,6 +58,14 @@
               доработает до конца оплаченного периода.
             </p>
             <fieldset class="pick" id="plans"></fieldset>
+
+            <label class="renew-toggle">
+              <input type="checkbox" id="autoRenew" checked>
+              <span>
+                <b>Продлевать автоматически</b>
+                <span class="renew-hint" id="renewHint"></span>
+              </span>
+            </label>
           </section>
 
           <section class="panel">
@@ -94,8 +102,9 @@
             <p class="fine">
               Оплата проходит на стороне ЮKassa — карта вводится там, мы её не
               видим. Нажимая кнопку, вы соглашаетесь с <a href="/offer/">офертой</a>
-              и <a href="/privacy/">политикой конфиденциальности</a> и на регулярное
-              списание <span id="consentAmount">590 ₽ каждые 30 дней</span> до отмены.
+              и <a href="/privacy/">политикой конфиденциальности</a><span
+              id="consentRenew"> и на регулярное списание <span id="consentAmount">590 ₽
+              каждые 30 дней</span> до отмены</span>.
             </p>
           </section>
         </div>
@@ -123,7 +132,7 @@
           <section class="panel">
             <h2 class="panel-title">Как это работает</h2>
             <ol class="steps" style="margin-top: 14px;">
-              <li><span><b>Оплата на стороне ЮKassa.</b> Карта, СБП или Apple&nbsp;Pay.</span></li>
+              <li><span><b>Оплата на стороне ЮKassa.</b> <span id="payMethods">Карта, СБП или Apple&nbsp;Pay.</span></span></li>
               <li><span><b>Код появится сразу после оплаты.</b> На странице возврата, её же можно открыть повторно.</span></li>
               <li><span><b>Настройки → Аккаунт в приложении.</b> Вводите код — Pro включается.</span></li>
             </ol>
@@ -183,6 +192,7 @@
       var selectedPlan = PLANS[params.get("plan")] ? params.get("plan") : "pro.monthly";
 
       var plansEl = document.getElementById("plans");
+      var autoRenewEl = document.getElementById("autoRenew");
       var phoneEl = document.getElementById("phone");
       var phoneFieldEl = document.getElementById("phoneField");
       var payEl = document.getElementById("payButton");
@@ -217,10 +227,22 @@
         renderTotal();
       }
 
+      autoRenewEl.addEventListener("change", renderTotal);
+
       function renderTotal() {
         var plan = PLANS[selectedPlan];
+        var renews = autoRenewEl.checked;
         totalLabelEl.textContent = plan.title;
         totalPriceEl.textContent = money(plan.price);
+
+        // Способы оплаты зависят от привязки, и человек должен узнать об этом
+        // здесь, а не на форме ЮKassa, где вдруг не окажется его привычного.
+        document.getElementById("renewHint").textContent = renews
+          ? "Оплата картой: привязать можно только её. Отменить — в любой момент."
+          : "Оплатите один раз: карта, СБП или Apple Pay. Продлевать будете сами.";
+        document.getElementById("payMethods").textContent = renews
+          ? "Карта — привязка нужна для продления."
+          : "Карта, СБП или Apple\u00a0Pay.";
 
         // Дата ближайшего списания названа прямо здесь, а не только в оферте:
         // «продлевается само» без даты человек читает как «когда-нибудь», а
@@ -237,8 +259,12 @@
         // выходит «2027 г..» — убираем её.
         var when = next.toLocaleDateString("ru-RU", shape).replace(/\s*г\.$/, "");
 
-        document.getElementById("renewNote").textContent =
-          "Дальше " + money(plan.price) + " " + plan.every + ". Первое продление " + when + ".";
+        document.getElementById("renewNote").textContent = renews
+          ? "Дальше " + money(plan.price) + " " + plan.every + ". Первое продление " + when + "."
+          : "Списание разовое. Дальше ничего не спишется.";
+        // Согласие на регулярное списание нельзя показывать тому, кто его не
+        // выбрал: это ровно то обещание, которое мы обязаны сдержать.
+        document.getElementById("consentRenew").hidden = !renews;
         document.getElementById("consentAmount").textContent =
           money(plan.price) + " " + plan.every;
       }
@@ -354,7 +380,7 @@
         fetch(BACKEND + "/v1/synapse/checkout/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: selectedPlan, phone: "+7" + digits }),
+          body: JSON.stringify({ plan: selectedPlan, phone: "+7" + digits, autoRenew: autoRenewEl.checked }),
           signal: abort ? abort.signal : undefined
         })
           .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
