@@ -555,41 +555,48 @@
 /* Галочка автопродления. Стоит под тарифами, потому что решает не меньше их:
    от неё зависит и регулярное списание, и то, чем вообще можно заплатить —
    при привязке ЮKassa показывает только те способы, которые умеют
-   привязываться, и Apple Pay в их число не входит. */
+   привязываться, и Apple Pay в их число не входит.
+
+   Оформлена нарочито тихо: рамка и заливка делали её похожей на четвёртый
+   тариф, то есть на выбор того же веса, что и «Неделя» или «Год». Это не
+   выбор товара, а его условие. */
 .renew-toggle {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-top: 12px;
-  padding: 14px 17px;
-  border: 1.5px solid var(--stroke);
-  border-radius: 15px;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 0 2px;
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease;
 }
 
-.renew-toggle:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--stroke)); }
-.renew-toggle:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
-.renew-toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-/* Родная галочка, а не нарисованная: состояние, клавиатура и фокус достаются
-   даром, а форма оплаты — последнее место, где стоит переписывать их руками. */
 .renew-toggle input {
   flex: none;
-  width: 19px;
-  height: 19px;
+  width: 16px;
+  height: 16px;
   margin: 1px 0 0;
   accent-color: var(--accent);
   cursor: pointer;
 }
 
+.renew-toggle:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
 .renew-toggle > span { display: block; }
-.renew-toggle b { display: block; font-weight: 600; }
+
+.renew-toggle b {
+  display: block;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text);
+}
 
 .renew-hint {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.45;
 }
