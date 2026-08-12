@@ -4,18 +4,69 @@
   nothing here can break them.
 */
 
+/*
+  Цветовая система: чернила и латунь на бумаге.
+
+  Прежняя палитра была фиолетовой на лавандовом — ровно тот набор, по которому
+  сегодня опознают любой ИИ-стартап. Продукт не про это: он про длинную
+  дистанцию, дисциплину и трезвый взгляд на собственные результаты, а такие
+  вещи не продают неоном.
+
+  Три правила, из которых выведено всё остальное.
+
+  Палитра почти целиком нейтральная. Премиальность здесь делают не цвета, а
+  отношения между ними: тёплая бумага вместо белизны, чернила вместо чёрного,
+  воздух и один-единственный акцент. Там, где цветов много, дорого не бывает.
+
+  Акцент один и тёмный. Глубокий бутылочный работает как чернила с характером:
+  на кнопке он не кричит, а утверждает. Если акцентом становится всё, акцента
+  нет.
+
+  Латунь — не золото. Состаренный металл для премиальных мест: годовой тариф,
+  ключевые цифры, тонкие линии. Яркое золото читается как дешёвая роскошь.
+*/
+
 :root {
   color-scheme: light dark;
-  --accent: #7854f2;
-  --accent-soft: rgba(120, 84, 242, 0.12);
-  --accent-strong: #6a45e8;
-  --bg: #fbfaff;
-  --bg-band: #f4f1ff;
-  --surface: #ffffff;
-  --text: #1d1830;
-  --muted: #635c7d;
-  --stroke: rgba(90, 70, 170, 0.14);
-  --shadow: 0 24px 60px rgba(66, 44, 130, 0.10);
+
+  /* Бренд */
+  /* Три ступени одного цвета, а не один на всё.
+     Акцент для текста обязан отличаться от чернил, иначе выделенное слово
+     перестаёт читаться как выделенное — а на первом экране всё держится на
+     противопоставлении «глобально» и «локально».
+     Заливка кнопки, наоборот, тем глубже, чем спокойнее выглядит. */
+  --accent: #2a6b52;          /* ссылки, выделения, активные состояния */
+  --accent-deep: #1f4a38;     /* заливка главной кнопки */
+  --accent-strong: #173729;   /* наведение и нажатие */
+  --accent-soft: rgba(42, 107, 82, 0.09);
+  --brass: #8a6e35;           /* состаренная латунь — премиальные акценты */
+  --brass-soft: rgba(138, 110, 53, 0.10);
+
+  /* Поверхности */
+  --bg: #f7f5f0;              /* тёплая бумага, без желтизны */
+  --bg-band: #efece4;         /* полоса-подложка между секциями */
+  --surface: #fcfbf7;         /* карточка чуть светлее фона, а не белый лист */
+  --surface-elevated: #ffffff;
+  --bg-dark: #1b201c;         /* тёмные секции внутри светлой темы */
+
+  /* Текст */
+  --text: #1b1f1c;
+  --text-secondary: #474c46;
+  --muted: #6b7068;
+  --disabled: #8e9288;
+  --text-on-dark: #ece8de;
+
+  /* Линии */
+  --stroke: #dfdace;
+  --stroke-strong: #c8c2b4;
+
+  /* Смысловые — внутри той же палитры, а не из чужого набора */
+  --success: #2c6349;
+  --warning: #8a5f1e;
+  --error: #8c3a30;
+  --info: #33566a;
+
+  --shadow: 0 24px 60px rgba(40, 36, 28, 0.10);
   --radius: 20px;
   /* Two faces on purpose. Manrope is the voice: geometric, very heavy at 800,
      with a wide Cyrillic set — it carries the headlines. Inter is the reading
@@ -26,18 +77,39 @@
   --font-text: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
+/* Тёмная тема — не инверсия, а другое время суток: тёмный графит с зелёным
+   подтоном и тёплый ivory-текст. Чистый чёрный не используется: он выглядит
+   как выключенный экран, а не как рабочее место ночью. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent: #a996ff;
-    --accent-soft: rgba(169, 150, 255, 0.16);
-    --accent-strong: #b9a9ff;
-    --bg: #131120;
-    --bg-band: #191630;
-    --surface: #1e1a33;
-    --text: #f2effd;
-    --muted: #a9a2c4;
-    --stroke: rgba(180, 160, 255, 0.18);
-    --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    --accent: #7cb398;        /* на тёмном бутылочный не виден — светлеет до шалфея */
+    --accent-deep: #5f9a7e;
+    --accent-strong: #93c4a9;
+    --accent-soft: rgba(124, 179, 152, 0.14);
+    --brass: #c6a469;
+    --brass-soft: rgba(198, 164, 105, 0.14);
+
+    --bg: #151815;
+    --bg-band: #1a1e1a;
+    --surface: #1f241f;
+    --surface-elevated: #272d26;
+    --bg-dark: #101310;
+
+    --text: #ece8de;
+    --text-secondary: #b7b3a7;
+    --muted: #8b8f84;
+    --disabled: #6a6e64;
+    --text-on-dark: #ece8de;
+
+    --stroke: #2e342d;
+    --stroke-strong: #3d443b;
+
+    --success: #7cb398;
+    --warning: #cfa255;
+    --error: #d28a7e;
+    --info: #84a7ba;
+
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -51,8 +123,8 @@ html, body {
 body {
   font-family: var(--font-text);
   background:
-    radial-gradient(circle at 12% -10%, rgba(120, 84, 242, 0.16), transparent 42%),
-    radial-gradient(circle at 92% 4%, rgba(70, 150, 255, 0.14), transparent 38%),
+    radial-gradient(circle at 12% -10%, rgba(31, 74, 56, 0.10), transparent 42%),
+    radial-gradient(circle at 92% 4%, rgba(138, 110, 53, 0.08), transparent 38%),
     var(--bg);
   color: var(--text);
   line-height: 1.55;
@@ -94,7 +166,7 @@ a { color: var(--accent-strong); }
 /* The app icon itself, so the site and the home screen read as the same product. */
 .mark {
   border-radius: 8px;
-  box-shadow: 0 3px 10px rgba(29, 24, 48, 0.16);
+  box-shadow: 0 3px 10px rgba(27, 31, 28, 0.12);
 }
 
 /* 40px is what the bar gives away for free: the Telegram pill beside it is
@@ -169,10 +241,12 @@ a { color: var(--accent-strong); }
 
 .btn-small { padding: 8px 15px; font-size: 14px; }
 
+/* Плоская заливка, а не градиент. Градиент на главной кнопке — язык, по
+   которому опознают ИИ-стартап; здесь кнопка должна утверждать, а не светиться. */
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), #5b8cff);
-  color: #fff;
-  box-shadow: 0 12px 30px rgba(120, 84, 242, 0.28);
+  background: var(--accent-deep);
+  color: var(--text-on-dark);
+  box-shadow: 0 12px 30px rgba(27, 31, 28, 0.16);
 }
 
 .btn-ghost {
@@ -194,10 +268,10 @@ a { color: var(--accent-strong); }
 
 /* Black pill with the Apple mark, the way Apple's own download badge reads. */
 .btn-store {
-  background: #111018;
-  color: #fff;
+  background: var(--bg-dark);
+  color: var(--text-on-dark);
   padding: 10px 22px 10px 18px;
-  box-shadow: 0 12px 28px rgba(17, 16, 24, 0.28);
+  box-shadow: 0 12px 28px rgba(27, 31, 28, 0.22);
 }
 
 .btn-store .ico { width: 23px; height: 23px; }
@@ -218,11 +292,14 @@ a { color: var(--accent-strong); }
   letter-spacing: 0.02em;
 }
 
-/* Telegram blue, so the button is recognisable before the label is read. */
+/* Раньше кнопка заливалась фирменным голубым Telegram. В этой палитре он
+   единственное пятно чужого бренда и рвёт всю систему, поэтому узнаваемость
+   оставлена значку, а кнопка стала тихой — обведённой. */
 .btn-tg {
-  background: linear-gradient(135deg, #37aee2, #1e96c8);
-  color: #fff;
-  box-shadow: 0 12px 28px rgba(46, 160, 210, 0.30);
+  background: var(--surface);
+  border: 1px solid var(--stroke-strong);
+  color: var(--text);
+  box-shadow: 0 8px 20px rgba(27, 31, 28, 0.08);
 }
 
 .btn-small.btn-tg {
@@ -232,10 +309,14 @@ a { color: var(--accent-strong); }
 
 .btn-small.btn-tg .ico { width: 16px; height: 16px; margin-right: 7px; }
 
+/* На тёмном чёрная плашка Apple сливается с фоном, поэтому светлеет до
+   поверхности — и получает обводку: без неё панель на панели теряет края, а
+   кнопка перестаёт выглядеть нажимаемой. */
 @media (prefers-color-scheme: dark) {
   .btn-store {
-    background: #f4f2ff;
-    color: #14121f;
+    background: var(--surface);
+    border-color: var(--stroke-strong);
+    color: var(--text);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
   }
 }
@@ -283,10 +364,11 @@ a { color: var(--accent-strong); }
 
 .hero h1 em {
   font-style: normal;
-  background: linear-gradient(100deg, var(--accent-strong), #4f8cff 70%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  /* Был градиент из фиолетового в синий по тексту — тот самый приём, по
+     которому узнают ИИ-стартап, и вдобавок он делал слово менее читаемым, чем
+     соседние. Теперь ровный акцент: противопоставление «глобально» и
+     «локально» держится на цвете, а не на переливе. */
+  color: var(--accent);
 }
 
 .lead {
@@ -422,9 +504,9 @@ a { color: var(--accent-strong); }
   /* Радиус в пикселях, а не в процентах: процент считается по ширине и высоте
      по отдельности, и углы получаются овальными. */
   border-radius: 44px;
-  background: linear-gradient(160deg, #d8d3ea 0%, #f3f1fb 22%, #cfc9e4 60%, #efedf9 100%);
+  background: linear-gradient(160deg, #cfcabc 0%, #efece4 22%, #c4bfb1 60%, #e8e5db 100%);
   box-shadow:
-    0 26px 60px rgba(66, 44, 130, 0.22),
+    0 26px 60px rgba(40, 36, 28, 0.18),
     inset 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 
@@ -453,12 +535,12 @@ a { color: var(--accent-strong); }
   height: 2.6%;
   min-height: 12px;
   border-radius: 999px;
-  background: #0b0b12;
+  background: #101310;
 }
 
 @media (prefers-color-scheme: dark) {
   .device {
-    background: linear-gradient(160deg, #4a4560 0%, #6b6588 24%, #3b3750 62%, #6a6488 100%);
+    background: linear-gradient(160deg, #3a4038 0%, #545a50 24%, #2e332c 62%, #545a50 100%);
     box-shadow:
       0 26px 60px rgba(0, 0, 0, 0.5),
       inset 0 0 0 1px rgba(255, 255, 255, 0.14);
@@ -634,7 +716,7 @@ a { color: var(--accent-strong); }
   position: absolute;
   inset: 6% 10% 12%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(120, 84, 242, 0.30), transparent 68%);
+  background: radial-gradient(circle, rgba(31, 74, 56, 0.16), transparent 68%);
   filter: blur(46px);
   z-index: 0;
 }
@@ -718,10 +800,10 @@ a { color: var(--accent-strong); }
 /* Lavender, not ink: the old fill was so saturated that the white text sat on
    it like a warning sign. */
 .plan-hero {
-  background: linear-gradient(152deg, #7f63f0 0%, #9b81f7 58%, #b6a2fb 125%);
+  background: var(--accent);
   border-color: transparent;
-  color: #fff;
-  box-shadow: 0 26px 60px rgba(120, 84, 242, 0.32);
+  color: var(--text-on-dark);
+  box-shadow: 0 26px 60px rgba(27, 31, 28, 0.20);
 }
 
 /* The saving is the argument for the yearly plan, so it is the one thing on the
@@ -734,15 +816,15 @@ a { color: var(--accent-strong); }
   right: 16px;
   padding: 9px 10px;
   border-radius: 999px;
-  background: #e9ff6b;
-  color: #241c4d;
+  background: var(--brass);
+  color: var(--bg);
   text-align: center;
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 12.5px;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  box-shadow: 0 10px 24px rgba(36, 28, 77, 0.28);
+  box-shadow: 0 10px 24px rgba(27, 31, 28, 0.18);
 }
 
 
@@ -808,7 +890,7 @@ a { color: var(--accent-strong); }
 }
 
 .plan-list b { color: var(--text); font-weight: 700; }
-.plan-hero .plan-list b { color: #fff; }
+.plan-hero .plan-list b { color: var(--text-on-dark); }
 
 /* A tick in a soft disc — the same shape language as the icon chips above,
    and far more legible at a glance than a bullet. */
@@ -830,7 +912,7 @@ a { color: var(--accent-strong); }
 
 .plan-hero .plan-list li::before {
   background: rgba(255, 255, 255, 0.22);
-  color: #fff;
+  color: var(--text-on-dark);
 }
 
 .btn-plan {
@@ -842,9 +924,9 @@ a { color: var(--accent-strong); }
 }
 
 .btn-plan-primary {
-  background: #fff;
+  background: var(--surface-elevated);
   color: var(--accent-strong);
-  box-shadow: 0 14px 32px rgba(24, 12, 70, 0.24);
+  box-shadow: 0 14px 32px rgba(27, 31, 28, 0.20);
 }
 
 /* Out of the flow: the note lived under the button and only the yearly card had
@@ -934,8 +1016,8 @@ a { color: var(--accent-strong); }
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #34c07a;
-  box-shadow: 0 0 0 4px rgba(52, 192, 122, 0.18);
+  background: var(--success);
+  box-shadow: 0 0 0 4px rgba(44, 99, 73, 0.18);
 }
 
 .account-status {
@@ -962,22 +1044,22 @@ a { color: var(--accent-strong); }
   color: var(--muted);
 }
 
-.account-card-error .account-state { color: #d1495b; }
+.account-card-error .account-state { color: var(--error); }
 
 /* Apple's own black button, because that is what the person expects to press
    for Sign in with Apple — anything else reads as a third-party imitation. */
 .btn-apple {
-  background: #111018;
-  color: #fff;
+  background: var(--bg-dark);
+  color: var(--text-on-dark);
   gap: 9px;
   padding: 15px 26px;
-  box-shadow: 0 12px 28px rgba(17, 16, 24, 0.26);
+  box-shadow: 0 12px 28px rgba(27, 31, 28, 0.20);
 }
 
 .btn-apple .ico { width: 19px; height: 19px; }
 
 @media (prefers-color-scheme: dark) {
-  .btn-apple { background: #f6f4ff; color: #14121f; }
+  .btn-apple { background: var(--surface); color: var(--text); }
 }
 
 @media (max-width: 560px) {
@@ -1031,7 +1113,7 @@ a { color: var(--accent-strong); }
 .account-error {
   margin: 14px 0 0;
   font-size: 14px;
-  color: #d1495b;
+  color: var(--error);
 }
 
 .account-form .btn-plan { margin-top: 4px; }

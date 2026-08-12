@@ -1,14 +1,55 @@
+/* Те же чернила и латунь, что на главной: страницы поддержки и оферты
+   открываются по ссылкам из App Store Connect и обязаны выглядеть одним
+   продуктом, а не соседним. */
 :root {
-  color-scheme: light;
-  --bg: #f5f2ff;
-  --panel: rgba(255, 255, 255, 0.9);
-  --panel-strong: rgba(245, 240, 255, 0.95);
-  --text: #221b34;
-  --muted: #6b6282;
-  --accent: #7b61ff;
-  --accent-soft: rgba(123, 97, 255, 0.14);
-  --stroke: rgba(113, 92, 201, 0.18);
-  --shadow: 0 20px 60px rgba(73, 49, 136, 0.12);
+  color-scheme: light dark;
+  --bg: #f7f5f0;
+  --panel: #fcfbf7;
+  --panel-strong: #f2efe7;
+  --surface: #fcfbf7;
+  --surface-elevated: #ffffff;
+  --text: #1b1f1c;
+  --text-secondary: #474c46;
+  --muted: #6b7068;
+  --disabled: #8e9288;
+  --accent: #2a6b52;
+  --accent-deep: #1f4a38;
+  --accent-strong: #173729;
+  --accent-soft: rgba(42, 107, 82, 0.09);
+  --brass: #8a6e35;
+  --stroke: #dfdace;
+  --stroke-strong: #c8c2b4;
+  --success: #2c6349;
+  --warning: #8a5f1e;
+  --error: #8c3a30;
+  --info: #33566a;
+  --shadow: 0 20px 60px rgba(40, 36, 28, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #151815;
+    --panel: #1f241f;
+    --panel-strong: #1a1e1a;
+    --surface: #1f241f;
+    --surface-elevated: #272d26;
+    --text: #ece8de;
+    --text-secondary: #b7b3a7;
+    --muted: #8b8f84;
+    --disabled: #6a6e64;
+    --accent: #7cb398;
+    --accent-deep: #5f9a7e;
+    --accent-strong: #93c4a9;
+    --accent-soft: rgba(124, 179, 152, 0.14);
+    --brass: #c6a469;
+    --stroke: #2e342d;
+    --stroke-strong: #3d443b;
+    --success: #7cb398;
+    --warning: #cfa255;
+    --error: #d28a7e;
+    --info: #84a7ba;
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  }
 }
 
 * {
@@ -20,9 +61,12 @@ html, body {
   padding: 0;
   font-family: Inter, ui-rounded, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(147, 112, 255, 0.15), transparent 32%),
-    radial-gradient(circle at top right, rgba(89, 161, 255, 0.14), transparent 28%),
-    linear-gradient(180deg, #fcfbff 0%, var(--bg) 100%);
+    /* Свечения были сиреневым и голубым — двумя цветами, которых в палитре
+       больше нет. Оставлены как след чернил и латуни, и вдвое тише: фон обязан
+       читаться как бумага, а не как подсветка. */
+    radial-gradient(circle at top left, rgba(42, 107, 82, 0.07), transparent 34%),
+    radial-gradient(circle at top right, rgba(138, 110, 53, 0.05), transparent 30%),
+    linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
   color: var(--text);
   min-height: 100%;
 }

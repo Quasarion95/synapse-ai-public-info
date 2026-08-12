@@ -219,7 +219,7 @@
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
-.phone-field.is-bad { border-color: #e5484d; }
+.phone-field.is-bad { border-color: var(--error); }
 
 .phone-prefix {
   font-family: var(--font-display);
@@ -421,7 +421,7 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, var(--accent), #5b8cff);
+  background: linear-gradient(135deg, var(--accent), var(--info));
   color: #fff;
   box-shadow: 0 8px 20px rgba(120, 84, 242, 0.30);
 }
@@ -436,13 +436,13 @@
   border-radius: 13px;
   border: 1px solid rgba(229, 72, 77, 0.35);
   background: rgba(229, 72, 77, 0.09);
-  color: #c62b30;
+  color: var(--error);
   font-size: 14.5px;
   line-height: 1.5;
 }
 
 @media (prefers-color-scheme: dark) {
-  .alert { color: #ff9d9f; }
+  .alert { color: var(--error); }
 }
 
 .alert a { color: inherit; }
@@ -501,19 +501,19 @@
   flex: none;
 }
 
-.status-dot.on { background: #2fa36b; box-shadow: 0 0 0 4px rgba(47, 163, 107, 0.16); }
-.status-dot.off { background: #e5484d; box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.14); }
+.status-dot.on { background: var(--success); box-shadow: 0 0 0 4px rgba(44, 99, 73, 0.16); }
+.status-dot.off { background: var(--error); box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.14); }
 
 .btn-danger {
   background: transparent;
   border-color: rgba(229, 72, 77, 0.45);
-  color: #d33b40;
+  color: var(--error);
 }
 
 .btn-danger:hover { background: rgba(229, 72, 77, 0.08); }
 
 @media (prefers-color-scheme: dark) {
-  .btn-danger { color: #ff9d9f; }
+  .btn-danger { color: var(--error); }
 }
 
 /* ---------- modal ---------- */
