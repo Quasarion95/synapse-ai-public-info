@@ -52,7 +52,11 @@
         <div>
           <section class="panel">
             <h2 class="panel-title">Тариф</h2>
-            <p class="panel-note">Списание разовое. Продлевать или нет — решаете сами.</p>
+            <p class="panel-note">
+              Подписка продлевается сама, пока вы её не отмените. Отменить можно
+              в любой момент в <a href="/account/">управлении подпиской</a> — доступ
+              доработает до конца оплаченного периода.
+            </p>
             <fieldset class="pick" id="plans"></fieldset>
           </section>
 
@@ -90,7 +94,8 @@
             <p class="fine">
               Оплата проходит на стороне ЮKassa — карта вводится там, мы её не
               видим. Нажимая кнопку, вы соглашаетесь с <a href="/offer/">офертой</a>
-              и <a href="/privacy/">политикой конфиденциальности</a>.
+              и <a href="/privacy/">политикой конфиденциальности</a> и на регулярное
+              списание <span id="consentAmount">590 ₽ каждые 30 дней</span> до отмены.
             </p>
           </section>
         </div>
@@ -101,6 +106,7 @@
               <span id="totalLabel">Месяц</span>
               <b id="totalPrice">590 ₽</b>
             </div>
+            <p class="fine" id="renewNote" style="margin: 10px 0 18px;"></p>
 
             <ul class="ticks">
               <li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -162,9 +168,9 @@
       } catch (error) {}
 
       var PLANS = {
-        "pro.weekly":  { title: "Неделя", price: 149,  note: "Попробовать без длинного обязательства.", tag: "" },
-        "pro.monthly": { title: "Месяц",  price: 590,  note: "Основной тариф.",                        tag: "" },
-        "pro.yearly":  { title: "Год",    price: 4990, note: "Примерно 416 ₽ в месяц.",                tag: "выгодно" }
+        "pro.weekly":  { title: "Неделя", price: 149,  days: 7,   every: "каждые 7 дней",   note: "Попробовать без длинного обязательства.", tag: "" },
+        "pro.monthly": { title: "Месяц",  price: 590,  days: 30,  every: "каждые 30 дней",  note: "Основной тариф.",                        tag: "" },
+        "pro.yearly":  { title: "Год",    price: 4990, days: 365, every: "каждые 365 дней", note: "Примерно 416 ₽ в месяц.",                tag: "выгодно" }
       };
 
       var money = function (value) {
@@ -212,8 +218,29 @@
       }
 
       function renderTotal() {
-        totalLabelEl.textContent = PLANS[selectedPlan].title;
-        totalPriceEl.textContent = money(PLANS[selectedPlan].price);
+        var plan = PLANS[selectedPlan];
+        totalLabelEl.textContent = plan.title;
+        totalPriceEl.textContent = money(plan.price);
+
+        // Дата ближайшего списания названа прямо здесь, а не только в оферте:
+        // «продлевается само» без даты человек читает как «когда-нибудь», а
+        // потом видит списание и считает его неожиданным.
+        var now = new Date();
+        var next = new Date();
+        next.setDate(next.getDate() + plan.days);
+        // Год добавляется, когда списание попадает в следующий: у годового
+        // тарифа «12 августа» без года читается как «завтра», а это 4 990 ₽.
+        var shape = next.getFullYear() === now.getFullYear()
+          ? { day: "numeric", month: "long" }
+          : { day: "numeric", month: "long", year: "numeric" };
+        // Русская локаль дописывает « г.», и вместе с точкой предложения
+        // выходит «2027 г..» — убираем её.
+        var when = next.toLocaleDateString("ru-RU", shape).replace(/\s*г\.$/, "");
+
+        document.getElementById("renewNote").textContent =
+          "Дальше " + money(plan.price) + " " + plan.every + ". Первое продление " + when + ".";
+        document.getElementById("consentAmount").textContent =
+          money(plan.price) + " " + plan.every;
       }
 
       /* ---------- телефон ----------
