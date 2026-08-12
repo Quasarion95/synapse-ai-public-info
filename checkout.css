@@ -26,16 +26,19 @@
 
 .flow-head h1 {
   font-family: var(--font-display);
-  margin: 16px 0 0;
-  font-size: clamp(30px, 4.6vw, 46px);
-  line-height: 1.04;
-  letter-spacing: -0.033em;
+  /* Плашка «Synapse Pro» и заголовок «Оформление подписки» говорили одно и то
+     же в два этажа и съедали экран до того, как человек увидит тарифы. Теперь
+     одна строка, и отступ сверху ей больше не нужен. */
+  margin: 0;
+  font-size: clamp(26px, 3.4vw, 36px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
   font-weight: 800;
 }
 
 .flow-head .lead {
-  margin-top: 14px;
-  max-width: 52ch;
+  margin-top: 10px;
+  max-width: 58ch;
 }
 
 /* The form on the left, what you are buying on the right. Two columns rather
