@@ -40,6 +40,7 @@
   --bg: #f5f1e8;              /* ivory — бумага, а не кремовый фон */
   --surface: #fbf9f4;         /* карточка почти растворяется в фоне */
   --surface-2: #eae4d6;       /* bone — вторичные блоки и сцена под скриншотами */
+  --surface-elevated: #ffffff; /* кнопка поверх тёмной карточки — самый верхний слой */
   --bg-band: #eae4d6;
   --bg-dark: #1d2a23;         /* тёмные секции внутри светлой темы */
 
@@ -105,6 +106,7 @@
     --surface-2: #2d3830;
     --bg-band: #222b26;
     --bg-dark: #171d19;
+    --surface-elevated: #2d3830;
 
     --text: #f5f1e8;
     --muted: #b9bbaf;
@@ -986,11 +988,17 @@ a { color: var(--accent-strong); }
   font-size: 15.5px;
 }
 
+/* Кнопка на тёмной карточке — светлая, и это не украшение: она единственное
+   место годового тарифа, ради которого карточка вообще существует. Ссылка на
+   необъявленный токен делала её прозрачной, то есть тёмный текст оказывался на
+   тёмно-зелёном фоне и главный призыв страницы просто исчезал. */
 .btn-plan-primary {
-  background: var(--surface-elevated);
-  color: var(--accent-strong);
-  box-shadow: 0 14px 32px rgba(27, 31, 28, 0.20);
+  background: #ffffff;
+  color: var(--forest-deep);
+  box-shadow: 0 14px 32px rgba(23, 33, 27, 0.28);
 }
+
+.btn-plan-primary:hover { background: var(--bg); }
 
 /* Out of the flow: the note lived under the button and only the yearly card had
    one, so that card's button sat a line higher than the other three. */
@@ -1001,7 +1009,10 @@ a { color: var(--accent-strong); }
   bottom: 18px;
   margin: 0;
   font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.78);
+  /* Было 78% белого — 4.3 на лесу, ниже порога для текста такого кегля. Это
+     строка про отмену подписки: именно её человек ищет глазами перед тем, как
+     заплатить, и именно она обязана читаться без усилия. */
+  color: var(--muted-on-dark);
 }
 
 /* What a row is missing has to be visible, not absent: an empty line reads as
