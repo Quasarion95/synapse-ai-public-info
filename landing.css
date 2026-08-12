@@ -5,68 +5,77 @@
 */
 
 /*
-  Цветовая система: чернила и латунь на бумаге.
+  Quiet Intelligence: дорогая бумага, тёмный лес, графит, состаренная латунь.
 
-  Прежняя палитра была фиолетовой на лавандовом — ровно тот набор, по которому
-  сегодня опознают любой ИИ-стартап. Продукт не про это: он про длинную
-  дистанцию, дисциплину и трезвый взгляд на собственные результаты, а такие
-  вещи не продают неоном.
+  Продукт продаёт не «эффективность за пять минут», а последовательность:
+  большая цель → этапы → задачи → действие на сегодня. Значит и визуальный язык
+  должен быть не возбуждающим, а спокойным и уверенным. Фиолетовый градиент
+  говорит «посмотри, какой у нас ИИ», яркий зелёный — «давай продуктивнее»,
+  оранжевый — «сделай прямо сейчас». Лес на бумаге говорит другое: «у тебя есть
+  путь, просто продолжай его».
 
-  Три правила, из которых выведено всё остальное.
+  Распределение зафиксировано как правило, а не как пожелание:
+      нейтрали   70–80%
+      forest     10–15%
+      olive       5–10%
+      brass        1–3%
+      burgundy     <1%
 
-  Палитра почти целиком нейтральная. Премиальность здесь делают не цвета, а
-  отношения между ними: тёплая бумага вместо белизны, чернила вместо чёрного,
-  воздух и один-единственный акцент. Там, где цветов много, дорого не бывает.
-
-  Акцент один и тёмный. Глубокий бутылочный работает как чернила с характером:
-  на кнопке он не кричит, а утверждает. Если акцентом становится всё, акцента
-  нет.
-
-  Латунь — не золото. Состаренный металл для премиальных мест: годовой тариф,
-  ключевые цифры, тонкие линии. Яркое золото читается как дешёвая роскошь.
+  Латунь обязана оставаться редкой. Если человек начал замечать «золотой
+  дизайн», золота уже слишком много.
 */
 
 :root {
   color-scheme: light dark;
 
   /* Бренд */
-  /* Три ступени одного цвета, а не один на всё.
-     Акцент для текста обязан отличаться от чернил, иначе выделенное слово
-     перестаёт читаться как выделенное — а на первом экране всё держится на
-     противопоставлении «глобально» и «локально».
-     Заливка кнопки, наоборот, тем глубже, чем спокойнее выглядит. */
-  --accent: #2a6b52;          /* ссылки, выделения, активные состояния */
-  --accent-deep: #1f4a38;     /* заливка главной кнопки */
-  --accent-strong: #173729;   /* наведение и нажатие */
-  --accent-soft: rgba(42, 107, 82, 0.09);
-  --brass: #8a6e35;           /* состаренная латунь — премиальные акценты */
-  --brass-soft: rgba(138, 110, 53, 0.10);
+  --forest: #24382e;          /* CTA, ссылки, активное, ключевые цифры */
+  --forest-deep: #1d2a23;     /* наведение и тёмные секции */
+  --forest-active: #17211b;   /* нажатие */
+  --olive: #5c6857;           /* вторичный брендовый, обычный прогресс */
+  --brass: #9a8052;           /* микроакцент: номера, тонкие линии, бейджи */
+  --burgundy: #6a3f3b;        /* редкий эмоциональный акцент и ошибки */
 
   /* Поверхности */
-  --bg: #f7f5f0;              /* тёплая бумага, без желтизны */
-  --bg-band: #efece4;         /* полоса-подложка между секциями */
-  --surface: #fcfbf7;         /* карточка чуть светлее фона, а не белый лист */
-  --surface-elevated: #ffffff;
-  --bg-dark: #1b201c;         /* тёмные секции внутри светлой темы */
+  --bg: #f5f1e8;              /* ivory — бумага, а не кремовый фон */
+  --surface: #fbf9f4;         /* карточка почти растворяется в фоне */
+  --surface-2: #eae4d6;       /* bone — вторичные блоки и сцена под скриншотами */
+  --bg-band: #eae4d6;
+  --bg-dark: #1d2a23;         /* тёмные секции внутри светлой темы */
 
   /* Текст */
-  --text: #1b1f1c;
-  --text-secondary: #474c46;
-  --muted: #6b7068;
-  --disabled: #8e9288;
-  --text-on-dark: #ece8de;
+  --text: #20231f;            /* графит: дорогой печатный текст, не чёрный */
+  --muted: #6f736b;           /* вторичный текст обычного кегля */
+  --muted-strong: #5f635c;    /* он же для мелких подписей и текста на bone */
+  --text-on-dark: #f5f1e8;
+  --muted-on-dark: #c8c8bc;
+  --disabled: #9a9d96;
 
   /* Линии */
-  --stroke: #dfdace;
-  --stroke-strong: #c8c2b4;
+  --stroke: #d8d2c5;
+  --stroke-strong: #c9c2b4;
+  --divider: #e3ded3;
 
-  /* Смысловые — внутри той же палитры, а не из чужого набора */
-  --success: #2c6349;
-  --warning: #8a5f1e;
-  --error: #8c3a30;
-  --info: #33566a;
+  /* Смысловые — из той же палитры */
+  --success: #486653;
+  --success-soft: #e1e9e2;
+  --warning: #7f6035;
+  --warning-soft: #f0e8d8;
+  --error: #6a3f3b;
+  --error-soft: #f0e2df;
+  --info: #526a68;
+  --info-soft: #e1e9e7;
 
-  --shadow: 0 24px 60px rgba(40, 36, 28, 0.10);
+  /* Прогресс: спокойный процесс, а не казино с цветными индикаторами */
+  --track: #ddd8cc;
+
+  /* Совместимость со старыми именами */
+  --accent: var(--forest);
+  --accent-deep: var(--forest);
+  --accent-strong: var(--forest-deep);
+  --accent-soft: #e5ebe4;
+
+  --shadow: 0 20px 48px rgba(32, 35, 31, 0.08);
   --radius: 20px;
   /* Two faces on purpose. Manrope is the voice: geometric, very heavy at 800,
      with a wide Cyrillic set — it carries the headlines. Inter is the reading
@@ -77,37 +86,48 @@
   --font-text: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
-/* Тёмная тема — не инверсия, а другое время суток: тёмный графит с зелёным
-   подтоном и тёплый ivory-текст. Чистый чёрный не используется: он выглядит
-   как выключенный экран, а не как рабочее место ночью. */
+/* Тёмная тема — тёмная библиотека, а не игровой интерфейс. Чистый чёрный не
+   используется: он выглядит как выключенный экран. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent: #7cb398;        /* на тёмном бутылочный не виден — светлеет до шалфея */
-    --accent-deep: #5f9a7e;
-    --accent-strong: #93c4a9;
-    --accent-soft: rgba(124, 179, 152, 0.14);
-    --brass: #c6a469;
-    --brass-soft: rgba(198, 164, 105, 0.14);
+    /* На тёмном лес светлеет до шалфея, иначе он неразличим. Значение чуть
+       выше исходного #7c9a84: на карточке тот давал 4.4, то есть текст на ней
+       уже не проходил порог читаемости. */
+    --forest: #84a28c;
+    --forest-deep: #6f8c78;
+    --forest-active: #9ab8a2;
+    --olive: #8c9a86;
+    --brass: #b19a6c;
+    --burgundy: #b98782;
 
-    --bg: #151815;
-    --bg-band: #1a1e1a;
-    --surface: #1f241f;
-    --surface-elevated: #272d26;
-    --bg-dark: #101310;
+    --bg: #1d2420;
+    --surface: #263029;
+    --surface-2: #2d3830;
+    --bg-band: #222b26;
+    --bg-dark: #171d19;
 
-    --text: #ece8de;
-    --text-secondary: #b7b3a7;
-    --muted: #8b8f84;
-    --disabled: #6a6e64;
-    --text-on-dark: #ece8de;
+    --text: #f5f1e8;
+    --muted: #b9bbaf;
+    --muted-strong: #c6c8bd;
+    --text-on-dark: #f5f1e8;
+    --muted-on-dark: #b9bbaf;
+    --disabled: #737a70;
 
-    --stroke: #2e342d;
-    --stroke-strong: #3d443b;
+    --stroke: #3a443d;
+    --stroke-strong: #4a564c;
+    --divider: #333d36;
 
-    --success: #7cb398;
-    --warning: #cfa255;
-    --error: #d28a7e;
-    --info: #84a7ba;
+    --success: #84a28c;
+    --success-soft: #24312a;
+    --warning: #c2a06a;
+    --warning-soft: #332c1e;
+    --error: #b98782;
+    --error-soft: #33241f;
+    --info: #8aa6a4;
+    --info-soft: #223030;
+
+    --track: #333d36;
+    --accent-soft: #2a362d;
 
     --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   }
@@ -362,13 +382,13 @@ a { color: var(--accent-strong); }
    rather than merely stated. */
 .h1-line { display: block; }
 
+/* Лесом выделено только «локально» — и это смысл, а не украшение.
+   «Мысли глобально» остаётся графитом, «действуй локально» окрашивается: мысль
+   нейтральна, действие имеет цвет. Раньше подсвечивались оба слова, и
+   противопоставление, на котором держится весь первый экран, пропадало. */
 .hero h1 em {
   font-style: normal;
-  /* Был градиент из фиолетового в синий по тексту — тот самый приём, по
-     которому узнают ИИ-стартап, и вдобавок он делал слово менее читаемым, чем
-     соседние. Теперь ровный акцент: противопоставление «глобально» и
-     «локально» держится на цвете, а не на переливе. */
-  color: var(--accent);
+  color: var(--forest);
 }
 
 .lead {
@@ -442,26 +462,38 @@ a { color: var(--accent-strong); }
   gap: 18px;
 }
 
+/* Не карточки, а колонки редакционной полосы.
+   Рамка, заливка и тень вокруг каждого пункта делали из трёх мыслей три
+   одинаковых коробки. Осталась одна тонкая линия сверху — как в журнале, где
+   колонки разделяет линейка, а не рамка. */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius);
-  padding: 24px;
-  box-shadow: var(--shadow);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--stroke);
+  border-radius: 0;
+  padding: 22px 0 0;
+  box-shadow: none;
 }
 
 /* Numbered rather than decorated. A glyph is ornament; a number tells the
    reader there are exactly three things and they are being counted through. */
 .card-num {
   font-family: var(--font-display);
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.04em;
-  color: transparent;
-  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--accent-strong) 55%, transparent);
+  /* Латунь ровно в том объёме, ради которого она и существует: три маленькие
+     цифры на всю страницу. Обводка убрана — полый контур читался как
+     недорисованный, а не как деталь. */
+  color: var(--brass);
   margin-bottom: 14px;
+  transition: color 0.2s ease;
 }
+
+/* На наведении номер уходит в лес: страница отвечает на курсор цветом
+   действия, а не подсветкой блока. */
+.card:hover .card-num { color: var(--forest); }
 
 .card h3, .feature h3 {
   font-family: var(--font-display);
@@ -486,10 +518,18 @@ a { color: var(--accent-strong); }
 
 /* ---------- screenshots ---------- */
 
+/* Нейтральная сцена под скриншотами.
+   Красить сами экраны приложения под палитру сайта нельзя — это живой продукт,
+   и подгонять его под рекламный макет значит показать не то, что человек
+   скачает. Вместо этого вокруг них кладётся спокойная подложка: сайт остаётся
+   бумагой и лесом, а приложение — продуктом внутри него. */
 .shots {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
+  background: var(--surface-2);
+  border-radius: 26px;
+  padding: 32px 28px 28px;
 }
 
 .shots figure { margin: 0; }
@@ -556,11 +596,24 @@ a { color: var(--accent-strong); }
 
 /* ---------- trust band ---------- */
 
+/* Блок про данные — единственный на bone. Технологичность здесь передаётся не
+   синим, а спокойствием: тёмный лес на иконках, тонкие линии, латунь по мелочи.
+   Тихая технология вместо «мы серьёзная IT-компания». */
 .band {
   background: var(--bg-band);
   max-width: none;
   border-block: 1px solid var(--stroke);
 }
+
+/* На bone вторичный текст теряет контраст: 3.8 против 4.5 на обычном фоне.
+   Здесь он на два тона темнее — не другой цвет, а тот же, доведённый до
+   читаемого. */
+.band .muted,
+.band p,
+.band li { color: var(--muted-strong); }
+.band .section-title,
+.band h3,
+.band b { color: var(--text); }
 
 .band > * { max-width: 1080px; margin-inline: auto; }
 
@@ -668,11 +721,17 @@ a { color: var(--accent-strong); }
   because the promise above it — break the big thing into steps — only means
   something once you know why the product believes in effort over outcome.
 */
+/* Единственное место на сайте, где фон становится тёмным лесом.
+   «Результат никогда не в наших руках целиком. В наших руках — усилие» — это
+   самая сильная мысль страницы, и она должна читаться как редакционная цитата
+   из дорогого журнала, а не как ещё один белый блок между другими белыми. */
 .creed {
-  max-width: 1080px;
-  margin: 8px auto 0;
-  padding: 64px 24px 72px;
+  max-width: 1140px;
+  margin: 40px auto 0;
+  padding: 84px 24px 92px;
   text-align: center;
+  background: var(--bg-dark);
+  border-radius: 28px;
 }
 
 .creed-kicker {
@@ -682,7 +741,7 @@ a { color: var(--accent-strong); }
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--brass);
 }
 
 .creed-line {
@@ -692,16 +751,15 @@ a { color: var(--accent-strong); }
   font-weight: 800;
   line-height: 0.9;
   letter-spacing: -0.05em;
-  background: linear-gradient(160deg, var(--text) 20%, var(--accent-strong));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  /* Был градиент по тексту. На тёмном фоне он не нужен и вреден: слово должно
+     быть одного цвета и читаться целиком. */
+  color: var(--text-on-dark);
 }
 
 .creed-text {
   margin: 26px auto 0;
   max-width: 56ch;
-  color: var(--muted);
+  color: var(--muted-on-dark);
   font-size: 17px;
   line-height: 1.65;
 }
@@ -792,29 +850,34 @@ a { color: var(--accent-strong); }
    cards the eye has to land here first and know which one is the offer. */
 /* The middle plan is tinted rather than white: three white cards in a row give
    the eye nothing to hold, and this one is a paid plan too. */
+/* Месячный — не герой, но и не рядовой: он на тон плотнее соседних и с более
+   заметной линией. Иерархия тарифов строится ступенями фона, а не цветом. */
 .plan-soft {
-  background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 13%, var(--surface)) 0%, var(--surface) 78%);
-  border-color: color-mix(in srgb, var(--accent) 26%, var(--stroke));
+  background: var(--bg);
+  border-color: var(--stroke-strong);
 }
 
-/* Lavender, not ink: the old fill was so saturated that the white text sat on
-   it like a warning sign. */
+/* Годовой — визуальный герой, и единственный тариф с тёмной заливкой.
+   Продукт продаёт долгосрочное мышление, поэтому годовой тариф и должен
+   выглядеть взрослым выбором, а не «акцией». Красное «выгодно!» здесь работало
+   бы против самого товара. */
 .plan-hero {
-  background: var(--accent);
+  background: var(--forest);
   border-color: transparent;
   color: var(--text-on-dark);
   box-shadow: 0 26px 60px rgba(27, 31, 28, 0.20);
 }
 
-/* The saving is the argument for the yearly plan, so it is the one thing on the
-   page that is not in the brand palette: a pale chip on a lavender card was
-   invisible next to the monthly one. */
+/* Латунный бейдж — то самое место, ради которого латунь и заведена: маленькая
+   деталь дорогих часов, а не кнопка «купить». Он намеренно узкий и прижат к
+   краю карточки: широкая золотая плашка через всю ширину превращает взрослый
+   выбор в распродажу. */
 .plan-badge {
   position: absolute;
-  top: -14px;
-  left: 16px;
-  right: 16px;
-  padding: 9px 10px;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 16px;
   border-radius: 999px;
   background: var(--brass);
   color: var(--bg);
