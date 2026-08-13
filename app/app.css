@@ -84,8 +84,12 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 /* Шапка и колонка контента живут по одной мерке. Раньше шапка была зажата в
    820 px, а на широком экране колонка расширялась до 1000 — логотип уезжал
    внутрь на девяносто пикселей относительно карточек под ним. */
-.top{position:sticky; top:0; z-index:30; background:var(--bg); border-bottom:1px solid var(--line)}
-.top-in{max-width:var(--col); margin:0 auto; padding:14px var(--pad); display:flex; align-items:center; gap:12px}
+.top{position:sticky; top:0; z-index:30; background:var(--bg)}
+/* Линия под шапкой раньше шла во всю ширину окна и на широком экране
+   начиналась в пустоте слева от колонки. Теперь она принадлежит самой
+   колонке: начинается ровно под логотипом и кончается под аватаркой. */
+.top-in{max-width:var(--col); margin:0 auto; padding:14px var(--pad); display:flex; align-items:center; gap:12px; position:relative}
+.top-in::after{content:''; position:absolute; left:var(--pad); right:var(--pad); bottom:0; height:1px; background:var(--line)}
 .brand{display:flex; align-items:center; gap:10px; min-width:0}
 .brand .mark{width:28px; height:28px; border-radius:10px; background:var(--fg); color:var(--bg); display:grid; place-items:center; font-family:var(--display); font-weight:800; font-size:15px; flex:none}
 .brand .nm{font-family:var(--display); font-size:18px; font-weight:800; letter-spacing:-.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
@@ -157,6 +161,7 @@ select.inp{appearance:none}
 .radios{display:flex; gap:8px; flex-wrap:wrap}
 .radio{background:var(--soft); border-radius:999px; padding:9px 16px; font-size:13.5px; color:var(--fg-2)}
 .radio[aria-pressed="true"]{background:var(--fg); color:var(--bg)}
+.radios.sm .radio{padding:6px 12px; font-size:12.5px}
 /* Палитра выбиралась вслепую: все десять чипов рисовались цветами текущей
    темы. Теперь каждый несёт свои — фон кружком и акцент точкой внутри. */
 .radio.pal{display:inline-flex; align-items:center; gap:9px; padding-left:9px}
@@ -193,8 +198,14 @@ select.inp{appearance:none}
 .item-main{display:flex; gap:10px; align-items:flex-start}
 .box{width:20px; height:20px; border:2px solid var(--soft-2); border-radius:999px; flex:none; display:grid; place-items:center; font-size:10px; color:transparent; background:none; margin-top:1px}
 .box.on{background:var(--ok); border-color:var(--ok); color:#fff}
-.item .t{font-size:15px; font-weight:600; letter-spacing:-.015em; line-height:1.28; display:block; overflow-wrap:anywhere}
+/* Название — кнопка: карточка раскрывается тапом целиком, но с клавиатуры
+   нужна цель для табуляции. Выглядит как текст. */
+.item .t{font-size:15px; font-weight:600; letter-spacing:-.015em; line-height:1.28; display:block; width:100%; overflow-wrap:anywhere; padding:0}
 .item.done .t{color:var(--fg-3); text-decoration:line-through; text-decoration-color:var(--soft-2)}
+.item-main{cursor:pointer}
+.item .expand .car{display:inline-block; transition:transform .18s ease}
+.item.open .expand .car{transform:rotate(180deg)}
+.item .belongs{font-size:12.5px; color:var(--accent); margin-bottom:2px}
 .item .m{font-size:12px; color:var(--fg-3); margin-top:3px; display:flex; gap:6px; flex-wrap:wrap; align-items:center}
 
 /* Место вставки при перетаскивании: линия над карточкой, перед которой
@@ -224,8 +235,13 @@ select.inp{appearance:none}
 
 /* строка создания задачи */
 .composer{position:fixed; left:50%; transform:translateX(-50%); bottom:100px; z-index:40; width:min(620px, calc(100% - 32px))}
-.say{display:flex; gap:8px; align-items:center; background:var(--card); border:1px solid var(--stroke); border-radius:999px; padding:7px 7px 7px 18px; box-shadow:var(--shadow-lift)}
+/* Строка ввода плавает над содержимым, а карточки под ней того же цвета —
+   на светлых палитрах она в них растворялась. Поэтому фон здесь не card, а
+   более плотный panelStrong, обводка в полный контраст текста и тень
+   заметнее: панель должна читаться на любом фоне и в любой теме. */
+.say{display:flex; gap:8px; align-items:center; background:var(--soft); border:1.5px solid var(--fg-3); border-radius:999px; padding:7px 7px 7px 18px; box-shadow:var(--shadow-lift), 0 0 0 5px var(--bg)}
 .say input{flex:1; border:0; background:none; outline:0; font-size:15px; min-width:0}
+.say input::placeholder{color:var(--fg-3); opacity:.85}
 .say .send{width:38px; height:38px; border-radius:999px; background:var(--fg); color:var(--bg); display:grid; place-items:center; flex:none; font-size:17px}
 .composer .hint{margin:8px auto 0; font-size:11.5px; background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px 8px 14px; max-width:520px; box-shadow:var(--shadow)}
 .composer .hint.tip{display:flex; align-items:flex-start; gap:8px; text-align:left}
@@ -311,7 +327,9 @@ select.inp{appearance:none}
 /* ============ MIND MAP ============ */
 /* Холст шире экрана — крутится внутри своей рамки, страницу за собой не тянет
    (требование: горизонтальной прокрутки у страницы быть не должно). */
-.mmwrap{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:10px; margin-bottom:var(--gap); overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch}
+/* У рамки карты фиксированная высота. Раньше она подстраивалась под холст, и
+   экран аналитики прыгал: одна цель — полоска, четыре — половина страницы. */
+.mmwrap{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:10px; margin-bottom:var(--gap); height:320px; overflow:auto; -webkit-overflow-scrolling:touch; display:grid; place-items:center}
 .mmwrap svg{display:block; height:auto}
 
 /* На телефоне в рамку помещался ствол и обрезанные края двух целей, а сверху
@@ -333,16 +351,6 @@ body.mm-open{overflow:hidden}
 .mmlegend i{width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:-1px; border:1px solid var(--stroke)}
 
 .chip.late{background:transparent; color:var(--danger); border:1px solid var(--danger)}
-
-/* ============ КАРТА ЦЕЛЕЙ (плитками) ============ */
-.map{display:grid; grid-template-columns:minmax(0,1fr); gap:16px}
-.mapgoal{border:1px dashed var(--line); border-radius:var(--r-lg); padding:14px}
-.mapgoal .mh{display:flex; align-items:baseline; gap:10px; margin-bottom:10px}
-.mapgoal .mh b{font-size:15px}
-.mapnodes{display:flex; gap:7px; flex-wrap:wrap}
-.node{border:1.5px solid var(--soft-2); border-radius:999px; padding:6px 12px; font-size:12.5px; color:var(--fg-3); background:none}
-.node.part{border-color:var(--accent); color:var(--fg-2); background:var(--accent-soft)}
-.node.full{border-color:var(--ok); background:var(--ok); color:#fff}
 
 /* ============ СПИСКИ / ЗАМЕТКИ / ПРОЧЕЕ ============ */
 .lines{display:grid; grid-template-columns:minmax(0,1fr); gap:2px; margin-top:10px}
@@ -379,22 +387,32 @@ body.mm-open{overflow:hidden}
 .card.med.on .med-face span{font-size:15px; color:var(--accent); font-weight:600}
 .med-acts{display:flex; gap:9px; flex-wrap:wrap; justify-content:center}
 
-.soundgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr)); gap:var(--gap-row); margin-bottom:var(--gap)}
-.soundcard{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-md); box-shadow:var(--shadow); padding:13px 14px; display:grid; gap:3px; justify-items:start}
-.soundcard .sw{width:30px; height:30px; border-radius:999px; background:var(--soft); display:grid; place-items:center; margin-bottom:5px}
+/* Громкость — часть карточки с кругом, а не отдельный блок ниже: её крутят,
+   слушая звук, и разносить их по разным местам незачем. */
+.med-vol{display:flex; align-items:center; gap:12px; width:min(320px,100%); padding-top:4px}
+.med-vol .ic{flex:none; display:grid; place-items:center}
+.med-vol .ic svg{width:17px; height:17px; fill:none; stroke:var(--fg-3); stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round}
+.med-vol .vv{font-size:13px; color:var(--fg-3); width:2.2em; text-align:right; flex:none}
+.range{flex:1; min-width:0; appearance:none; height:6px; border-radius:999px; background:var(--soft); outline:none}
+.range::-webkit-slider-thumb{appearance:none; width:18px; height:18px; border-radius:999px; background:var(--fg); cursor:pointer; border:0}
+.range::-moz-range-thumb{width:18px; height:18px; border-radius:999px; background:var(--fg); cursor:pointer; border:0}
+
+/* Шесть сред в ряд на широком экране, три на телефоне: двенадцать плиток
+   должны читаться сеткой, а не лентой. */
+.soundgrid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--gap-row); margin-bottom:var(--gap)}
+@media (min-width:560px){ .soundgrid{grid-template-columns:repeat(6,minmax(0,1fr))} }
+.soundcard{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-md); box-shadow:var(--shadow); padding:11px 8px 10px; display:grid; gap:6px; justify-items:center; text-align:center}
+.soundcard .sw{position:relative; width:32px; height:32px; border-radius:999px; background:var(--soft); display:grid; place-items:center}
 .soundcard .sw svg{width:17px; height:17px; fill:none; stroke:var(--fg-2); stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round}
-.soundcard .tt{font-size:14.5px; font-weight:600}
-.soundcard .ss{font-size:11.5px; color:var(--fg-3); line-height:1.35}
+.soundcard .tt{font-size:12.5px; font-weight:600; line-height:1.2}
 .soundcard.on{border-color:var(--accent); background:var(--accent-soft)}
 .soundcard.on .sw{background:var(--accent)}
 .soundcard.on .sw svg{stroke:var(--bg)}
 .soundcard.on .tt{color:var(--accent)}
-
-.card.volume{display:flex; align-items:center; gap:14px; padding:14px 18px}
-.range{flex:1; min-width:0; appearance:none; height:6px; border-radius:999px; background:var(--soft); outline:none}
-.range::-webkit-slider-thumb{appearance:none; width:20px; height:20px; border-radius:999px; background:var(--fg); cursor:pointer; border:0}
-.range::-moz-range-thumb{width:20px; height:20px; border-radius:999px; background:var(--fg); cursor:pointer; border:0}
-.volume .vv{font-size:14px; color:var(--fg-2); width:2.4em; text-align:right; flex:none}
+/* Кольцо вокруг значка, пока среда звучит: видно, что именно играет. */
+.soundcard .pulse{position:absolute; inset:-4px; border-radius:999px; border:2px solid var(--accent); animation:pulse 1.9s ease-out infinite}
+@keyframes pulse{0%{transform:scale(.86); opacity:.9}100%{transform:scale(1.18); opacity:0}}
+@media (prefers-reduced-motion:reduce){ .soundcard .pulse{animation:none; opacity:.7} }
 
 .clock{font-family:var(--mono); font-size:clamp(46px,15vw,68px); font-weight:600; letter-spacing:-.045em; text-align:center; line-height:1}
 .phase{text-align:center; color:var(--fg-2); font-size:13.5px; margin-top:6px}

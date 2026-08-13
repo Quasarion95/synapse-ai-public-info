@@ -730,6 +730,12 @@ var VIEWS = {
 };
 
 function go(view){
+  // Прослушивание среды не должно продолжаться на другом экране: человек
+  // ушёл из медитации, а из вкладки всё ещё шумит дождь.
+  if (view !== 'meditation' && med.preview){
+    med.preview = false;
+    medAudioStop();
+  }
   S.view = view;
   S.more = false;
   // Уход с аналитики закрывает развёрнутую карту: иначе она осталась бы
@@ -1028,7 +1034,6 @@ function itemRow(t){
   // Задача, переехавшая с прошлого дня, должна об этом сказать: иначе завтра
   // непонятно, почему она в «Сегодня» и сколько раз уже переезжала.
   if (t.carriedFrom) meta.push('<span class="chip">перенесено с ' + esc(humanDate(t.carriedFrom)) + '</span>');
-  if (goal) meta.push('<span class="chip goal">◎ ' + esc(goal.title) + '</span>');
   if (t.subtasks.length) meta.push('<span class="pct">' + pct(subDone, t.subtasks.length) + '%</span>');
 
   var expandable = t.subtasks.length || t.note;
@@ -1036,6 +1041,9 @@ function itemRow(t){
   var detail = '';
   if (open){
     detail = '<div class="detail">' +
+      // Принадлежность цели — строкой словами, а не чипом с названием: чип
+      // читался как метка, а не как «эта задача про вот эту цель».
+      (goal ? '<p class="belongs">Относится к цели «' + esc(goal.title) + '»</p>' : '') +
       (t.note ? '<p class="note">' + esc(t.note) + '</p>' : '') +
       t.subtasks.map(function(s){
         return '<div class="subline' + (s.done ? ' on' : '') + '">' +
@@ -1051,18 +1059,22 @@ function itemRow(t){
     '</div>';
   }
 
-  return '<article class="item' + (t.done ? ' done' : '') + '" draggable="true" data-task="' + t.id + '">' +
-    '<div class="item-main">' +
+  // Раскрывается вся карточка, а не отдельная кнопка «подпункты»: тап по
+  // задаче — самый ожидаемый жест, и искать для него мелкую подпись внизу
+  // карточки незачем. data-act висит на .item-main, чтобы нажатия внутри
+  // раскрытой части не сворачивали её обратно.
+  var summary = t.subtasks.length ? subDone + ' из ' + t.subtasks.length
+    : (t.note ? 'описание' : 'подпункты');
+
+  return '<article class="item' + (t.done ? ' done' : '') + (open ? ' open' : '') + '" draggable="true" data-task="' + t.id + '">' +
+    '<div class="item-main" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
-        '<span class="t">' + esc(t.title) + '</span>' +
+        '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
+          esc(t.title) + '</button>' +
         (meta.length ? '<div class="m">' + meta.join('') + '</div>' : '') +
-        (expandable
-          ? '<button class="expand" data-act="expand" data-task="' + t.id + '">' +
-            '<span>' + (S.open[t.id] ? '⌃' : '⌄') + '</span>' +
-            (t.subtasks.length ? subDone + ' из ' + t.subtasks.length : 'описание') + '</button>'
-          : '<button class="expand" data-act="expand" data-task="' + t.id + '">' +
-            '<span>' + (S.open[t.id] ? '⌃' : '⌄') + '</span>подпункты</button>') +
+        '<span class="expand"><span class="car">⌄</span>' + esc(summary) +
+          (goal ? ' · цель' : '') + '</span>' +
       '</div>' +
       '<div class="side">' +
         // Надёжный путь переноса: жест на сенсоре может не получиться, а с
@@ -1504,8 +1516,9 @@ function vAnalytics(){
         '<span class="mono" style="color:var(--fg-3);flex:none">' + d + ' / ' + all.length + '</span></div>';
     }).join('') + '</div></section>';
 
-  html += '<p class="lbl">Карта целей</p>' + vMindMap() +
-    '<p class="lbl">Цели списком</p>' + vGoalMap();
+  // Дублирующего списка целей под картой нет: карта их и показывает, а на
+  // экране «Цели» они лежат целиком.
+  html += '<p class="lbl">Карта целей</p>' + vMindMap();
 
   html += '<div class="counts" style="margin-top:14px">' +
     cnt(String(S.goals.length), 'целей') +
@@ -1826,31 +1839,6 @@ function mmTree(cx, cy){
     'c -8 0 -14 -5 -14 -12 c 0 -6 4 -11 11 -12 c 0 -7 6 -14 15 -14 z"/>';
 }
 
-/* Список целей остаётся ниже карты — как дополнение, а не вместо неё. */
-function vGoalMap(){
-  if (!S.goals.length) return '';
-  var html = '<section class="card"><div class="map">';
-  for (var i = 0; i < S.goals.length; i++){
-    var g = S.goals[i];
-    var p = goalProgress(g);
-    var cls = p.total && p.done === p.total ? 'full' : p.done ? 'part' : '';
-    html += '<div class="mapgoal">' +
-      '<div class="mh"><span class="node ' + cls + '" style="font-weight:600">◎ ' + esc(g.title) + '</span>' +
-        '<span class="mono" style="color:var(--fg-3);font-size:12px;margin-left:auto">' + pct(p.done, p.total) + '%</span></div>' +
-      '<div class="mapnodes">' +
-        g.stages.map(function(st){
-          var list = tasksOfStage(g.id, st.id);
-          var d = list.filter(function(t){ return t.done; }).length;
-          var scls = st.status === 'done' || (list.length && d === list.length) ? 'full' : d ? 'part' : '';
-          return '<span class="node ' + scls + '">' + esc(st.title) +
-            (list.length ? ' · ' + d + '/' + list.length : ' · без задач') + '</span>';
-        }).join('') +
-        (g.stages.length ? '' : '<span class="node">Пусто</span>') +
-      '</div>' +
-    '</div>';
-  }
-  return html + '</div></section>';
-}
 
 /* ---- списки ---- */
 
@@ -2015,12 +2003,24 @@ function stopTicker(){
    моно, AAC 64 кбит/с, длинные дорожки обрезаны до полутора минут и
    зациклены. Сорок пять мегабайт исходников в браузер не тянут, три —
    нормально. */
+/* Первые пять — записи из приложения. Остальные семь синтезированы: готовых
+   файлов взять неоткуда, а ветер, прибой и шум в природе и есть
+   отфильтрованный шум, так что подделкой это не выглядит. Каждая дорожка
+   сшита сама с собой кроссфейдом, поэтому цикл не щёлкает. Генератор —
+   scripts/gen_ambience.py. */
 var SOUNDS = [
   { id: 'rain',      title: 'Дождь',  hint: 'Ровный шум по стеклу' },
   { id: 'forest',    title: 'Лес',    hint: 'Листва и редкие птицы' },
   { id: 'stream',    title: 'Ручей',  hint: 'Вода по камням' },
   { id: 'fireplace', title: 'Камин',  hint: 'Треск поленьев' },
-  { id: 'flute',     title: 'Флейта', hint: 'Медленный мотив' }
+  { id: 'flute',     title: 'Флейта', hint: 'Медленный мотив' },
+  { id: 'wind',      title: 'Ветер',  hint: 'Порывы в поле' },
+  { id: 'surf',      title: 'Прибой', hint: 'Волна за волной' },
+  { id: 'storm',     title: 'Гроза',  hint: 'Ливень и дальние раскаты' },
+  { id: 'night',     title: 'Ночь',   hint: 'Сверчки в темноте' },
+  { id: 'bowl',      title: 'Чаша',   hint: 'Поющая чаша' },
+  { id: 'hum',       title: 'Гул',    hint: 'Низкий ровный фон' },
+  { id: 'noise',     title: 'Шум',    hint: 'Розовый шум' }
 ];
 
 function soundOf(name){
@@ -2035,7 +2035,7 @@ function soundOf(name){
 /* Ход сеанса живёт в памяти вкладки, а не в S: секунды, записанные в
    localStorage, означали бы запись на диск раз в секунду и «продолжающийся»
    сеанс после перезагрузки. В S попадает только итог. */
-var med = { running: false, paused: false, elapsed: 0, timer: null };
+var med = { running: false, paused: false, preview: false, elapsed: 0, timer: null };
 var medAudio = null;
 
 /// Один элемент <audio> на всё: браузер сам подтягивает файл и зацикливает
@@ -2068,6 +2068,7 @@ function medAudioStop(){
 function medStart(){
   med.running = true;
   med.paused = false;
+  med.preview = false;   // прослушивание переходит в сеанс, звук не прерывается
   med.elapsed = 0;
   medAudioPlay();
   medTick();
@@ -2090,6 +2091,7 @@ function medStop(byHand){
   med.timer = null;
   med.running = false;
   med.paused = false;
+  med.preview = false;
   med.elapsed = 0;
   medAudioStop();
 
@@ -2156,6 +2158,15 @@ function vMeditation(){
           '<button class="btn soft" data-act="med-pause">' + (med.paused ? 'Продолжить' : 'Пауза') + '</button>'
         : '<button class="btn" data-act="med-start">Начать сеанс</button>') +
     '</div>' +
+
+    // Громкость живёт в той же карточке, что и круг: её крутят, слушая звук,
+    // а не отдельно от него.
+    '<div class="med-vol">' +
+      '<span class="ic">' + volumeGlyph() + '</span>' +
+      '<input class="range" type="range" min="0" max="100" step="1" value="' + Math.round(m.volume * 100) + '" ' +
+        'data-volume aria-label="Громкость">' +
+      '<span class="mono vv">' + Math.round(m.volume * 100) + '</span>' +
+    '</div>' +
   '</section>';
 
   if (!running){
@@ -2164,29 +2175,32 @@ function vMeditation(){
         return '<button class="radio" data-act="med-min" data-min="' + min + '" aria-pressed="' + (m.minutes === min) + '">' + min + ' мин</button>';
       }).join('') + '</div>';
 
-    html += '<p class="lbl">Звук</p><div class="soundgrid">' +
+    // Нажатие на среду включает её тут же: звук выбирают ушами, а сравнивать
+    // их, уходя куда-то и возвращаясь, невозможно.
+    html += '<p class="lbl">Звук <span class="val">нажми, чтобы послушать</span></p>' +
+      '<div class="soundgrid">' +
       SOUNDS.map(function(s){
         var on = sound.id === s.id;
-        return '<button class="soundcard' + (on ? ' on' : '') + '" data-act="med-sound" data-sound="' + s.id + '" aria-pressed="' + on + '">' +
-          '<span class="sw">' + soundGlyph(s.id) + '</span>' +
+        var playing = on && med.preview;
+        return '<button class="soundcard' + (on ? ' on' : '') + (playing ? ' playing' : '') + '" ' +
+          'data-act="med-sound" data-sound="' + s.id + '" aria-pressed="' + on + '" title="' + esc(s.hint) + '">' +
+          '<span class="sw">' + soundGlyph(s.id) + (playing ? '<i class="pulse"></i>' : '') + '</span>' +
           '<span class="tt">' + esc(s.title) + '</span>' +
-          '<span class="ss">' + esc(s.hint) + '</span>' +
         '</button>';
       }).join('') + '</div>';
 
-    html += '<p class="lbl">Громкость</p><section class="card volume">' +
-      '<input class="range" type="range" min="0" max="100" step="1" value="' + Math.round(m.volume * 100) + '" ' +
-        'data-volume aria-label="Громкость">' +
-      '<span class="mono vv">' + Math.round(m.volume * 100) + '</span>' +
-    '</section>';
-
     html += '<div class="counts">' +
       cnt(String(m.doneTotal), 'сеансов всего') +
-      cnt(Math.round(m.totalMinutes || 0) + ' мин', 'всего в тишине') +
+      cnt(String(Math.round(m.totalMinutes || 0)), 'минут в тишине') +
     '</div>';
   }
 
   return html;
+}
+
+function volumeGlyph(){
+  return '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M4 9h3.5L12 5v14l-4.5-4H4z"/><path d="M16 9.5a4 4 0 0 1 0 5"/><path d="M18.5 7a7 7 0 0 1 0 10"/></svg>';
 }
 
 /// Кружки-глифы для звуков: рисунок, а не эмодзи, — эмодзи в разных системах
@@ -2197,7 +2211,14 @@ function soundGlyph(id){
     forest:    '<path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/>',
     stream:    '<path d="M3 9c3-2.5 6 2.5 9 0s6-2.5 9 0"/><path d="M3 14c3-2.5 6 2.5 9 0s6-2.5 9 0"/><path d="M3 19c3-2.5 6 2.5 9 0s6-2.5 9 0"/>',
     fireplace: '<path d="M12 3c1 3.5-2 4.5-2 7a4 4 0 0 0 8 0c0-1.2-.4-2.2-1-3 .3 2-1 3-1.6 1.6C14.6 6.6 13.8 4.6 12 3z"/><path d="M8.5 12.5A5 5 0 0 0 12 21a5 5 0 0 0 3.5-8.5"/>',
-    flute:     '<path d="M4 15c2-6 6-10 12-11l4 4c-1 6-5 10-11 12z"/><circle cx="10" cy="14" r="1"/><circle cx="14" cy="10" r="1"/>'
+    flute:     '<path d="M4 15c2-6 6-10 12-11l4 4c-1 6-5 10-11 12z"/><circle cx="10" cy="14" r="1"/><circle cx="14" cy="10" r="1"/>',
+    wind:      '<path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 13h15a3 3 0 1 1-3 3"/><path d="M3 18h8"/>',
+    surf:      '<path d="M3 17c2.5-2 4.5 2 7 0s4.5-2 7 0 3.5 0 4-1"/><path d="M4 12c2-5 6-8 11-8-1 4-1 7 3 9"/>',
+    storm:     '<path d="M7 13a4 4 0 0 1 1-7.9 5 5 0 0 1 9.5 1.5A3.2 3.2 0 0 1 18 13"/><path d="M13 11l-3 5h4l-3 5"/>',
+    night:     '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+    bowl:      '<path d="M4 10h16a8 8 0 0 1-16 0z"/><path d="M9 6.5c1-1.5 5-1.5 6 0"/><path d="M12 3v2"/>',
+    hum:       '<path d="M3 12h3l2-4 3 8 3-10 2.5 6H21"/>',
+    noise:     '<path d="M3 12h1.5l1-3 1.5 6 1.5-8 1.5 10 1.5-7 1.5 5 1.5-4 1.5 3H21"/>'
   };
   return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (paths[id] || '') + '</svg>';
 }
@@ -2497,6 +2518,8 @@ function closeModal(){
   $('modalIn').innerHTML = '';
 }
 
+var HORIZONS = ['Месяц', 'Квартал', 'Полгода', 'Год', 'Три года'];
+
 /// `draftTitle` приходит из строки создания: название уже введено, спросить
 /// осталось два оставшихся поля.
 function modalGoal(goal, draftTitle){
@@ -2510,9 +2533,17 @@ function modalGoal(goal, draftTitle){
       '<input class="inp" id="m-title" value="' + esc(g.title) + '" placeholder="Например: выйти на доход 300 000"></div>' +
     '<div class="field"><label for="m-purpose">Зачем</label>' +
       '<textarea class="inp" id="m-purpose" placeholder="Что изменится, когда цель будет достигнута">' + esc(g.purpose) + '</textarea></div>' +
+    // Горизонт свободный: шаблоны подставляются в поле, но их можно стереть и
+    // написать «до защиты диплома» — срок у цели бывает какой угодно.
     '<div class="field"><label for="m-horizon">Горизонт</label>' +
-      '<input class="inp" id="m-horizon" value="' + esc(g.horizon) + '" placeholder="Год" list="horizons">' +
-      '<datalist id="horizons"><option value="Месяц"><option value="Квартал"><option value="Полгода"><option value="Год"><option value="Три года"></datalist></div>' +
+      '<input class="inp" id="m-horizon" value="' + esc(g.horizon) + '" placeholder="Свой срок или выбери ниже">' +
+      '<div class="radios sm" style="margin-top:9px">' +
+        HORIZONS.map(function(h){
+          return '<button class="radio" data-act="pick-horizon" data-horizon="' + esc(h) + '"' +
+            ' aria-pressed="' + (g.horizon === h) + '">' + esc(h) + '</button>';
+        }).join('') +
+      '</div>' +
+    '</div>' +
     '<button class="btn full" data-act="save-goal"' + (goal ? ' data-goal="' + goal.id + '"' : '') + '>' +
       (fresh ? 'Создать цель' : 'Сохранить') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
@@ -2849,6 +2880,19 @@ var ACTS = {
     commit('Цель сохранена');
   },
   'open-goal': function(d){ S.activeGoal = d.goal; go('goal'); },
+  /* Шаблон только подставляет текст в поле — поле остаётся своим, и написать
+     «до защиты диплома» вместо «Год» никто не мешает. Перерисовки нет: она
+     закрыла бы модалку. */
+  'pick-horizon': function(d){
+    var field = $('m-horizon');
+    if (!field) return;
+    field.value = field.value === d.horizon ? '' : d.horizon;
+    var chips = document.querySelectorAll('[data-act="pick-horizon"]');
+    for (var i = 0; i < chips.length; i++){
+      chips[i].setAttribute('aria-pressed', String(chips[i].getAttribute('data-horizon') === field.value));
+    }
+    field.focus();
+  },
   'fold-goal': function(d){
     S.openGoal[d.goal] = !S.openGoal[d.goal];
     commit();
@@ -3059,10 +3103,23 @@ var ACTS = {
 
   /* --- медитация --- */
   'med-min': function(d){ S.meditation.minutes = Number(d.min); commit(); },
+  /* Нажатие на среду включает её сразу же, не уводя никуда: звук выбирают
+     ушами. Повторное нажатие по уже играющей — выключает. Если идёт сеанс,
+     дорожка просто меняется на лету и не останавливается. */
   'med-sound': function(d){
-    S.meditation.sound = soundOf(d.sound).title;
-    // Если сеанс идёт, дорожка меняется на лету, а не с начала следующего.
-    if (med.running) medAudioPlay();
+    var picked = soundOf(d.sound);
+    var same = soundOf(S.meditation.sound).id === picked.id;
+    S.meditation.sound = picked.title;
+
+    if (med.running){
+      medAudioPlay();
+    } else if (same && med.preview){
+      med.preview = false;
+      medAudioStop();
+    } else {
+      med.preview = true;
+      medAudioPlay();
+    }
     commit();
   },
   'med-start': function(){ medStart(); },
