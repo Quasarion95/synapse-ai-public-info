@@ -286,6 +286,73 @@ a { color: var(--accent-strong); }
   color: var(--text-on-dark);
 }
 
+/* ============ ВХОДНАЯ ЗОНА ============ */
+/* Полоса сразу под первым экраном: единственное место на странице, откуда
+   продуктом можно воспользоваться прямо сейчас. Поэтому она тёмная — на
+   светлой странице это единственное тёмное пятно, мимо него не пройти. */
+.enter { padding-top: 0; }
+
+.enter-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 26px;
+  border-radius: 22px;
+  background: var(--accent-deep);
+  color: var(--text-on-dark);
+  text-decoration: none;
+  box-shadow: 0 14px 40px rgba(27, 31, 28, 0.18);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.enter-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 48px rgba(27, 31, 28, 0.24);
+}
+
+.enter-mark {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.14);
+}
+.enter-mark svg { width: 21px; height: 21px; }
+
+.enter-text { display: grid; gap: 4px; min-width: 0; }
+.enter-text b { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+.enter-text i {
+  font-style: normal;
+  font-size: 14px;
+  opacity: 0.78;
+  line-height: 1.45;
+}
+
+.enter-go {
+  margin-left: auto;
+  flex: none;
+  padding: 11px 22px;
+  border-radius: 999px;
+  background: var(--text-on-dark);
+  color: var(--accent-deep);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.enter-note {
+  margin: 14px 2px 0;
+  font-size: 13.5px;
+  color: var(--text-muted, #6b6f68);
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .enter-card { flex-wrap: wrap; gap: 14px; padding: 20px; }
+  .enter-text b { font-size: 17px; }
+  .enter-go { margin-left: 0; width: 100%; text-align: center; }
+}
+
 .ico {
   width: 19px;
   height: 19px;

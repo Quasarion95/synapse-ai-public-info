@@ -47,6 +47,7 @@ function seed(){
     sub: null,
     auth: { stage: 'email', email: '', sent: '', error: '' },
     profile: { name: '', avatar: '' },
+    installID: '',
     openGoal: {},
     goalDraft: '',
     theme: 'system',
@@ -133,6 +134,7 @@ function load(){
     if (!parsed.open) parsed.open = {};
     if (!parsed.profile) parsed.profile = { name: '', avatar: '' };
     if (!parsed.openGoal) parsed.openGoal = {};
+    if (typeof parsed.installID !== 'string') parsed.installID = '';
     if (typeof parsed.meditation.volume !== 'number') parsed.meditation.volume = 0.7;
     if (typeof parsed.meditation.totalMinutes !== 'number') parsed.meditation.totalMinutes = 0;
     if (typeof parsed.goalDraft !== 'string') parsed.goalDraft = '';
@@ -1073,14 +1075,19 @@ function vTasks(){
     var b = BUCKETS[i];
     var mine = liveTasks().filter(function(t){ return t.bucket === b.id; });
     var closed = !!S.closed[b.id];
-    html += '<section class="group' + (closed ? ' closed' : '') + '">' +
-      '<button class="group-h' + (closed ? ' closed' : '') + '" data-act="fold" data-bucket="' + b.id + '">' +
+    html += '<section class="group' + (closed ? ' closed' : '') + '" data-bucket="' + b.id + '">' +
+      '<button class="group-h' + (closed ? ' closed' : '') + '" data-act="fold" data-bucket="' + b.id + '"' +
+        ' aria-expanded="' + !closed + '">' +
         '<h3>' + esc(b.title) + '</h3><span class="car">⌄</span>' +
         '<span class="n">' + taskCount(mine.length) + '</span>' +
       '</button>' +
-      '<div class="tasklist" data-drop="' + b.id + '">' +
-        (mine.length ? mine.map(itemRow).join('') :
-          '<div class="dropnote">Пусто — можно перетащить сюда задачу</div>') +
+      // Обёртка нужна для той же плавности, что у карточек: высоту ведёт
+      // foldOpen, а список внутри остаётся нетронутым.
+      '<div class="tasklist-wrap">' +
+        '<div class="tasklist" data-drop="' + b.id + '">' +
+          (mine.length ? mine.map(itemRow).join('') :
+            '<div class="dropnote">Пусто — можно перетащить сюда задачу</div>') +
+        '</div>' +
       '</div>' +
     '</section>';
   }
@@ -1917,7 +1924,7 @@ function mmTree(cx, cy){
 /* ---- списки ---- */
 
 function vLists(){
-  var html = head('Наборы', 'Списки');
+  var html = '';
   if (!S.lists.length){
     return html + blank('☰', 'Списков пока нет',
       'Список — это то, что отмечают галочками и не тащат в задачи: покупки, сборы, чек-лист поездки.',
@@ -1965,7 +1972,7 @@ function vList(){
 /* ---- заметки ---- */
 
 function vNotes(){
-  var html = head('Записи', 'Заметки');
+  var html = '';
   if (!S.notes.length){
     return html + blank('✎', 'Заметок пока нет',
       'Сюда складывают то, что не задача: итоги встречи, мысль, список вопросов.',
@@ -2016,7 +2023,7 @@ function vPomodoro(){
   var m = modeOf();
   if (remaining === null) remaining = S.pomodoro[m.key] * 60;
 
-  var html = head('Фокус по таймеру', 'Метод Помодоро');
+  var html = '';
   html += '<section class="card">' +
     '<div class="clock" id="clockface">' + mmss(remaining) + '</div>' +
     '<p class="phase">' + m.title + ' · ' + S.pomodoro[m.key] + ' мин</p>' +
@@ -2225,7 +2232,7 @@ function vMeditation(){
   var progress = total ? Math.min(1, med.elapsed / total) : 0;
   var sound = soundOf(m.sound);
 
-  var html = head('Передышка', 'Медитация');
+  var html = '';
 
   html += '<section class="card med' + (running ? ' on' : '') + '">' +
     '<div class="med-dial" style="--p:' + progress.toFixed(4) + '">' +
@@ -2382,6 +2389,22 @@ function foldOpen(card, wrap, open){
     // добавляют подпункт. У свёрнутой оставляем нулевую inline-высоту, а не
     // полагаемся на правило в CSS: если переход почему-то не проиграется,
     // карточка всё равно останется закрытой, а не зависнет раскрытой.
+    wrap.style.height = open ? '' : '0px';
+  }, 280);
+}
+
+/// То же самое для блоков дня. Отличие одно: у секции класс называется
+/// `closed`, а не `open`, — состояние инвертировано.
+function foldGroup(group, wrap, open){
+  if (!wrap){ group.classList.toggle('closed', !open); return; }
+  var from = wrap.getBoundingClientRect().height;
+  var to = open ? wrap.scrollHeight : 0;
+  group.classList.toggle('closed', !open);
+  wrap.style.height = from + 'px';
+  void wrap.offsetHeight;
+  wrap.style.height = to + 'px';
+  clearTimeout(wrap._foldTimer);
+  wrap._foldTimer = setTimeout(function(){
     wrap.style.height = open ? '' : '0px';
   }, 280);
 }
@@ -2590,6 +2613,385 @@ function vAuth(){
 
   html += '<p class="stub">Это заглушка без сервера. Ни почта, ни код никуда не отправляются, состояние входа лежит в этом браузере.</p></div>';
   return html;
+}
+
+/* ============ АССИСТЕНТ SYN ============ */
+
+/* Тот же сервер и тот же маршрут, что у приложения: POST /v1/synapse/reply.
+   Разница одна — как выдаётся сессия. Приложение доказывает через App Attest,
+   что запрос идёт с настоящего iPhone; в браузере такого механизма нет,
+   поэтому у веба свой вход: POST /v1/synapse/session/web, ограниченный по IP
+   и включаемый флагом на сервере.
+
+   Ответ приходит в виде {reply, actions}. Reply показываем словами, actions
+   применяем к состоянию — ровно то, что в приложении делает WorkspaceStore. */
+
+var SYN = {
+  base: (function(){
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1'){
+      return 'http://localhost:8787';
+    }
+    return 'https://api.synapseapp.ru';
+  })(),
+  token: '',
+  expiresAt: 0,
+  busy: false
+};
+
+/// Install id браузера. Живёт рядом с задачами: пропал он — пропали и они,
+/// так что отдельного смысла беречь его нет.
+function synInstallID(){
+  if (!S.installID){
+    S.installID = 'b' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    save();
+  }
+  return S.installID;
+}
+
+function synFetch(path, body, token){
+  var headers = { 'Content-Type': 'application/json' };
+  if (token){
+    headers.Authorization = 'Bearer ' + token;
+    headers['X-Synapse-Install-ID'] = synInstallID().indexOf('web-') === 0
+      ? synInstallID() : 'web-' + synInstallID();
+  }
+  return fetch(SYN.base + path, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(body)
+  }).then(function(response){
+    return response.json().catch(function(){ return {}; }).then(function(data){
+      if (!response.ok){
+        var error = new Error(data.error || ('Сервер ответил ' + response.status));
+        error.status = response.status;
+        error.data = data;
+        throw error;
+      }
+      return data;
+    });
+  });
+}
+
+/// Сессия берётся один раз и живёт до истечения срока.
+function synSession(){
+  var now = Date.now();
+  if (SYN.token && SYN.expiresAt - 60000 > now) return Promise.resolve(SYN.token);
+  return synFetch('/v1/synapse/session/web', { installID: synInstallID() }).then(function(data){
+    SYN.token = data.token;
+    SYN.expiresAt = Date.parse(data.expiresAt) || (now + 3600000);
+    return SYN.token;
+  });
+}
+
+/* Срез рабочего пространства для Syn. Отдаём то же, что приложение: без
+   контекста он не знает, какую задачу переносить, и отвечает вслепую. */
+function synWorkspace(){
+  return {
+    userID: synInstallID(),
+    tasks: liveTasks().map(function(t){
+      return {
+        title: t.title, bucket: t.bucket, date: t.date, time: t.time,
+        done: t.done, note: t.note || '',
+        subtasks: t.subtasks.map(function(s){ return { title: s.title, done: s.done }; }),
+        goalTitle: t.goalId && findGoal(t.goalId) ? findGoal(t.goalId).title : ''
+      };
+    }),
+    goals: S.goals.map(function(g){
+      return {
+        title: g.title, purpose: g.purpose || '', horizon: g.horizon || '',
+        stages: g.stages.map(function(st){ return { title: st.title, status: st.status }; })
+      };
+    })
+  };
+}
+
+/// Человекочитаемый контекст: тем же текстом его собирает приложение.
+function synContext(){
+  var lines = ['СЕГОДНЯ: ' + isoOf(todayDate())];
+  var byBucket = {};
+  liveTasks().forEach(function(t){
+    (byBucket[t.bucket] = byBucket[t.bucket] || []).push(t);
+  });
+  BUCKETS.forEach(function(b){
+    var list = byBucket[b.id] || [];
+    if (!list.length) return;
+    lines.push('');
+    lines.push(b.title.toUpperCase() + ':');
+    list.forEach(function(t){
+      lines.push('- ' + t.title +
+        (t.time ? ' в ' + t.time : '') +
+        (t.done ? ' (сделано)' : '') +
+        (t.subtasks.length ? ' [подпункты: ' + t.subtasks.map(function(s){ return s.title; }).join(', ') + ']' : ''));
+    });
+  });
+  if (S.goals.length){
+    lines.push('');
+    lines.push('ИЕРАРХИЯ ЦЕЛЕЙ И ИХ ЗАДАЧ:');
+    S.goals.forEach(function(g){
+      lines.push('- цель «' + g.title + '»' + (g.horizon ? ', горизонт ' + g.horizon : ''));
+      g.stages.forEach(function(st){
+        lines.push('  - этап «' + st.title + '» (' + st.status + ')');
+        tasksOfStage(g.id, st.id).forEach(function(t){
+          lines.push('    - задача «' + t.title + '»' + (t.date ? ' на ' + t.date : ''));
+        });
+      });
+    });
+  }
+  return lines.join('\n');
+}
+
+/* Окно ассистента. Живёт в модалке, а не отдельным экраном: разговор здесь
+   короткий — сказал, что сделать, увидел, что изменилось, закрыл. */
+function modalSyn(draft, reply, result){
+  return '<h3>Ассистент Syn</h3>' +
+    '<p class="s">Скажи словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель».</p>' +
+    '<form class="field" data-form="syn-send" style="margin-bottom:14px">' +
+      '<label class="visually-hidden" for="syn-input">Что сделать</label>' +
+      '<textarea class="inp" id="syn-input" rows="3" enterkeyhint="send" ' +
+        'placeholder="Перенеси урок с преподавателем на субботу">' + esc(draft || '') + '</textarea>' +
+    '</form>' +
+    '<div id="syn-out">' + synOutHTML(reply, result) + '</div>' +
+    '<button class="btn full" data-act="syn-send"' + (SYN.busy ? ' disabled' : '') + '>' +
+      (SYN.busy ? 'Syn думает…' : 'Отправить') + '</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Закрыть</button></div>';
+}
+
+function synOutHTML(reply, result){
+  if (!reply && !result) return '';
+  var html = '';
+  if (reply) html += '<section class="card syn-reply"><p class="sub">' + esc(reply) + '</p></section>';
+  if (result && result.done.length){
+    html += '<p class="lbl">Что изменилось</p><section class="card"><div class="lines">' +
+      result.done.map(function(line){ return '<div class="line"><span>' + esc(line) + '</span></div>'; }).join('') +
+      '</div></section>';
+  }
+  // Про непринятое — вслух: иначе Syn пишет «перенёс», а на экране прежнее.
+  if (result && result.skipped.length){
+    html += '<p class="lbl">Не применилось</p><section class="card"><div class="lines">' +
+      result.skipped.map(function(line){ return '<div class="line"><span style="color:var(--fg-3)">' + esc(line) + '</span></div>'; }).join('') +
+      '</div></section>';
+  }
+  return html;
+}
+
+/// Отправка и применение. Модалку перерисовываем целиком, но текст в поле
+/// сохраняем — иначе повторить запрос с правкой было бы нечем.
+function synSend(text){
+  SYN.busy = true;
+  openModal(modalSyn(text, '', null));
+
+  synAsk(text).then(function(data){
+    var result = synApplyActions(data.actions);
+    SYN.busy = false;
+    save();
+    openModal(modalSyn('', data.reply || '', result));
+    // Экран под модалкой должен показывать уже новые данные.
+    var view = VIEWS[S.view] || VIEWS.tasks;
+    $('app').innerHTML = view.render();
+  }).catch(function(error){
+    SYN.busy = false;
+    var message = error && error.message ? error.message : 'Не получилось';
+    if (error && error.status === 503){
+      message = 'Syn для веба ещё не включён на сервере.';
+    } else if (error && error.status === 402){
+      message = error.data && error.data.error ? error.data.error : 'Запросы к Syn на сегодня закончились.';
+    } else if (error && error.status === undefined){
+      message = 'Сервер не ответил. Проверь соединение.';
+    }
+    openModal(modalSyn(text, message, null));
+  });
+}
+
+function synAsk(text){
+  return synSession().then(function(token){
+    return synFetch('/v1/synapse/reply', {
+      workspace: synWorkspace(),
+      workspaceContext: synContext(),
+      messages: [{ role: 'user', text: text }]
+    }, token);
+  });
+}
+
+/* ---- применение действий ---- */
+
+/* Действий у сервера много; здесь применяются те, которым в вебе есть что
+   менять. Незнакомые не проглатываются молча, а перечисляются в ответе —
+   иначе Syn пишет «перенёс», а на экране ничего не изменилось. */
+
+function synFindTask(target){
+  var needle = String(target || '').toLowerCase().trim();
+  if (!needle) return null;
+  var all = liveTasks();
+  for (var i = 0; i < all.length; i++){
+    if (all[i].title.toLowerCase() === needle) return all[i];
+  }
+  for (var j = 0; j < all.length; j++){
+    if (all[j].title.toLowerCase().indexOf(needle) >= 0) return all[j];
+  }
+  return null;
+}
+
+function synFindGoal(target){
+  var needle = String(target || '').toLowerCase().trim();
+  if (!needle) return null;
+  for (var i = 0; i < S.goals.length; i++){
+    if (S.goals[i].title.toLowerCase().indexOf(needle) >= 0) return S.goals[i];
+  }
+  return null;
+}
+
+/// «2026-04-15 18:30» → дата и время по отдельности.
+function synSplitDateTime(value){
+  var raw = String(value || '').trim();
+  if (!raw) return { date: null, time: null };
+  var parts = raw.split(/[ T]/);
+  var date = /^\d{4}-\d{2}-\d{2}$/.test(parts[0]) ? parts[0] : null;
+  var time = parts[1] && /^\d{1,2}:\d{2}/.test(parts[1])
+    ? parts[1].slice(0, 5).padStart(5, '0') : null;
+  if (!date && /^\d{1,2}:\d{2}/.test(parts[0])) time = parts[0].slice(0, 5);
+  return { date: date, time: time };
+}
+
+function synApplyActions(actions){
+  var done = [];
+  var skipped = [];
+
+  (actions || []).forEach(function(a){
+    var kind = String(a && a.kind || '').toLowerCase();
+    var task, goal, when;
+
+    if (kind === 'create_task' || kind === 'create_task_for_goal'){
+      when = synSplitDateTime(a.datetime);
+      var fresh = {
+        id: uid(), title: String(a.title || '').trim() || 'Без названия',
+        bucket: a.bucket && bucketTitle(a.bucket) ? a.bucket : (when.date ? bucketForDate(when.date) : 'today'),
+        date: when.date, time: when.time, done: false,
+        note: String(a.note || ''), repeat: '', series: null,
+        goalId: null, stageId: null,
+        subtasks: (a.subtasks || []).map(function(t){ return { id: uid(), title: String(t), done: false }; })
+      };
+      if (!fresh.date) fresh.date = dateForBucket(fresh.bucket);
+      if (spansSeveralDays(fresh.bucket)) fresh.time = null;
+      if (kind === 'create_task_for_goal'){
+        goal = synFindGoal(a.goalTitle);
+        if (goal){
+          fresh.goalId = goal.id;
+          var stage = a.stageTitle ? goal.stages.filter(function(st){
+            return st.title.toLowerCase().indexOf(String(a.stageTitle).toLowerCase()) >= 0;
+          })[0] : null;
+          if (stage) fresh.stageId = stage.id;
+        }
+      }
+      S.tasks.push(fresh);
+      done.push('создана задача «' + fresh.title + '»');
+      return;
+    }
+
+    if (kind === 'move_task' || kind === 'set_task_schedule'){
+      task = synFindTask(a.target);
+      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
+      when = synSplitDateTime(a.datetime || a.date);
+      if (when.date){ task.date = when.date; task.bucket = bucketForDate(when.date); }
+      if (when.time) task.time = when.time;
+      if (spansSeveralDays(task.bucket)) task.time = null;
+      done.push('перенесена «' + task.title + '»');
+      return;
+    }
+
+    if (kind === 'complete_task' || kind === 'reopen_task'){
+      task = synFindTask(a.target);
+      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
+      task.done = kind === 'complete_task';
+      done.push((task.done ? 'закрыта ' : 'открыта ') + '«' + task.title + '»');
+      return;
+    }
+
+    if (kind === 'delete_task'){
+      task = synFindTask(a.target);
+      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
+      S.tasks = S.tasks.filter(function(t){ return t.id !== task.id; });
+      done.push('удалена «' + task.title + '»');
+      return;
+    }
+
+    if (kind === 'rename_task'){
+      task = synFindTask(a.target);
+      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
+      task.title = String(a.newTitle || a.title || task.title);
+      done.push('переименована в «' + task.title + '»');
+      return;
+    }
+
+    if (kind === 'add_subtask'){
+      task = synFindTask(a.target);
+      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
+      task.subtasks.push({ id: uid(), title: String(a.itemTitle || a.title || ''), done: false });
+      done.push('добавлен подпункт к «' + task.title + '»');
+      return;
+    }
+
+    if (kind === 'append_task_note' || kind === 'update_task_note'){
+      task = synFindTask(a.target);
+      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
+      var note = String(a.note || '');
+      task.note = kind === 'append_task_note' && task.note ? task.note + '\n' + note : note;
+      done.push('описание у «' + task.title + '»');
+      return;
+    }
+
+    if (kind === 'create_goal'){
+      var g = { id: uid(), title: String(a.title || '').trim() || 'Без названия',
+        purpose: String(a.purpose || ''), horizon: String(a.horizon || ''),
+        sphere: 'personal', pinned: false, stages: [] };
+      S.goals.push(g);
+      S.openGoal[g.id] = true;
+      done.push('создана цель «' + g.title + '»');
+      return;
+    }
+
+    if (kind === 'rename_goal' || kind === 'update_goal_purpose' || kind === 'update_goal_horizon'){
+      goal = synFindGoal(a.target);
+      if (!goal){ skipped.push('не нашёл цель «' + (a.target || '') + '»'); return; }
+      if (kind === 'rename_goal') goal.title = String(a.newTitle || goal.title);
+      if (kind === 'update_goal_purpose') goal.purpose = String(a.purpose || '');
+      if (kind === 'update_goal_horizon') goal.horizon = String(a.horizon || '');
+      done.push('изменена цель «' + goal.title + '»');
+      return;
+    }
+
+    if (kind === 'set_stage_status'){
+      goal = null;
+      var found = null;
+      S.goals.forEach(function(item){
+        item.stages.forEach(function(st){
+          if (!found && st.title.toLowerCase().indexOf(String(a.target || '').toLowerCase()) >= 0){
+            found = st; goal = item;
+          }
+        });
+      });
+      if (!found){ skipped.push('не нашёл этап «' + (a.target || '') + '»'); return; }
+      found.status = ['active', 'done', 'paused'].indexOf(a.value) >= 0 ? a.value : found.status;
+      done.push('этап «' + found.title + '» → ' + STATUS[found.status]);
+      return;
+    }
+
+    skipped.push('«' + (kind || 'без вида') + '» веб пока не умеет');
+  });
+
+  return { done: done, skipped: skipped };
+}
+
+/// Из даты в блок дня — обратное к dateForBucket.
+function bucketForDate(iso){
+  var target = dateOf(iso);
+  if (!target) return 'later';
+  var today = todayDate();
+  var days = Math.round((target - today) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  if (days === 2) return 'dayAfterTomorrow';
+  if (days <= 7) return 'thisWeek';
+  return 'later';
 }
 
 /* ============ ПЕРЕНОС ДАННЫХ ============ */
@@ -2858,18 +3260,19 @@ var ACTS = {
   },
   more: function(){ S.more = !S.more; commit(); },
 
-  /* Место под ассистента. Пока он не подключён, кнопка честно объясняет
-     почему, а не молчит и не изображает работу. Когда появится веб-сессия,
-     сюда придёт разбор строки через Syn. */
+  /* Ассистент. Строка из композера подставляется в поле — чаще всего человек
+     уже начал печатать там и только потом сообразил, что это просьба к Syn. */
   ai: function(){
-    openModal(
-      '<h3>Ассистент Syn</h3>' +
-      '<p class="s">Здесь будет разбор словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель».</p>' +
-      '<section class="card" style="margin:0 0 16px">' +
-        '<p class="sub">Сейчас Syn работает только в приложении. Запросы к нему требуют проверки устройства, которой в браузере не существует, — вебу нужен свой вход, и он в работе.</p>' +
-      '</section>' +
-      '<button class="btn full" data-act="close-modal">Понятно</button>'
-    );
+    var field = $('field');
+    var draft = field ? field.value.trim() : '';
+    openModal(modalSyn(draft, '', null));
+    if (draft) synSend(draft);
+  },
+  'syn-send': function(){
+    var field = $('syn-input');
+    var text = field ? field.value.trim() : '';
+    if (!text || SYN.busy) return;
+    synSend(text);
   },
   'set-theme': function(d){ S.theme = d.theme; commit(); },
   'set-palette': function(d){ S.palette = d.palette; commit(); },
@@ -3004,7 +3407,22 @@ var ACTS = {
     closeModal();
     commit('Сохранено');
   },
-  fold: function(d){ S.closed[d.bucket] = !S.closed[d.bucket]; commit(); },
+  /* Сворачивание блока идёт так же плавно, как раскрытие карточки, и по той
+     же причине не перерисовывает экран. Класс на секции инвертирован
+     (closed вместо open), поэтому foldOpen получает уже готовое состояние. */
+  fold: function(d){
+    S.closed[d.bucket] = !S.closed[d.bucket];
+    save();
+    var group = document.querySelector('.group[data-bucket="' + d.bucket + '"]');
+    if (!group){ render(); return; }
+    var open = !S.closed[d.bucket];
+    var head = group.querySelector('.group-h');
+    if (head){
+      head.classList.toggle('closed', !open);
+      head.setAttribute('aria-expanded', String(open));
+    }
+    foldGroup(group, group.querySelector('.tasklist-wrap'), open);
+  },
 
   subtoggle: function(d){
     var t = findTask(d.task);

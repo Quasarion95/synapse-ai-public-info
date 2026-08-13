@@ -188,7 +188,11 @@ select.inp{appearance:none}
 .group-h:hover .car{color:var(--fg)}
 .group-h.closed .car{transform:rotate(-90deg)}
 .group-h .n{margin-left:auto; font-size:12.5px; color:var(--fg-3); margin-bottom:7px; flex:none; white-space:nowrap}
-.group.closed .tasklist{display:none}
+/* Свёрнутый блок раньше просто исчезал через display:none — переход по такому
+   не проигрывается. Теперь высоту ведёт та же обёртка, что у карточек. */
+.tasklist-wrap{overflow:hidden; transition:height .24s ease, opacity .2s ease}
+.group.closed .tasklist-wrap{height:0; opacity:0}
+@media (prefers-reduced-motion:reduce){ .tasklist-wrap{transition:none} }
 .group-sub{font-size:12.5px; color:var(--fg-3); margin:-6px 0 12px}
 /* Колонка задаётся явно. Без неё трек берёт ширину по max-content самой
    широкой карточки, а не по контейнеру, и карточки вылезают за правый край
