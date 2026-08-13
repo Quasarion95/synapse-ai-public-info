@@ -201,11 +201,19 @@ select.inp{appearance:none}
 .tasklist{display:grid; grid-template-columns:minmax(0,1fr); gap:var(--gap-row); min-height:12px}
 .tasklist.over{outline:2px dashed var(--fg-3); outline-offset:5px; border-radius:var(--r-md)}
 .dropnote{font-size:13px; color:var(--fg-3); background:var(--soft); border-radius:var(--r-md); padding:14px 16px; text-align:center}
+/* Пустого блока дня в разметке нет вовсе. Полоса под приём появляется только
+   пока задачу несут, и выглядит именно полосой — местом, а не разделом. */
+.empty-drop{margin-bottom:var(--gap)}
+.empty-drop .dropnote{border:1px dashed var(--stroke); background:transparent; padding:11px 16px; font-size:12.5px; letter-spacing:.02em; text-transform:lowercase}
 
 /* Карточка ужата: 12/14 внутрь и 23-пиксельный кружок давали на телефоне три
    задачи на экран. Теперь помещается пять, при том же кегле названия. */
-.item{position:relative; background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-md); box-shadow:var(--shadow); padding:8px 10px 8px 11px}
-.item.dragging{opacity:.45}
+.item{position:relative; background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-md); box-shadow:var(--shadow); padding:8px 10px 8px 11px;
+  transition:transform .16s cubic-bezier(.2,.7,.3,1)}
+/* Карточка в руке едет за пальцем сама и без задержки: переход на ней
+   превратил бы жест в вязкое перетягивание. */
+.item.dragging{transition:none; z-index:4; opacity:.92; box-shadow:var(--shadow-lift); cursor:grabbing}
+@media (prefers-reduced-motion:reduce){ .item{transition:none} }
 .item-main{display:flex; gap:10px; align-items:flex-start}
 /* ---- отметка выполнения ---- */
 /* По умолчанию скруглённый квадрат, как в приложении. Форму задаёт data-box
@@ -255,11 +263,10 @@ select.inp{appearance:none}
 .item .belongs{font-size:12.5px; color:var(--accent); margin-bottom:2px}
 .item .m{font-size:12px; color:var(--fg-3); margin-top:3px; display:flex; gap:6px; flex-wrap:wrap; align-items:center}
 
-/* Место вставки при перетаскивании: линия над карточкой, перед которой
-   встанет перенесённая, или рамка у конца блока. Без этого перестановка
-   внутри блока выглядит как случайность. */
-.item.drop-before::before{content:''; position:absolute; left:0; right:0; top:-6px; height:2px; border-radius:2px; background:var(--accent)}
-.tasklist.drop-end::after{content:''; display:block; height:2px; border-radius:2px; background:var(--accent)}
+/* Место вставки показывает щель между карточками, а не линия поверх них:
+   соседи отъезжают ровно на высоту переносимой, и видно, куда она сядет.
+   Сдвиг ставит скрипт (markDropSpot), здесь только его плавность — она уже
+   задана на .item выше. */
 .item .body{flex:1; min-width:0}
 .item .side{display:flex; gap:1px; flex:none; margin:-2px -3px 0 0}
 .item .side button{width:27px; height:27px; border-radius:999px; display:grid; place-items:center; color:var(--fg-3); font-size:13px}
@@ -591,3 +598,41 @@ body.mm-open{overflow:hidden}
 .modal-in h3{font-size:21px; margin-bottom:6px}
 .modal-in .s{font-size:13.5px; color:var(--fg-2); margin-bottom:18px}
 .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; background:var(--fg); color:var(--bg); border-radius:999px; padding:11px 20px; font-size:14px; z-index:90; box-shadow:var(--shadow-lift); max-width:calc(100% - 32px)}
+
+/* ============ ТАРИФЫ И ЗАМКИ ============ */
+
+/* Таблица тарифа — три колонки: что, бесплатно, в подписке. На телефоне это
+   всё равно таблица, а не карточки: сравнивают именно строки, и разбивать их
+   по колонкам значит заставить человека держать сравнение в голове. */
+.plan-table{display:grid; gap:2px}
+.plan-row{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,.9fr) minmax(0,.9fr); gap:10px;
+  align-items:baseline; padding:9px 0; border-bottom:1px solid var(--line)}
+.plan-row:last-child{border-bottom:0}
+.plan-what{font-size:14px}
+.plan-free,.plan-pro{font-size:12.5px; color:var(--fg-2); text-align:right}
+.plan-free.off{color:var(--fg-3)}
+.plan-pro{color:var(--accent); font-weight:600}
+
+.plan-price{display:flex; align-items:baseline; gap:8px; margin-bottom:6px}
+.plan-price b{font-family:var(--display); font-size:30px; letter-spacing:-.04em}
+.plan-price span{font-size:13px; color:var(--fg-3)}
+
+.card.pro-on{border-color:var(--accent)}
+
+/* Замок. Рисунок, а не эмодзи: замок из шрифта в разных системах то жирный,
+   то цветной, и карточка каждый раз выглядит по-разному. */
+.locked-card{text-align:center}
+.locked-mark{display:inline-grid; place-items:center; width:52px; height:52px; border-radius:999px;
+  background:var(--accent-soft); color:var(--accent); margin-bottom:12px}
+.locked-mark svg{width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.locked-card .acts{justify-content:center}
+
+/* Остаток запросов под кнопкой Syn: строка, а не значок, — число должно
+   читаться до нажатия, а не объясняться после отказа. */
+.syn-quota{margin-top:10px; text-align:center}
+.q-link{color:var(--accent); text-decoration:none; border-bottom:1px solid transparent}
+.q-link:hover{border-bottom-color:currentColor}
+
+/* Крайний срок на карточке. Отличается от «просрочено» тем, что это ещё не
+   беда, а условие: обводка тише, чем у красного. */
+.chip.hard{border:1px solid var(--stroke); color:var(--fg-2)}

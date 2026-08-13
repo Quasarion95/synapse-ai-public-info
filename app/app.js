@@ -45,7 +45,8 @@ function seed(){
     version: 2,
     view: 'tasks',
     sub: null,
-    auth: { stage: 'email', email: '', sent: '', error: '' },
+    auth: { stage: 'guest', email: '', sent: '', error: '' },
+    pro: { active: false, plan: '', expiresAt: '', code: '' },
     profile: { name: '', avatar: '' },
     installID: '',
     openGoal: {},
@@ -114,7 +115,7 @@ function seed(){
       { id: uid(), title: 'Встреча с подрядчиком',
         body: 'Обсудили сроки: черновой этап к 20 числу, приём работ через неделю.' }
     ],
-    pomodoro: { focus: 25, shortBreak: 5, longBreak: 15, mode: 'focus', doneToday: 0 },
+    pomodoro: { focus: 25, shortBreak: 5, longBreak: 15, mode: 'focus', doneToday: 0, goal: 0 },
     meditation: { minutes: 10, sound: 'Дождь', doneTotal: 0, totalMinutes: 0, volume: 0.7 }
   };
 }
@@ -127,7 +128,11 @@ function load(){
     if (!parsed || parsed.version !== 2 || !parsed.tasks) return seed();
     // Поля, которых могло не быть в раньше сохранённом состоянии.
     parsed.drag = null;
-    if (!parsed.auth) parsed.auth = { stage: 'email', email: '', sent: '', error: '' };
+    if (!parsed.auth) parsed.auth = { stage: 'guest', email: '', sent: '', error: '' };
+    // Вход перестал быть стеной: у тех, кого прошлая версия оставила на форме,
+    // состояние «на полпути» больше ничего не значит.
+    if (parsed.auth.stage !== 'in') parsed.auth.stage = 'guest';
+    if (!parsed.pro) parsed.pro = { active: false, plan: '', expiresAt: '', code: '' };
     if (!parsed.palette) parsed.palette = 'paper';
     if (!parsed.mm) parsed.mm = { zoom: 1 };
     if (!parsed.closed) parsed.closed = {};
@@ -138,6 +143,7 @@ function load(){
     if (typeof parsed.meditation.volume !== 'number') parsed.meditation.volume = 0.7;
     if (typeof parsed.meditation.totalMinutes !== 'number') parsed.meditation.totalMinutes = 0;
     if (typeof parsed.goalDraft !== 'string') parsed.goalDraft = '';
+    if (typeof parsed.pomodoro.goal !== 'number') parsed.pomodoro.goal = 0;
     if (!parsed.font) parsed.font = 'rounded';
     if (!parsed.fontSize) parsed.fontSize = 'standard';
     if (!parsed.box) parsed.box = 'square';
@@ -209,6 +215,54 @@ function rolloverIfNeeded(){
 /// Задачи, которые видно на экранах. Архив показывается только в аналитике.
 function liveTasks(){
   return S.tasks.filter(function(t){ return !t.archived; });
+}
+
+/* ============ ПОДПИСКА ============ */
+
+/* Бесплатно отдаётся то, чем планировщик остаётся планировщиком: задачи без
+   счёта и по две штуки остального, чтобы человек попробовал каждый раздел на
+   своих данных, а не на демо. Помодоро и медитация — целиком в подписке.
+
+   Гейт на стороне браузера честно называется тем, что он есть: витриной, а не
+   замком. Всё, что стоит денег по-настоящему, — запросы к Syn — считает
+   сервер, и обойти это, почистив localStorage, нельзя. */
+var FREE_LIMITS = { lists: 2, notes: 2, goals: 2 };
+
+var PRO_ONLY = {
+  pomodoro: 'Метод Помодоро',
+  meditation: 'Медитация'
+};
+
+function isPro(){
+  if (!S.pro || !S.pro.active) return false;
+  // Срок кончился — Pro выключается сам, не дожидаясь ответа сервера: иначе
+  // человек с истёкшим кодом видел бы платное до следующего запуска.
+  if (S.pro.expiresAt){
+    var until = Date.parse(S.pro.expiresAt);
+    if (until && until < Date.now()) return false;
+  }
+  return true;
+}
+
+/// Сколько ещё можно завести бесплатно. -1 значит «сколько угодно».
+function freeLeft(kind){
+  if (isPro()) return -1;
+  var have = kind === 'lists' ? S.lists.length : kind === 'notes' ? S.notes.length : S.goals.length;
+  return Math.max(0, FREE_LIMITS[kind] - have);
+}
+
+function canAdd(kind){ return freeLeft(kind) !== 0; }
+
+var LIMIT_WORDS = {
+  lists: ['список', 'списка', 'списков'],
+  notes: ['заметка', 'заметки', 'заметок'],
+  goals: ['цель', 'цели', 'целей']
+};
+
+function limitReason(kind){
+  var n = FREE_LIMITS[kind];
+  return 'Без подписки ' + (kind === 'goals' ? 'можно вести ' : 'можно держать ') +
+    n + ' ' + plural(n, LIMIT_WORDS[kind][0], LIMIT_WORDS[kind][1], LIMIT_WORDS[kind][2]) + '.';
 }
 
 /* ============ МЕЛОЧИ ============ */
@@ -337,11 +391,12 @@ function dateForBucket(bucket){
   return null;
 }
 
+var MONTH_NAMES = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+
 function humanDate(iso){
   var d = dateOf(iso);
   if (!d) return '';
-  var months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-  return d.getDate() + ' ' + months[d.getMonth()];
+  return d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
 }
 
 /* ============ РАЗБОР СТРОКИ ============ */
@@ -667,6 +722,31 @@ function spawnNextOccurrence(task){
 /* ============ ПРОСРОЧКА ============ */
 
 /// Задача просрочена, если её день (а если задано — и время) уже прошёл.
+/* Крайний срок — не то же самое, что день в плане: задача может стоять на
+   вторник, а быть нужной до пятницы. В приложении это два разных поля, здесь
+   тоже. Хранится {date, time, hard}; hard значит, что срок назван жёстко. */
+function deadlineText(deadline){
+  if (!deadline) return '';
+  var parts = [];
+  if (deadline.date) parts.push(humanDate(deadline.date));
+  if (deadline.time) parts.push(deadline.time);
+  return parts.join(' ');
+}
+
+function deadlinePassed(task){
+  if (task.done || !task.deadline) return false;
+  var d = task.deadline;
+  if (!d.date) return false;
+  var day = dateOf(d.date);
+  if (!day) return false;
+  if (d.time){
+    var parts = d.time.split(':');
+    day = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Number(parts[0]), Number(parts[1]));
+    return day < new Date();
+  }
+  return day < todayDate();
+}
+
 function isOverdue(task){
   if (task.done || !task.date) return false;
   var now = new Date();
@@ -700,6 +780,10 @@ var TABS = [
   { id: 'notes',      title: 'Заметки',   ic: '✎' },
   { id: 'pomodoro',   title: 'Метод Помодоро', ic: '◔', short: 'Помодоро' },
   { id: 'meditation', title: 'Медитация', ic: '◐' },
+  // Тарифы стоят в самом меню, а не в углу настроек: два раздела из десяти
+  // открываются только по подписке, и человек должен видеть, где про это
+  // написано, в ту же секунду, когда упёрся.
+  { id: 'pricing',    title: 'Тарифы',    ic: '◈' },
   { id: 'settings',   title: 'Настройки', ic: '⚙' },
   { id: 'about',      title: 'О сервисе', ic: 'ⓘ' }
 ];
@@ -710,6 +794,7 @@ var TAB_OF_VIEW = {
   list: 'lists',
   note: 'notes',
   profile: 'settings',
+  auth: 'settings',
   'settings-view': 'settings',
   'settings-data': 'settings'
 };
@@ -730,7 +815,9 @@ var VIEWS = {
   notes:      { title: 'Заметки',    render: vNotes },
   note:       { title: 'Заметка',    render: vNote },
   pomodoro:   { title: 'Метод Помодоро', render: vPomodoro },
-  meditation: { title: 'Медитация',  render: vMeditation }
+  meditation: { title: 'Медитация',  render: vMeditation },
+  pricing:    { title: 'Тарифы',     render: vPricing },
+  auth:       { title: 'Вход',       render: vAuth }
 };
 
 function go(view){
@@ -756,21 +843,20 @@ render();
 
 /* ============ ОТРИСОВКА ============ */
 
+/* Стены на входе нет. Планировщик, который держит записи в этом же браузере,
+   не может требовать логин до первой задачи: человеку с лендинга обещано
+   «без регистрации», а состояние входа всё равно лежит рядом с задачами.
+   Вход есть, он живёт отдельным экраном и нужен для будущего аккаунта. */
 function render(){
   applyTheme();
-
-  if (S.auth.stage !== 'in'){
-    $('top').innerHTML = '';
-    $('tabbar').classList.add('hidden');
-    $('app').innerHTML = vAuth();
-    return;
-  }
 
   var view = VIEWS[S.view] || VIEWS.tasks;
   $('top').innerHTML = vTop() + (storageBroken ? vStorageWarning() : '');
   $('tabbar').classList.remove('hidden');
   $('tabbar').innerHTML = vTabbar();
-  $('app').innerHTML = view.render();
+  // Платный раздел не подменяется тарифами молча: у него свой экран, с тем же
+  // названием в шапке, — иначе нажатие в меню выглядит как промах.
+  $('app').innerHTML = (PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render();
 
   restoreComposer();
   fitMindMap();
@@ -812,7 +898,10 @@ var ICON = {
     '<path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>',
   full: '<svg viewBox="0 0 16 16" aria-hidden="true" style="width:14px;height:14px;fill:none;' +
     'stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-2px">' +
-    '<path d="M6 2H2v4M10 2h4v4M10 14h4v-4M6 14H2v-4"/></svg>'
+    '<path d="M6 2H2v4M10 2h4v4M10 14h4v-4M6 14H2v-4"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/>' +
+    '<path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7"/></svg>'
 };
 
 function paletteOf(id){
@@ -1071,10 +1160,20 @@ function vTasks(){
       'Напиши первую в строке внизу. День и время можно сказать прямо там: «купить молоко завтра в 9 утра».');
   }
 
+  /* Пустой блок дня не рисуется вовсе — ни заголовка, ни подсказки «можно
+     перетащить сюда». Пять подписанных пустот подряд читались как список дел,
+     которых нет, и отодвигали настоящие задачи вниз экрана.
+
+     Взамен потерянного: пока задачу тащат, пустые блоки появляются полосой под
+     приём — их добавляет openEmptyDropZones() прямо в дерево, не перерисовывая
+     экран, потому что перерисовка вырвала бы карточку из-под пальца. */
   for (var i = 0; i < BUCKETS.length; i++){
     var b = BUCKETS[i];
     var mine = liveTasks().filter(function(t){ return t.bucket === b.id; });
     var closed = !!S.closed[b.id];
+
+    if (!mine.length) continue;
+
     html += '<section class="group' + (closed ? ' closed' : '') + '" data-bucket="' + b.id + '">' +
       '<button class="group-h' + (closed ? ' closed' : '') + '" data-act="fold" data-bucket="' + b.id + '"' +
         ' aria-expanded="' + !closed + '">' +
@@ -1085,8 +1184,7 @@ function vTasks(){
       // foldOpen, а список внутри остаётся нетронутым.
       '<div class="tasklist-wrap">' +
         '<div class="tasklist" data-drop="' + b.id + '">' +
-          (mine.length ? mine.map(itemRow).join('') :
-            '<div class="dropnote">Пусто — можно перетащить сюда задачу</div>') +
+          mine.map(itemRow).join('') +
         '</div>' +
       '</div>' +
     '</section>';
@@ -1105,6 +1203,10 @@ function itemRow(t){
   if (t.date && t.bucket !== 'today') meta.push('<span>' + esc(humanDate(t.date)) + '</span>');
   if (t.time) meta.push('<span>🕘 ' + esc(t.time) + '</span>');
   if (t.repeat) meta.push('<span>🔁 ' + esc(repeatLabel(t.repeat)) + '</span>');
+  // Срок показывается словом «до»: без него строка «15 апреля 18:30» читалась
+  // бы как время самой задачи.
+  if (t.deadline) meta.push('<span class="chip' + (deadlinePassed(t) ? ' late' : ' hard') + '">до ' +
+    esc(deadlineText(t.deadline)) + '</span>');
   if (isOverdue(t)) meta.push('<span class="chip late">просрочено</span>');
   // Задача, переехавшая с прошлого дня, должна об этом сказать: иначе завтра
   // непонятно, почему она в «Сегодня» и сколько раз уже переезжала.
@@ -1175,9 +1277,9 @@ function vComposer(){
     '<form class="say" data-form="add">' +
       '<label class="visually-hidden" for="field">Новая задача</label>' +
       '<input id="field" type="text" autocomplete="off" enterkeyhint="done" placeholder="Купить молоко завтра в 9 утра" value="' + esc(S.draft) + '">' +
-      // Кнопка ассистента рядом с отправкой: место под будущий Syn. Пока
-      // объясняет, почему его здесь нет, — заглушка с искоркой, которая
-      // молча ничего не делает, была бы хуже.
+      // Кнопка ассистента рядом с отправкой: написанное в строке уходит
+      // Syn как есть, поэтому «разбери мой день» можно набрать там же, где
+      // обычную задачу, и нажать искру вместо стрелки.
       '<button class="ai" type="button" data-act="ai" aria-label="Ассистент Syn" title="Ассистент Syn">' + ICON.ai + '</button>' +
       '<button class="send" type="submit" aria-label="Добавить задачу">↑</button>' +
     '</form>' +
@@ -2039,7 +2141,8 @@ function vPomodoro(){
   '</section>';
 
   html += '<div class="counts">' +
-    cnt(String(S.pomodoro.doneToday), 'помидоров сегодня') +
+    cnt(S.pomodoro.goal ? S.pomodoro.doneToday + ' из ' + S.pomodoro.goal : String(S.pomodoro.doneToday),
+      S.pomodoro.goal ? 'помидоров к цели' : 'помидоров сегодня') +
     cnt(S.pomodoro.focus + ' мин', 'длина фокуса') +
     cnt(S.pomodoro.shortBreak + ' мин', 'короткий перерыв') +
     cnt(S.pomodoro.longBreak + ' мин', 'длинный перерыв') +
@@ -2119,6 +2222,23 @@ function soundOf(name){
     if (SOUNDS[i].title === name || SOUNDS[i].id === name) return SOUNDS[i];
   }
   return SOUNDS[0];
+}
+
+/* Syn называет среду как придётся: английским id из промпта («rain»), русским
+   названием («дождь») или словом, которого у нас нет вовсе («waves»). Первые
+   два находим, на третье честно отвечаем, что такой среды нет, — поэтому
+   возвращается null, а не первая попавшаяся запись. */
+var SOUND_ALIASES = { waves: 'surf', ocean: 'surf', sea: 'surf', water: 'stream',
+  river: 'stream', fire: 'fireplace', thunder: 'storm', birds: 'forest', bell: 'bowl' };
+
+function soundByAnyName(name){
+  var needle = String(name || '').toLowerCase().trim();
+  if (!needle) return null;
+  if (SOUND_ALIASES[needle]) needle = SOUND_ALIASES[needle];
+  for (var i = 0; i < SOUNDS.length; i++){
+    if (SOUNDS[i].id === needle || SOUNDS[i].title.toLowerCase() === needle) return SOUNDS[i];
+  }
+  return null;
 }
 
 /* ---- сеанс медитации ---- */
@@ -2352,9 +2472,24 @@ function vProfile(){
   '</section>';
 
   html += '<p class="lbl">Вход</p><section class="card">' +
-    '<h3>' + esc(S.auth.email || 'Без почты') + '</h3>' +
-    '<p class="sub">Вход по почте. Пока без Synapse Pro.</p>' +
-    '<div class="acts"><button class="btn sm soft" data-act="logout">Выйти</button></div>' +
+    '<h3>' + esc(S.auth.stage === 'in' ? (S.auth.email || 'Без почты') : 'Вход не выполнен') + '</h3>' +
+    '<p class="sub">' + (S.auth.stage === 'in'
+      ? 'Заглушка без сервера: записи всё равно лежат в этом браузере.'
+      : 'Планировщик работает и без входа — записи хранятся в этом браузере.') + '</p>' +
+    '<div class="acts">' +
+      (S.auth.stage === 'in'
+        ? '<button class="btn sm soft" data-act="logout">Выйти</button>'
+        : '<button class="btn sm soft" data-act="go" data-view="auth">Войти</button>') +
+    '</div>' +
+  '</section>';
+
+  html += '<p class="lbl">Подписка</p><section class="card">' +
+    '<h3>' + (isPro() ? 'Synapse Pro' : 'Бесплатный доступ') + '</h3>' +
+    '<p class="sub">' + (isPro()
+      ? 'Открыты все разделы' + (S.pro.expiresAt ? ', до ' + esc(humanDateTime(S.pro.expiresAt)) : '') + '.'
+      : 'Помодоро и медитация закрыты, ' + FREE_LIMITS.goals + ' цели, ' + FREE_LIMITS.lists +
+        ' списка, ' + FREE_LIMITS.notes + ' заметки.') + '</p>' +
+    '<div class="acts"><button class="btn sm soft" data-act="go" data-view="pricing">Тарифы</button></div>' +
   '</section>';
 
   return html;
@@ -2423,6 +2558,8 @@ function avatarHTML(size){
 function vSettings(){
   var html = head('Приложение', 'Настройки');
   html += settingsLink('profile', 'Профиль', S.profile.name || S.auth.email || 'Имя и фото') +
+    settingsLink('auth', 'Вход', S.auth.stage === 'in' ? S.auth.email : 'Пока не выполнен') +
+    settingsLink('pricing', 'Тарифы', isPro() ? 'Подписка активна' : 'Бесплатно и Pro') +
     settingsLink('settings-view', 'Вид', fontOf(S.font).title + ' · ' + paletteOf(S.palette).title) +
     settingsLink('settings-data', 'Данные', 'Копия файлом, примеры, стирание') +
     settingsLink('about', 'О сервисе', 'Что умеет веб-версия');
@@ -2555,7 +2692,7 @@ function vAbout(){
   // Чего здесь нет — списком, а не умолчанием: человек должен узнать это от
   // нас, а не обнаружить сам.
   html += '<p class="lbl">Чего пока нет</p><section class="card">' +
-    '<p class="sub">Ассистент Syn и брифинги работают только в приложении: запросы к нему требуют проверки устройства, которой в браузере не существует. Нет уведомлений, звука в медитации и синхронизации с приложением — данные переносятся файлом в разделе «Данные».</p>' +
+    '<p class="sub">Нет уведомлений и напоминаний: браузер, закрытый на телефоне, ничего не пришлёт. Нет брифингов и синхронизации с приложением — данные переносятся файлом в разделе «Данные». Ассистент Syn работает, но у веба своя суточная норма запросов.</p>' +
   '</section>';
 
   // Права на записи не заявлены, но людей, которые вышли в поле с
@@ -2581,15 +2718,26 @@ function vAbout(){
 
 /* ============ ВХОД ============ */
 
-/* ЗАГЛУШКА. Сервера для входа по почте пока не существует: код не
-   отправляется, а показывается на экране, и проверяется тут же в браузере.
-   Apple и Google на сайте недоступны (вход по Apple на вебе владелец делать
-   запретил), SMS требует ИП — поэтому почта и только почта. */
+/* ЗАГЛУШКА, и это сказано на самом экране. Сервера для входа по почте пока не
+   существует: код не отправляется, а показывается на экране, и проверяется тут
+   же в браузере. Apple и Google на сайте недоступны (вход по Apple на вебе
+   владелец делать запретил), SMS требует ИП — поэтому почта и только почта.
+
+   Экран держится ради своего места в интерфейсе: когда появится настоящий
+   аккаунт, поменяется начинка, а не путь к ней. Работать он не мешает —
+   планировщик открыт и без входа. */
 function vAuth(){
   var a = S.auth;
-  var html = '<div class="auth"><div class="mark">S</div>';
+  var html = head('Аккаунт', 'Вход', 'settings') + '<div class="auth">';
 
-  if (a.stage === 'email'){
+  if (a.stage === 'in'){
+    return html + '<h1>Вы вошли</h1>' +
+      '<p class="s">Почта ' + esc(a.email || '') + '</p>' +
+      '<section class="card"><p class="sub">Пока это ничего не меняет: записи всё равно лежат в этом браузере, а не на сервере. Вход появится по-настоящему вместе с аккаунтом и переносом данных.</p>' +
+      '<div class="acts"><button class="btn sm soft" data-act="logout">Выйти</button></div></section></div>';
+  }
+
+  if (a.stage === 'guest' || a.stage === 'email'){
     html += '<h1>Вход в Synapse</h1>' +
       '<p class="s">Введи почту — пришлём код из шести цифр.</p>' +
       '<form class="card" data-form="auth-send">' +
@@ -2611,7 +2759,104 @@ function vAuth(){
       '</form>';
   }
 
-  html += '<p class="stub">Это заглушка без сервера. Ни почта, ни код никуда не отправляются, состояние входа лежит в этом браузере.</p></div>';
+  html += '<p class="stub">Это заглушка без сервера. Ни почта, ни код никуда не отправляются, состояние входа лежит в этом браузере. Планировщик работает и без входа.</p>' +
+    '<div class="acts"><button class="btn sm soft" data-act="go" data-view="tasks">Продолжить без входа</button></div></div>';
+  return html;
+}
+
+/* ============ ТАРИФЫ ============ */
+
+/* Экран называет цену и границу бесплатного одним списком: человек, который
+   упёрся в замок, приходит сюда с вопросом «что мне это даёт» — и должен
+   увидеть ответ раньше, чем кнопку оплаты.
+
+   Оплата живёт на сайте: покупка отдаёт код, код вводится здесь. Того же
+   маршрута держится приложение — один код, одно устройство. */
+function vPricing(){
+  var pro = isPro();
+  var html = head('Synapse', 'Тарифы');
+
+  if (pro){
+    html += '<section class="card pro-on">' +
+      '<h3>Подписка активна</h3>' +
+      '<p class="sub">' + (S.pro.plan ? esc(planTitle(S.pro.plan)) + '. ' : '') +
+        (S.pro.expiresAt ? 'Действует до ' + esc(humanDateTime(S.pro.expiresAt)) + '.' : 'Срок не назван сервером.') +
+        ' Открыты все разделы и ' + PRO_SYN_LIMIT + ' запросов к Syn в день.</p>' +
+      '<div class="acts">' +
+        '<button class="btn sm soft" data-act="pro-refresh">Проверить</button>' +
+        '<button class="btn sm soft" data-act="pro-forget">Отвязать код</button>' +
+      '</div>' +
+    '</section>';
+  }
+
+  html += '<p class="lbl">Что входит</p>' +
+    '<section class="card"><div class="plan-table">' +
+      planRow('Задачи, блоки дня, повторы', 'без ограничений', 'без ограничений') +
+      planRow('Цели с этапами', FREE_LIMITS.goals + ' цели', 'без ограничений') +
+      planRow('Списки', FREE_LIMITS.lists + ' списка', 'без ограничений') +
+      planRow('Заметки', FREE_LIMITS.notes + ' заметки', 'без ограничений') +
+      planRow('Ассистент Syn', FREE_SYN_LIMIT + ' запросов в день', PRO_SYN_LIMIT + ' в день') +
+      planRow('Метод Помодоро', '—', 'есть') +
+      planRow('Медитация', '—', 'есть') +
+    '</div></section>';
+
+  if (!pro){
+    html += '<p class="lbl">Подписка</p>' +
+      '<section class="card">' +
+        '<div class="plan-price"><b>590 ₽</b><span>в месяц</span></div>' +
+        '<p class="sub">Год — 4 990 ₽, это 416 ₽ в месяц. Есть короткий тариф на 7 дней за 149 ₽, чтобы попробовать.</p>' +
+        '<div class="acts">' +
+          '<a class="btn sm" href="../checkout/">Оформить на сайте</a>' +
+          '<button class="btn sm soft" data-act="pro-code">У меня есть код</button>' +
+        '</div>' +
+        '<p class="hint">Оплата проходит на сайте, после неё приходит код. Код вводится здесь и включает подписку в этом браузере.</p>' +
+      '</section>';
+  }
+
+  html += '<p class="lbl">Честно про веб-версию</p><section class="card">' +
+    '<p class="sub">Записи веб-версии лежат в этом браузере и не синхронизируются с приложением: перенести их можно файлом в разделе «Данные». Код подписки работает и там, и там, но занимает одно устройство за раз.</p>' +
+  '</section>';
+
+  return html;
+}
+
+function planRow(title, free, pro){
+  return '<div class="plan-row">' +
+    '<span class="plan-what">' + esc(title) + '</span>' +
+    '<span class="plan-free' + (free === '—' ? ' off' : '') + '">' + esc(free) + '</span>' +
+    '<span class="plan-pro">' + esc(pro) + '</span>' +
+  '</div>';
+}
+
+var PLANS = { week: 'Неделя', month: 'Месяц', year: 'Год' };
+function planTitle(id){ return PLANS[id] || id; }
+
+/// Дата со сроком подписки приходит с сервера в ISO с временем.
+function humanDateTime(iso){
+  var date = new Date(iso);
+  if (isNaN(date.getTime())) return iso;
+  return date.getDate() + ' ' + MONTH_NAMES[date.getMonth()] + ' ' + date.getFullYear();
+}
+
+/* Экран под замком. Не пустая страница с ценой, а рассказ о том, что здесь
+   лежит: человек должен понимать, что покупает, ещё не купив. */
+function vLocked(view){
+  var html = head('Synapse', PRO_ONLY[view]);
+  var about = view === 'pomodoro'
+    ? 'Таймер на 25 минут работы и 5 минут перерыва, счёт пройденных кругов за день и свои длительности, если стандартные не подходят.'
+    : 'Двенадцать полевых записей — дождь, прибой, лес, гроза, — круг, который заполняется по ходу сеанса, и счёт минут за всё время.';
+
+  html += '<section class="card locked-card">' +
+    '<span class="locked-mark" aria-hidden="true">' + ICON.lock + '</span>' +
+    '<h3>' + esc(PRO_ONLY[view]) + ' — в подписке</h3>' +
+    '<p class="sub">' + about + '</p>' +
+    '<div class="acts">' +
+      '<button class="btn sm" data-act="go" data-view="pricing">Что даёт подписка</button>' +
+      '<button class="btn sm soft" data-act="pro-code">Ввести код</button>' +
+    '</div>' +
+  '</section>';
+
+  html += '<p class="hint" style="margin-top:14px">Задачи, цели, списки и заметки остаются бесплатными.</p>';
   return html;
 }
 
@@ -2626,6 +2871,12 @@ function vAuth(){
    Ответ приходит в виде {reply, actions}. Reply показываем словами, actions
    применяем к состоянию — ровно то, что в приложении делает WorkspaceStore. */
 
+/* Суточная квота. Считает её сервер — здесь эти числа нужны только для того,
+   чтобы называть их вслух до первого запроса, а не после отказа. Сервер
+   присылает свои в ответе, и они всегда главнее написанного тут. */
+var FREE_SYN_LIMIT = 6;
+var PRO_SYN_LIMIT = 200;
+
 var SYN = {
   base: (function(){
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1'){
@@ -2635,7 +2886,9 @@ var SYN = {
   })(),
   token: '',
   expiresAt: 0,
-  busy: false
+  busy: false,
+  // Последнее, что сказал сервер про остаток на сегодня: {used, limit}.
+  quota: null
 };
 
 /// Install id браузера. Живёт рядом с задачами: пропал он — пропали и они,
@@ -2648,12 +2901,18 @@ function synInstallID(){
   return S.installID;
 }
 
+/// Тот же идентификатор, каким его знает сервер: приставку он ставит сам, и
+/// подписка с квотой считаются именно по ней.
+function webInstallID(){
+  var id = synInstallID();
+  return id.indexOf('web-') === 0 ? id : 'web-' + id;
+}
+
 function synFetch(path, body, token){
   var headers = { 'Content-Type': 'application/json' };
   if (token){
     headers.Authorization = 'Bearer ' + token;
-    headers['X-Synapse-Install-ID'] = synInstallID().indexOf('web-') === 0
-      ? synInstallID() : 'web-' + synInstallID();
+    headers['X-Synapse-Install-ID'] = webInstallID();
   }
   return fetch(SYN.base + path, {
     method: 'POST',
@@ -2688,6 +2947,10 @@ function synSession(){
 function synWorkspace(){
   return {
     userID: synInstallID(),
+    // Дату сервер берёт отсюда: без неё «перенеси на завтра» считается по
+    // часам сервера, а он в Москве и не обязан совпадать с человеком.
+    localDate: isoOf(todayDate()),
+    currentScreen: (VIEWS[S.view] || VIEWS.tasks).title,
     tasks: liveTasks().map(function(t){
       return {
         title: t.title, bucket: t.bucket, date: t.date, time: t.time,
@@ -2701,7 +2964,14 @@ function synWorkspace(){
         title: g.title, purpose: g.purpose || '', horizon: g.horizon || '',
         stages: g.stages.map(function(st){ return { title: st.title, status: st.status }; })
       };
-    })
+    }),
+    lists: S.lists.map(function(l){
+      return {
+        title: l.title, note: l.note || '',
+        items: l.items.map(function(i){ return { title: i.title, done: i.done }; })
+      };
+    }),
+    notes: S.notes.map(function(n){ return { title: n.title, body: n.body || '' }; })
   };
 }
 
@@ -2724,6 +2994,37 @@ function synContext(){
         (t.subtasks.length ? ' [подпункты: ' + t.subtasks.map(function(s){ return s.title; }).join(', ') + ']' : ''));
     });
   });
+  // Списки и заметки в срезе тоже: без них Syn не знает, какой список
+  // дополнять, и заводит второй с тем же названием.
+  if (S.lists.length){
+    lines.push('');
+    lines.push('СПИСКИ:');
+    S.lists.forEach(function(l){
+      lines.push('- «' + l.title + '»' + (l.items.length ? ': ' + l.items.map(function(i){
+        return i.title + (i.done ? ' (отмечено)' : '');
+      }).join(', ') : ' (пустой)'));
+    });
+  }
+  if (S.notes.length){
+    lines.push('');
+    lines.push('ЗАМЕТКИ:');
+    S.notes.forEach(function(n){
+      lines.push('- «' + n.title + '»' + (n.body ? ': ' + cut(n.body, 160) : ''));
+    });
+  }
+  lines.push('');
+  lines.push('ПОМОДОРО: фокус ' + S.pomodoro.focus + ' мин, перерыв ' + S.pomodoro.shortBreak +
+    ' мин, длинный ' + S.pomodoro.longBreak + ' мин, кругов сегодня ' + S.pomodoro.doneToday + '.');
+  lines.push('МЕДИТАЦИЯ: ' + S.meditation.minutes + ' мин, среда «' + S.meditation.sound + '».');
+  lines.push('ОФОРМЛЕНИЕ: тема ' + S.theme + ', палитра «' + paletteOf(S.palette).title +
+    '», шрифт «' + fontOf(S.font).title + '», размер ' + fontSizeOf(S.fontSize).title + '.');
+  if (!isPro()){
+    lines.push('');
+    lines.push('ЭТО ВЕБ-ВЕРСИЯ БЕЗ ПОДПИСКИ: помодоро и медитация недоступны, ' +
+      'списков не больше ' + FREE_LIMITS.lists + ', заметок ' + FREE_LIMITS.notes +
+      ', целей ' + FREE_LIMITS.goals + '. Не обещай того, что закрыто подпиской.');
+  }
+
   if (S.goals.length){
     lines.push('');
     lines.push('ИЕРАРХИЯ ЦЕЛЕЙ И ИХ ЗАДАЧ:');
@@ -2753,7 +3054,26 @@ function modalSyn(draft, reply, result){
     '<div id="syn-out">' + synOutHTML(reply, result) + '</div>' +
     '<button class="btn full" data-act="syn-send"' + (SYN.busy ? ' disabled' : '') + '>' +
       (SYN.busy ? 'Syn думает…' : 'Отправить') + '</button>' +
+    synQuotaHTML() +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Закрыть</button></div>';
+}
+
+/// Остаток запросов. Число берём у сервера, а до первого ответа называем
+/// дневную норму — молчать про счётчик хуже, чем ошибиться на единицу.
+function synQuotaHTML(){
+  var limit = isPro() ? PRO_SYN_LIMIT : FREE_SYN_LIMIT;
+  var text;
+  if (SYN.quota && typeof SYN.quota.used === 'number'){
+    limit = SYN.quota.limit || limit;
+    var left = Math.max(0, limit - SYN.quota.used);
+    text = 'Осталось ' + left + ' из ' + limit + ' запросов на сегодня.';
+  } else {
+    text = (isPro() ? 'В подписке ' : 'Бесплатно ') + limit + ' запросов к Syn в день.';
+  }
+  if (!isPro()){
+    text += ' <a class="q-link" href="#" data-act="go" data-view="pricing">Тарифы</a>';
+  }
+  return '<p class="hint syn-quota">' + text + '</p>';
 }
 
 function synOutHTML(reply, result){
@@ -2781,24 +3101,58 @@ function synSend(text){
   openModal(modalSyn(text, '', null));
 
   synAsk(text).then(function(data){
+    if (data.quota) SYN.quota = data.quota;
     var result = synApplyActions(data.actions);
     SYN.busy = false;
     save();
     openModal(modalSyn('', data.reply || '', result));
     // Экран под модалкой должен показывать уже новые данные.
-    var view = VIEWS[S.view] || VIEWS.tasks;
-    $('app').innerHTML = view.render();
+    render();
   }).catch(function(error){
     SYN.busy = false;
     var message = error && error.message ? error.message : 'Не получилось';
     if (error && error.status === 503){
       message = 'Syn для веба ещё не включён на сервере.';
+    } else if (error && error.status === 404){
+      // 404 приходит, пока на сервере нет маршрута веб-сессии: показывать
+      // человеку «Not found.» — значит не сказать ничего.
+      message = 'Syn в браузере ещё не включён на сервере.';
     } else if (error && error.status === 402){
+      if (error.data && error.data.quota) SYN.quota = error.data.quota;
       message = error.data && error.data.error ? error.data.error : 'Запросы к Syn на сегодня закончились.';
+    } else if (error && error.status === 403){
+      message = 'Сервер не принял запрос с этого адреса.';
+    } else if (error && error.status === 429){
+      message = 'Слишком часто. Подожди минуту и попробуй снова.';
     } else if (error && error.status === undefined){
       message = 'Сервер не ответил. Проверь соединение.';
     }
     openModal(modalSyn(text, message, null));
+  });
+}
+
+/* ---- подписка ---- */
+
+/* Тот же маршрут, что у приложения: код меняется на связку install id с
+   аккаунтом. Ответ сервера кладём рядом с задачами — он же решает, открыты ли
+   помодоро с медитацией и какая суточная квота у Syn.
+
+   Проверять код заново на каждом запуске незачем: сервер отдал срок, и до него
+   Pro считается включённым. Кнопка «Проверить» на экране тарифов есть на
+   случай, когда подписку продлили или перенесли на другое устройство. */
+function proActivate(code){
+  return synFetch('/v1/synapse/subscription/activate', {
+    code: String(code || '').trim().toUpperCase(),
+    installID: webInstallID()
+  }).then(function(data){
+    S.pro = {
+      active: String(data.status || '') === 'active',
+      plan: data.plan || '',
+      expiresAt: data.expiresAt || '',
+      code: String(code || '').trim().toUpperCase()
+    };
+    save();
+    return S.pro;
   });
 }
 
@@ -2814,9 +3168,20 @@ function synAsk(text){
 
 /* ---- применение действий ---- */
 
-/* Действий у сервера много; здесь применяются те, которым в вебе есть что
-   менять. Незнакомые не проглатываются молча, а перечисляются в ответе —
-   иначе Syn пишет «перенёс», а на экране ничего не изменилось. */
+/* Каталог действий сервера перенесён целиком: задачи, цели с этапами, списки,
+   заметки, помодоро, медитация, оформление и переходы по разделам. Syn в
+   браузере умеет ровно то же, что в приложении, — кроме того, чего в браузере
+   не существует физически (уведомления, вибрация, папки заметок): такие
+   действия не проглатываются молча, а называются в ответе.
+
+   Три правила, из-за которых это не просто список веток:
+
+   1. Незнакомое действие всегда попадает в «не применилось». Молчаливый
+      пропуск — это Syn, который пишет «перенёс», а на экране прежнее.
+   2. Платное остаётся платным и для Syn: «включи помодоро» без подписки не
+      обходит замок, а объясняет его.
+   3. Границы бесплатного тоже проверяются здесь, а не только на кнопках:
+      иначе третью цель можно было бы завести голосом. */
 
 function synFindTask(target){
   var needle = String(target || '').toLowerCase().trim();
@@ -2852,130 +3217,647 @@ function synSplitDateTime(value){
   return { date: date, time: time };
 }
 
+/// Поиск по названию среди списков, заметок и этапов — теми же правилами, что
+/// у задач: сначала точное совпадение, потом вхождение.
+function synFindBy(items, target, field){
+  var needle = String(target || '').toLowerCase().trim();
+  if (!needle) return null;
+  var key = field || 'title';
+  for (var i = 0; i < items.length; i++){
+    if (String(items[i][key]).toLowerCase() === needle) return items[i];
+  }
+  for (var j = 0; j < items.length; j++){
+    if (String(items[j][key]).toLowerCase().indexOf(needle) >= 0) return items[j];
+  }
+  return null;
+}
+
+function synFindList(target){ return synFindBy(S.lists, target); }
+function synFindNote(target){ return synFindBy(S.notes, target); }
+
+/// Этап ищется по всем целям сразу: человек говорит «завершить этап X», не
+/// называя цель, и в приложении это работает так же.
+function synFindStage(target){
+  for (var i = 0; i < S.goals.length; i++){
+    var stage = synFindBy(S.goals[i].stages, target);
+    if (stage) return { goal: S.goals[i], stage: stage };
+  }
+  return null;
+}
+
+/* Правило повтора сервера — набор полей (unit, interval, weekdays), в вебе же
+   повтор это один из шести пресетов, как в приложении. Переводим в ближайший;
+   то, чего среди пресетов нет (минуты, часы, произвольные дни недели), честно
+   возвращает null и попадает в «не применилось». */
+function synRepeatID(a){
+  if (a.repeat && repeatPreset(a.repeat)) return a.repeat;
+  var unit = String(a.unit || '').toLowerCase();
+  var interval = Math.max(1, Number(a.interval) || 1);
+  var weekdaysOnly = a.weekdaysOnly === true ||
+    (a.weekdays && a.weekdays.length === 5 && a.weekdays.indexOf(6) < 0 && a.weekdays.indexOf(7) < 0);
+
+  if (unit === 'minute' || unit === 'hour') return null;
+  if (unit === 'week') return 'weekly';
+  if (unit === 'month') return 'monthly';
+  if (unit === 'day'){
+    if (weekdaysOnly) return 'weekdays';
+    return interval >= 2 ? 'every2' : 'daily';
+  }
+  if (weekdaysOnly) return 'weekdays';
+  if (a.weekday || (a.weekdays && a.weekdays.length)) return 'weekly';
+  return null;
+}
+
+/// Крайний срок. Хранится отдельно от даты в плане: «стоит на завтра» и
+/// «должно быть сделано до пятницы» — разные вещи, и в приложении тоже.
+function synDeadline(a){
+  var when = synSplitDateTime(a.deadline || a.datetime);
+  if (!when.date && !when.time) return null;
+  return { date: when.date, time: when.time, hard: a.hardDeadline === true };
+}
+
+/// Замок для платных разделов: Syn его не обходит, а объясняет.
+function synPro(what, skipped){
+  if (isPro()) return true;
+  skipped.push(what + ' — только в подписке');
+  return false;
+}
+
+/// Граница бесплатного. Проверяется и здесь, иначе третью цель можно было бы
+/// завести голосом в обход кнопки.
+function synRoom(kind, skipped){
+  if (canAdd(kind)) return true;
+  skipped.push(limitReason(kind) + ' Нужна подписка');
+  return false;
+}
+
+/* Каталог. Ключ — kind сервера, значение — что с этим делать в вебе.
+   Синонимы перечислены рядом, потому что сервер их правда присылает: у одного
+   и того же смысла в промптах разные имена (mark_task_done и complete_task). */
+var SYN_ACTS = {};
+
+function synAct(kinds, fn){
+  kinds.split(' ').forEach(function(kind){ SYN_ACTS[kind] = fn; });
+}
+
+/* ---- задачи ---- */
+
+synAct('create_task create_task_for_goal', function(a, done, skipped){
+  var when = synSplitDateTime(a.datetime);
+  var fresh = {
+    id: uid(), title: String(a.title || '').trim() || 'Без названия',
+    bucket: a.bucket && bucketTitle(a.bucket) ? a.bucket : (when.date ? bucketForDate(when.date) : 'today'),
+    date: when.date, time: when.time, done: false,
+    note: String(a.note || ''), repeat: '', series: null,
+    deadline: synDeadline(a),
+    goalId: null, stageId: null,
+    subtasks: (a.subtasks || []).map(function(t){ return { id: uid(), title: String(t), done: false }; })
+  };
+  if (!fresh.date) fresh.date = dateForBucket(fresh.bucket);
+  if (spansSeveralDays(fresh.bucket)) fresh.time = null;
+
+  var repeat = a.unit || a.interval || a.weekdays || a.weekday || a.weekdaysOnly ? synRepeatID(a) : '';
+  if (repeat === null) skipped.push('повтор «' + (a.unit || '') + '» в вебе не выражается');
+  else fresh.repeat = repeat || '';
+
+  if (a.kind === 'create_task_for_goal' || a.goalTitle){
+    var goal = synFindGoal(a.goalTitle);
+    if (goal){
+      fresh.goalId = goal.id;
+      var stage = a.stageTitle ? synFindBy(goal.stages, a.stageTitle) : null;
+      if (stage) fresh.stageId = stage.id;
+    } else if (a.goalTitle){
+      skipped.push('цель «' + a.goalTitle + '» не нашлась, задача создана без неё');
+    }
+  }
+
+  S.tasks.push(fresh);
+  done.push('создана задача «' + fresh.title + '»');
+});
+
+synAct('move_task set_task_schedule', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var when = synSplitDateTime(a.datetime || a.date);
+  if (!when.date && !when.time && a.bucket && bucketTitle(a.bucket)){
+    task.bucket = a.bucket;
+    task.date = dateForBucket(a.bucket);
+  }
+  if (when.date){ task.date = when.date; task.bucket = bucketForDate(when.date); }
+  if (when.time) task.time = when.time;
+  if (spansSeveralDays(task.bucket)) task.time = null;
+  task.carriedFrom = null;
+  done.push('перенесена «' + task.title + '»');
+});
+
+synAct('clear_task_schedule', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  task.time = null;
+  task.bucket = 'later';
+  task.date = dateForBucket('later');
+  done.push('снято время у «' + task.title + '»');
+});
+
+synAct('set_task_repeat', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var repeat = synRepeatID(a);
+  if (repeat === null) return skipped.push('такой повтор в вебе не выражается');
+  task.repeat = repeat;
+  done.push('повтор у «' + task.title + '» — ' + repeatLabel(repeat).toLowerCase());
+});
+
+synAct('clear_task_repeat', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  task.repeat = '';
+  task.series = null;
+  done.push('снят повтор у «' + task.title + '»');
+});
+
+synAct('set_task_deadline', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var deadline = synDeadline(a);
+  if (!deadline) return skipped.push('не понял срок для «' + task.title + '»');
+  task.deadline = deadline;
+  done.push('срок у «' + task.title + '» — ' + deadlineText(deadline));
+});
+
+synAct('clear_task_deadline', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  task.deadline = null;
+  done.push('снят срок у «' + task.title + '»');
+});
+
+synAct('rename_task', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  task.title = String(a.newTitle || a.title || task.title);
+  done.push('переименована в «' + task.title + '»');
+});
+
+synAct('delete_task', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  S.tasks = S.tasks.filter(function(t){ return t.id !== task.id; });
+  done.push('удалена «' + task.title + '»');
+});
+
+synAct('complete_task mark_task_done reopen_task uncomplete_task', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var closing = a.kind === 'complete_task' || a.kind === 'mark_task_done';
+  task.done = closing;
+  // Та же логика, что у галочки на карточке: закрытая повторяющаяся задача
+  // ставит следующую в серии, иначе повтор кончается на первом разе.
+  if (closing) spawnNextOccurrence(task);
+  done.push((closing ? 'закрыта ' : 'открыта ') + '«' + task.title + '»');
+});
+
+synAct('restore_task', function(a, done, skipped){
+  var target = String(a.target || '').toLowerCase().trim();
+  var found = null;
+  for (var i = 0; i < S.tasks.length; i++){
+    if (S.tasks[i].archived && S.tasks[i].title.toLowerCase().indexOf(target) >= 0){ found = S.tasks[i]; break; }
+  }
+  if (!found) return skipped.push('в архиве нет «' + (a.target || '') + '»');
+  found.archived = false;
+  found.done = false;
+  found.bucket = 'today';
+  found.date = isoOf(todayDate());
+  done.push('возвращена из архива «' + found.title + '»');
+});
+
+synAct('update_task_note append_task_note research_task_note', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var note = String(a.note || a.value || '');
+  if (!note) return skipped.push('пустое описание для «' + task.title + '»');
+  task.note = (a.kind !== 'update_task_note') && task.note ? task.note + '\n' + note : note;
+  done.push('описание у «' + task.title + '»');
+});
+
+synAct('breakdown_task', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var items = a.subtasks || a.items || [];
+  if (!items.length) return skipped.push('нечего добавить в «' + task.title + '»');
+  items.forEach(function(item){
+    task.subtasks.push({ id: uid(), title: String(item && item.title ? item.title : item), done: false });
+  });
+  done.push('разобрана на шаги «' + task.title + '»');
+});
+
+synAct('add_subtask', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var title = String(a.itemTitle || a.title || '').trim();
+  if (!title) return skipped.push('пустой подпункт для «' + task.title + '»');
+  task.subtasks.push({ id: uid(), title: title, done: false });
+  done.push('подпункт «' + title + '» в «' + task.title + '»');
+});
+
+synAct('remove_subtask rename_subtask toggle_subtask', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var sub = synFindBy(task.subtasks, a.itemTitle || a.subtaskTitle || a.value);
+  if (!sub) return skipped.push('в «' + task.title + '» нет подпункта «' + (a.itemTitle || '') + '»');
+
+  if (a.kind === 'remove_subtask'){
+    task.subtasks = task.subtasks.filter(function(s){ return s.id !== sub.id; });
+    done.push('убран подпункт «' + sub.title + '»');
+    return;
+  }
+  if (a.kind === 'rename_subtask'){
+    sub.title = String(a.newTitle || sub.title);
+    done.push('подпункт переименован в «' + sub.title + '»');
+    return;
+  }
+  sub.done = !sub.done;
+  done.push('подпункт «' + sub.title + '» ' + (sub.done ? 'отмечен' : 'снят'));
+});
+
+synAct('attach_task_to_goal link_task_to_goal', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var goal = synFindGoal(a.goalTitle || a.value);
+  if (!goal) return skipped.push('не нашёл цель «' + (a.goalTitle || '') + '»');
+  task.goalId = goal.id;
+  var stage = a.stageTitle ? synFindBy(goal.stages, a.stageTitle) : null;
+  task.stageId = stage ? stage.id : null;
+  done.push('«' + task.title + '» привязана к цели «' + goal.title + '»');
+});
+
+synAct('detach_task_from_goal unlink_task_from_goal', function(a, done, skipped){
+  var task = synFindTask(a.target);
+  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  task.goalId = null;
+  task.stageId = null;
+  done.push('«' + task.title + '» отвязана от цели');
+});
+
+synAct('set_task_reminder', function(a, done, skipped){
+  skipped.push('напоминаний в браузере нет — только в приложении');
+});
+
+/* ---- цели и этапы ---- */
+
+synAct('create_goal', function(a, done, skipped){
+  if (!synRoom('goals', skipped)) return;
+  var goal = {
+    id: uid(), title: String(a.title || '').trim() || 'Без названия',
+    purpose: String(a.purpose || ''), horizon: String(a.horizon || ''),
+    sphere: 'personal', pinned: false,
+    stages: (a.subtasks || a.stages || []).map(function(st){
+      return { id: uid(), title: String(st && st.title ? st.title : st), detail: '', status: 'planned' };
+    })
+  };
+  S.goals.push(goal);
+  S.openGoal[goal.id] = true;
+  done.push('создана цель «' + goal.title + '»' + (goal.stages.length ? ' с этапами' : ''));
+});
+
+synAct('rename_goal update_goal_purpose update_goal_horizon', function(a, done, skipped){
+  var goal = synFindGoal(a.target);
+  if (!goal) return skipped.push('не нашёл цель «' + (a.target || '') + '»');
+  if (a.kind === 'rename_goal') goal.title = String(a.newTitle || goal.title);
+  if (a.kind === 'update_goal_purpose') goal.purpose = String(a.purpose || a.value || '');
+  if (a.kind === 'update_goal_horizon') goal.horizon = String(a.horizon || a.value || '');
+  done.push('изменена цель «' + goal.title + '»');
+});
+
+synAct('delete_goal', function(a, done, skipped){
+  var goal = synFindGoal(a.target);
+  if (!goal) return skipped.push('не нашёл цель «' + (a.target || '') + '»');
+  S.goals = S.goals.filter(function(g){ return g.id !== goal.id; });
+  // Задачи цели не удаляются вместе с ней, а отвязываются: удалить чужую
+  // работу заодно — не то, о чём просили.
+  S.tasks.forEach(function(t){
+    if (t.goalId === goal.id){ t.goalId = null; t.stageId = null; }
+  });
+  if (S.activeGoal === goal.id) S.activeGoal = null;
+  done.push('удалена цель «' + goal.title + '», задачи остались');
+});
+
+synAct('set_active_goal', function(a, done, skipped){
+  var goal = synFindGoal(a.target);
+  if (!goal) return skipped.push('не нашёл цель «' + (a.target || '') + '»');
+  S.goals.forEach(function(g){ g.pinned = g.id === goal.id; });
+  S.activeGoal = goal.id;
+  done.push('главная цель — «' + goal.title + '»');
+});
+
+synAct('create_stage', function(a, done, skipped){
+  var goal = synFindGoal(a.goalTitle || a.target);
+  if (!goal) return skipped.push('не нашёл цель «' + (a.goalTitle || a.target || '') + '»');
+  var stage = { id: uid(), title: String(a.title || '').trim() || 'Этап',
+    detail: String(a.detail || ''), status: 'planned' };
+  goal.stages.push(stage);
+  done.push('этап «' + stage.title + '» в цели «' + goal.title + '»');
+});
+
+synAct('rename_stage delete_stage set_stage_status', function(a, done, skipped){
+  var found = synFindStage(a.target);
+  if (!found) return skipped.push('не нашёл этап «' + (a.target || '') + '»');
+
+  if (a.kind === 'rename_stage'){
+    found.stage.title = String(a.newTitle || found.stage.title);
+    done.push('этап переименован в «' + found.stage.title + '»');
+    return;
+  }
+  if (a.kind === 'delete_stage'){
+    found.goal.stages = found.goal.stages.filter(function(st){ return st.id !== found.stage.id; });
+    S.tasks.forEach(function(t){ if (t.stageId === found.stage.id) t.stageId = null; });
+    done.push('удалён этап «' + found.stage.title + '»');
+    return;
+  }
+  // «paused» в вебе отдельного вида не имеет: этап возвращается в план.
+  var value = String(a.value || '');
+  found.stage.status = value === 'done' ? 'done' : value === 'active' ? 'active' : 'planned';
+  done.push('этап «' + found.stage.title + '» → ' + STATUS[found.stage.status]);
+});
+
+/* ---- списки ---- */
+
+synAct('create_list', function(a, done, skipped){
+  if (!synRoom('lists', skipped)) return;
+  var list = { id: uid(), title: String(a.title || '').trim() || 'Новый список',
+    note: String(a.note || ''), items: (a.items || []).map(function(i){
+      return { id: uid(), title: String(i && i.title ? i.title : i), done: false };
+    }) };
+  S.lists.push(list);
+  done.push('создан список «' + list.title + '»');
+});
+
+synAct('rename_list', function(a, done, skipped){
+  var list = synFindList(a.target);
+  if (!list) return skipped.push('не нашёл список «' + (a.target || '') + '»');
+  list.title = String(a.newTitle || list.title);
+  done.push('список переименован в «' + list.title + '»');
+});
+
+synAct('delete_list', function(a, done, skipped){
+  var list = synFindList(a.target);
+  if (!list) return skipped.push('не нашёл список «' + (a.target || '') + '»');
+  S.lists = S.lists.filter(function(l){ return l.id !== list.id; });
+  if (S.activeList === list.id) S.activeList = null;
+  done.push('удалён список «' + list.title + '»');
+});
+
+synAct('add_list_item toggle_list_item delete_list_item', function(a, done, skipped){
+  var list = synFindList(a.listTitle || a.target);
+  if (!list) return skipped.push('не нашёл список «' + (a.listTitle || a.target || '') + '»');
+
+  if (a.kind === 'add_list_item'){
+    var items = a.items && a.items.length ? a.items : [a.itemTitle || a.title];
+    var added = 0;
+    items.forEach(function(item){
+      var title = String(item && item.title ? item.title : item || '').trim();
+      if (!title) return;
+      list.items.push({ id: uid(), title: title, done: false });
+      added += 1;
+    });
+    if (!added) return skipped.push('пустой пункт для «' + list.title + '»');
+    done.push('в список «' + list.title + '» добавлено: ' + added);
+    return;
+  }
+
+  var item = synFindBy(list.items, a.itemTitle || a.value);
+  if (!item) return skipped.push('в «' + list.title + '» нет пункта «' + (a.itemTitle || '') + '»');
+  if (a.kind === 'delete_list_item'){
+    list.items = list.items.filter(function(i){ return i.id !== item.id; });
+    done.push('убран пункт «' + item.title + '»');
+    return;
+  }
+  item.done = !item.done;
+  done.push('пункт «' + item.title + '» ' + (item.done ? 'отмечен' : 'снят'));
+});
+
+/* ---- заметки ---- */
+
+synAct('create_note research_note', function(a, done, skipped){
+  if (!synRoom('notes', skipped)) return;
+  var note = {
+    id: uid(),
+    title: String(a.title || '').trim() || 'Без названия',
+    body: String(a.note || a.value || a.body || '')
+  };
+  S.notes.push(note);
+  done.push('создана заметка «' + note.title + '»');
+  if (a.folderTitle) skipped.push('папок у заметок в вебе нет, «' + a.folderTitle + '» не создана');
+});
+
+synAct('update_note append_note', function(a, done, skipped){
+  var note = synFindNote(a.target || a.title);
+  if (!note) return skipped.push('не нашёл заметку «' + (a.target || '') + '»');
+  var body = String(a.note || a.value || a.body || '');
+  if (!body) return skipped.push('пустой текст для «' + note.title + '»');
+  note.body = a.kind === 'append_note' && note.body ? note.body + '\n' + body : body;
+  if (a.newTitle) note.title = String(a.newTitle);
+  done.push('изменена заметка «' + note.title + '»');
+});
+
+synAct('delete_note', function(a, done, skipped){
+  var note = synFindNote(a.target);
+  if (!note) return skipped.push('не нашёл заметку «' + (a.target || '') + '»');
+  S.notes = S.notes.filter(function(n){ return n.id !== note.id; });
+  if (S.activeNote === note.id) S.activeNote = null;
+  done.push('удалена заметка «' + note.title + '»');
+});
+
+synAct('move_note create_note_folder rename_note_folder delete_note_folder', function(a, done, skipped){
+  skipped.push('папок у заметок в вебе нет');
+});
+
+/* ---- помодоро и медитация ---- */
+
+synAct('start_pomodoro pause_pomodoro reset_pomodoro', function(a, done, skipped){
+  if (!synPro('Метод Помодоро', skipped)) return;
+  if (a.interval && a.kind === 'start_pomodoro'){
+    S.pomodoro.focus = Math.max(1, Math.min(180, Number(a.interval)));
+    S.pomodoro.mode = 'focus';
+    remaining = S.pomodoro.focus * 60;
+  }
+  if (a.kind === 'start_pomodoro'){
+    S.view = 'pomodoro';
+    if (!ticker) startTicker();
+    done.push('помодоро запущен' + (a.interval ? ' на ' + S.pomodoro.focus + ' мин' : ''));
+    return;
+  }
+  if (a.kind === 'pause_pomodoro'){
+    stopTicker();
+    done.push('помодоро на паузе');
+    return;
+  }
+  stopTicker();
+  remaining = S.pomodoro[modeOf().key] * 60;
+  done.push('помодоро сброшен');
+});
+
+synAct('set_pomodoro_mode set_pomodoro_focus_minutes set_pomodoro_break_minutes set_pomodoro_daily_goal', function(a, done, skipped){
+  if (!synPro('Метод Помодоро', skipped)) return;
+  var minutes = Math.max(1, Math.min(180, Number(a.interval || a.value) || 0));
+
+  if (a.kind === 'set_pomodoro_mode'){
+    var mode = String(a.mode || a.value || '');
+    if (['focus', 'shortBreak', 'longBreak'].indexOf(mode) < 0) return skipped.push('не понял режим помодоро');
+    stopTicker();
+    S.pomodoro.mode = mode;
+    remaining = S.pomodoro[modeOf().key] * 60;
+    done.push('помодоро — ' + modeOf().title.toLowerCase());
+    return;
+  }
+  if (!minutes) return skipped.push('не понял длительность помодоро');
+  if (a.kind === 'set_pomodoro_focus_minutes'){
+    S.pomodoro.focus = minutes;
+    done.push('фокус — ' + minutes + ' мин');
+  } else if (a.kind === 'set_pomodoro_break_minutes'){
+    S.pomodoro.shortBreak = minutes;
+    done.push('перерыв — ' + minutes + ' мин');
+  } else {
+    S.pomodoro.goal = minutes;
+    done.push('цель на день — ' + minutes + ' кругов');
+  }
+  if (!ticker) remaining = S.pomodoro[modeOf().key] * 60;
+});
+
+synAct('start_meditation stop_meditation', function(a, done, skipped){
+  if (!synPro('Медитация', skipped)) return;
+  if (a.kind === 'stop_meditation'){
+    medStop(true);
+    done.push('медитация остановлена');
+    return;
+  }
+  if (a.interval) S.meditation.minutes = Math.max(1, Math.min(120, Number(a.interval)));
+  var wanted = String(a.value || a.sound || '').toLowerCase();
+  if (wanted){
+    var sound = soundByAnyName(wanted);
+    if (sound) S.meditation.sound = sound.title;
+    else skipped.push('среды «' + wanted + '» нет, включена прежняя');
+  }
+  S.view = 'meditation';
+  medStart();
+  done.push('медитация на ' + S.meditation.minutes + ' мин, среда «' + S.meditation.sound + '»');
+});
+
+/* ---- оформление ---- */
+
+synAct('set_theme_mode', function(a, done, skipped){
+  var value = String(a.value || a.mode || '');
+  if (['system', 'light', 'dark'].indexOf(value) < 0) return skipped.push('не понял тему');
+  S.theme = value;
+  done.push('тема — ' + (value === 'system' ? 'как в системе' : value === 'dark' ? 'тёмная' : 'светлая'));
+});
+
+synAct('set_color_theme', function(a, done, skipped){
+  var wanted = String(a.value || a.title || '').toLowerCase().trim();
+  var found = null;
+  PALETTES.forEach(function(p){
+    if (!found && (p.id === wanted || p.title.toLowerCase() === wanted)) found = p;
+  });
+  if (!found) return skipped.push('палитры «' + wanted + '» нет');
+  S.palette = found.id;
+  done.push('палитра — «' + found.title + '»');
+});
+
+synAct('set_font_size', function(a, done, skipped){
+  var map = { small: 'compact', regular: 'standard', large: 'large' };
+  var value = map[String(a.value || '').toLowerCase()];
+  if (!value) return skipped.push('не понял размер шрифта');
+  S.fontSize = value;
+  done.push('размер шрифта — ' + fontSizeOf(value).title);
+});
+
+synAct('set_font_style', function(a, done, skipped){
+  var wanted = String(a.value || '').toLowerCase().trim();
+  var found = null;
+  FONTS.forEach(function(f){
+    if (!found && (f.id === wanted || f.title.toLowerCase() === wanted)) found = f;
+  });
+  if (!found) return skipped.push('шрифта «' + wanted + '» нет');
+  S.font = found.id;
+  done.push('шрифт — ' + found.title);
+});
+
+synAct('set_notifications set_haptics set_sounds set_compact_tasks set_start_screen', function(a, done, skipped){
+  var names = {
+    set_notifications: 'уведомлений', set_haptics: 'вибрации', set_sounds: 'звуков интерфейса',
+    set_compact_tasks: 'компактных карточек', set_start_screen: 'стартового экрана'
+  };
+  skipped.push(names[a.kind] + ' в вебе нет — только в приложении');
+});
+
+/* ---- переходы ---- */
+
+synAct('open_screen open_utility open_settings', function(a, done, skipped){
+  var map = {
+    analytics: 'analytics', synapse: 'focus', coach: 'focus', goals: 'goals', tasks: 'tasks',
+    lists: 'lists', notes: 'notes', pomodoro: 'pomodoro', meditation: 'meditation'
+  };
+  if (a.kind === 'open_settings'){
+    S.view = 'settings';
+    done.push('открыты настройки');
+    return;
+  }
+  var view = map[String(a.value || a.screen || a.utility || '').toLowerCase()];
+  if (!view) return skipped.push('такого раздела в вебе нет');
+  if (PRO_ONLY[view] && !isPro()) return skipped.push(PRO_ONLY[view] + ' — только в подписке');
+  S.view = view;
+  done.push('открыт раздел «' + (VIEWS[view] || {}).title + '»');
+});
+
+/* ---- удаление пачкой ---- */
+
+/* Сервер пропускает эти действия только по явной просьбе со словом «всё» —
+   проверка там, здесь остаётся исполнение и счёт вслух. */
+
+synAct('delete_all_tasks clear_tasks reset_tasks', function(a, done, skipped){
+  var count = S.tasks.length;
+  if (!count) return skipped.push('задач и так нет');
+  S.tasks = [];
+  done.push('удалены все задачи: ' + count);
+});
+
+synAct('delete_all_goals clear_goals reset_goals', function(a, done, skipped){
+  var count = S.goals.length;
+  if (!count) return skipped.push('целей и так нет');
+  S.goals = [];
+  S.tasks.forEach(function(t){ t.goalId = null; t.stageId = null; });
+  S.activeGoal = null;
+  done.push('удалены все цели: ' + count);
+});
+
+synAct('delete_all_goals_and_tasks clear_goals_and_tasks reset_goals_and_tasks', function(a, done, skipped){
+  var count = S.tasks.length + S.goals.length;
+  if (!count) return skipped.push('удалять нечего');
+  S.tasks = [];
+  S.goals = [];
+  S.activeGoal = null;
+  done.push('удалено всё: ' + count);
+});
+
 function synApplyActions(actions){
   var done = [];
   var skipped = [];
 
   (actions || []).forEach(function(a){
     var kind = String(a && a.kind || '').toLowerCase();
-    var task, goal, when;
-
-    if (kind === 'create_task' || kind === 'create_task_for_goal'){
-      when = synSplitDateTime(a.datetime);
-      var fresh = {
-        id: uid(), title: String(a.title || '').trim() || 'Без названия',
-        bucket: a.bucket && bucketTitle(a.bucket) ? a.bucket : (when.date ? bucketForDate(when.date) : 'today'),
-        date: when.date, time: when.time, done: false,
-        note: String(a.note || ''), repeat: '', series: null,
-        goalId: null, stageId: null,
-        subtasks: (a.subtasks || []).map(function(t){ return { id: uid(), title: String(t), done: false }; })
-      };
-      if (!fresh.date) fresh.date = dateForBucket(fresh.bucket);
-      if (spansSeveralDays(fresh.bucket)) fresh.time = null;
-      if (kind === 'create_task_for_goal'){
-        goal = synFindGoal(a.goalTitle);
-        if (goal){
-          fresh.goalId = goal.id;
-          var stage = a.stageTitle ? goal.stages.filter(function(st){
-            return st.title.toLowerCase().indexOf(String(a.stageTitle).toLowerCase()) >= 0;
-          })[0] : null;
-          if (stage) fresh.stageId = stage.id;
-        }
-      }
-      S.tasks.push(fresh);
-      done.push('создана задача «' + fresh.title + '»');
+    var handler = SYN_ACTS[kind];
+    if (!handler){
+      skipped.push('«' + (kind || 'без вида') + '» веб пока не умеет');
       return;
     }
-
-    if (kind === 'move_task' || kind === 'set_task_schedule'){
-      task = synFindTask(a.target);
-      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
-      when = synSplitDateTime(a.datetime || a.date);
-      if (when.date){ task.date = when.date; task.bucket = bucketForDate(when.date); }
-      if (when.time) task.time = when.time;
-      if (spansSeveralDays(task.bucket)) task.time = null;
-      done.push('перенесена «' + task.title + '»');
-      return;
+    // Действие, упавшее на кривых данных, не должно ронять остальные: одна
+    // ошибка модели иначе съедала бы весь ответ.
+    try {
+      a.kind = kind;
+      handler(a, done, skipped);
+    } catch (error){
+      skipped.push('«' + kind + '» не получилось применить');
     }
-
-    if (kind === 'complete_task' || kind === 'reopen_task'){
-      task = synFindTask(a.target);
-      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
-      task.done = kind === 'complete_task';
-      done.push((task.done ? 'закрыта ' : 'открыта ') + '«' + task.title + '»');
-      return;
-    }
-
-    if (kind === 'delete_task'){
-      task = synFindTask(a.target);
-      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
-      S.tasks = S.tasks.filter(function(t){ return t.id !== task.id; });
-      done.push('удалена «' + task.title + '»');
-      return;
-    }
-
-    if (kind === 'rename_task'){
-      task = synFindTask(a.target);
-      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
-      task.title = String(a.newTitle || a.title || task.title);
-      done.push('переименована в «' + task.title + '»');
-      return;
-    }
-
-    if (kind === 'add_subtask'){
-      task = synFindTask(a.target);
-      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
-      task.subtasks.push({ id: uid(), title: String(a.itemTitle || a.title || ''), done: false });
-      done.push('добавлен подпункт к «' + task.title + '»');
-      return;
-    }
-
-    if (kind === 'append_task_note' || kind === 'update_task_note'){
-      task = synFindTask(a.target);
-      if (!task){ skipped.push('не нашёл задачу «' + (a.target || '') + '»'); return; }
-      var note = String(a.note || '');
-      task.note = kind === 'append_task_note' && task.note ? task.note + '\n' + note : note;
-      done.push('описание у «' + task.title + '»');
-      return;
-    }
-
-    if (kind === 'create_goal'){
-      var g = { id: uid(), title: String(a.title || '').trim() || 'Без названия',
-        purpose: String(a.purpose || ''), horizon: String(a.horizon || ''),
-        sphere: 'personal', pinned: false, stages: [] };
-      S.goals.push(g);
-      S.openGoal[g.id] = true;
-      done.push('создана цель «' + g.title + '»');
-      return;
-    }
-
-    if (kind === 'rename_goal' || kind === 'update_goal_purpose' || kind === 'update_goal_horizon'){
-      goal = synFindGoal(a.target);
-      if (!goal){ skipped.push('не нашёл цель «' + (a.target || '') + '»'); return; }
-      if (kind === 'rename_goal') goal.title = String(a.newTitle || goal.title);
-      if (kind === 'update_goal_purpose') goal.purpose = String(a.purpose || '');
-      if (kind === 'update_goal_horizon') goal.horizon = String(a.horizon || '');
-      done.push('изменена цель «' + goal.title + '»');
-      return;
-    }
-
-    if (kind === 'set_stage_status'){
-      goal = null;
-      var found = null;
-      S.goals.forEach(function(item){
-        item.stages.forEach(function(st){
-          if (!found && st.title.toLowerCase().indexOf(String(a.target || '').toLowerCase()) >= 0){
-            found = st; goal = item;
-          }
-        });
-      });
-      if (!found){ skipped.push('не нашёл этап «' + (a.target || '') + '»'); return; }
-      found.status = ['active', 'done', 'paused'].indexOf(a.value) >= 0 ? a.value : found.status;
-      done.push('этап «' + found.title + '» → ' + STATUS[found.status]);
-      return;
-    }
-
-    skipped.push('«' + (kind || 'без вида') + '» веб пока не умеет');
   });
 
   return { done: done, skipped: skipped };
@@ -3139,6 +4021,12 @@ function modalTask(t){
         }).join('') + '</select></div>' +
       '<div class="field"><label>Связь с целью</label><select class="inp" id="m-goal">' + goalOptions + '</select></div>' +
     '</div>' +
+    '<div class="row2">' +
+      '<div class="field"><label>Крайний срок</label>' +
+        '<input class="inp" id="m-dl-date" type="date" value="' + esc(t.deadline && t.deadline.date || '') + '"></div>' +
+      '<div class="field"><label>Время срока</label>' +
+        '<input class="inp" id="m-dl-time" type="time" value="' + esc(t.deadline && t.deadline.time || '') + '"></div>' +
+    '</div>' +
     '<button class="btn full" data-act="save-task" data-task="' + t.id + '">Сохранить</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>' +
     '<p class="hint">В блоках «На неделе» и «Потом» времени нет: они не называют конкретный день.</p>';
@@ -3166,6 +4054,40 @@ function modalKillGoal(goal){
     '<p class="s">Саму цель вернуть будет нельзя.</p>' +
     '<button class="btn full" data-act="kill-goal-confirm" data-goal="' + goal.id + '">Удалить цель</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
+/* Замок в виде окна, а не тоста: тост уезжает, а тут человеку надо прочитать,
+   что именно кончилось и что с этим делать. Две кнопки — тарифы и код, потому
+   что часть людей уже купила подписку на сайте. */
+function modalPaywall(kind){
+  return '<h3>Дальше — в подписке</h3>' +
+    '<p class="s">' + esc(limitReason(kind)) + ' В Synapse Pro их сколько угодно, и открываются помодоро с медитацией.</p>' +
+    '<button class="btn full" data-act="go" data-view="pricing">Смотреть тарифы</button>' +
+    '<div class="acts">' +
+      '<button class="btn sm soft" data-act="pro-code">У меня есть код</button>' +
+      '<button class="btn sm soft" data-act="close-modal">Не сейчас</button>' +
+    '</div>';
+}
+
+/* Код с сайта. Проверяет его сервер — тот же маршрут, что у приложения, и та
+   же связка «один код, одно устройство». Локально ничего не решается: иначе
+   подписка включалась бы правкой localStorage. */
+function modalProCode(error, busy){
+  return '<h3>Код подписки</h3>' +
+    '<p class="s">Код приходит после оплаты на сайте. Выглядит так: XXXX-XXXX-XXXX.</p>' +
+    '<form class="field" data-form="pro-activate">' +
+      '<label for="procode">Код</label>' +
+      '<input class="inp mono" id="procode" type="text" placeholder="KBNQ-E2S5-M9BW" ' +
+        'autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">' +
+    '</form>' +
+    (error ? '<p class="err">' + esc(error) + '</p>' : '') +
+    '<button class="btn full" data-act="pro-activate"' + (busy ? ' disabled' : '') + '>' +
+      (busy ? 'Проверяем…' : 'Включить подписку') + '</button>' +
+    '<div class="acts">' +
+      '<a class="btn sm soft" href="../checkout/">Купить на сайте</a>' +
+      '<button class="btn sm soft" data-act="close-modal">Закрыть</button>' +
+    '</div>' +
+    '<p class="hint">Код занимает одно устройство: если он уже введён в приложении, здесь он перестанет работать там.</p>';
 }
 
 function modalText(title, sub, label, act, placeholder){
@@ -3274,6 +4196,43 @@ var ACTS = {
     if (!text || SYN.busy) return;
     synSend(text);
   },
+  /* --- подписка --- */
+  'pro-code': function(){ openModal(modalProCode('', false)); },
+
+  'pro-activate': function(){
+    var field = $('procode');
+    var code = field ? field.value.trim() : '';
+    if (!code) return;
+    openModal(modalProCode('', true));
+
+    proActivate(code).then(function(pro){
+      if (!pro.active){
+        openModal(modalProCode('Код принят, но подписка по нему неактивна.', false));
+        return;
+      }
+      closeModal();
+      commit('Подписка включена');
+    }).catch(function(error){
+      var message = error && error.message ? error.message : 'Не получилось';
+      if (error && error.status === undefined) message = 'Сервер не ответил. Проверь соединение.';
+      openModal(modalProCode(message, false));
+    });
+  },
+
+  'pro-refresh': function(){
+    if (!S.pro.code) return toast('Код не сохранён — введи его заново');
+    proActivate(S.pro.code).then(function(pro){
+      commit(pro.active ? 'Подписка на месте' : 'Подписка больше не активна');
+    }).catch(function(){
+      toast('Не удалось проверить: сервер не ответил');
+    });
+  },
+
+  'pro-forget': function(){
+    S.pro = { active: false, plan: '', expiresAt: '', code: '' };
+    commit('Код отвязан от этого браузера');
+  },
+
   'set-theme': function(d){ S.theme = d.theme; commit(); },
   'set-palette': function(d){ S.palette = d.palette; commit(); },
   'set-font': function(d){ S.font = d.font; commit(); },
@@ -3397,6 +4356,12 @@ var ACTS = {
     t.date = dateForBucket(t.bucket);
     t.time = spansSeveralDays(t.bucket) ? null : (mval('m-time') || null);
     t.repeat = mval('m-repeat');
+    var dlDate = mval('m-dl-date');
+    var dlTime = mval('m-dl-time');
+    // Время без даты — это «сегодня до»: срок без дня недоказуем.
+    t.deadline = (dlDate || dlTime)
+      ? { date: dlDate || isoOf(todayDate()), time: dlTime || null, hard: !!(t.deadline && t.deadline.hard) }
+      : null;
     var link = mval('m-goal');
     if (!link){ t.goalId = null; t.stageId = null; }
     else {
@@ -3450,7 +4415,10 @@ var ACTS = {
   },
 
   /* --- цели --- */
-  'new-goal': function(){ openModal(modalGoal(null)); },
+  'new-goal': function(){
+    if (!canAdd('goals')) return openModal(modalPaywall('goals'));
+    openModal(modalGoal(null));
+  },
   'edit-goal': function(d){ openModal(modalGoal(findGoal(d.goal))); },
   'save-goal': function(d){
     var title = mval('m-title');
@@ -3461,6 +4429,7 @@ var ACTS = {
       var g = findGoal(d.goal);
       if (g){ g.title = title; g.purpose = purpose; g.horizon = horizon; }
     } else {
+      if (!canAdd('goals')) return openModal(modalPaywall('goals'));
       var fresh = { id: uid(), title: title, purpose: purpose, horizon: horizon,
         sphere: 'personal', pinned: false, stages: [] };
       S.goals.push(fresh);
@@ -3504,6 +4473,7 @@ var ACTS = {
     var field = $('gfield');
     var title = field ? field.value.trim() : '';
     if (!title) return;
+    if (!canAdd('goals')) return openModal(modalPaywall('goals'));
     S.goalDraft = '';
     openModal(modalGoal(null, title));
   },
@@ -3616,10 +4586,14 @@ var ACTS = {
   },
 
   /* --- списки --- */
-  'new-list': function(){ openModal(modalText('Новый список', 'Коротко опиши, для чего этот список.', 'Название списка', 'save-list', 'Например, Купить фрукты')); },
+  'new-list': function(){
+    if (!canAdd('lists')) return openModal(modalPaywall('lists'));
+    openModal(modalText('Новый список', 'Коротко опиши, для чего этот список.', 'Название списка', 'save-list', 'Например, Купить фрукты'));
+  },
   'save-list': function(){
     var title = mval('m-title');
     if (!title) return;
+    if (!canAdd('lists')) return openModal(modalPaywall('lists'));
     var fresh = { id: uid(), title: title, note: '', items: [] };
     S.lists.push(fresh);
     S.activeList = fresh.id;
@@ -3656,10 +4630,14 @@ var ACTS = {
   },
 
   /* --- заметки --- */
-  'new-note': function(){ openModal(modalText('Новая запись', '', 'Заголовок', 'save-note', 'Название')); },
+  'new-note': function(){
+    if (!canAdd('notes')) return openModal(modalPaywall('notes'));
+    openModal(modalText('Новая запись', '', 'Заголовок', 'save-note', 'Название'));
+  },
   'save-note': function(){
     var title = mval('m-title');
     if (!title) return;
+    if (!canAdd('notes')) return openModal(modalPaywall('notes'));
     var fresh = { id: uid(), title: title, body: '' };
     S.notes.push(fresh);
     S.activeNote = fresh.id;
@@ -3853,33 +4831,120 @@ document.addEventListener('keydown', function(event){
 
 /* Порядок задач внутри блока — это порядок в S.tasks. Раньше перенос умел
    только менять блок, и внутри блока карточку было не подвинуть: задача,
-   добавленная последней, оставалась последней навсегда. */
+   добавленная последней, оставалась последней навсегда.
+
+   Как это выглядит теперь: соседи расступаются. Место, куда карточка сядет,
+   показывает не полоска между чужими карточками, а настоящая щель — те, что
+   ниже, отъезжают ровно на её высоту. Полоска требовала догадки «что будет,
+   если отпустить»; щель этот вопрос снимает.
+
+   Сдвиг делается transform'ом, а не изменением разметки: перекладывать узлы
+   под пальцем нельзя — карточка, которую держат, оказалась бы вырвана из
+   дерева, а весь список бы дёрнулся. */
+
+/// Насколько элемент сейчас сдвинут нами. Хранится на самом узле: считать это
+/// из getBoundingClientRect нельзя — там уже учтён сам сдвиг.
+function shiftOf(node){ return node.__shift || 0; }
+
+function setShift(node, value){
+  if (shiftOf(node) === value) return;
+  node.__shift = value;
+  node.style.transform = value ? 'translateY(' + value + 'px)' : '';
+}
+
+function clearShifts(){
+  var moved = document.querySelectorAll('.tasklist .item');
+  for (var i = 0; i < moved.length; i++) setShift(moved[i], 0);
+}
+
+/// Положение карточки без нашего сдвига — иначе расчёт места вставки поедет
+/// вслед за собственной анимацией и начнёт дрожать.
+function baseTop(node){
+  return node.getBoundingClientRect().top - shiftOf(node);
+}
 
 /// Перед какой карточкой встанет перетаскиваемая, если отпустить здесь.
 /// Возвращает id или null — значит в конец блока.
 function dropTargetIn(zone, clientY){
   var cards = zone.querySelectorAll('.item:not(.dragging)');
   for (var i = 0; i < cards.length; i++){
-    var box = cards[i].getBoundingClientRect();
-    if (clientY < box.top + box.height / 2) return cards[i].getAttribute('data-task');
+    var top = baseTop(cards[i]);
+    if (clientY < top + cards[i].offsetHeight / 2) return cards[i].getAttribute('data-task');
   }
   return null;
 }
 
-/// Подсветить место вставки: линия над карточкой или рамка у пустого конца.
+/* Раздвинуть карточки так, чтобы щель оказалась там, куда сядет перенесённая.
+
+   Внутри своего блока карточка занимает своё место, поэтому соседи не
+   раздвигаются, а меняются с ней местами: те, через кого её пронесли, съезжают
+   на её высоту в обратную сторону. В чужом блоке щель открывается просто —
+   всё, что ниже места вставки, уезжает вниз. */
 function markDropSpot(zone, beforeId){
-  var lit = document.querySelectorAll('.item.drop-before, .tasklist.drop-end');
-  for (var i = 0; i < lit.length; i++){
-    lit[i].classList.remove('drop-before');
-    lit[i].classList.remove('drop-end');
-  }
-  if (!zone) return;
+  var dragged = document.querySelector('.item.dragging');
+  clearShifts();
+  if (!zone || !dragged) return;
+
+  var cards = [].slice.call(zone.querySelectorAll('.item'));
+  var gap = parseFloat(getComputedStyle(zone).rowGap) || 8;
+  var step = dragged.offsetHeight + gap;
+
+  var from = cards.indexOf(dragged);
+  var to = cards.length;
   if (beforeId){
-    var card = zone.querySelector('.item[data-task="' + beforeId + '"]');
-    if (card) card.classList.add('drop-before');
-  } else {
-    zone.classList.add('drop-end');
+    for (var i = 0; i < cards.length; i++){
+      if (cards[i].getAttribute('data-task') === beforeId){ to = i; break; }
+    }
   }
+
+  if (from < 0){
+    // Чужой блок: открываем щель перед той карточкой, на место которой встаём.
+    for (var j = to; j < cards.length; j++) setShift(cards[j], step);
+    return;
+  }
+
+  // Свой блок: сдвигаются только те, через кого карточку пронесли.
+  if (to > from){
+    for (var k = from + 1; k < to; k++) setShift(cards[k], -step);
+  } else if (to < from){
+    for (var m = to; m < from; m++) setShift(cards[m], step);
+  }
+}
+
+/* Пустые блоки на время жеста. Их нет в разметке — пустой день не показывается
+   вовсе, — но перенести задачу в пустой день надо. Полосы добавляются прямо в
+   дерево и снимаются в конце: перерисовать экран нельзя, из него вырвало бы
+   карточку, которую держат. */
+function openEmptyDropZones(){
+  var host = $('app');
+  if (!host || S.view !== 'tasks' || host.querySelector('.empty-drop')) return;
+
+  var present = {};
+  var groups = host.querySelectorAll('.group[data-bucket]');
+  for (var i = 0; i < groups.length; i++) present[groups[i].getAttribute('data-bucket')] = groups[i];
+
+  BUCKETS.forEach(function(b, index){
+    if (present[b.id]) return;
+
+    var zone = document.createElement('section');
+    zone.className = 'group empty-drop';
+    zone.setAttribute('data-bucket', b.id);
+    zone.innerHTML = '<div class="tasklist" data-drop="' + b.id + '">' +
+      '<div class="dropnote">' + esc(b.title) + '</div></div>';
+
+    // Ставим по порядку блоков дня, а не в конец: «Завтра» между «Сегодня» и
+    // «Послезавтра», иначе пустые дни собьются в кучу внизу.
+    var after = null;
+    for (var j = index + 1; j < BUCKETS.length && !after; j++) after = present[BUCKETS[j].id];
+    if (after) host.insertBefore(zone, after);
+    else host.insertBefore(zone, host.querySelector('.composer') || null);
+    present[b.id] = zone;
+  });
+}
+
+function closeEmptyDropZones(){
+  var zones = document.querySelectorAll('.empty-drop');
+  for (var i = 0; i < zones.length; i++) zones[i].parentNode.removeChild(zones[i]);
 }
 
 /// Перенос карточки. Возвращает true, если сменился блок, — только тогда есть
@@ -3915,11 +4980,21 @@ function dropTask(id, bucket, beforeId){
   return changedBucket;
 }
 
+/// Общий конец жеста для обоих путей: снять сдвиги, убрать пустые полосы,
+/// погасить подсветку.
+function endDragVisuals(){
+  clearShifts();
+  closeEmptyDropZones();
+  var over = document.querySelectorAll('.tasklist.over');
+  for (var i = 0; i < over.length; i++) over[i].classList.remove('over');
+}
+
 document.addEventListener('dragstart', function(event){
   var item = event.target.closest ? event.target.closest('[data-task]') : null;
   if (!item || !item.classList.contains('item')) return;
   S.drag = item.getAttribute('data-task');
   item.classList.add('dragging');
+  openEmptyDropZones();
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
 });
 
@@ -3927,9 +5002,7 @@ document.addEventListener('dragend', function(event){
   var item = event.target.closest ? event.target.closest('.item') : null;
   if (item) item.classList.remove('dragging');
   S.drag = null;
-  var over = document.querySelectorAll('.tasklist.over');
-  for (var i = 0; i < over.length; i++) over[i].classList.remove('over');
-  markDropSpot(null, null);
+  endDragVisuals();
 });
 
 document.addEventListener('dragover', function(event){
@@ -3977,6 +5050,7 @@ document.addEventListener('pointerdown', function(event){
       // прокручиваться пальцем вообще.
       item.style.touchAction = 'none';
       item.classList.add('dragging');
+      openEmptyDropZones();
       if (navigator.vibrate) navigator.vibrate(8);
     }, HOLD_MS)
   };
@@ -3993,6 +5067,10 @@ document.addEventListener('pointermove', function(event){
   }
 
   event.preventDefault();
+
+  // Карточка идёт за пальцем. Без этого держать её было невозможно: палец
+  // едет, а карточка стоит на месте — жест выглядит несработавшим.
+  touchDrag.node.style.transform = 'translateY(' + (event.clientY - touchDrag.startY) + 'px)';
 
   // Блок, в который несут задачу, обычно ниже экрана телефона: без подкрутки
   // у края дотащить её было бы некуда.
@@ -4013,10 +5091,10 @@ document.addEventListener('pointerup', function(event){
   var under = wasActive ? document.elementFromPoint(event.clientX, event.clientY) : null;
   var zone = under && under.closest ? under.closest('[data-drop]') : null;
   var before = zone ? dropTargetIn(zone, event.clientY) : null;
+  var bucket = zone ? zone.getAttribute('data-drop') : null;
   cancelTouchDrag();
   if (!wasActive || !zone) return;
 
-  var bucket = zone.getAttribute('data-drop');
   if (before === id) { render(); return; }
   var changed = dropTask(id, bucket, before);
   commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
@@ -4048,10 +5126,10 @@ function cancelTouchDrag(){
   clearTimeout(touchDrag.timer);
   if (touchDrag.node){
     touchDrag.node.style.touchAction = '';
+    touchDrag.node.style.transform = '';
     touchDrag.node.classList.remove('dragging');
   }
-  var lit = document.querySelectorAll('.tasklist.over');
-  for (var i = 0; i < lit.length; i++) lit[i].classList.remove('over');
+  endDragVisuals();
   touchDrag = null;
 }
 
@@ -4064,7 +5142,7 @@ document.addEventListener('drop', function(event){
   var bucket = zone.getAttribute('data-drop');
   var before = dropTargetIn(zone, event.clientY);
   S.drag = null;
-  markDropSpot(null, null);
+  endDragVisuals();
   if (before === id) return;
   var changed = dropTask(id, bucket, before);
   commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
