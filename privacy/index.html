@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Synapse AI Privacy Policy</title>
+    <title>Политика конфиденциальности — Synapse AI</title>
+    <meta name="description" content="Какие данные обрабатывает Synapse AI в приложении и в веб-версии, куда они уходят, что хранится на сервере и как всё удалить.">
     <link rel="stylesheet" href="../site.css">
       <!-- Yandex.Metrika counter -->
     <script type="text/javascript">
@@ -22,66 +23,142 @@
   <body>
     <main class="shell">
       <section class="hero">
-        <span class="eyebrow">Privacy Policy</span>
-        <h1>How Synapse AI handles data.</h1>
+        <span class="eyebrow">Политика конфиденциальности</span>
+        <h1>Что происходит с вашими данными.</h1>
         <p class="lead">
-          This page explains what data Synapse AI may process, how it is used, and what users can control or delete.
+          Приложение на iPhone и веб-версия устроены по-разному, поэтому дальше
+          они разделены. Редакция от 13 августа 2026 года.
         </p>
         <div class="actions">
-          <a class="button secondary" href="../">Back</a>
-          <a class="button" href="../support/">Support</a>
+          <a class="button secondary" href="../">На главную</a>
+          <a class="button" href="../support/">Поддержка</a>
         </div>
       </section>
 
       <section class="stack">
         <article class="card">
-          <h2>1. What Synapse may process</h2>
-          <p>Synapse may process tasks, goals, stages, notes, lists, interface settings, reminder preferences, and messages sent to the Syn assistant.</p>
+          <h2>1. Коротко</h2>
+          <p>
+            Записи — задачи, цели, списки, заметки — лежат на вашем устройстве:
+            в приложении на iPhone или в памяти браузера, если вы пользуетесь
+            веб-версией. Мы не заводим на вас аккаунт, не спрашиваем имя и не
+            просим телефон. На сервер уходит только то, без чего не ответит
+            ассистент, и то, что нужно провести оплату.
+          </p>
         </article>
 
         <article class="card">
-          <h2>2. How data is used</h2>
-          <p>This data is used to run the core planning features of the app, keep the workspace state consistent, and generate AI replies through Syn.</p>
+          <h2>2. Приложение на iPhone</h2>
+          <p>
+            Задачи, цели, этапы, списки, заметки и настройки хранятся на
+            устройстве. Если включён iCloud, они синхронизируются между вашими
+            устройствами средствами Apple — мы к этому хранилищу доступа не
+            имеем и копий у себя не держим.
+          </p>
+          <p>
+            Приложение может запрашивать доступ к уведомлениям, микрофону,
+            распознаванию речи и Face ID. Каждое разрешение необязательно и
+            отключается в настройках iOS. Биометрию обрабатывает сама система,
+            приложение её не видит.
+          </p>
         </article>
 
         <article class="card">
-          <h2>3. AI and external processing</h2>
-          <p>When a user sends a message to Syn, the request is routed through the Synapse backend and then to the AI provider. If detailed context is enabled in the app settings, the request may include relevant goals, tasks, memory, and basic progress context needed to answer well.</p>
+          <h2>3. Веб-версия</h2>
+          <p>
+            Веб-версия на <a href="../app/">synapseapp.ru/app/</a> хранит записи
+            в памяти вашего браузера (localStorage) на этом устройстве. Копии на
+            сервере нет: очистка данных сайта, режим инкогнито или другой
+            браузер — и записей там не будет. Резервную копию можно сохранить
+            файлом в разделе «Настройки → Данные».
+          </p>
+          <p>
+            Вход по почте в веб-версии — заглушка без сервера: адрес и код
+            никуда не отправляются и остаются в браузере. Синхронизации с
+            приложением нет.
+          </p>
         </article>
 
         <article class="card">
-          <h2>4. Where data is stored</h2>
-          <p>Most workspace data is stored on the device. Some assistant-related data, such as assistant profile memory and recent conversation context, may be stored on the backend to keep replies coherent between sessions.</p>
+          <h2>4. Ассистент Syn</h2>
+          <p>
+            Когда вы обращаетесь к Syn, запрос уходит на наш сервер, а оттуда —
+            к поставщику модели. Вместе с текстом обращения передаётся срез
+            рабочего пространства: задачи и цели с датами и названиями, а в
+            веб-версии ещё списки и заметки. Без него ассистент не понимает, что
+            переносить и о чём его спрашивают.
+          </p>
+          <p>
+            Мы не храним этот срез. На сервере остаются: счётчик обращений за
+            сутки, привязанный к идентификатору установки, и — только для
+            приложения — память ассистента между разговорами, если вы её не
+            отключили. Её можно стереть в настройках приложения.
+          </p>
         </article>
 
         <article class="card">
-          <h2>5. User control and deletion</h2>
-          <p>Users can edit or delete tasks, goals, notes, and lists inside the app. They can also clear Syn memory and reset the assistant context through in-app settings. This clears local assistant chat state and removes assistant profile memory on the backend.</p>
+          <h2>5. Оплата</h2>
+          <p>
+            Оплату принимает ЮKassa; данные карты обрабатывает она, к нам они не
+            попадают. У себя мы храним факт покупки, срок подписки, код доступа
+            в виде необратимого хэша и — если включено автопродление —
+            идентификатор способа оплаты и последние четыре цифры карты, чтобы
+            показать вам, что именно продлевается.
+          </p>
+          <p>
+            Отвязать карту и отключить автопродление можно самостоятельно на
+            странице <a href="../account/">«Подписка»</a> по коду доступа.
+          </p>
         </article>
 
         <article class="card">
-          <h2>6. Permissions</h2>
-          <p>Synapse may request access to notifications, microphone, speech recognition, and Face ID. These permissions are optional and controlled by the user through iOS settings and app settings.</p>
+          <h2>6. Сайт и статистика</h2>
+          <p>
+            На сайте synapseapp.ru работает Яндекс Метрика: она считает визиты и
+            записывает обезличенные сессии (вебвизор), чтобы видеть, где страницы
+            непонятны. Это касается только сайта. В приложении нет рекламных
+            SDK и рекламного идентификатора, оно не следит за вами в других
+            приложениях.
+          </p>
         </article>
 
         <article class="card">
-          <h2>7. Security</h2>
-          <p>Synapse relies on standard iOS security mechanisms where possible. Biometric data such as Face ID is handled by iOS and is not exposed directly to the app.</p>
+          <h2>7. Что можно удалить и как</h2>
+          <p>
+            В приложении: удалить любую запись, стереть память ассистента,
+            удалить аккаунт целиком. В веб-версии: «Настройки → Данные → Стереть
+            всё в этом браузере» — и записей не остаётся нигде, потому что нигде
+            больше их и не было.
+          </p>
+          <p>
+            Чтобы мы удалили то, что хранится на сервере (подписка, счётчики,
+            память ассистента), напишите на
+            <a href="mailto:support@synapseapp.ru">support@synapseapp.ru</a> —
+            сделаем и подтвердим.
+          </p>
         </article>
 
         <article class="card">
-          <h2>8. Third-party processing</h2>
-          <p>AI replies may depend on third-party infrastructure providers used by the Synapse backend. This can include AI model routing and backend hosting needed to deliver Syn responses.</p>
+          <h2>8. Кто обрабатывает данные</h2>
+          <p>
+            Оператор — Темирханов Арслан, плательщик налога на профессиональный
+            доход, ИНН 862001541373. Сервер расположен в России. Ответы модели
+            выдаёт сторонний поставщик ИИ; к нему уходит текст обращения и срез
+            рабочего пространства, о котором сказано выше.
+          </p>
+          <p>
+            Реквизиты полностью — на странице
+            <a href="../requisites/">«Реквизиты»</a>.
+          </p>
         </article>
 
         <article class="card">
-          <h2>9. Website analytics</h2>
-          <p>The synapseapp.ru website uses Yandex Metrica to count visits and see how the pages are used, including anonymised session recordings. This applies to the website only: the iOS app contains no advertising SDKs and no advertising identifier, and it is not tracked across other apps.</p>
-        </article>
-
-        <article class="card">
-          <h2>10. Contact and requests</h2>
-          <p>Bug reports, suggestions, and privacy-related requests can be sent to <a href="mailto:support@synapseapp.ru">support@synapseapp.ru</a>, or started from the support actions inside the app.</p>
+          <h2>9. Вопросы</h2>
+          <p>
+            Почта: <a href="mailto:support@synapseapp.ru">support@synapseapp.ru</a>,
+            Telegram: <a href="https://t.me/synapseapp">@synapseapp</a>.
+            Отвечаем обычно в течение суток.
+          </p>
         </article>
       </section>
     </main>

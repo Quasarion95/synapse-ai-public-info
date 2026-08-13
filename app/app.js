@@ -779,7 +779,7 @@ function isOverdue(task){
 var TABS = [
   { id: 'tasks',      title: 'Задачи',    ic: '☑', primary: true },
   { id: 'goals',      title: 'Цели',      ic: '◎', primary: true },
-  { id: 'focus',      title: 'Мой фокус', ic: '✦', primary: true },
+  { id: 'focus',      title: 'Мой фокус', ic: '✦', primary: true, short: 'Фокус' },
   { id: 'analytics',  title: 'Аналитика', ic: '◔', primary: true },
   { id: 'lists',      title: 'Списки',    ic: '≡' },
   { id: 'notes',      title: 'Заметки',   ic: '✎' },
@@ -867,7 +867,7 @@ function render(){
   fitMindMap();
   showToast();
   // Высота шапки могла поменяться вместе с размером шрифта.
-  if (railRaised) document.documentElement.style.setProperty('--rail-y', railTop() + 'px');
+  syncRail();
 }
 
 /* ============ ТЕМА ============ */
@@ -1132,13 +1132,22 @@ function vTabbar(){
     '</div>' +
     '<div class="tabs-rest' + (S.more ? ' open' : '') + '">' +
       rest.map(function(t){ return tabButton(t, 'tab wide'); }).join('') +
+      // Выход — последним и отделённым чертой: это не раздел, а уход из
+      // приложения на сайт. Записи при этом остаются в браузере, о чём
+      // спрашивают в первую очередь, поэтому это сказано в подсказке кнопки.
+      '<button class="tab wide leave" data-act="leave" title="Записи останутся в этом браузере">' +
+        '<span class="ic">⤺</span><span class="tx">Выйти</span></button>' +
     '</div>';
 }
 
+/* Надстрочник над заголовком — только когда он что-то добавляет. У списка со
+   своим названием строка «Список» сверху не сообщает ничего: и так видно, что
+   это список, — вернуться помогает кнопка «Назад», а не подпись. Пустой первый
+   аргумент означает «без надстрочника». */
 function head(sub, title, backView){
   return (backView ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
-    '<p class="hi">' + esc(sub) + '</p>' +
-    '<h1 class="page">' + esc(title) + '</h1>';
+    (sub ? '<p class="hi">' + esc(sub) + '</p>' : '') +
+    (title ? '<h1 class="page">' + esc(title) + '</h1>' : '');
 }
 
 function blank(icon, title, text, act, label, extra){
@@ -2191,10 +2200,10 @@ function vLists(){
 
 function vList(){
   var l = findList(S.activeList);
-  if (!l) return head('Список', 'Список не найден', 'lists') +
+  if (!l) return head('', 'Список не найден', 'lists') +
     blank('☰', 'Похоже, он уже был удалён', 'Вернись к спискам.', 'go', 'Списки', ' data-view="lists"');
 
-  var html = head('Список', l.title, 'lists');
+  var html = head('', l.title, 'lists');
   html += '<section class="card">' +
     (l.note ? '<p class="sub" style="margin:0 0 10px">' + esc(l.note) + '</p>' : '') +
     (l.items.length
@@ -2237,10 +2246,10 @@ function vNotes(){
 
 function vNote(){
   var n = findNote(S.activeNote);
-  if (!n) return head('Заметка', 'Заметка не найдена', 'notes') +
+  if (!n) return head('', 'Заметка не найдена', 'notes') +
     blank('✎', 'Похоже, она уже была удалена', 'Вернись к заметкам.', 'go', 'Заметки', ' data-view="notes"');
 
-  var html = head('Заметка', n.title, 'notes');
+  var html = head('', n.title, 'notes');
   html += '<section class="card">' +
     '<textarea class="note-field" data-notebody="' + n.id + '" placeholder="Текст записи">' + esc(n.body) + '</textarea>' +
     '<p class="hint">Сохраняется по мере набора — заметка, которую надо не забыть сохранить, это заметка, которую теряют.</p>' +
@@ -2839,17 +2848,42 @@ function vSettingsData(){
 /* ---- о сервисе ---- */
 
 function vAbout(){
-  var html = head('Synapse', 'О сервисе');
+  var html = head('', 'О сервисе');
 
-  html += '<section class="card">' +
-    '<h3>Веб-версия Synapse</h3>' +
-    '<p class="sub">Цели разбираются на этапы, этапы — на задачи, которые можно сделать сегодня. Планирование, списки, заметки, помодоро и медитация работают прямо в браузере, без установки и регистрации.</p>' +
+  /* Экран отвечает на три вопроса подряд, каждый своей карточкой: что это,
+     чего здесь нет и где лежат мои записи. Раньше третий ответ стоял в
+     «Данных», а сюда человек приходил именно с ним. */
+  html += '<section class="card about-lead">' +
+    '<img class="about-mark" src="icons/icon-192.png" alt="" width="56" height="56">' +
+    '<div>' +
+      '<h3>Synapse в браузере</h3>' +
+      '<p class="sub">Большая цель разбирается на этапы, этапы — на задачи, которые можно сделать сегодня. Планирование, цели, списки, заметки, помодоро и медитация работают прямо здесь, без установки.</p>' +
+    '</div>' +
   '</section>';
+
+  html += '<p class="lbl">Что умеет</p><section class="card"><div class="lines">' +
+    [['Задачи', 'блоки дня, подзадачи, повторы, сроки'],
+     ['Цели', 'этапы, прогресс и карта целей'],
+     ['Ассистент Syn', 'голосом и текстом, ' + FREE_SYN_LIMIT + ' запросов в день бесплатно'],
+     ['Брифинг', 'разбор дня от Syn на экране «Мой фокус»'],
+     ['Помодоро и медитация', 'по подписке']].map(function(pair){
+      return '<div class="line"><span>' + esc(pair[0]) + '</span>' +
+        '<span class="line-note">' + esc(pair[1]) + '</span></div>';
+    }).join('') + '</div></section>';
 
   // Чего здесь нет — списком, а не умолчанием: человек должен узнать это от
   // нас, а не обнаружить сам.
-  html += '<p class="lbl">Чего пока нет</p><section class="card">' +
-    '<p class="sub">Нет уведомлений и напоминаний: браузер, закрытый на телефоне, ничего не пришлёт. Нет брифингов и синхронизации с приложением — данные переносятся файлом в разделе «Данные». Ассистент Syn работает, но у веба своя суточная норма запросов.</p>' +
+  html += '<p class="lbl">Чего пока нет</p><section class="card"><div class="lines">' +
+    [['Уведомления', 'закрытый браузер ничего не пришлёт'],
+     ['Синхронизация с приложением', 'перенос файлом в разделе «Данные»'],
+     ['Настоящий вход', 'состояние входа лежит в этом браузере']].map(function(pair){
+      return '<div class="line"><span>' + esc(pair[0]) + '</span>' +
+        '<span class="line-note">' + esc(pair[1]) + '</span></div>';
+    }).join('') + '</div></section>';
+
+  html += '<p class="lbl">Где лежат записи</p><section class="card">' +
+    '<p class="sub">Только в этом браузере, на этом устройстве. Копии на сервере нет: очистка данных сайта или режим инкогнито удалят их безвозвратно. Копию можно сохранить файлом в разделе «Данные».</p>' +
+    '<p class="hint">К Syn уходит срез задач и целей — иначе он не знает, о чём его спрашивают. Записи при этом на сервере не хранятся.</p>' +
   '</section>';
 
   // Права на записи не заявлены, но людей, которые вышли в поле с
@@ -2859,16 +2893,18 @@ function vAbout(){
     '<div class="lines" style="margin-top:12px">' +
       SOUNDS.filter(function(s){ return s.by; }).map(function(s){
         return '<div class="line"><span>' + esc(s.title) + '</span>' +
-          '<span style="color:var(--fg-3);font-size:12.5px;flex:none;text-align:right">' + esc(s.by) + '</span></div>';
+          '<span class="line-note">' + esc(s.by) + '</span></div>';
       }).join('') +
     '</div>' +
   '</section>';
 
-  html += '<p class="lbl">Ссылки</p>' +
-    '<a class="setrow" href="../">' + '<span>Сайт Synapse</span><span class="arrow">›</span></a>' +
-    '<a class="setrow" href="../pricing/"><span>Тарифы</span><span class="arrow">›</span></a>' +
+  html += '<p class="lbl">Документы и помощь</p>' +
+    '<a class="setrow" href="../"><span>Сайт Synapse</span><span class="arrow">›</span></a>' +
     '<a class="setrow" href="../support/"><span>Поддержка</span><span class="arrow">›</span></a>' +
-    '<a class="setrow" href="../privacy/"><span>Конфиденциальность</span><span class="arrow">›</span></a>';
+    '<a class="setrow" href="../privacy/"><span>Политика конфиденциальности</span><span class="arrow">›</span></a>' +
+    '<a class="setrow" href="../terms/"><span>Пользовательское соглашение</span><span class="arrow">›</span></a>' +
+    '<a class="setrow" href="../offer/"><span>Публичная оферта</span><span class="arrow">›</span></a>' +
+    '<a class="setrow" href="../requisites/"><span>Реквизиты</span><span class="arrow">›</span></a>';
 
   return html;
 }
@@ -2885,8 +2921,8 @@ function vAbout(){
    планировщик открыт и без входа. */
 function vAuth(){
   var a = S.auth;
-  var html = head('Аккаунт', 'Вход', 'settings') +
-    '<div class="auth"><img class="mark" src="icons/icon-192.png" alt="" width="52" height="52">';
+  var html = head('', '', 'settings') +
+    '<div class="auth"><img class="mark" src="icons/icon-192.png" alt="" width="72" height="72">';
 
   if (a.stage === 'in'){
     return html + '<h1>Вы вошли</h1>' +
@@ -3302,6 +3338,13 @@ function synLogHTML(){
 
 /// Лента всегда показывает последнее сказанное: без этого новая реплика
 /// появляется ниже края, и кажется, что ответа нет.
+/// Поле ввода растёт под текст до своего предела — дальше прокручивается.
+function growInput(field){
+  if (!field) return;
+  field.style.height = 'auto';
+  field.style.height = Math.min(field.scrollHeight, 120) + 'px';
+}
+
 function synScrollDown(){
   var log = $('syn-log');
   if (log) log.scrollTop = log.scrollHeight;
@@ -3328,6 +3371,11 @@ function synQuotaHTML(){
 /// Перерисовать окно, не трогая остального экрана.
 function synRender(draft, error){
   openModal(modalSyn(draft, error), true);
+  var field = $('syn-input');
+  if (field){
+    growInput(field);
+    field.scrollTop = field.scrollHeight;
+  }
   synScrollDown();
 }
 
@@ -3390,7 +3438,16 @@ function synErrorText(error){
    Чего здесь намеренно нет: постоянного слушания. Микрофон, включённый до
    закрытия вкладки, — не та цена, которую стоит платить за экономию одного
    нажатия. */
-var voice = { on: false, rec: null, final: '' };
+var VOICE_SEND_DELAY = 1000;
+var voice = { on: false, rec: null, final: '', pending: null };
+
+/// Отменить отложенную отправку — например, когда человек снова взялся за
+/// микрофон или начал править текст руками.
+function voiceCancelPending(){
+  if (!voice.pending) return;
+  clearTimeout(voice.pending);
+  voice.pending = null;
+}
 
 function voiceSupported(){
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -3398,6 +3455,7 @@ function voiceSupported(){
 
 function voiceStart(){
   if (voice.on || !voiceSupported()) return;
+  voiceCancelPending();
 
   var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   var rec = new Recognition();
@@ -3420,7 +3478,13 @@ function voiceStart(){
     // Поле правим напрямую, без перерисовки окна: перерисовка увела бы
     // курсор и оборвала бы распознавание на полуслове.
     var field = $('syn-input');
-    if (field) field.value = (voice.final + interim).trim();
+    if (!field) return;
+    field.value = (voice.final + interim).trim();
+    // Длинную фразу видно до конца: поле подрастает до своего предела, а
+    // дальше прокручивается к последнему слову. Иначе человек говорит, а на
+    // экране стоит начало фразы — и непонятно, слышат ли его до сих пор.
+    growInput(field);
+    field.scrollTop = field.scrollHeight;
   };
 
   rec.onerror = function(event){
@@ -3439,9 +3503,22 @@ function voiceStart(){
     voice.rec = null;
     var said = voice.final.trim();
     voice.final = '';
-    // Замолчал — исполняем. Это и есть голосовая команда.
-    if (said) synSend(said);
-    else synRender($('syn-input') ? $('syn-input').value : '', '');
+
+    if (!said){
+      synRender($('syn-input') ? $('syn-input').value : '', '');
+      return;
+    }
+
+    /* Замолчал — исполняем, но не в ту же секунду. Браузер объявляет конец
+       речи по своей паузе, и она короче человеческой: люди останавливаются
+       посреди фразы, чтобы подобрать слово. Секунда сверху даёт эту паузу
+       пережить — и оставляет время нажать «стоп», если сказанное вышло не
+       так. */
+    voice.pending = setTimeout(function(){
+      voice.pending = null;
+      synSend(said);
+    }, VOICE_SEND_DELAY);
+    synRender(said, '');
   };
 
   try {
@@ -3454,6 +3531,7 @@ function voiceStart(){
 }
 
 function voiceStop(){
+  voiceCancelPending();
   if (!voice.on || !voice.rec) return;
   voice.on = false;
   var rec = voice.rec;
@@ -4409,9 +4487,9 @@ function modalPaywall(kind){
   return '<h3>Дальше — в подписке</h3>' +
     '<p class="s">' + esc(limitReason(kind)) + ' В Synapse Pro их сколько угодно, и открываются помодоро с медитацией.</p>' +
     '<button class="btn full" data-act="go" data-view="subscription">Смотреть тарифы</button>' +
-    '<div class="acts">' +
-      '<button class="btn sm soft" data-act="pro-code">У меня есть код</button>' +
-      '<button class="btn sm soft" data-act="close-modal">Не сейчас</button>' +
+    '<div class="acts pair">' +
+      '<button class="btn soft" data-act="pro-code">У меня есть код</button>' +
+      '<button class="btn soft" data-act="close-modal">Не сейчас</button>' +
     '</div>';
 }
 
@@ -4427,11 +4505,13 @@ function modalProCode(error, busy){
         'autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">' +
     '</form>' +
     (error ? '<p class="err">' + esc(error) + '</p>' : '') +
+    // Три кнопки в ряд разной ширины выглядели случайно собранными. Теперь
+    // главное действие на всю ширину, а под ним пара равных: купить и уйти.
     '<button class="btn full" data-act="pro-activate"' + (busy ? ' disabled' : '') + '>' +
       (busy ? 'Проверяем…' : 'Включить подписку') + '</button>' +
-    '<div class="acts">' +
-      '<a class="btn sm soft" href="../checkout/">Купить на сайте</a>' +
-      '<button class="btn sm soft" data-act="close-modal">Закрыть</button>' +
+    '<div class="acts pair">' +
+      '<a class="btn soft" href="../checkout/">Купить на сайте</a>' +
+      '<button class="btn soft" data-act="close-modal">Закрыть</button>' +
     '</div>' +
     '<p class="hint">Один код работает и здесь, и в приложении на iPhone: введите его в обоих местах. Записи при этом остаются раздельными.</p>';
 }
@@ -4672,8 +4752,21 @@ var ACTS = {
     commit();
   },
   logout: function(){
-    S.auth = { stage: 'email', email: S.auth.email, sent: '', error: '' };
+    S.auth = { stage: 'guest', email: S.auth.email, sent: '', error: '' };
     commit();
+  },
+
+  /* Выход из веб-версии ведёт на главную сайта — туда, где рассказано, что это
+     за продукт. Уходя, человек попадает не в пустоту и не на форму входа, а на
+     страницу, с которой сюда и приходят.
+
+     Записи не трогаем: они лежат в этом браузере, и стирать их за человека — не
+     то, о чём просили. Для стирания есть «Настройки → Данные». */
+  leave: function(){
+    S.auth = { stage: 'guest', email: S.auth.email, sent: '', error: '' };
+    S.more = false;
+    save();
+    location.href = '../';
   },
 
   /* --- задачи --- */
@@ -5121,6 +5214,12 @@ document.addEventListener('submit', function(event){
 
 document.addEventListener('input', function(event){
   var t = event.target;
+  // Взялись править сказанное руками — значит, отправлять пока рано.
+  if (t.id === 'syn-input'){
+    voiceCancelPending();
+    growInput(t);
+    return;
+  }
   if (t.id === 'field'){ S.draft = t.value; return; }
   if (t.id === 'gfield'){ S.goalDraft = t.value; return; }
   // Громкость ведём без перерисовки: она бы дёргала ползунок из-под пальца.
@@ -5521,72 +5620,27 @@ document.addEventListener('drop', function(event){
   commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
 });
 
-/* --- колонка меню при прокрутке --- */
+/* --- высота левой колонки --- */
 
-/* На широком экране меню стоит по центру окна, пока страницу не листали, и
-   поднимается к первой строке под шапкой, как только начали. По центру оно
-   хорошо ровно на первом экране; дальше человек смотрит вверх, туда, где
-   заголовок блока, — и колонка, оставшаяся посреди пустоты, читается как
-   забытая.
+/* Колонка меню на широком экране начинается на одной линии с первой строкой
+   содержимого. Единственное, что для этого нужно знать, — высота липкой
+   шапки: она зависит от шрифта и его размера, а их меняют в настройках,
+   поэтому число не зашито, а меряется.
 
-   «Пролистали или нет» решает не обработчик scroll, а наблюдатель за меткой в
-   двадцати четырёх пикселях от верха страницы: он не будит скрипт на каждый
-   пиксель прокрутки и не зависит от того, кто именно прокручивается — окно,
-   html или body. Метка создаётся один раз и живёт вне перерисовываемых
-   контейнеров, поэтому её не сносит render(). */
-var railRaised = null;
-
+   Отступ 24 пикселя — тот же, что у самого содержимого сверху (padding у
+   main). Совпадение здесь не случайность, а способ попасть в ту же линию. */
 function railTop(){
-  // Равняем по строке, которая при прокрутке стоит первой под шапкой. Шапка
-  // липкая, поэтому её высота — единственная величина, от которой это зависит.
   var top = $('top');
-  var height = top ? Math.round(top.getBoundingClientRect().height) : 64;
-  return height + 22;
+  var height = top ? Math.round(top.getBoundingClientRect().height) : 72;
+  return height + 24;
 }
 
-function setRail(raised){
-  if (raised === railRaised) return;
-  railRaised = raised;
-  var root = document.documentElement.style;
-  if (raised){
-    root.setProperty('--rail-y', railTop() + 'px');
-    root.setProperty('--rail-shift', '0px');
-  } else {
-    // Снимаем совсем, а не ставим «50%» руками: значения по умолчанию живут в
-    // одном месте — в самом правиле.
-    root.removeProperty('--rail-y');
-    root.removeProperty('--rail-shift');
-  }
+function syncRail(){
+  document.documentElement.style.setProperty('--rail-y', railTop() + 'px');
 }
 
-function watchScrollTop(){
-  var mark = document.createElement('div');
-  mark.className = 'scroll-mark';
-  mark.setAttribute('aria-hidden', 'true');
-  document.body.insertBefore(mark, document.body.firstChild);
-
-  if (window.IntersectionObserver){
-    new IntersectionObserver(function(entries){
-      setRail(!entries[0].isIntersecting);
-    }).observe(mark);
-  }
-
-  /* И обработчик прокрутки рядом. Два способа об одном и том же держатся здесь
-     намеренно: наблюдатель молчит там, где движок считает страницу невидимой
-     (встроенные панели предпросмотра, фоновые вкладки), а обработчик — там, где
-     прокручивается не окно, а элемент. setRail при совпадении состояния выходит
-     сразу, поэтому лишней работы от пары нет. */
-  window.addEventListener('scroll', function(){
-    setRail(window.scrollY > 24 || document.documentElement.scrollTop > 24);
-  }, { passive: true });
-}
-
-// Высота шапки зависит от шрифта и его размера, а их меняют в настройках.
-window.addEventListener('resize', function(){
-  if (railRaised) document.documentElement.style.setProperty('--rail-y', railTop() + 'px');
-});
-
-watchScrollTop();
+window.addEventListener('resize', syncRail);
+syncRail();
 
 /* ============ УСТАНОВКА И РАБОТА БЕЗ СЕТИ ============ */
 

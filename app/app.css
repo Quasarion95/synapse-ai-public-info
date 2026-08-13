@@ -83,9 +83,6 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 .mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
 .hidden{display:none !important}
 /* Подпись для читалок с экрана: невидима глазом, но поле не остаётся безымянным. */
-/* Метка, по которой видно, что страницу пролистали. Один пиксель в двадцати
-   четырёх от верха: пока она в кадре — мы наверху. */
-.scroll-mark{position:absolute; top:24px; left:0; width:1px; height:1px; pointer-events:none; opacity:0}
 .visually-hidden{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 
 /* ============ ШАПКА ============ */
@@ -101,8 +98,8 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 .brand{display:flex; align-items:center; gap:10px; min-width:0}
 /* Знак — настоящий логотип, тот же файл, что иконкой приложения. Раньше
    здесь стояла буква S в квадрате: заглушка, которая пережила все остальные. */
-.brand .mark{width:28px; height:28px; border-radius:9px; flex:none; display:block; object-fit:contain}
-.brand .nm{font-family:var(--display); font-size:18px; font-weight:800; letter-spacing:-.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.brand .mark{width:36px; height:36px; border-radius:11px; flex:none; display:block; object-fit:contain}
+.brand .nm{font-family:var(--display); font-size:22px; font-weight:800; letter-spacing:-.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .top-acts{margin-left:auto; display:flex; align-items:center; gap:8px; flex:none; min-width:0}
 /* Аватарка с именем рядом. Имя обрезается многоточием, а не выдавливает
    кнопку темы с экрана. */
@@ -157,6 +154,10 @@ h1.page{font-size:clamp(28px,7vw,38px); margin:2px 0 20px}
 .btn.full{display:flex; width:100%}
 .btn.sm{padding:9px 16px; font-size:13.5px}
 .acts{display:flex; gap:9px; flex-wrap:wrap; margin-top:16px}
+/* Пара равных кнопок под главным действием: одинаковая ширина и высота, без
+   переносов. Разнокалиберные кнопки в ряд читаются как собранные наспех. */
+.acts.pair{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.acts.pair .btn{width:100%; padding:11px 14px; font-size:14px}
 .hint{font-size:13px; color:var(--fg-3); margin-top:12px; line-height:1.5}
 
 /* пустые состояния */
@@ -530,11 +531,18 @@ body.mm-open{overflow:hidden}
 .preview .chip{font-size:calc(12px * var(--scale, 1))}
 
 /* ============ ВХОД ============ */
-.auth{max-width:420px; margin:0 auto; padding:40px 0 60px}
-.auth .mark{width:52px; height:52px; border-radius:16px; display:block; margin:0 auto 20px; object-fit:contain}
+/* Экран входа выстроен по одной оси: знак, заголовок, подпись, карточка,
+   пояснение — всё по центру колонки и с одинаковыми интервалами. Раньше карточка
+   центрировалась, а кнопки под ней разъезжались влево, и ось ломалась там, где
+   её как раз ждут. */
+.auth{max-width:420px; margin:0 auto; padding:16px 0 60px; display:flex; flex-direction:column; align-items:center; text-align:center}
+.auth > *{width:100%}
+.auth .mark{width:72px; height:72px; border-radius:20px; display:block; margin:0 auto 22px; object-fit:contain}
 .auth h1{font-size:27px; text-align:center; margin-bottom:8px}
-.auth .s{font-size:14.5px; color:var(--fg-2); text-align:center; margin-bottom:26px}
+.auth .s{font-size:14.5px; color:var(--fg-2); text-align:center; margin-bottom:24px}
+.auth .card{text-align:left}
 .auth .stub{font-size:12.5px; color:var(--fg-3); text-align:center; margin-top:18px; line-height:1.5}
+.auth .acts{justify-content:center; margin-top:14px}
 .err{color:var(--crit); font-size:13px; margin-top:10px}
 
 /* ============ НИЖНЯЯ НАВИГАЦИЯ ============ */
@@ -562,24 +570,28 @@ body.mm-open{overflow:hidden}
 
   body{ padding-left:calc(var(--rail) + var(--gutter)) }
 
-  /* Колонка стоит по центру окна, пока страницу не тронули, и поднимается к
-     первому заголовку, как только начали листать. Причина: по центру она
-     хороша ровно на первом экране, а дальше человек смотрит вверх — туда, где
-     заголовок блока, — и меню, оставшееся посреди пустоты, читается как
-     забытое. Порог 24 пикселя, чтобы дрожание тачпада не дёргало колонку. */
-  /* Положение ведут две переменные, а не второе правило поверх первого:
-     скрипт меняет только их, а правило остаётся одно — спорить о старшинстве
-     нечему. По умолчанию колонка ровно по центру окна. */
+  /* Верх колонки стоит на одной линии с первой строкой содержимого — с тем
+     самым «СЕГОДНЯ». Раньше она центрировалась по окну и поднималась при
+     прокрутке; выяснилось, что нужно не движение, а совпадение: две вертикали
+     рядом обязаны начинаться с одной высоты, иначе экран выглядит собранным
+     наспех. Раз она и так на месте, поднимать её больше не нужно — и всё
+     слежение за прокруткой ушло вместе с этим.
+
+     Высоту шапки считает скрипт (railTop): она зависит от шрифта и его
+     размера, а их меняют в настройках.
+
+     max-height — на случай низкого окна: колонка из двенадцати пунктов в него
+     не влезает, и лучше прокрутка внутри неё, чем пункты, ушедшие под край. */
   .tabbar{
     left:var(--gutter);
-    top:var(--rail-y, 50%);
-    transform:translateY(var(--rail-shift, -50%));
+    top:var(--rail-y, 96px);
+    transform:none;
     bottom:auto;
     width:var(--rail);
+    max-height:calc(100vh - var(--rail-y, 96px) - 24px);
+    overflow-y:auto;
     border-radius:22px; padding:10px;
-    transition:top .32s cubic-bezier(.2,.7,.3,1), transform .32s cubic-bezier(.2,.7,.3,1);
   }
-  @media (prefers-reduced-motion:reduce){ .tabbar{transition:none} }
   /* «Ещё» на широком экране не нужна: все десять пунктов помещаются. */
   .tabs-main{grid-template-columns:1fr; gap:2px}
   .tabs-main .tab.more{display:none}
@@ -632,6 +644,17 @@ body.mm-open{overflow:hidden}
 .plan-free,.plan-pro{font-size:12.5px; color:var(--fg-2); text-align:right}
 .plan-free.off{color:var(--fg-3)}
 .plan-pro{color:var(--accent); font-weight:600}
+
+/* На телефоне три колонки в строку не помещаются: «без ограничений» обрезалось
+   на середине слова. Название занимает свою строку целиком, а под ним два
+   значения с подписями — сравнение остаётся построчным, но ничего не жмётся. */
+@media (max-width:520px){
+  .plan-row{grid-template-columns:1fr 1fr; gap:3px 12px; padding:11px 0}
+  .plan-what{grid-column:1 / -1}
+  .plan-free,.plan-pro{text-align:left; font-size:12px}
+  .plan-free::before{content:'бесплатно: '; color:var(--fg-3)}
+  .plan-pro::before{content:'Pro: '; color:var(--fg-3); font-weight:400}
+}
 
 .plan-price{display:flex; align-items:baseline; gap:8px; margin-bottom:6px}
 .plan-price b{font-family:var(--display); font-size:30px; letter-spacing:-.04em}
@@ -732,3 +755,16 @@ body.mm-open{overflow:hidden}
 .focus-main{margin-top:14px; padding:11px 13px; border-radius:var(--r-md); background:var(--accent-soft);
   color:var(--fg); font-size:13.5px; line-height:1.45}
 .focus-main span{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:3px}
+
+/* Выход из веб-версии — последним пунктом меню и отделён чертой: это не
+   раздел, а уход на сайт, и стоять он должен не в одном ряду с разделами. */
+.tab.leave{margin-top:6px; padding-top:12px; border-top:1px solid var(--line); border-radius:0 0 14px 14px; color:var(--fg-3)}
+.tab.leave:hover{color:var(--fg)}
+
+/* «О сервисе»: знак рядом с первым абзацем, а не над ним — карточка читается
+   как визитка, а не как ещё один заголовок. */
+.about-lead{display:flex; gap:16px; align-items:flex-start}
+.about-mark{width:56px; height:56px; border-radius:16px; flex:none; object-fit:contain}
+/* Пояснение справа в строке: серое, мельче, и переносится, а не выдавливает
+   название за край — на телефоне это было главной причиной кривых строк. */
+.line-note{color:var(--fg-3); font-size:12.5px; text-align:right; margin-left:auto; max-width:58%}
