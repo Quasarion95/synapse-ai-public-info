@@ -46,8 +46,15 @@ function seed(){
     view: 'tasks',
     sub: null,
     auth: { stage: 'email', email: '', sent: '', error: '' },
+    profile: { name: '', avatar: '' },
+    openGoal: {},
+    goalDraft: '',
     theme: 'system',
     palette: 'paper',
+    font: 'rounded',
+    fontSize: 'standard',
+    hintSeen: false,
+    more: false,
     draft: '',
     drag: null,
     closed: {},
@@ -123,6 +130,15 @@ function load(){
     if (!parsed.mm) parsed.mm = { zoom: 1 };
     if (!parsed.closed) parsed.closed = {};
     if (!parsed.open) parsed.open = {};
+    if (!parsed.profile) parsed.profile = { name: '', avatar: '' };
+    if (!parsed.openGoal) parsed.openGoal = {};
+    if (typeof parsed.goalDraft !== 'string') parsed.goalDraft = '';
+    if (!parsed.font) parsed.font = 'rounded';
+    if (!parsed.fontSize) parsed.fontSize = 'standard';
+    parsed.more = false;
+    // Раздела «Главная» больше нет: состояние, сохранённое на нём, никуда бы
+    // не отрисовалось.
+    if (parsed.view === 'home') parsed.view = 'tasks';
     return parsed;
   } catch (e) {
     return seed();
@@ -657,26 +673,48 @@ function isOverdue(task){
 
 /* ============ РОУТИНГ ============ */
 
-/* Порядок вкладок — предположение, требующее подтверждения: владелец описал
-   его словами «справа налево: задачи, цели, мой фокус, аналитика, последняя —
-   главная» и отдельно назвал последним экраном профиль. Шесть вкладок в
-   нижнюю панель телефона не помещаются, поэтому профиль вынесен в шапку.
-   Подробнее в README. */
+/* Порядок разделов задан владельцем: задачи, цели, мой фокус, аналитика,
+   списки, заметки, помодоро, медитация, настройки, о сервисе. Отдельного
+   раздела «Главная» больше нет — то, что в нём лежало, стало пунктами меню.
+
+   Десять пунктов — это меню, а не таб-бар. На широком экране они умещаются
+   колонкой слева целиком. На телефоне в нижнюю панель влезает четыре, поэтому
+   там первые четыре и кнопка «Ещё», открывающая остальные списком: прятать
+   половину разделов за горизонтальной прокруткой хуже, чем честно показать,
+   что их больше. */
 var TABS = [
-  { id: 'home',      title: 'Главная',   ic: '◈' },
-  { id: 'analytics', title: 'Аналитика', ic: '◔' },
-  { id: 'focus',     title: 'Мой фокус', ic: '✦' },
-  { id: 'goals',     title: 'Цели',      ic: '◎' },
-  { id: 'tasks',     title: 'Задачи',    ic: '☑' }
+  { id: 'tasks',      title: 'Задачи',    ic: '☑', primary: true },
+  { id: 'goals',      title: 'Цели',      ic: '◎', primary: true },
+  { id: 'focus',      title: 'Мой фокус', ic: '✦', primary: true },
+  { id: 'analytics',  title: 'Аналитика', ic: '◔', primary: true },
+  { id: 'lists',      title: 'Списки',    ic: '≡' },
+  { id: 'notes',      title: 'Заметки',   ic: '✎' },
+  { id: 'pomodoro',   title: 'Метод Помодоро', ic: '◔', short: 'Помодоро' },
+  { id: 'meditation', title: 'Медитация', ic: '◐' },
+  { id: 'settings',   title: 'Настройки', ic: '⚙' },
+  { id: 'about',      title: 'О сервисе', ic: 'ⓘ' }
 ];
 
+/* Какой пункт меню подсвечивать на экране, который сам пунктом не является. */
+var TAB_OF_VIEW = {
+  goal: 'goals',
+  list: 'lists',
+  note: 'notes',
+  profile: 'settings',
+  'settings-view': 'settings',
+  'settings-data': 'settings'
+};
+
 var VIEWS = {
-  home:       { title: 'Главная',    render: vHome },
   analytics:  { title: 'Аналитика',  render: vAnalytics },
   focus:      { title: 'Мой фокус',  render: vFocus },
   goals:      { title: 'Цели',       render: vGoals },
   goal:       { title: 'Цель',       render: vGoal },
   tasks:      { title: 'Задачи',     render: vTasks },
+  settings:   { title: 'Настройки',  render: vSettings },
+  'settings-view': { title: 'Вид',   render: vSettingsView },
+  'settings-data': { title: 'Данные', render: vSettingsData },
+  about:      { title: 'О сервисе',  render: vAbout },
   profile:    { title: 'Профиль',    render: vProfile },
   lists:      { title: 'Списки',     render: vLists },
   list:       { title: 'Список',     render: vList },
@@ -688,6 +726,7 @@ var VIEWS = {
 
 function go(view){
   S.view = view;
+  S.more = false;
   // Уход с аналитики закрывает развёрнутую карту: иначе она осталась бы
   // висеть поверх другого экрана.
   if (S.mm && S.mm.full){
@@ -835,6 +874,15 @@ function applyTheme(){
   root.setProperty('--focus-green', rgb(c.focusGreen));
   root.setProperty('--focus-blue', rgb(c.focusBlue));
   root.setProperty('--danger', rgb(c.focusOrange));
+
+  // Начертание и размер — из тех же трёх вариантов, что в приложении.
+  // Размер меняется одним множителем на корне, поэтому вся вёрстка, набранная
+  // в rem, тянется за ним; значения в px остаются как есть.
+  var f = fontOf(S.font);
+  root.setProperty('--display', f.css);
+  root.setProperty('--body', f.css);
+  root.setProperty('--scale', String(fontSizeOf(S.fontSize).scale));
+
   document.documentElement.setAttribute('data-dark', c.dark ? '1' : '0');
 }
 
@@ -853,8 +901,8 @@ function vTop(){
     '<div class="top-acts">' +
       '<button class="iconbtn" data-act="theme" title="Тема" aria-label="Сменить тему">' +
         (S.theme === 'dark' ? '☾' : S.theme === 'light' ? '☀' : '◐') + '</button>' +
-      '<button class="iconbtn' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
-        'title="Профиль" aria-label="Профиль">' + esc(initials()) + '</button>' +
+      '<button class="iconbtn av' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
+        'title="Профиль" aria-label="Профиль">' + avatarHTML() + '</button>' +
     '</div>' +
   '</div>';
 }
@@ -870,22 +918,38 @@ function vStorageWarning(){
 }
 
 function initials(){
-  var mail = S.auth.email || '?';
-  return mail.charAt(0).toUpperCase();
+  var source = (S.profile && S.profile.name) || S.auth.email || '?';
+  return source.trim().charAt(0).toUpperCase() || '?';
 }
 
+function activeTab(){
+  return TAB_OF_VIEW[S.view] || S.view;
+}
+
+function tabButton(t, cls){
+  var on = activeTab() === t.id;
+  return '<button class="' + cls + '" data-act="go" data-view="' + t.id + '"' +
+    (on ? ' aria-current="page"' : '') + '>' +
+    '<span class="ic">' + t.ic + '</span>' +
+    '<span class="tx">' + esc(cls === 'tab' && t.short ? t.short : t.title) + '</span></button>';
+}
+
+/* Одна разметка на обе раскладки: слева колонка целиком, снизу четыре пункта
+   и «Ещё». Пункты за «Ещё» лежат в том же дереве — на широком экране просто
+   перестают быть спрятанными. */
 function vTabbar(){
-  var html = '';
-  for (var i = 0; i < TABS.length; i++){
-    var t = TABS[i];
-    var on = S.view === t.id ||
-      (t.id === 'goals' && S.view === 'goal') ||
-      (t.id === 'home' && ['lists','list','notes','note','pomodoro','meditation'].indexOf(S.view) >= 0);
-    html += '<button class="tab" data-act="go" data-view="' + t.id + '"' +
-      (on ? ' aria-current="page"' : '') + '>' +
-      '<span class="ic">' + t.ic + '</span>' + t.title + '</button>';
-  }
-  return html;
+  var rest = TABS.filter(function(t){ return !t.primary; });
+  var restOn = rest.some(function(t){ return t.id === activeTab(); });
+
+  return '<div class="tabs-main">' +
+      TABS.filter(function(t){ return t.primary; }).map(function(t){ return tabButton(t, 'tab'); }).join('') +
+      '<button class="tab more' + (restOn ? ' on' : '') + '" data-act="more"' +
+        ' aria-expanded="' + !!S.more + '" aria-label="Остальные разделы">' +
+        '<span class="ic">' + (S.more ? '✕' : '⋯') + '</span><span class="tx">Ещё</span></button>' +
+    '</div>' +
+    '<div class="tabs-rest' + (S.more ? ' open' : '') + '">' +
+      rest.map(function(t){ return tabButton(t, 'tab wide'); }).join('') +
+    '</div>';
 }
 
 function head(sub, title, backView){
@@ -915,9 +979,11 @@ function cnt(value, label){
 
 /* ============ ЗАДАЧИ ============ */
 
+/* Заголовка «Задачи» и счётчика над ним нет намеренно: раздел уже назван в
+   меню, а блоки дня подписаны сами. Две строки шапки съедали первый экран
+   телефона, ничего к нему не добавляя. */
 function vTasks(){
-  var left = liveTasks().filter(function(t){ return !t.done; }).length;
-  var html = head(left ? taskCount(left) + ' в работе' : 'Всё сделано', 'Задачи');
+  var html = '';
 
   if (!liveTasks().length){
     html += blank('☑', 'Задач пока нет',
@@ -1015,7 +1081,14 @@ function vComposer(){
       '<input id="field" type="text" autocomplete="off" enterkeyhint="done" placeholder="Купить молоко завтра в 9 утра" value="' + esc(S.draft) + '">' +
       '<button class="send" type="submit" aria-label="Добавить задачу">↑</button>' +
     '</form>' +
-    '<p class="hint">День и время можно сказать прямо в строке — «завтра», «послезавтра», «в 8 вечера». Из названия эти слова уйдут.</p>' +
+    // Подсказка про разбор строки нужна ровно один раз: дальше она просто
+    // занимает место над панелью и закрывает собой карточки. Гасим её после
+    // первой созданной задачи или по крестику.
+    (S.hintSeen ? '' :
+      '<p class="hint tip">' +
+        '<span>День и время можно сказать прямо в строке — «завтра», «послезавтра», «в 8 вечера». Из названия эти слова уйдут.</span>' +
+        '<button data-act="hint-off" aria-label="Понятно">✕</button>' +
+      '</p>') +
   '</div>';
 }
 
@@ -1024,7 +1097,7 @@ function vComposer(){
    символе, попавшем в render(). */
 var composerFocused = false;
 function restoreComposer(){
-  var field = $('field');
+  var field = $('field') || $('gfield');
   if (field && composerFocused){
     field.focus();
     field.setSelectionRange(field.value.length, field.value.length);
@@ -1047,43 +1120,41 @@ function addTask(){
 
 /* ============ МОЙ ФОКУС ============ */
 
+/* Экран собран по «Синапсу» из приложения (Views/CoachView.swift): карточка
+   «Фокус дня» с процентом справа и разделами брифинга, под ней полоса дня
+   (SynapseDayStrip) и горизонт на две недели (SynapseHorizonStrip).
+
+   Брифинг здесь не настоящий. Его собирает ассистент, а он в браузере не
+   работает — вместо выдуманного текста экран показывает то, что можно
+   посчитать по самим задачам, и прямо говорит, откуда это взялось. */
 function vFocus(){
   var today = liveTasks().filter(function(t){ return t.bucket === 'today'; });
   var todayDone = today.filter(function(t){ return t.done; }).length;
+  var overdue = liveTasks().filter(isOverdue).length;
   var left = liveTasks().filter(function(t){ return !t.done; }).length;
   var withTime = today.filter(function(t){ return t.time && !t.done; })
     .sort(function(a, b){ return a.time < b.time ? -1 : 1; });
 
   var html = head('Сегодня', 'Мой фокус');
 
+  html += vFocusCard(today, todayDone, overdue, withTime);
+  html += '<section class="card strips">' + vDayStrip(today, todayDone, overdue) + '</section>';
+  html += '<section class="card strips">' + vHorizonStrip() + '</section>';
+
+  html += '<div class="counts">' +
+    cnt(String(today.length), 'намечено на день') +
+    cnt(String(todayDone), 'сделано за день') +
+    cnt(String(left), 'не выполнено всего') +
+    cnt(String(S.pomodoro.doneToday), 'помидоров сегодня') +
+  '</div>';
+
   if (!today.length){
     html += blank('✦', 'На сегодня пусто',
       'Ничего не назначено на сегодня — можно задать спокойный ритм или перенести сюда задачу из другого блока.',
       'go', 'Открыть задачи', ' data-view="tasks"');
   } else {
-    html += '<section class="card">' +
-      '<h3>Прогресс дня</h3>' +
-      '<p class="sub">' + todayDone + ' из ' + today.length + ' на сегодня закрыто</p>' +
-      '<div style="margin-top:14px">' + bar(todayDone, today.length, 'Сделано за день') + '</div>' +
-    '</section>';
-
-    html += '<div class="counts">' +
-      cnt(String(today.length), 'намечено на день') +
-      cnt(String(todayDone), 'сделано за день') +
-      cnt(String(left), 'не выполнено всего') +
-      cnt(String(S.pomodoro.doneToday), 'помидоров сегодня') +
-    '</div>';
-
     html += '<p class="lbl">Что сегодня</p>';
-    html += '<div class="tasklist">' + today.map(itemRow).join('') + '</div>';
-
-    if (withTime.length){
-      html += '<p class="lbl">Ближайшее по времени</p><section class="card"><div class="lines">' +
-        withTime.map(function(t){
-          return '<div class="line"><span class="mono" style="flex:none;color:var(--fg-3)">' + esc(t.time) + '</span>' +
-            '<span>' + esc(t.title) + '</span></div>';
-        }).join('') + '</div></section>';
-    }
+    html += '<div class="tasklist" data-drop="today">' + today.map(itemRow).join('') + '</div>';
   }
 
   var attention = S.goals.filter(function(g){ return !tasksOfGoal(g.id).length; });
@@ -1097,6 +1168,121 @@ function vFocus(){
 
   return html;
 }
+
+/// «Фокус дня» — заголовок с процентом справа и несколько строк «МЕТКА: текст»,
+/// как разбирает брифинг SynapseBriefingSection.parse в приложении.
+function vFocusCard(today, todayDone, overdue, withTime){
+  var percent = pct(todayDone, today.length);
+
+  var lines = [];
+  if (!today.length){
+    lines.push(['ДЕНЬ', 'На сегодня ничего не назначено. Можно задать спокойный ритм.']);
+  } else {
+    lines.push(['ДЕНЬ', todayDone + ' из ' + today.length + ' ' +
+      plural(todayDone, 'закрыта', 'закрыты', 'закрыто') + '. Осталось ' +
+      taskCount(today.length - todayDone) + '.']);
+  }
+  if (withTime.length){
+    var next = withTime[0];
+    lines.push(['БЛИЖАЙШЕЕ', next.time + ' — ' + next.title]);
+  }
+  if (overdue){
+    lines.push(['ПРОСРОЧЕНО', taskCount(overdue) + ' ' +
+      plural(overdue, 'ждёт', 'ждут', 'ждут') + ' с прошлых дней.']);
+  }
+  var stale = S.goals.filter(function(g){ return !tasksOfGoal(g.id).length; });
+  if (stale.length){
+    lines.push(['ЦЕЛИ', stale.length + ' ' + plural(stale.length, 'цель стоит', 'цели стоят', 'целей стоят') +
+      ' без единой задачи.']);
+  }
+
+  return '<section class="card focus">' +
+    '<div class="focus-h">' +
+      '<div class="focus-t">' +
+        '<h3>Фокус дня</h3>' +
+        '<p class="sub">' + (today.length
+          ? 'Сегодня в фокусе ' + taskCount(today.length)
+          : 'Можно задать спокойный ритм') + '</p>' +
+      '</div>' +
+      '<div class="focus-p"><b>' + percent + '%</b><span>Прогресс дня</span></div>' +
+    '</div>' +
+    '<div class="focus-lines">' +
+      lines.map(function(l){
+        return '<div class="fl"><span class="fll">' + esc(l[0]) + '</span>' +
+          '<span class="flt">' + esc(l[1]) + '</span></div>';
+      }).join('') +
+    '</div>' +
+    // Про подмену — вслух: сочинённый «брифинг» без ассистента был бы враньём.
+    '<p class="hint">Это сводка по вашим задачам. Разбор от Syn собирается только в приложении: ассистент в браузере пока не работает.</p>' +
+  '</section>';
+}
+
+/// Полоса дня: по прямоугольнику на задачу плюс словесная легенда.
+/// SynapseDayStrip из приложения — там же и решение не рисовать три цветные
+/// точки без подписей.
+function vDayStrip(today, todayDone, overdue){
+  var html = '<div class="strip-h">' +
+      '<b>День</b>' +
+      '<span class="legend">' +
+        legendDot('var(--ok)', todayDone, 'закрыто') +
+        (overdue ? legendDot('var(--crit)', overdue, 'просрочено') : '') +
+        legendDot('var(--soft-2)', today.length - todayDone, 'осталось') +
+      '</span>' +
+    '</div>';
+
+  if (!today.length){
+    return html + '<div class="strip empty">На сегодня пусто</div>';
+  }
+
+  html += '<div class="strip">' + today.map(function(t){
+    var kind = t.done ? 'done' : (isOverdue(t) ? 'late' : 'open');
+    return '<i class="' + kind + '" title="' + esc(t.title) + '"></i>';
+  }).join('') + '</div>';
+
+  return html + '<p class="strip-note">Каждый блок — одна задача на сегодня</p>';
+}
+
+function legendDot(color, value, title){
+  return '<span class="lg"><i style="background:' + color + '"></i>' +
+    '<b>' + value + '</b>' + esc(title) + '</span>';
+}
+
+/// Горизонт: четырнадцать дней вперёд. Высота столбика — сколько задач,
+/// точка сверху — есть задача с точным временем. Пустой день оставляет
+/// заметный след: провал в ряду читался бы как отсутствие данных.
+function vHorizonStrip(){
+  var days = [];
+  var peak = 1;
+  for (var i = 0; i < 14; i++){
+    var date = new Date(todayDate().getTime());
+    date.setDate(date.getDate() + i);
+    var iso = isoOf(date);
+    var onDay = liveTasks().filter(function(t){ return t.date === iso; });
+    var day = {
+      iso: iso,
+      count: onDay.length,
+      hard: onDay.some(function(t){ return !!t.time; }),
+      label: String(date.getDate()),
+      weekday: WEEKDAYS_SHORT[(date.getDay() + 6) % 7],
+      today: i === 0
+    };
+    if (day.count > peak) peak = day.count;
+    days.push(day);
+  }
+
+  return '<div class="strip-h"><b>Горизонт</b></div>' +
+    '<p class="strip-note" style="margin:2px 0 10px">14 дней вперёд: столбик — сколько задач, точка — задача со временем</p>' +
+    '<div class="horizon">' + days.map(function(d){
+      var height = d.count ? 3 + (d.count / peak) * 33 : 3;
+      return '<div class="hd' + (d.today ? ' now' : '') + '" title="' + esc(d.weekday + ' ' + d.label + ': ' + taskCount(d.count)) + '">' +
+        '<i class="dot"' + (d.hard ? '' : ' style="opacity:0"') + '></i>' +
+        '<i class="bar" style="height:' + height.toFixed(0) + 'px"></i>' +
+        '<span>' + d.label + '</span>' +
+      '</div>';
+    }).join('') + '</div>';
+}
+
+var WEEKDAYS_SHORT = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 
 /* ============ ЦЕЛИ ============ */
 
@@ -1114,32 +1300,101 @@ function goalProgress(goal){
   };
 }
 
+/* Заголовка «Цели» над списком нет: раздел назван в меню, а карточка цели и
+   так ни на что другое не похожа.
+
+   Цель раскрывается на месте, а не уводит на отдельную страницу. Раньше, чтобы
+   посмотреть этапы одной цели и вернуться к другой, приходилось ходить туда и
+   обратно; теперь обе видно рядом. */
 function vGoals(){
-  var html = head('Обзор целей', 'Цели');
+  var html = '';
 
   if (!S.goals.length){
-    return html + blank('◎', 'Целей пока нет',
-      'Цель — это то, ради чего задачи вообще существуют. Разбей её на понятные шаги, и задачи появятся сами.',
-      'new-goal', 'Создать цель');
+    return blank('◎', 'Целей пока нет',
+      'Цель — это то, ради чего задачи вообще существуют. Назови её в строке внизу, а этапы добавишь потом.') +
+      vGoalComposer();
   }
-
-  html += '<div class="acts" style="margin:0 0 18px"><button class="btn" data-act="new-goal">+ Создать цель</button></div>';
 
   for (var i = 0; i < S.goals.length; i++){
     var g = S.goals[i];
     var p = goalProgress(g);
-    html += '<button class="card" style="display:block;width:100%" data-act="open-goal" data-goal="' + g.id + '">' +
-      '<h3>' + esc(g.title) + '</h3>' +
-      (g.purpose ? '<p class="sub">' + esc(g.purpose) + '</p>' : '') +
-      '<div style="margin-top:14px">' + bar(p.done, p.total, p.done + ' из ' + p.total + ' ' + p.unit) + '</div>' +
-      '<div class="chips" style="margin-top:12px">' +
-        '<span class="chip">' + g.stages.length + ' ' + plural(g.stages.length, 'этап', 'этапа', 'этапов') + '</span>' +
-        '<span class="chip">' + taskCount(tasksOfGoal(g.id).length) + '</span>' +
-        (g.horizon ? '<span class="chip">' + esc(g.horizon) + '</span>' : '') +
+    var open = !!S.openGoal[g.id];
+
+    html += '<section class="goalcard' + (open ? ' open' : '') + '">' +
+      '<button class="goalcard-h" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
+        '<span class="gt">' + esc(g.title) + '</span>' +
+        '<span class="gp mono">' + pct(p.done, p.total) + '%</span>' +
+        '<span class="car">⌄</span>' +
+      '</button>' +
+      '<div class="bar slim"><i style="width:' + pct(p.done, p.total) + '%"></i></div>' +
+      '<div class="gmeta">' +
+        p.done + ' из ' + p.total + ' ' + p.unit +
+        ' · ' + g.stages.length + ' ' + plural(g.stages.length, 'этап', 'этапа', 'этапов') +
+        (g.horizon ? ' · ' + esc(g.horizon) : '') +
       '</div>' +
-    '</button>';
+      (open ? goalBody(g) : '') +
+    '</section>';
   }
-  return html;
+
+  return html + vGoalComposer();
+}
+
+/// Внутренность раскрытой цели: смысл, этапы с их задачами, действия.
+function goalBody(g){
+  var html = '<div class="goalbody">';
+
+  if (g.purpose) html += '<p class="sub gpurpose">' + esc(g.purpose) + '</p>';
+
+  if (!g.stages.length){
+    html += '<p class="none">Этапов пока нет. Разбей цель на шаги — к каждому можно привязать задачи.</p>';
+  }
+
+  for (var i = 0; i < g.stages.length; i++){
+    var st = g.stages[i];
+    var list = tasksOfStage(g.id, st.id);
+    html += '<div class="stage">' +
+      '<div class="stage-h">' +
+        '<button class="box' + (st.status === 'done' ? ' on' : '') + '" data-act="stage-toggle" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Готово">✓</button>' +
+        '<span class="t">' + esc(st.title) + '</span>' +
+        '<span class="status">' + STATUS[st.status] + '</span>' +
+        '<button class="kill" data-act="kill-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Удалить этап">✕</button>' +
+      '</div>' +
+      (st.detail ? '<p class="detail">' + esc(st.detail) + '</p>' : '') +
+      (list.length
+        ? '<div class="tasks">' + list.map(itemRow).join('') + '</div>'
+        : '<p class="none">У этого этапа пока нет задач.</p>') +
+      '<div class="rowadd">' +
+        '<input class="inp" type="text" placeholder="Задача этапа" data-goaltask="' + st.id + '" autocomplete="off">' +
+        '<button class="btn sm" data-act="goal-task" data-goal="' + g.id + '" data-stage="' + st.id + '">Добавить</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  var loose = S.tasks.filter(function(t){ return t.goalId === g.id && !findStage(g, t.stageId); });
+  if (loose.length){
+    html += '<p class="lbl">Задачи без этапа</p><div class="tasklist">' + loose.map(itemRow).join('') + '</div>';
+  }
+
+  html += '<div class="acts">' +
+      '<button class="btn sm" data-act="new-stage" data-goal="' + g.id + '">+ Этап</button>' +
+      '<button class="btn sm soft" data-act="edit-goal" data-goal="' + g.id + '">Править</button>' +
+      '<button class="btn sm soft" data-act="kill-goal" data-goal="' + g.id + '">Удалить цель</button>' +
+    '</div>';
+
+  return html + '</div>';
+}
+
+/// Строка создания цели — такая же, как строка задачи: одно место внизу
+/// экрана, куда пишут, вместо кнопки, открывающей модалку.
+function vGoalComposer(){
+  return '<div class="composer">' +
+    '<form class="say" data-form="add-goal">' +
+      '<label class="visually-hidden" for="gfield">Новая цель</label>' +
+      '<input id="gfield" type="text" autocomplete="off" enterkeyhint="done" ' +
+        'placeholder="Выучить английский за год" value="' + esc(S.goalDraft || '') + '">' +
+      '<button class="send" type="submit" aria-label="Создать цель">↑</button>' +
+    '</form>' +
+  '</div>';
 }
 
 function vGoal(){
@@ -1586,41 +1841,10 @@ function vGoalMap(){
   return html + '</div></section>';
 }
 
-/* ============ ГЛАВНАЯ ============ */
-
-function vHome(){
-  var html = head('Изредка открываемое', 'Главная');
-  html += '<div class="tilegrid">' +
-    homeTile('lists', '☰', 'Списки', S.lists.length + ' ' + plural(S.lists.length, 'список', 'списка', 'списков')) +
-    homeTile('notes', '✎', 'Заметки', S.notes.length + ' ' + plural(S.notes.length, 'заметка', 'заметки', 'заметок')) +
-    homeTile('pomodoro', '◷', 'Метод Помодоро', S.pomodoro.doneToday + ' сегодня') +
-    homeTile('meditation', '☯', 'Медитация', S.meditation.minutes + ' мин · ' + S.meditation.sound) +
-    homeTile('profile', '☺', 'Профиль', 'Аккаунт и настройки') +
-  '</div>';
-
-  html += '<p class="lbl">Вечерняя сверка</p><section class="card">' +
-    '<h3>Как прошёл день</h3>' +
-    // «1 задача… закрыто» — число склеивалось со словом без согласования.
-    (function(){
-      var n = S.tasks.filter(function(t){ return t.bucket === 'today' && t.done; }).length;
-      return '<p class="sub">' + taskCount(n) + ' из блока «Сегодня» ' +
-        plural(n, 'закрыта', 'закрыты', 'закрыто') + '.</p>';
-    })() +
-    '<div class="acts"><button class="btn sm soft" data-act="go" data-view="focus">Открыть «Мой фокус»</button></div>' +
-  '</section>';
-  return html;
-}
-
-function homeTile(view, ic, title, sub){
-  return '<button class="tilebtn" data-act="go" data-view="' + view + '">' +
-    '<span class="ic">' + ic + '</span><span class="tt">' + esc(title) + '</span>' +
-    '<span class="ss">' + esc(sub) + '</span></button>';
-}
-
 /* ---- списки ---- */
 
 function vLists(){
-  var html = head('Главная · Списки', 'Списки', 'home');
+  var html = head('Наборы', 'Списки');
   if (!S.lists.length){
     return html + blank('☰', 'Списков пока нет',
       'Список — это то, что отмечают галочками и не тащат в задачи: покупки, сборы, чек-лист поездки.',
@@ -1668,7 +1892,7 @@ function vList(){
 /* ---- заметки ---- */
 
 function vNotes(){
-  var html = head('Главная · Заметки', 'Заметки', 'home');
+  var html = head('Записи', 'Заметки');
   if (!S.notes.length){
     return html + blank('✎', 'Заметок пока нет',
       'Сюда складывают то, что не задача: итоги встречи, мысль, список вопросов.',
@@ -1719,7 +1943,7 @@ function vPomodoro(){
   var m = modeOf();
   if (remaining === null) remaining = S.pomodoro[m.key] * 60;
 
-  var html = head('Главная · Помодоро', 'Метод Помодоро', 'home');
+  var html = head('Фокус по таймеру', 'Метод Помодоро');
   html += '<section class="card">' +
     '<div class="clock" id="clockface">' + mmss(remaining) + '</div>' +
     '<p class="phase">' + m.title + ' · ' + S.pomodoro[m.key] + ' мин</p>' +
@@ -1778,7 +2002,7 @@ function stopTicker(){
 var SOUNDS = ['Дождь', 'Лес', 'Ручей', 'Камин', 'Флейта'];
 
 function vMeditation(){
-  var html = head('Главная · Медитация', 'Медитация', 'home');
+  var html = head('Передышка', 'Медитация');
   html += '<section class="card">' +
     '<h3>Готово к запуску</h3>' +
     '<p class="sub">Звук в вебе пока не подключён — экран показывает состав сеанса.</p>' +
@@ -1801,29 +2025,104 @@ function vMeditation(){
 
 /* ============ ПРОФИЛЬ ============ */
 
+/* Профиль — это про человека: имя и лицо. Всё, что про устройство и про
+   данные, переехало в настройки: раньше и то и другое лежало одной лентой,
+   и найти в ней что-либо можно было только прокруткой. */
 function vProfile(){
-  var html = head('Аккаунт', 'Профиль');
-  html += '<section class="card">' +
+  var html = head('Аккаунт', 'Профиль', 'settings');
+
+  html += '<section class="card profile-card">' +
+    '<div class="avatar-row">' +
+      avatarHTML('lg') +
+      '<div class="avatar-acts">' +
+        '<button class="btn sm soft" data-act="avatar-pick">' +
+          (S.profile.avatar ? 'Сменить фото' : 'Загрузить фото') + '</button>' +
+        (S.profile.avatar ? '<button class="btn sm soft" data-act="avatar-clear">Убрать</button>' : '') +
+      '</div>' +
+    '</div>' +
+    '<div class="field" style="margin:18px 0 0">' +
+      '<label for="pname">Имя</label>' +
+      '<input class="inp" id="pname" data-name type="text" maxlength="40" placeholder="Как к вам обращаться" ' +
+        'value="' + esc(S.profile.name) + '" autocomplete="name">' +
+    '</div>' +
+    '<p class="hint">Имя и фото никуда не отправляются: они лежат в этом браузере рядом с задачами.</p>' +
+  '</section>';
+
+  html += '<p class="lbl">Вход</p><section class="card">' +
     '<h3>' + esc(S.auth.email || 'Без почты') + '</h3>' +
     '<p class="sub">Вход по почте. Пока без Synapse Pro.</p>' +
     '<div class="acts"><button class="btn sm soft" data-act="logout">Выйти</button></div>' +
   '</section>';
 
-  html += '<p class="lbl">Вид</p>' +
-    '<div class="setrow"><span>Тема</span><span class="val">' +
-      (S.theme === 'system' ? 'Как в системе' : S.theme === 'dark' ? 'Тёмная' : 'Светлая') + '</span></div>' +
-    '<div class="radios" style="margin:0 0 18px">' +
-      [['system', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
-        return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
-      }).join('') + '</div>';
+  return html;
+}
 
-  // Те же десять палитр, что в приложении, — из AppTheme.swift.
-  html += '<div class="setrow"><span>Палитра</span><span class="val">' + esc(paletteOf(S.palette).title) + '</span></div>' +
-    '<div class="radios" style="margin:0 0 18px">' +
+/// Аватарка или первая буква имени, если фото не загружено.
+function avatarHTML(size){
+  var cls = 'avatar' + (size === 'lg' ? ' lg' : '');
+  if (S.profile.avatar){
+    return '<span class="' + cls + '" style="background-image:url(' + S.profile.avatar + ')"></span>';
+  }
+  return '<span class="' + cls + '">' + esc(initials()) + '</span>';
+}
+
+/* ============ НАСТРОЙКИ ============ */
+
+function vSettings(){
+  var html = head('Приложение', 'Настройки');
+  html += settingsLink('profile', 'Профиль', S.profile.name || S.auth.email || 'Имя и фото') +
+    settingsLink('settings-view', 'Вид', fontOf(S.font).title + ' · ' + paletteOf(S.palette).title) +
+    settingsLink('settings-data', 'Данные', 'Копия файлом, примеры, стирание') +
+    settingsLink('about', 'О сервисе', 'Что умеет веб-версия');
+  return html;
+}
+
+function settingsLink(view, title, sub){
+  return '<button class="setrow tall" data-act="go" data-view="' + view + '">' +
+    '<span class="st"><b>' + esc(title) + '</b><i>' + esc(sub) + '</i></span>' +
+    '<span class="arrow">›</span></button>';
+}
+
+/* ---- вид ---- */
+
+/* Шрифт и его размер перенесены из приложения: AppFontChoice (Rounded, Clean,
+   Serif) и AppFontSizeChoice (0.88, 1.0, 1.16). Названия начертаний в
+   приложении не переводятся — здесь тоже. */
+var FONTS = [
+  { id: 'rounded', title: 'Rounded', css: 'ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif' },
+  { id: 'clean',   title: 'Clean',   css: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif' },
+  { id: 'serif',   title: 'Serif',   css: 'ui-serif,Georgia,"Times New Roman",serif' }
+];
+
+var FONT_SIZES = [
+  { id: 'compact',  title: 'маленький', scale: 0.88 },
+  { id: 'standard', title: 'средний',   scale: 1 },
+  { id: 'large',    title: 'большой',   scale: 1.16 }
+];
+
+function fontOf(id){
+  for (var i = 0; i < FONTS.length; i++) if (FONTS[i].id === id) return FONTS[i];
+  return FONTS[0];
+}
+function fontSizeOf(id){
+  for (var i = 0; i < FONT_SIZES.length; i++) if (FONT_SIZES[i].id === id) return FONT_SIZES[i];
+  return FONT_SIZES[1];
+}
+
+function vSettingsView(){
+  var html = head('Настройки', 'Вид', 'settings');
+
+  html += '<p class="lbl">Тема</p><div class="radios">' +
+    [['system', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
+      return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
+    }).join('') + '</div>';
+
+  // Те же десять палитр, что в приложении, — из AppTheme.swift. Кружок — фон
+  // палитры, точка внутри — её акцент, оба в текущей теме: без этого «Бордо»
+  // от «Индиго» отличить можно было только применив.
+  html += '<p class="lbl">Палитра <span class="val">' + esc(paletteOf(S.palette).title) + '</span></p>' +
+    '<div class="radios">' +
       PALETTES.map(function(p){
-        // Кружок — фон палитры, точка внутри — её акцент, оба в той теме,
-        // которая сейчас включена. Без этого «Бордо» от «Индиго» отличить
-        // можно было только применив.
         var dark = isDarkNow();
         var bg = paletteColor(p, dark ? 'darkBackground' : 'lightBackground');
         var ac = paletteColor(p, dark ? 'accentDark' : 'accent');
@@ -1832,8 +2131,36 @@ function vProfile(){
           p.title + '</button>';
       }).join('') + '</div>';
 
-  html += '<p class="lbl">Перенос и копия</p><section class="card">' +
-    '<h3>Копия данных файлом</h3>' +
+  // Начертание выбирают глазами, поэтому каждая кнопка набрана своим шрифтом.
+  html += '<p class="lbl">Шрифт</p><div class="radios">' +
+    FONTS.map(function(f){
+      return '<button class="radio" data-act="set-font" data-font="' + f.id + '" aria-pressed="' + (S.font === f.id) + '" ' +
+        'style="font-family:' + f.css + '">' + f.title + '</button>';
+    }).join('') + '</div>';
+
+  html += '<p class="lbl">Размер</p><div class="radios">' +
+    FONT_SIZES.map(function(z){
+      return '<button class="radio" data-act="set-fontsize" data-size="' + z.id + '" aria-pressed="' + (S.fontSize === z.id) + '">' + z.title + '</button>';
+    }).join('') + '</div>';
+
+  html += '<section class="card preview">' +
+    '<h3>Собрать материалы</h3>' +
+    '<p class="sub">Так будет выглядеть текст при выбранном шрифте и размере.</p>' +
+    '<div class="chips" style="margin-top:12px">' +
+      '<span class="chip">Сегодня</span><span class="chip">09:00</span>' +
+      '<span class="chip goal">Выучить английский</span></div>' +
+  '</section>';
+
+  return html;
+}
+
+/* ---- данные ---- */
+
+function vSettingsData(){
+  var html = head('Настройки', 'Данные', 'settings');
+
+  html += '<section class="card">' +
+    '<h3>Копия файлом</h3>' +
     '<p class="sub">Один файл со всем: задачи, цели, списки, заметки, настройки. Им же переносят данные в другой браузер или на другое устройство.</p>' +
     '<div class="acts">' +
       '<button class="btn sm" data-act="export">Сохранить копию</button>' +
@@ -1843,17 +2170,40 @@ function vProfile(){
     '<p class="hint">Автоматической синхронизации с приложением нет. Данные приложения лежат в приватной базе iCloud, а читать её из браузера можно только после входа Apple ID прямо здесь — этого мы не делаем. Файл — единственный честный способ перенести данные сегодня.</p>' +
   '</section>';
 
-  html += '<p class="lbl">Данные</p>' +
+  html += '<p class="lbl">Содержимое</p>' +
     '<button class="setrow" data-act="reset-demo"><span>Заполнить примерами</span><span class="arrow">›</span></button>' +
     '<button class="setrow" data-act="wipe"><span>Стереть всё в этом браузере</span><span class="arrow">›</span></button>';
 
-  // Пока синхронизации нет, молчать об этом нечестно.
   html += '<section class="card" style="margin-top:14px">' +
     '<h3>Где лежат данные</h3>' +
     '<p class="sub">Только в этом браузере, на этом устройстве. Копии на сервере нет: очистка данных сайта или режим инкогнито удалят задачи, цели и заметки безвозвратно.</p>' +
   '</section>';
 
-  html += '<p class="hint">Прототип. Сервера нет: вход по почте — заглушка, данные не покидают этот браузер.</p>';
+  return html;
+}
+
+/* ---- о сервисе ---- */
+
+function vAbout(){
+  var html = head('Synapse', 'О сервисе');
+
+  html += '<section class="card">' +
+    '<h3>Веб-версия Synapse</h3>' +
+    '<p class="sub">Цели разбираются на этапы, этапы — на задачи, которые можно сделать сегодня. Планирование, списки, заметки, помодоро и медитация работают прямо в браузере, без установки и регистрации.</p>' +
+  '</section>';
+
+  // Чего здесь нет — списком, а не умолчанием: человек должен узнать это от
+  // нас, а не обнаружить сам.
+  html += '<p class="lbl">Чего пока нет</p><section class="card">' +
+    '<p class="sub">Ассистент Syn и брифинги работают только в приложении: запросы к нему требуют проверки устройства, которой в браузере не существует. Нет уведомлений, звука в медитации и синхронизации с приложением — данные переносятся файлом в разделе «Данные».</p>' +
+  '</section>';
+
+  html += '<p class="lbl">Ссылки</p>' +
+    '<a class="setrow" href="../">' + '<span>Сайт Synapse</span><span class="arrow">›</span></a>' +
+    '<a class="setrow" href="../pricing/"><span>Тарифы</span><span class="arrow">›</span></a>' +
+    '<a class="setrow" href="../support/"><span>Поддержка</span><span class="arrow">›</span></a>' +
+    '<a class="setrow" href="../privacy/"><span>Конфиденциальность</span><span class="arrow">›</span></a>';
+
   return html;
 }
 
@@ -2056,6 +2406,42 @@ function commit(message){
   render();
 }
 
+/// Сказать что-то, ничего не перерисовывая: для отказов, после которых
+/// состояние не поменялось.
+function toast(message){
+  pendingToast = message;
+  showToast();
+}
+
+/* Уменьшение картинки перед тем, как класть её в localStorage. Снимок с
+   телефона — это несколько мегабайт, а всё хранилище обычно пять: без сжатия
+   одна аватарка выбивает квоту и роняет сохранение задач.
+
+   Режем по короткой стороне в квадрат, чтобы кружок не обрезал лицо
+   несимметрично, и отдаём JPEG: PNG на фотографии втрое тяжелее. */
+function shrinkImage(file, side, done){
+  var reader = new FileReader();
+  reader.onerror = function(){ done(''); };
+  reader.onload = function(){
+    var img = new Image();
+    img.onerror = function(){ done(''); };
+    img.onload = function(){
+      var crop = Math.min(img.width, img.height);
+      var canvas = document.createElement('canvas');
+      canvas.width = side; canvas.height = side;
+      canvas.getContext('2d').drawImage(
+        img,
+        (img.width - crop) / 2, (img.height - crop) / 2, crop, crop,
+        0, 0, side, side
+      );
+      try { done(canvas.toDataURL('image/jpeg', 0.82)); }
+      catch (e) { done(''); }
+    };
+    img.src = String(reader.result);
+  };
+  reader.readAsDataURL(file);
+}
+
 function showToast(){
   if (!pendingToast) return;
   // Старую плашку убираем: несколько действий подряд оставляли стопку
@@ -2083,8 +2469,32 @@ var ACTS = {
     S.theme = S.theme === 'system' ? 'light' : S.theme === 'light' ? 'dark' : 'system';
     commit();
   },
+  more: function(){ S.more = !S.more; commit(); },
   'set-theme': function(d){ S.theme = d.theme; commit(); },
   'set-palette': function(d){ S.palette = d.palette; commit(); },
+  'set-font': function(d){ S.font = d.font; commit(); },
+  'set-fontsize': function(d){ S.fontSize = d.size; commit(); },
+
+  /* Фото профиля. Кладём его в состояние как data-URI, поэтому картинку
+     сначала ужимаем: снимок с телефона — это мегабайты, а весь localStorage
+     обычно пять. Квадрат 256×256 умещается примерно в 30 КБ. */
+  'avatar-pick': function(){
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', function(){
+      var file = input.files && input.files[0];
+      if (!file) return;
+      if (!/^image\//.test(file.type)){ toast('Это не изображение'); return; }
+      shrinkImage(file, 256, function(dataUrl){
+        if (!dataUrl){ toast('Не удалось прочитать файл'); return; }
+        S.profile.avatar = dataUrl;
+        commit('Фото обновлено');
+      });
+    });
+    input.click();
+  },
+  'avatar-clear': function(){ S.profile.avatar = ''; commit('Фото убрано'); },
   'mm-zoom': function(d){
     if (!S.mm) S.mm = { zoom: 1 };
     S.mm.zoom = Math.min(2, Math.max(0.5, S.mm.zoom + (d.dir === 'in' ? 0.25 : -0.25)));
@@ -2138,7 +2548,8 @@ var ACTS = {
   },
 
   /* --- задачи --- */
-  add: function(){ addTask(); },
+  add: function(){ S.hintSeen = true; addTask(); },
+  'hint-off': function(){ S.hintSeen = true; commit(); },
   toggle: function(d){
     var t = findTask(d.task);
     if (!t) return;
@@ -2223,13 +2634,33 @@ var ACTS = {
       var fresh = { id: uid(), title: title, purpose: purpose, horizon: horizon,
         sphere: 'personal', pinned: false, stages: [] };
       S.goals.push(fresh);
-      S.activeGoal = fresh.id;
-      S.view = 'goal';
+      // Раскрываем на месте, а не уводим на отдельный экран: список целей
+      // никуда не делся, и созданная цель просто открылась в нём.
+      S.openGoal[fresh.id] = true;
+      S.view = 'goals';
     }
     closeModal();
     commit('Цель сохранена');
   },
   'open-goal': function(d){ S.activeGoal = d.goal; go('goal'); },
+  'fold-goal': function(d){
+    S.openGoal[d.goal] = !S.openGoal[d.goal];
+    commit();
+  },
+  /* Создание цели строкой: название — это всё, что нужно, чтобы начать.
+     Смысл, срок и этапы дописываются потом в самой цели, и она сразу
+     раскрывается, чтобы было куда. */
+  'add-goal': function(){
+    var field = $('gfield');
+    var title = field ? field.value.trim() : '';
+    if (!title) return;
+    var fresh = { id: uid(), title: title, purpose: '', horizon: '',
+      sphere: 'personal', pinned: false, stages: [] };
+    S.goals.push(fresh);
+    S.openGoal[fresh.id] = true;
+    S.goalDraft = '';
+    commit('Цель создана');
+  },
   'export': function(){
     exportBackup();
     pendingToast = 'Файл сохранён';
@@ -2485,6 +2916,16 @@ document.addEventListener('submit', function(event){
 document.addEventListener('input', function(event){
   var t = event.target;
   if (t.id === 'field'){ S.draft = t.value; return; }
+  if (t.id === 'gfield'){ S.goalDraft = t.value; return; }
+  // Имя сохраняем по вводу и не перерисовываем: перерисовка увела бы курсор
+  // из поля на первой же букве.
+  if (t.hasAttribute && t.hasAttribute('data-name')){
+    S.profile.name = t.value.slice(0, 40);
+    save();
+    var av = document.querySelector('.top .avatar');
+    if (av && !S.profile.avatar) av.textContent = initials();
+    return;
+  }
   if (t.getAttribute && t.getAttribute('data-notebody')){
     var note = findNote(t.getAttribute('data-notebody'));
     if (note){ note.body = t.value; save(); }
@@ -2492,10 +2933,10 @@ document.addEventListener('input', function(event){
 });
 
 document.addEventListener('focusin', function(event){
-  if (event.target.id === 'field') composerFocused = true;
+  if (event.target.id === 'field' || event.target.id === 'gfield') composerFocused = true;
 });
 document.addEventListener('focusout', function(event){
-  if (event.target.id === 'field') composerFocused = false;
+  if (event.target.id === 'field' || event.target.id === 'gfield') composerFocused = false;
 });
 
 document.addEventListener('keydown', function(event){
@@ -2536,7 +2977,71 @@ document.addEventListener('keydown', function(event){
   }
 });
 
-/* --- перетаскивание между блоками --- */
+/* --- перетаскивание между блоками и внутри блока --- */
+
+/* Порядок задач внутри блока — это порядок в S.tasks. Раньше перенос умел
+   только менять блок, и внутри блока карточку было не подвинуть: задача,
+   добавленная последней, оставалась последней навсегда. */
+
+/// Перед какой карточкой встанет перетаскиваемая, если отпустить здесь.
+/// Возвращает id или null — значит в конец блока.
+function dropTargetIn(zone, clientY){
+  var cards = zone.querySelectorAll('.item:not(.dragging)');
+  for (var i = 0; i < cards.length; i++){
+    var box = cards[i].getBoundingClientRect();
+    if (clientY < box.top + box.height / 2) return cards[i].getAttribute('data-task');
+  }
+  return null;
+}
+
+/// Подсветить место вставки: линия над карточкой или рамка у пустого конца.
+function markDropSpot(zone, beforeId){
+  var lit = document.querySelectorAll('.item.drop-before, .tasklist.drop-end');
+  for (var i = 0; i < lit.length; i++){
+    lit[i].classList.remove('drop-before');
+    lit[i].classList.remove('drop-end');
+  }
+  if (!zone) return;
+  if (beforeId){
+    var card = zone.querySelector('.item[data-task="' + beforeId + '"]');
+    if (card) card.classList.add('drop-before');
+  } else {
+    zone.classList.add('drop-end');
+  }
+}
+
+/// Перенос карточки. Возвращает true, если сменился блок, — только тогда есть
+/// о чём говорить вслух.
+function dropTask(id, bucket, beforeId){
+  var task = findTask(id);
+  if (!task) return false;
+  var from = S.tasks.indexOf(task);
+  if (from < 0) return false;
+
+  var changedBucket = task.bucket !== bucket;
+  if (changedBucket){
+    task.bucket = bucket;
+    task.date = dateForBucket(bucket);
+    if (spansSeveralDays(bucket)) task.time = null;
+  }
+
+  S.tasks.splice(from, 1);
+
+  var to = S.tasks.length;
+  if (beforeId){
+    for (var i = 0; i < S.tasks.length; i++){
+      if (S.tasks[i].id === beforeId){ to = i; break; }
+    }
+  } else {
+    // В конец своего блока, а не всего списка: иначе порядок в массиве
+    // перестаёт совпадать с тем, что видно на экране.
+    for (var j = S.tasks.length - 1; j >= 0; j--){
+      if (S.tasks[j].bucket === bucket){ to = j + 1; break; }
+    }
+  }
+  S.tasks.splice(to, 0, task);
+  return changedBucket;
+}
 
 document.addEventListener('dragstart', function(event){
   var item = event.target.closest ? event.target.closest('[data-task]') : null;
@@ -2552,6 +3057,7 @@ document.addEventListener('dragend', function(event){
   S.drag = null;
   var over = document.querySelectorAll('.tasklist.over');
   for (var i = 0; i < over.length; i++) over[i].classList.remove('over');
+  markDropSpot(null, null);
 });
 
 document.addEventListener('dragover', function(event){
@@ -2559,6 +3065,7 @@ document.addEventListener('dragover', function(event){
   if (!zone || !S.drag) return;
   event.preventDefault();
   zone.classList.add('over');
+  markDropSpot(zone, dropTargetIn(zone, event.clientY));
 });
 
 document.addEventListener('dragleave', function(event){
@@ -2624,6 +3131,7 @@ document.addEventListener('pointermove', function(event){
   var lit = document.querySelectorAll('.tasklist.over');
   for (var i = 0; i < lit.length; i++) lit[i].classList.remove('over');
   if (zone) zone.classList.add('over');
+  markDropSpot(zone, zone ? dropTargetIn(zone, event.clientY) : null);
 }, { passive: false });
 
 document.addEventListener('pointerup', function(event){
@@ -2632,16 +3140,14 @@ document.addEventListener('pointerup', function(event){
   var id = touchDrag.id;
   var under = wasActive ? document.elementFromPoint(event.clientX, event.clientY) : null;
   var zone = under && under.closest ? under.closest('[data-drop]') : null;
+  var before = zone ? dropTargetIn(zone, event.clientY) : null;
   cancelTouchDrag();
   if (!wasActive || !zone) return;
 
-  var moved = findTask(id);
   var bucket = zone.getAttribute('data-drop');
-  if (!moved || moved.bucket === bucket) { render(); return; }
-  moved.bucket = bucket;
-  moved.date = dateForBucket(bucket);
-  if (spansSeveralDays(bucket)) moved.time = null;
-  commit('Перенесено в «' + bucketTitle(bucket) + '»');
+  if (before === id) { render(); return; }
+  var changed = dropTask(id, bucket, before);
+  commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
 });
 
 document.addEventListener('pointercancel', function(){ cancelTouchDrag(); });
@@ -2682,14 +3188,14 @@ document.addEventListener('drop', function(event){
   if (!zone || !S.drag) return;
   event.preventDefault();
   zone.classList.remove('over');
-  var moved = findTask(S.drag);
+  var id = S.drag;
   var bucket = zone.getAttribute('data-drop');
+  var before = dropTargetIn(zone, event.clientY);
   S.drag = null;
-  if (!moved || moved.bucket === bucket) return;
-  moved.bucket = bucket;
-  moved.date = dateForBucket(bucket);
-  if (spansSeveralDays(bucket)) moved.time = null;
-  commit('Перенесено в «' + bucketTitle(bucket) + '»');
+  markDropSpot(null, null);
+  if (before === id) return;
+  var changed = dropTask(id, bucket, before);
+  commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
 });
 
 /* ============ УСТАНОВКА И РАБОТА БЕЗ СЕТИ ============ */
