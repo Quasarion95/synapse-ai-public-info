@@ -53,6 +53,7 @@ function seed(){
     palette: 'paper',
     font: 'rounded',
     fontSize: 'standard',
+    box: 'square',
     hintSeen: false,
     more: false,
     draft: '',
@@ -137,6 +138,7 @@ function load(){
     if (typeof parsed.goalDraft !== 'string') parsed.goalDraft = '';
     if (!parsed.font) parsed.font = 'rounded';
     if (!parsed.fontSize) parsed.fontSize = 'standard';
+    if (!parsed.box) parsed.box = 'square';
     parsed.more = false;
     // Раздела «Главная» больше нет: состояние, сохранённое на нём, никуда бы
     // не отрисовалось.
@@ -803,6 +805,9 @@ var ICON = {
   edit: '<svg viewBox="0 0 16 16" aria-hidden="true">' +
     '<path d="M10.4 2.9 13.1 5.6M11.4 1.9a1.4 1.4 0 0 1 2 2l-8 8-2.7.7.7-2.7z"/></svg>',
   kill: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+  ai: '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8z"/>' +
+    '<path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>',
   full: '<svg viewBox="0 0 16 16" aria-hidden="true" style="width:14px;height:14px;fill:none;' +
     'stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-2px">' +
     '<path d="M6 2H2v4M10 2h4v4M10 14h4v-4M6 14H2v-4"/></svg>'
@@ -847,19 +852,77 @@ function isDarkNow(){
 
 /// Цвета, которыми пользуется и CSS, и mind map. Считаются по тем же
 /// правилам, что AppTheme.panel / .panelStrong / .stroke.
+/* ---- разделение фона и карточек ---- */
+
+/* Карточки почти сливались с фоном, и в части палитр их было не различить.
+   Причина в том, как считались уровни: смешивание с чёрным или белым в долях
+   даёт разный видимый шаг на светлом и тёмном, на сером и на цветном фоне —
+   0.035 чёрного по бумаге заметно, а по графиту почти нет.
+
+   Считаем в Lab: там L отвечает за воспринимаемую светлоту, и сдвиг на
+   пять единиц выглядит одинаковым шагом на любом фоне. Тон и насыщенность
+   при этом не трогаем — палитра остаётся собой, меняется только светлота.
+   Шаги подобраны так, чтобы карточка отделялась от фона, а обводка от
+   карточки, но ничего не выглядело чужой заплаткой. */
+
+function _pivot(c){ return c > 0.008856 ? Math.pow(c, 1 / 3) : (7.787 * c) + 16 / 116; }
+function _unpivot(c){ var c3 = c * c * c; return c3 > 0.008856 ? c3 : (c - 16 / 116) / 7.787; }
+function _toLinear(v){ v /= 255; return v > 0.04045 ? Math.pow((v + 0.055) / 1.055, 2.4) : v / 12.92; }
+function _fromLinear(v){
+  v = v > 0.0031308 ? 1.055 * Math.pow(v, 1 / 2.4) - 0.055 : 12.92 * v;
+  return Math.max(0, Math.min(255, v * 255));
+}
+
+var _WHITE_XYZ = [95.047, 100.0, 108.883];
+
+function rgbToLab(c){
+  var r = _toLinear(c[0]) * 100, g = _toLinear(c[1]) * 100, b = _toLinear(c[2]) * 100;
+  var x = _pivot((r * 0.4124 + g * 0.3576 + b * 0.1805) / _WHITE_XYZ[0]);
+  var y = _pivot((r * 0.2126 + g * 0.7152 + b * 0.0722) / _WHITE_XYZ[1]);
+  var z = _pivot((r * 0.0193 + g * 0.1192 + b * 0.9505) / _WHITE_XYZ[2]);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+
+function labToRgb(lab){
+  var y = (lab[0] + 16) / 116, x = lab[1] / 500 + y, z = y - lab[2] / 200;
+  x = _unpivot(x) * _WHITE_XYZ[0]; y = _unpivot(y) * _WHITE_XYZ[1]; z = _unpivot(z) * _WHITE_XYZ[2];
+  x /= 100; y /= 100; z /= 100;
+  return [
+    _fromLinear(x * 3.2406 + y * -1.5372 + z * -0.4986),
+    _fromLinear(x * -0.9689 + y * 1.8758 + z * 0.0415),
+    _fromLinear(x * 0.0557 + y * -0.2040 + z * 1.0570)
+  ];
+}
+
+/// Сдвинуть цвет по светлоте на `delta` единиц L*, сохранив тон.
+/// У самых краёв шкалы места нет — там уходим в противоположную сторону,
+/// иначе на почти чёрном фоне карточка получилась бы того же цвета.
+function shiftL(color, delta){
+  var lab = rgbToLab(color);
+  var next = lab[0] + delta;
+  if (next > 100) next = lab[0] - Math.abs(delta);
+  if (next < 0) next = lab[0] + Math.abs(delta);
+  return labToRgb([Math.max(0, Math.min(100, next)), lab[1], lab[2]]);
+}
+
 function themeColors(){
   var pal = paletteOf(S.palette);
   var dark = isDarkNow();
   var background = paletteColor(pal, dark ? 'darkBackground' : 'lightBackground');
   var accent = paletteColor(pal, dark ? 'accentDark' : 'accent');
-  var overlay = dark ? WHITE : BLACK;
+
+  // На тёмном фоне светлота растёт, на светлом падает — карточка всегда
+  // «ближе» к зрителю, чем фон под ней.
+  var dir = dark ? 1 : -1;
 
   return {
     dark: dark,
     background: background,
-    panel: blend(blend(background, overlay, dark ? 0.07 : 0.035), accent, 0.025),
-    panelStrong: blend(blend(background, overlay, dark ? 0.15 : 0.07), accent, 0.035),
-    stroke: blend(blend(background, overlay, dark ? 0.32 : 0.075), accent, dark ? 0.06 : 0.08),
+    // Небольшая примесь акцента остаётся: без неё панели у всех десяти
+    // палитр выглядели одинаково серыми.
+    panel: blend(shiftL(background, dir * 5.5), accent, 0.03),
+    panelStrong: blend(shiftL(background, dir * 11), accent, 0.04),
+    stroke: blend(shiftL(background, dir * 20), accent, dark ? 0.07 : 0.09),
     text: paletteColor(pal, dark ? 'darkTextPrimary' : 'lightTextPrimary'),
     textSecondary: paletteColor(pal, dark ? 'darkTextSecondary' : 'lightTextSecondary'),
     accent: accent,
@@ -895,6 +958,7 @@ function applyTheme(){
   root.setProperty('--scale', String(fontSizeOf(S.fontSize).scale));
 
   document.documentElement.setAttribute('data-dark', c.dark ? '1' : '0');
+  document.documentElement.setAttribute('data-box', S.box || 'square');
 }
 
 // Смена системной темы должна долетать сразу: переменные считает скрипт, а не
@@ -912,8 +976,12 @@ function vTop(){
     '<div class="top-acts">' +
       '<button class="iconbtn" data-act="theme" title="Тема" aria-label="Сменить тему">' +
         (S.theme === 'dark' ? '☾' : S.theme === 'light' ? '☀' : '◐') + '</button>' +
-      '<button class="iconbtn av' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
-        'title="Профиль" aria-label="Профиль">' + avatarHTML() + '</button>' +
+      // Рядом с аватаркой — имя: без него в шапке висит безымянный кружок с
+      // буквой, и непонятно, чей это аккаунт.
+      '<button class="whoami' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
+        'title="Профиль" aria-label="Профиль">' + avatarHTML() +
+        (S.profile.name ? '<span class="nm">' + esc(S.profile.name) + '</span>' : '') +
+      '</button>' +
     '</div>' +
   '</div>';
 }
@@ -1038,9 +1106,14 @@ function itemRow(t){
 
   var expandable = t.subtasks.length || t.note;
 
+  /* Внутренность рисуется всегда, а не только у раскрытой карточки: чтобы
+     раскрытие было плавным, элемент должен быть в дереве заранее — иначе
+     анимировать нечего, он появляется уже готовым. Высоту схлопывает CSS
+     (grid-template-rows: 0fr), а сама перерисовка при нажатии не запускается,
+     иначе новая разметка снова возникла бы в конечном состоянии. */
   var detail = '';
-  if (open){
-    detail = '<div class="detail">' +
+  if (true){
+    detail = '<div class="detail-wrap"><div class="detail">' +
       // Принадлежность цели — строкой словами, а не чипом с названием: чип
       // читался как метка, а не как «эта задача про вот эту цель».
       (goal ? '<p class="belongs">Относится к цели «' + esc(goal.title) + '»</p>' : '') +
@@ -1056,7 +1129,7 @@ function itemRow(t){
         '<input class="inp" type="text" placeholder="Новый подпункт" data-subadd="' + t.id + '" autocomplete="off">' +
         '<button class="btn sm" data-act="subadd" data-task="' + t.id + '">Добавить</button>' +
       '</div>' +
-    '</div>';
+    '</div></div>';
   }
 
   // Раскрывается вся карточка, а не отдельная кнопка «подпункты»: тап по
@@ -1095,6 +1168,10 @@ function vComposer(){
     '<form class="say" data-form="add">' +
       '<label class="visually-hidden" for="field">Новая задача</label>' +
       '<input id="field" type="text" autocomplete="off" enterkeyhint="done" placeholder="Купить молоко завтра в 9 утра" value="' + esc(S.draft) + '">' +
+      // Кнопка ассистента рядом с отправкой: место под будущий Syn. Пока
+      // объясняет, почему его здесь нет, — заглушка с искоркой, которая
+      // молча ничего не делает, была бы хуже.
+      '<button class="ai" type="button" data-act="ai" aria-label="Ассистент Syn" title="Ассистент Syn">' + ICON.ai + '</button>' +
       '<button class="send" type="submit" aria-label="Добавить задачу">↑</button>' +
     '</form>' +
     // Подсказка про разбор строки нужна ровно один раз: дальше она просто
@@ -1343,7 +1420,7 @@ function vGoals(){
     var p = goalProgress(g);
     var open = !!S.openGoal[g.id];
 
-    html += '<section class="goalcard' + (open ? ' open' : '') + '">' +
+    html += '<section class="goalcard' + (open ? ' open' : '') + '" data-goal="' + g.id + '">' +
       '<button class="goalcard-h" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
         '<span class="gt">' + esc(g.title) + '</span>' +
         '<span class="gp mono">' + pct(p.done, p.total) + '%</span>' +
@@ -1355,7 +1432,9 @@ function vGoals(){
         ' · ' + g.stages.length + ' ' + plural(g.stages.length, 'этап', 'этапа', 'этапов') +
         (g.horizon ? ' · ' + esc(g.horizon) : '') +
       '</div>' +
-      (open ? goalBody(g) : '') +
+      // Как и у задач: тело рисуется всегда, высоту схлопывает CSS —
+      // иначе раскрытие нечем анимировать.
+      '<div class="goalbody-wrap">' + goalBody(g) + '</div>' +
     '</section>';
   }
 
@@ -1508,13 +1587,8 @@ function vAnalytics(){
     '</div>' +
   '</section>';
 
-  html += '<p class="lbl">По блокам дня</p><section class="card"><div class="lines">' +
-    BUCKETS.map(function(b){
-      var all = S.tasks.filter(function(t){ return t.bucket === b.id; });
-      var d = all.filter(function(t){ return t.done; }).length;
-      return '<div class="line"><span>' + esc(b.title) + '</span>' +
-        '<span class="mono" style="color:var(--fg-3);flex:none">' + d + ' / ' + all.length + '</span></div>';
-    }).join('') + '</div></section>';
+  // Разбивки по блокам дня здесь нет: те же числа видно на самом экране
+  // задач, у каждого блока рядом с названием.
 
   // Дублирующего списка целей под картой нет: карта их и показывает, а на
   // экране «Цели» они лежат целиком.
@@ -2003,24 +2077,34 @@ function stopTicker(){
    моно, AAC 64 кбит/с, длинные дорожки обрезаны до полутора минут и
    зациклены. Сорок пять мегабайт исходников в браузер не тянут, три —
    нормально. */
-/* Первые пять — записи из приложения. Остальные семь синтезированы: готовых
-   файлов взять неоткуда, а ветер, прибой и шум в природе и есть
-   отфильтрованный шум, так что подделкой это не выглядит. Каждая дорожка
-   сшита сама с собой кроссфейдом, поэтому цикл не щёлкает. Генератор —
-   scripts/gen_ambience.py. */
+/* Все двенадцать — настоящие записи, не синтез. Пять первых пришли из
+   приложения, семь остальных — полевые записи под Public Domain Mark 1.0
+   (archive.org и Викисклад): авторские права на них не заявлены, но людей,
+   которые их сделали, мы называем — см. раздел «О сервисе».
+
+   Каждая дорожка нарезана скриптом scripts/make_loops.py: из длинной записи
+   берётся ровный участок в полторы-две минуты, конец сшивается с началом
+   кроссфейдом, поэтому петля не щёлкает. */
 var SOUNDS = [
-  { id: 'rain',      title: 'Дождь',  hint: 'Ровный шум по стеклу' },
-  { id: 'forest',    title: 'Лес',    hint: 'Листва и редкие птицы' },
-  { id: 'stream',    title: 'Ручей',  hint: 'Вода по камням' },
-  { id: 'fireplace', title: 'Камин',  hint: 'Треск поленьев' },
-  { id: 'flute',     title: 'Флейта', hint: 'Медленный мотив' },
-  { id: 'wind',      title: 'Ветер',  hint: 'Порывы в поле' },
-  { id: 'surf',      title: 'Прибой', hint: 'Волна за волной' },
-  { id: 'storm',     title: 'Гроза',  hint: 'Ливень и дальние раскаты' },
-  { id: 'night',     title: 'Ночь',   hint: 'Сверчки в темноте' },
-  { id: 'bowl',      title: 'Чаша',   hint: 'Поющая чаша' },
-  { id: 'hum',       title: 'Гул',    hint: 'Низкий ровный фон' },
-  { id: 'noise',     title: 'Шум',    hint: 'Розовый шум' }
+  { id: 'rain',      title: 'Дождь',   hint: 'Ровный шум по стеклу' },
+  { id: 'forest',    title: 'Лес',     hint: 'Листва и редкие птицы' },
+  { id: 'stream',    title: 'Ручей',   hint: 'Вода по камням' },
+  { id: 'fireplace', title: 'Камин',   hint: 'Треск поленьев' },
+  { id: 'flute',     title: 'Флейта',  hint: 'Медленный мотив' },
+  { id: 'wind',      title: 'Ветер',   hint: 'Шум в кронах',
+    by: 'Kawcze, Польша · radio aporee' },
+  { id: 'surf',      title: 'Прибой',  hint: 'Волна о камни',
+    by: 'Сан-Висенти · radio aporee' },
+  { id: 'storm',     title: 'Гроза',   hint: 'Ливень и раскаты',
+    by: 'Викисклад, запись после жаркого дня' },
+  { id: 'night',     title: 'Ночь',    hint: 'Сверчки в темноте',
+    by: 'Голета, Калифорния · radio aporee' },
+  { id: 'bowl',      title: 'Чаша',    hint: 'Поющая чаша и вода',
+    by: 'archive.org' },
+  { id: 'dawn',      title: 'Рассвет', hint: 'Птицы на восходе',
+    by: 'Дофар, Оман · radio aporee' },
+  { id: 'snow',      title: 'Вершина', hint: 'Ветер на высоте',
+    by: 'Орескутан, Швеция · radio aporee' }
 ];
 
 function soundOf(name){
@@ -2217,8 +2301,8 @@ function soundGlyph(id){
     storm:     '<path d="M7 13a4 4 0 0 1 1-7.9 5 5 0 0 1 9.5 1.5A3.2 3.2 0 0 1 18 13"/><path d="M13 11l-3 5h4l-3 5"/>',
     night:     '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
     bowl:      '<path d="M4 10h16a8 8 0 0 1-16 0z"/><path d="M9 6.5c1-1.5 5-1.5 6 0"/><path d="M12 3v2"/>',
-    hum:       '<path d="M3 12h3l2-4 3 8 3-10 2.5 6H21"/>',
-    noise:     '<path d="M3 12h1.5l1-3 1.5 6 1.5-8 1.5 10 1.5-7 1.5 5 1.5-4 1.5 3H21"/>'
+    dawn:      '<path d="M3 18h18"/><path d="M6.5 18a5.5 5.5 0 0 1 11 0"/><path d="M12 4v2.5M5 7l1.7 1.7M19 7l-1.7 1.7"/>',
+    snow:      '<path d="M4 18l6-11 4 6 2.5-3L21 18z"/><path d="M3 7c2-1.6 4 1.6 6 0"/>'
   };
   return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (paths[id] || '') + '</svg>';
 }
@@ -2267,6 +2351,39 @@ function vProfile(){
   '</section>';
 
   return html;
+}
+
+/* Плавное раскрытие карточки. Высоту меряем сами: анимировать «auto» браузер
+   не умеет, а трюк с нулевой fr-дорожкой держат не все движки.
+
+   Порядок такой: зафиксировали текущую высоту, распрямили на один кадр, чтобы
+   узнать целевую, вернули текущую, и только потом поехали к цели. Без этой
+   пляски переход стартует из «auto» и не проигрывается вовсе.
+
+   После перехода inline-высота снимается: у раскрытой карточки содержимое
+   должно расти само, когда в неё добавляют подпункт. */
+function foldOpen(card, wrap, open){
+  if (!wrap){ card.classList.toggle('open', open); return; }
+
+  // scrollHeight отдаёт высоту содержимого даже у схлопнутой обёртки, поэтому
+  // распрямлять её на кадр и мерить не нужно: одно чтение вместо трёх, и
+  // никакой зависимости от того, когда браузер пересчитает стили.
+  var from = wrap.getBoundingClientRect().height;
+  var to = open ? wrap.scrollHeight : 0;
+
+  card.classList.toggle('open', open);
+  wrap.style.height = from + 'px';
+  void wrap.offsetHeight;
+  wrap.style.height = to + 'px';
+
+  clearTimeout(wrap._foldTimer);
+  wrap._foldTimer = setTimeout(function(){
+    // У раскрытой высоту отпускаем, чтобы содержимое могло расти, когда в неё
+    // добавляют подпункт. У свёрнутой оставляем нулевую inline-высоту, а не
+    // полагаемся на правило в CSS: если переход почему-то не проиграется,
+    // карточка всё равно останется закрытой, а не зависнет раскрытой.
+    wrap.style.height = open ? '' : '0px';
+  }, 280);
 }
 
 /// Аватарка или первая буква имени, если фото не загружено.
@@ -2355,6 +2472,14 @@ function vSettingsView(){
       return '<button class="radio" data-act="set-fontsize" data-size="' + z.id + '" aria-pressed="' + (S.fontSize === z.id) + '">' + z.title + '</button>';
     }).join('') + '</div>';
 
+  // Отметку показываем прямо на кнопке выбора — заполненной, чтобы было
+  // видно, как она будет выглядеть у закрытой задачи.
+  html += '<p class="lbl">Отметка выполнения</p><div class="radios">' +
+    BOXES.map(function(b){
+      return '<button class="radio boxpick" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '">' +
+        '<span class="box on" data-shape="' + b.id + '">✓</span>' + b.title + '</button>';
+    }).join('') + '</div>';
+
   html += '<section class="card preview">' +
     '<h3>Собрать материалы</h3>' +
     '<p class="sub">Так будет выглядеть текст при выбранном шрифте и размере.</p>' +
@@ -2408,6 +2533,18 @@ function vAbout(){
   // нас, а не обнаружить сам.
   html += '<p class="lbl">Чего пока нет</p><section class="card">' +
     '<p class="sub">Ассистент Syn и брифинги работают только в приложении: запросы к нему требуют проверки устройства, которой в браузере не существует. Нет уведомлений, звука в медитации и синхронизации с приложением — данные переносятся файлом в разделе «Данные».</p>' +
+  '</section>';
+
+  // Права на записи не заявлены, но людей, которые вышли в поле с
+  // микрофоном, назвать надо.
+  html += '<p class="lbl">Звуки медитации</p><section class="card">' +
+    '<p class="sub">Полевые записи под Public Domain Mark 1.0 — авторские права не заявлены. Собраны с archive.org (проект radio aporee ::: maps) и Викисклада, нарезаны в петли по полторы минуты.</p>' +
+    '<div class="lines" style="margin-top:12px">' +
+      SOUNDS.filter(function(s){ return s.by; }).map(function(s){
+        return '<div class="line"><span>' + esc(s.title) + '</span>' +
+          '<span style="color:var(--fg-3);font-size:12.5px;flex:none;text-align:right">' + esc(s.by) + '</span></div>';
+      }).join('') +
+    '</div>' +
   '</section>';
 
   html += '<p class="lbl">Ссылки</p>' +
@@ -2519,6 +2656,19 @@ function closeModal(){
 }
 
 var HORIZONS = ['Месяц', 'Квартал', 'Полгода', 'Год', 'Три года'];
+
+/* Форма отметки выполнения. По умолчанию скруглённый квадрат — как в
+   приложении; остальные варианты для тех, кому так привычнее. Форму задаёт
+   CSS через data-box на корне, кроме звезды и треугольника: их прямоугольником
+   не нарисуешь, поэтому там clip-path. */
+var BOXES = [
+  { id: 'square',   title: 'Квадрат' },
+  { id: 'circle',   title: 'Круг' },
+  { id: 'sharp',    title: 'Угол' },
+  { id: 'triangle', title: 'Треугольник' },
+  { id: 'star',     title: 'Звезда' },
+  { id: 'heart',    title: 'Сердце' }
+];
 
 /// `draftTitle` приходит из строки создания: название уже введено, спросить
 /// осталось два оставшихся поля.
@@ -2707,10 +2857,25 @@ var ACTS = {
     commit();
   },
   more: function(){ S.more = !S.more; commit(); },
+
+  /* Место под ассистента. Пока он не подключён, кнопка честно объясняет
+     почему, а не молчит и не изображает работу. Когда появится веб-сессия,
+     сюда придёт разбор строки через Syn. */
+  ai: function(){
+    openModal(
+      '<h3>Ассистент Syn</h3>' +
+      '<p class="s">Здесь будет разбор словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель».</p>' +
+      '<section class="card" style="margin:0 0 16px">' +
+        '<p class="sub">Сейчас Syn работает только в приложении. Запросы к нему требуют проверки устройства, которой в браузере не существует, — вебу нужен свой вход, и он в работе.</p>' +
+      '</section>' +
+      '<button class="btn full" data-act="close-modal">Понятно</button>'
+    );
+  },
   'set-theme': function(d){ S.theme = d.theme; commit(); },
   'set-palette': function(d){ S.palette = d.palette; commit(); },
   'set-font': function(d){ S.font = d.font; commit(); },
   'set-fontsize': function(d){ S.fontSize = d.size; commit(); },
+  'set-box': function(d){ S.box = d.box; commit(); },
 
   /* Фото профиля. Кладём его в состояние как data-URI, поэтому картинку
      сначала ужимаем: снимок с телефона — это мегабайты, а весь localStorage
@@ -2800,7 +2965,17 @@ var ACTS = {
     }
     commit('');
   },
-  expand: function(d){ S.open[d.task] = !S.open[d.task]; commit(); },
+  /* Раскрытие меняет один класс, а не перерисовывает экран: перерисовка
+     подменила бы карточку уже раскрытой, и переход было бы не увидеть. */
+  expand: function(d){
+    S.open[d.task] = !S.open[d.task];
+    save();
+    var card = document.querySelector('.item[data-task="' + d.task + '"]');
+    if (!card){ render(); return; }
+    var title = card.querySelector('.t');
+    if (title) title.setAttribute('aria-expanded', String(!!S.open[d.task]));
+    foldOpen(card, card.querySelector('.detail-wrap'), S.open[d.task]);
+  },
   'kill-task': function(d){
     S.tasks = S.tasks.filter(function(t){ return t.id !== d.task; });
     commit('Задача удалена');
@@ -2895,7 +3070,12 @@ var ACTS = {
   },
   'fold-goal': function(d){
     S.openGoal[d.goal] = !S.openGoal[d.goal];
-    commit();
+    save();
+    var card = document.querySelector('.goalcard[data-goal="' + d.goal + '"]');
+    if (!card){ render(); return; }
+    var head = card.querySelector('.goalcard-h');
+    if (head) head.setAttribute('aria-expanded', String(!!S.openGoal[d.goal]));
+    foldOpen(card, card.querySelector('.goalbody-wrap'), S.openGoal[d.goal]);
   },
   /* Создание цели строкой. У цели, кроме названия, есть ещё два поля — зачем
      она и на какой срок, — и спрашиваются они сразу: заполнять их потом

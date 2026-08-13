@@ -93,7 +93,14 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 .brand{display:flex; align-items:center; gap:10px; min-width:0}
 .brand .mark{width:28px; height:28px; border-radius:10px; background:var(--fg); color:var(--bg); display:grid; place-items:center; font-family:var(--display); font-weight:800; font-size:15px; flex:none}
 .brand .nm{font-family:var(--display); font-size:18px; font-weight:800; letter-spacing:-.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.top-acts{margin-left:auto; display:flex; align-items:center; gap:8px; flex:none}
+.top-acts{margin-left:auto; display:flex; align-items:center; gap:8px; flex:none; min-width:0}
+/* Аватарка с именем рядом. Имя обрезается многоточием, а не выдавливает
+   кнопку темы с экрана. */
+.whoami{display:flex; align-items:center; gap:9px; padding:4px 12px 4px 4px; border-radius:999px; background:var(--card); border:1px solid var(--stroke); box-shadow:var(--shadow); min-width:0; max-width:220px}
+.whoami:not(:has(.nm)){padding-right:4px}
+.whoami .nm{font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.whoami.on{background:var(--fg); color:var(--bg); border-color:var(--fg)}
+.whoami.on .avatar{background:transparent; color:var(--bg)}
 .iconbtn{width:38px; height:38px; border-radius:999px; background:var(--card); border:1px solid var(--stroke); box-shadow:var(--shadow); display:grid; place-items:center; font-size:15px; flex:none}
 .iconbtn.on{background:var(--fg); color:var(--bg)}
 
@@ -196,8 +203,44 @@ select.inp{appearance:none}
 .item{position:relative; background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-md); box-shadow:var(--shadow); padding:8px 10px 8px 11px}
 .item.dragging{opacity:.45}
 .item-main{display:flex; gap:10px; align-items:flex-start}
-.box{width:20px; height:20px; border:2px solid var(--soft-2); border-radius:999px; flex:none; display:grid; place-items:center; font-size:10px; color:transparent; background:none; margin-top:1px}
+/* ---- отметка выполнения ---- */
+/* По умолчанию скруглённый квадрат, как в приложении. Форму задаёт data-box
+   на корне; выбор в настройках рисует ту же кнопку через data-shape, поэтому
+   правила ниже написаны один раз для обоих случаев. */
+.box{width:20px; height:20px; border:2px solid var(--soft-2); border-radius:7px; flex:none; display:grid; place-items:center; font-size:10px; color:transparent; background:none; margin-top:1px; transition:background .14s ease, border-color .14s ease}
 .box.on{background:var(--ok); border-color:var(--ok); color:#fff}
+
+:root[data-box="circle"] .box:not([data-shape]),
+.box[data-shape="circle"]{border-radius:999px}
+:root[data-box="sharp"] .box:not([data-shape]),
+.box[data-shape="sharp"]{border-radius:3px}
+
+/* Треугольник, звезда и сердце рамкой не рисуются — берём заливку и
+   вырезаем форму. Пустое состояние остаётся видимым за счёт подложки. */
+:root[data-box="triangle"] .box:not([data-shape]),
+:root[data-box="star"] .box:not([data-shape]),
+:root[data-box="heart"] .box:not([data-shape]),
+.box[data-shape="triangle"], .box[data-shape="star"], .box[data-shape="heart"]{
+  border:0; border-radius:0; background:var(--soft-2); color:transparent;
+  width:22px; height:22px; font-size:9px;
+}
+:root[data-box="triangle"] .box.on:not([data-shape]),
+:root[data-box="star"] .box.on:not([data-shape]),
+:root[data-box="heart"] .box.on:not([data-shape]),
+.box.on[data-shape="triangle"], .box.on[data-shape="star"], .box.on[data-shape="heart"]{
+  background:var(--ok); color:transparent;
+}
+:root[data-box="triangle"] .box:not([data-shape]), .box[data-shape="triangle"]{
+  clip-path:polygon(50% 4%, 96% 92%, 4% 92%);
+}
+:root[data-box="star"] .box:not([data-shape]), .box[data-shape="star"]{
+  clip-path:polygon(50% 2%, 61% 36%, 97% 36%, 68% 58%, 79% 92%, 50% 71%, 21% 92%, 32% 58%, 3% 36%, 39% 36%);
+}
+:root[data-box="heart"] .box:not([data-shape]), .box[data-shape="heart"]{
+  clip-path:path('M11 20 C 2 13, 1 7, 5 4 C 8 2, 11 4, 11 7 C 11 4, 14 2, 17 4 C 21 7, 20 13, 11 20 Z');
+}
+.radio.boxpick{display:inline-flex; align-items:center; gap:9px; padding-left:10px}
+.radio.boxpick .box{margin-top:0}
 /* Название — кнопка: карточка раскрывается тапом целиком, но с клавиатуры
    нужна цель для табуляции. Выглядит как текст. */
 .item .t{font-size:15px; font-weight:600; letter-spacing:-.015em; line-height:1.28; display:block; width:100%; overflow-wrap:anywhere; padding:0}
@@ -220,6 +263,23 @@ select.inp{appearance:none}
 /* Значки были символами шрифта (⇅ ✎ ✕): в разных браузерах разной толщины,
    а «перенести в блок» из стрелок не читалось вовсе. Теперь рисунок свой. */
 .item .side button svg{width:16px; height:16px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+/* ---- плавное раскрытие ---- */
+/* Высоту ведёт JS замером (foldOpen): приём с grid-template-rows от 0fr к 1fr
+   короче, но в части движков нулевая fr-дорожка не схлопывается — карточка
+   раскрывалась рывком. Замер работает везде.
+
+   Свёрнутое состояние держит CSS, а во время перехода высоту задаёт inline —
+   он перебивает правило ниже, а после перехода снимается. */
+.detail-wrap,
+.goalbody-wrap{overflow:hidden; transition:height .24s ease, opacity .2s ease}
+.item:not(.open) .detail-wrap,
+.goalcard:not(.open) .goalbody-wrap{height:0; opacity:0}
+.item.open .detail-wrap,
+.goalcard.open .goalbody-wrap{opacity:1}
+@media (prefers-reduced-motion:reduce){
+  .detail-wrap, .goalbody-wrap{transition:none}
+}
+
 /* Подпункты сдвинуты вправо под название задачи, а не стоят вровень с ней:
    вровень они читались как ещё несколько самостоятельных задач. Отступ равен
    кружку плюс зазор — ровно там, где начинается текст задачи. */
@@ -242,6 +302,11 @@ select.inp{appearance:none}
 .say{display:flex; gap:8px; align-items:center; background:var(--soft); border:1.5px solid var(--fg-3); border-radius:999px; padding:7px 7px 7px 18px; box-shadow:var(--shadow-lift), 0 0 0 5px var(--bg)}
 .say input{flex:1; border:0; background:none; outline:0; font-size:15px; min-width:0}
 .say input::placeholder{color:var(--fg-3); opacity:.85}
+/* Кнопка ассистента слева от отправки: тише её, но заметнее обычной иконки.
+   Фон — карточный, а не soft: сама панель уже soft, и кружок на ней пропадал. */
+.say .ai{width:38px; height:38px; border-radius:999px; display:grid; place-items:center; flex:none; background:var(--card); border:1px solid var(--stroke); color:var(--accent)}
+.say .ai:hover{background:var(--accent-soft); border-color:var(--accent)}
+.say .ai svg{width:19px; height:19px; fill:currentColor; stroke:none}
 .say .send{width:38px; height:38px; border-radius:999px; background:var(--fg); color:var(--bg); display:grid; place-items:center; flex:none; font-size:17px}
 .composer .hint{margin:8px auto 0; font-size:11.5px; background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px 8px 14px; max-width:520px; box-shadow:var(--shadow)}
 .composer .hint.tip{display:flex; align-items:flex-start; gap:8px; text-align:left}
@@ -329,7 +394,7 @@ select.inp{appearance:none}
    (требование: горизонтальной прокрутки у страницы быть не должно). */
 /* У рамки карты фиксированная высота. Раньше она подстраивалась под холст, и
    экран аналитики прыгал: одна цель — полоска, четыре — половина страницы. */
-.mmwrap{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:10px; margin-bottom:var(--gap); height:320px; overflow:auto; -webkit-overflow-scrolling:touch; display:grid; place-items:center}
+.mmwrap{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:10px; margin-bottom:var(--gap); height:640px; overflow:auto; -webkit-overflow-scrolling:touch; display:grid; place-items:center}
 .mmwrap svg{display:block; height:auto}
 
 /* На телефоне в рамку помещался ствол и обрезанные края двух целей, а сверху
@@ -477,10 +542,10 @@ body.mm-open{overflow:hidden}
   body{ padding-left:calc(var(--rail) + var(--gutter)) }
 
   .tabbar{
-    left:var(--gutter); transform:none;
-    /* Под шапкой, а не по центру окна: навигация, висящая посреди пустоты,
-       читается как случайно оставленный блок. */
-    top:104px; bottom:auto;
+    left:var(--gutter); transform:translateY(-50%);
+    /* Ровно по центру окна: привязка к верху давала «чуть выше центра» —
+       положение, которое читается как небрежность, а не как решение. */
+    top:50%; bottom:auto;
     width:var(--rail);
     border-radius:22px; padding:10px;
   }
