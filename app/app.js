@@ -5598,8 +5598,35 @@ watchScrollTop();
 function registerServiceWorker(){
   if (!('serviceWorker' in navigator)) return;
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') return;
+
+  /* Обновление показывается сразу, а не со второй перезагрузки.
+
+     Оболочка отдаётся из кэша, поэтому выложенная новая версия доезжала так:
+     первое открытие — старая страница и тихая закачка новой, и только следующее
+     открытие показывало свежее. Снаружи это выглядит как «ничего не
+     обновилось», и человек либо жмёт Cmd+Shift+R, либо решает, что выкладка не
+     сработала.
+
+     Теперь новый service worker, забрав управление, говорит об этом странице, и
+     она перезагружается один раз. Флаг нужен, чтобы это был именно один раз:
+     без него claim после перезагрузки снова просил бы перезагрузиться. */
+  var hadController = !!navigator.serviceWorker.controller;
+  var reloading = false;
+
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    // Первая установка управления — это не обновление, а первое открытие
+    // вообще: перезагружать нечего.
+    if (!hadController || reloading) return;
+    reloading = true;
+    location.reload();
+  });
+
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('sw.js').catch(function(){});
+    navigator.serviceWorker.register('sw.js').then(function(registration){
+      // Проверка на свежесть при каждом открытии: браузер и сам ходит за
+      // sw.js, но не обещает делать это на каждой навигации.
+      registration.update().catch(function(){});
+    }).catch(function(){});
   });
 }
 
