@@ -279,6 +279,13 @@ a { color: var(--accent-strong); }
   color: var(--text);
 }
 
+/* Кнопка входа в само приложение. В шапке она стоит рядом с телеграмом и не
+   должна его перекрикивать — заливка тихая, вес несёт только текст. */
+.btn-app {
+  background: var(--accent-deep);
+  color: var(--text-on-dark);
+}
+
 .ico {
   width: 19px;
   height: 19px;

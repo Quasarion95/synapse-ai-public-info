@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Synapse — планировщик</title>
+    <meta name="description" content="Цели, этапы и задачи дня. Записи хранятся в этом браузере.">
+    <link rel="stylesheet" href="app.css">
+
+    <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и
+         так лежат в браузере, из сети приходила только оболочка. -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Synapse">
+    <meta name="mobile-web-app-capable" content="yes">
+    <!-- Цвет строки браузера подстраивается под тему: светлый и тёмный фон
+         палитры «Бумага» из AppTheme. -->
+    <meta name="theme-color" content="#F6F2E7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1C1F1A" media="(prefers-color-scheme: dark)">
+  </head>
+  <body>
+    <!--
+      Каркас намеренно пустой: шапку, экран и таб-бар рисует app.js строками,
+      как в прототипе «Дедлайна». Здесь только три контейнера и модалка.
+    -->
+    <header class="top" id="top"></header>
+    <main id="app"></main>
+    <nav class="tabbar" id="tabbar"></nav>
+    <div class="modal" id="modal"><div class="modal-in" id="modalIn"></div></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
