@@ -113,7 +113,7 @@ function seed(){
         body: 'Обсудили сроки: черновой этап к 20 числу, приём работ через неделю.' }
     ],
     pomodoro: { focus: 25, shortBreak: 5, longBreak: 15, mode: 'focus', doneToday: 0 },
-    meditation: { minutes: 10, sound: 'Дождь', doneTotal: 0 }
+    meditation: { minutes: 10, sound: 'Дождь', doneTotal: 0, totalMinutes: 0, volume: 0.7 }
   };
 }
 
@@ -132,6 +132,8 @@ function load(){
     if (!parsed.open) parsed.open = {};
     if (!parsed.profile) parsed.profile = { name: '', avatar: '' };
     if (!parsed.openGoal) parsed.openGoal = {};
+    if (typeof parsed.meditation.volume !== 'number') parsed.meditation.volume = 0.7;
+    if (typeof parsed.meditation.totalMinutes !== 'number') parsed.meditation.totalMinutes = 0;
     if (typeof parsed.goalDraft !== 'string') parsed.goalDraft = '';
     if (!parsed.font) parsed.font = 'rounded';
     if (!parsed.fontSize) parsed.fontSize = 'standard';
@@ -261,12 +263,15 @@ function tasksOfStage(goalId, stageId){
 /* Порядок, названия и подписи — из TaskBucket в Models.swift. День, в котором
    лежит задача, это единственное, в чём веб и приложение не имеют права
    расходиться. */
+/* Подписей под названиями блоков нет: «Сегодня» не нуждается в пояснении
+   «то, что важно не потерять сегодня». Пять таких строк съедали экран и
+   ничего не сообщали. */
 var BUCKETS = [
-  { id: 'today',             title: 'Сегодня',      sub: 'То, что важно не потерять сегодня' },
-  { id: 'tomorrow',          title: 'Завтра',       sub: 'Следующий день без перегруза' },
-  { id: 'dayAfterTomorrow',  title: 'Послезавтра',  sub: 'Ближайший горизонт' },
-  { id: 'thisWeek',          title: 'На неделе',    sub: 'Все, что должно двинуться в течение недели' },
-  { id: 'later',             title: 'Потом',        sub: 'Идеи и задачи без привязки к дате' }
+  { id: 'today',             title: 'Сегодня' },
+  { id: 'tomorrow',          title: 'Завтра' },
+  { id: 'dayAfterTomorrow',  title: 'Послезавтра' },
+  { id: 'thisWeek',          title: 'На неделе' },
+  { id: 'later',             title: 'Потом' }
 ];
 
 function bucketTitle(id){
@@ -997,9 +1002,8 @@ function vTasks(){
     html += '<section class="group' + (closed ? ' closed' : '') + '">' +
       '<button class="group-h' + (closed ? ' closed' : '') + '" data-act="fold" data-bucket="' + b.id + '">' +
         '<h3>' + esc(b.title) + '</h3><span class="car">⌄</span>' +
-        '<span class="n">' + mine.length + '</span>' +
+        '<span class="n">' + taskCount(mine.length) + '</span>' +
       '</button>' +
-      '<p class="group-sub">' + esc(b.sub) + '</p>' +
       '<div class="tasklist" data-drop="' + b.id + '">' +
         (mine.length ? mine.map(itemRow).join('') :
           '<div class="dropnote">Пусто — можно перетащить сюда задачу</div>') +
@@ -1135,11 +1139,18 @@ function vFocus(){
   var withTime = today.filter(function(t){ return t.time && !t.done; })
     .sort(function(a, b){ return a.time < b.time ? -1 : 1; });
 
-  var html = head('Сегодня', 'Мой фокус');
+  // Заголовка нет: раздел назван в меню, а первая карточка сама говорит,
+  // что это фокус дня.
+  var html = '';
 
   html += vFocusCard(today, todayDone, overdue, withTime);
-  html += '<section class="card strips">' + vDayStrip(today, todayDone, overdue) + '</section>';
-  html += '<section class="card strips">' + vHorizonStrip() + '</section>';
+  // День и горизонт — одна мысль: что сегодня и что дальше. Двумя карточками
+  // они читались как два несвязанных виджета.
+  html += '<section class="card strips">' +
+      vDayStrip(today, todayDone, overdue) +
+      '<div class="strip-split"></div>' +
+      vHorizonStrip() +
+    '</section>';
 
   html += '<div class="counts">' +
     cnt(String(today.length), 'намечено на день') +
@@ -1463,7 +1474,7 @@ function vAnalytics(){
     stagesDone += S.goals[i].stages.filter(function(s){ return s.status === 'done'; }).length;
   }
 
-  var html = head('Статистика', 'Аналитика');
+  var html = '';
 
   if (!S.tasks.length && !S.goals.length){
     return html + blank('◔', 'Считать пока нечего',
@@ -1999,28 +2010,208 @@ function stopTicker(){
 
 /* ---- медитация ---- */
 
-var SOUNDS = ['Дождь', 'Лес', 'Ручей', 'Камин', 'Флейта'];
+/* Те же пять сред, что в приложении, и те же записи: файлы из
+   ios-prototype/TaskAIPrototype/MeditationBundleAudio, пережатые под веб —
+   моно, AAC 64 кбит/с, длинные дорожки обрезаны до полутора минут и
+   зациклены. Сорок пять мегабайт исходников в браузер не тянут, три —
+   нормально. */
+var SOUNDS = [
+  { id: 'rain',      title: 'Дождь',  hint: 'Ровный шум по стеклу' },
+  { id: 'forest',    title: 'Лес',    hint: 'Листва и редкие птицы' },
+  { id: 'stream',    title: 'Ручей',  hint: 'Вода по камням' },
+  { id: 'fireplace', title: 'Камин',  hint: 'Треск поленьев' },
+  { id: 'flute',     title: 'Флейта', hint: 'Медленный мотив' }
+];
 
+function soundOf(name){
+  for (var i = 0; i < SOUNDS.length; i++){
+    if (SOUNDS[i].title === name || SOUNDS[i].id === name) return SOUNDS[i];
+  }
+  return SOUNDS[0];
+}
+
+/* ---- сеанс медитации ---- */
+
+/* Ход сеанса живёт в памяти вкладки, а не в S: секунды, записанные в
+   localStorage, означали бы запись на диск раз в секунду и «продолжающийся»
+   сеанс после перезагрузки. В S попадает только итог. */
+var med = { running: false, paused: false, elapsed: 0, timer: null };
+var medAudio = null;
+
+/// Один элемент <audio> на всё: браузер сам подтягивает файл и зацикливает
+/// его. Создаём по первому запуску — до жеста человека звук всё равно
+/// заблокирован автоплей-политикой.
+function medAudioPlay(){
+  if (!medAudio){
+    medAudio = new Audio();
+    medAudio.loop = true;
+    medAudio.preload = 'none';
+  }
+  var file = 'audio/' + soundOf(S.meditation.sound).id + '.m4a';
+  if (medAudio.getAttribute('src') !== file){
+    medAudio.setAttribute('src', file);
+    medAudio.load();
+  }
+  medAudio.volume = S.meditation.volume;
+  var played = medAudio.play();
+  // Автоплей могли запретить, файл мог не догрузиться — сеанс от этого не
+  // должен останавливаться, но и молчать без объяснения он не должен.
+  if (played && played.catch) played.catch(function(){ toast('Звук не запустился — сеанс идёт без него'); });
+}
+
+function medAudioStop(){
+  if (!medAudio) return;
+  medAudio.pause();
+  medAudio.currentTime = 0;
+}
+
+function medStart(){
+  med.running = true;
+  med.paused = false;
+  med.elapsed = 0;
+  medAudioPlay();
+  medTick();
+  commit();
+}
+
+function medPause(){
+  med.paused = !med.paused;
+  if (med.paused){ if (medAudio) medAudio.pause(); }
+  else { medAudioPlay(); }
+  commit();
+}
+
+/// `finished` — дошли до конца, а не бросили на середине: только тогда сеанс
+/// идёт в счёт.
+function medStop(byHand){
+  var wasRunning = med.running;
+  var minutes = med.elapsed / 60;
+  clearTimeout(med.timer);
+  med.timer = null;
+  med.running = false;
+  med.paused = false;
+  med.elapsed = 0;
+  medAudioStop();
+
+  if (wasRunning){
+    // Полминуты — это не сеанс, а случайное нажатие.
+    if (minutes >= 0.5){
+      S.meditation.doneTotal += 1;
+      S.meditation.totalMinutes = (S.meditation.totalMinutes || 0) + Math.round(minutes);
+    }
+    commit(byHand
+      ? (minutes >= 0.5 ? 'Сеанс засчитан' : 'Сеанс прерван')
+      : 'Сеанс закончен');
+  } else {
+    commit();
+  }
+}
+
+/* Секунда отсчитывается по часам, а не по числу тиков: вкладка в фоне душит
+   таймеры, и счёт «сколько раз сработало» отставал бы на минуты. */
+function medTick(){
+  clearTimeout(med.timer);
+  var startedAt = Date.now() - med.elapsed * 1000;
+
+  med.timer = setInterval(function(){
+    if (!med.running){ clearInterval(med.timer); med.timer = null; return; }
+    if (med.paused){ startedAt = Date.now() - med.elapsed * 1000; return; }
+
+    med.elapsed = Math.round((Date.now() - startedAt) / 1000);
+    if (med.elapsed >= S.meditation.minutes * 60){
+      clearInterval(med.timer);
+      med.timer = null;
+      medStop(false);
+      return;
+    }
+    if (S.view === 'meditation') render();
+  }, 1000);
+}
+
+/* Экран сеанса, а не форма настроек. В центре — круг, который заполняется по
+   ходу сеанса, вокруг него всё остальное; во время дыхания лишнее уходит с
+   глаз, чтобы не на что было отвлекаться. */
 function vMeditation(){
+  var m = S.meditation;
+  var running = med.running;
+  var total = m.minutes * 60;
+  var leftSec = running ? Math.max(0, total - med.elapsed) : total;
+  var progress = total ? Math.min(1, med.elapsed / total) : 0;
+  var sound = soundOf(m.sound);
+
   var html = head('Передышка', 'Медитация');
-  html += '<section class="card">' +
-    '<h3>Готово к запуску</h3>' +
-    '<p class="sub">Звук в вебе пока не подключён — экран показывает состав сеанса.</p>' +
-    '<div class="field" style="margin-top:16px"><label>Длительность</label><div class="radios">' +
-      [5, 10, 15, 20, 30].map(function(m){
-        return '<button class="radio" data-act="med-min" data-min="' + m + '" aria-pressed="' + (S.meditation.minutes === m) + '">' + m + ' мин</button>';
-      }).join('') + '</div></div>' +
-    '<div class="field"><label>Звуковая среда</label><div class="radios">' +
-      SOUNDS.map(function(s){
-        return '<button class="radio" data-act="med-sound" data-sound="' + s + '" aria-pressed="' + (S.meditation.sound === s) + '">' + s + '</button>';
-      }).join('') + '</div></div>' +
-    '<div class="acts"><button class="btn" data-act="med-start">Старт</button></div>' +
+
+  html += '<section class="card med' + (running ? ' on' : '') + '">' +
+    '<div class="med-dial" style="--p:' + progress.toFixed(4) + '">' +
+      '<div class="med-ring"></div>' +
+      '<div class="med-face">' +
+        '<b class="mono">' + clockText(leftSec) + '</b>' +
+        '<span>' + (running ? breathWord() : esc(sound.title)) + '</span>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="med-acts">' +
+      (running
+        ? '<button class="btn" data-act="med-stop">Завершить</button>' +
+          '<button class="btn soft" data-act="med-pause">' + (med.paused ? 'Продолжить' : 'Пауза') + '</button>'
+        : '<button class="btn" data-act="med-start">Начать сеанс</button>') +
+    '</div>' +
   '</section>';
-  html += '<div class="counts">' +
-    cnt(String(S.meditation.doneTotal), 'сеансов всего') +
-    cnt(S.meditation.minutes + ' мин', 'длительность') +
-  '</div>';
+
+  if (!running){
+    html += '<p class="lbl">Сколько</p><div class="radios">' +
+      [3, 5, 10, 15, 20, 30].map(function(min){
+        return '<button class="radio" data-act="med-min" data-min="' + min + '" aria-pressed="' + (m.minutes === min) + '">' + min + ' мин</button>';
+      }).join('') + '</div>';
+
+    html += '<p class="lbl">Звук</p><div class="soundgrid">' +
+      SOUNDS.map(function(s){
+        var on = sound.id === s.id;
+        return '<button class="soundcard' + (on ? ' on' : '') + '" data-act="med-sound" data-sound="' + s.id + '" aria-pressed="' + on + '">' +
+          '<span class="sw">' + soundGlyph(s.id) + '</span>' +
+          '<span class="tt">' + esc(s.title) + '</span>' +
+          '<span class="ss">' + esc(s.hint) + '</span>' +
+        '</button>';
+      }).join('') + '</div>';
+
+    html += '<p class="lbl">Громкость</p><section class="card volume">' +
+      '<input class="range" type="range" min="0" max="100" step="1" value="' + Math.round(m.volume * 100) + '" ' +
+        'data-volume aria-label="Громкость">' +
+      '<span class="mono vv">' + Math.round(m.volume * 100) + '</span>' +
+    '</section>';
+
+    html += '<div class="counts">' +
+      cnt(String(m.doneTotal), 'сеансов всего') +
+      cnt(Math.round(m.totalMinutes || 0) + ' мин', 'всего в тишине') +
+    '</div>';
+  }
+
   return html;
+}
+
+/// Кружки-глифы для звуков: рисунок, а не эмодзи, — эмодзи в разных системах
+/// выглядят по-разному и ломают спокойный тон экрана.
+function soundGlyph(id){
+  var paths = {
+    rain:      '<path d="M6 10a4 4 0 0 1 4-4 5 5 0 0 1 9.6 1.4A3.3 3.3 0 0 1 19 14H10a4 4 0 0 1-4-4z"/><path d="M9 17.5l-1 3M13 17.5l-1 3M17 17.5l-1 3"/>',
+    forest:    '<path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/>',
+    stream:    '<path d="M3 9c3-2.5 6 2.5 9 0s6-2.5 9 0"/><path d="M3 14c3-2.5 6 2.5 9 0s6-2.5 9 0"/><path d="M3 19c3-2.5 6 2.5 9 0s6-2.5 9 0"/>',
+    fireplace: '<path d="M12 3c1 3.5-2 4.5-2 7a4 4 0 0 0 8 0c0-1.2-.4-2.2-1-3 .3 2-1 3-1.6 1.6C14.6 6.6 13.8 4.6 12 3z"/><path d="M8.5 12.5A5 5 0 0 0 12 21a5 5 0 0 0 3.5-8.5"/>',
+    flute:     '<path d="M4 15c2-6 6-10 12-11l4 4c-1 6-5 10-11 12z"/><circle cx="10" cy="14" r="1"/><circle cx="14" cy="10" r="1"/>'
+  };
+  return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (paths[id] || '') + '</svg>';
+}
+
+/// Слово вместо секундомера во время сеанса: вдох четыре секунды, выдох
+/// шесть — ритм, на который спокойно ложится дыхание.
+function breathWord(){
+  var cycle = med.elapsed % 10;
+  return cycle < 4 ? 'Вдох' : 'Выдох';
+}
+
+function clockText(seconds){
+  var mm = Math.floor(seconds / 60), ss = seconds % 60;
+  return (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
 }
 
 /* ============ ПРОФИЛЬ ============ */
@@ -2292,8 +2483,13 @@ function importBackup(text){
 function openModal(html){
   $('modalIn').innerHTML = html;
   $('modal').classList.add('on');
-  var first = $('modalIn').querySelector('input, textarea, select');
-  if (first) first.focus();
+  // Курсор встаёт в первое пустое поле, а не в первое подряд: когда название
+  // уже введено в строке создания, начинать надо со следующего вопроса.
+  var fields = $('modalIn').querySelectorAll('input, textarea, select');
+  for (var i = 0; i < fields.length; i++){
+    if (!fields[i].value){ fields[i].focus(); return; }
+  }
+  if (fields.length) fields[0].focus();
 }
 
 function closeModal(){
@@ -2301,14 +2497,24 @@ function closeModal(){
   $('modalIn').innerHTML = '';
 }
 
-function modalGoal(goal){
-  var g = goal || { title: '', purpose: '', horizon: '' };
-  return '<h3>' + (goal ? 'Редактировать цель' : 'Создать цель') + '</h3>' +
-    '<p class="s">Чего хочешь добиться и что это тебе даст.</p>' +
-    '<div class="field"><label>Название</label><input class="inp" id="m-title" value="' + esc(g.title) + '" placeholder="Например: выйти на доход 300 000"></div>' +
-    '<div class="field"><label>Зачем</label><textarea class="inp" id="m-purpose" placeholder="Что изменится, когда цель будет достигнута">' + esc(g.purpose) + '</textarea></div>' +
-    '<div class="field"><label>Горизонт</label><input class="inp" id="m-horizon" value="' + esc(g.horizon) + '" placeholder="Год"></div>' +
-    '<button class="btn full" data-act="save-goal"' + (goal ? ' data-goal="' + goal.id + '"' : '') + '>Сохранить</button>' +
+/// `draftTitle` приходит из строки создания: название уже введено, спросить
+/// осталось два оставшихся поля.
+function modalGoal(goal, draftTitle){
+  var g = goal || { title: draftTitle || '', purpose: '', horizon: '' };
+  var fresh = !goal;
+  return '<h3>' + (fresh ? 'Ещё два вопроса' : 'Редактировать цель') + '</h3>' +
+    '<p class="s">' + (fresh
+      ? 'Цель без «зачем» через месяц ничем не отличается от списка дел.'
+      : 'Чего хочешь добиться и что это тебе даст.') + '</p>' +
+    '<div class="field"><label for="m-title">Название</label>' +
+      '<input class="inp" id="m-title" value="' + esc(g.title) + '" placeholder="Например: выйти на доход 300 000"></div>' +
+    '<div class="field"><label for="m-purpose">Зачем</label>' +
+      '<textarea class="inp" id="m-purpose" placeholder="Что изменится, когда цель будет достигнута">' + esc(g.purpose) + '</textarea></div>' +
+    '<div class="field"><label for="m-horizon">Горизонт</label>' +
+      '<input class="inp" id="m-horizon" value="' + esc(g.horizon) + '" placeholder="Год" list="horizons">' +
+      '<datalist id="horizons"><option value="Месяц"><option value="Квартал"><option value="Полгода"><option value="Год"><option value="Три года"></datalist></div>' +
+    '<button class="btn full" data-act="save-goal"' + (goal ? ' data-goal="' + goal.id + '"' : '') + '>' +
+      (fresh ? 'Создать цель' : 'Сохранить') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
@@ -2647,19 +2853,17 @@ var ACTS = {
     S.openGoal[d.goal] = !S.openGoal[d.goal];
     commit();
   },
-  /* Создание цели строкой: название — это всё, что нужно, чтобы начать.
-     Смысл, срок и этапы дописываются потом в самой цели, и она сразу
-     раскрывается, чтобы было куда. */
+  /* Создание цели строкой. У цели, кроме названия, есть ещё два поля — зачем
+     она и на какой срок, — и спрашиваются они сразу: заполнять их потом
+     никто не возвращается, а цель без «зачем» через месяц не отличается от
+     списка дел. Название уже введено, поэтому окно открывается с ним и
+     курсором в следующем поле. */
   'add-goal': function(){
     var field = $('gfield');
     var title = field ? field.value.trim() : '';
     if (!title) return;
-    var fresh = { id: uid(), title: title, purpose: '', horizon: '',
-      sphere: 'personal', pinned: false, stages: [] };
-    S.goals.push(fresh);
-    S.openGoal[fresh.id] = true;
     S.goalDraft = '';
-    commit('Цель создана');
+    openModal(modalGoal(null, title));
   },
   'export': function(){
     exportBackup();
@@ -2855,11 +3059,15 @@ var ACTS = {
 
   /* --- медитация --- */
   'med-min': function(d){ S.meditation.minutes = Number(d.min); commit(); },
-  'med-sound': function(d){ S.meditation.sound = d.sound; commit(); },
-  'med-start': function(){
-    S.meditation.doneTotal += 1;
-    commit('Сеанс отмечен. Звук в вебе пока не подключён.');
+  'med-sound': function(d){
+    S.meditation.sound = soundOf(d.sound).title;
+    // Если сеанс идёт, дорожка меняется на лету, а не с начала следующего.
+    if (med.running) medAudioPlay();
+    commit();
   },
+  'med-start': function(){ medStart(); },
+  'med-pause': function(){ medPause(); },
+  'med-stop': function(){ medStop(true); },
 
   /* --- данные --- */
   'reset-demo': function(){
@@ -2917,6 +3125,15 @@ document.addEventListener('input', function(event){
   var t = event.target;
   if (t.id === 'field'){ S.draft = t.value; return; }
   if (t.id === 'gfield'){ S.goalDraft = t.value; return; }
+  // Громкость ведём без перерисовки: она бы дёргала ползунок из-под пальца.
+  if (t.hasAttribute && t.hasAttribute('data-volume')){
+    S.meditation.volume = Number(t.value) / 100;
+    if (medAudio) medAudio.volume = S.meditation.volume;
+    var readout = document.querySelector('.volume .vv');
+    if (readout) readout.textContent = String(Math.round(S.meditation.volume * 100));
+    save();
+    return;
+  }
   // Имя сохраняем по вводу и не перерисовываем: перерисовка увела бы курсор
   // из поля на первой же букве.
   if (t.hasAttribute && t.hasAttribute('data-name')){
