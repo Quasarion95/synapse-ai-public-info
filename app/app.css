@@ -68,7 +68,12 @@
    zoom, а не transform: он меняет раскладку, а не растягивает картинку, и
    фиксированные панели остаются на своих местах. */
 html{zoom:var(--scale, 1)}
-html,body{overflow-x:hidden}
+/* clip, а не hidden. `overflow-x:hidden` на body делает его прокручиваемым
+   контейнером: из-за этого липкая шапка переставала липнуть (её скролл-портом
+   становился body, который сам не прокручивается), а события scroll переставали
+   доходить до window — колонка меню не знала, что страницу листают.
+   `clip` режет то же самое по горизонтали, но контейнера прокрутки не создаёт. */
+html,body{overflow-x:clip}
 body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--body); font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased}
 h1,h2,h3{font-family:var(--display); font-weight:700; letter-spacing:-.035em; margin:0}
 p{margin:0}
@@ -78,6 +83,9 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 .mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
 .hidden{display:none !important}
 /* Подпись для читалок с экрана: невидима глазом, но поле не остаётся безымянным. */
+/* Метка, по которой видно, что страницу пролистали. Один пиксель в двадцати
+   четырёх от верха: пока она в кадре — мы наверху. */
+.scroll-mark{position:absolute; top:24px; left:0; width:1px; height:1px; pointer-events:none; opacity:0}
 .visually-hidden{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 
 /* ============ ШАПКА ============ */
@@ -91,7 +99,9 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 .top-in{max-width:var(--col); margin:0 auto; padding:14px var(--pad); display:flex; align-items:center; gap:12px; position:relative}
 .top-in::after{content:''; position:absolute; left:var(--pad); right:var(--pad); bottom:0; height:1px; background:var(--line)}
 .brand{display:flex; align-items:center; gap:10px; min-width:0}
-.brand .mark{width:28px; height:28px; border-radius:10px; background:var(--fg); color:var(--bg); display:grid; place-items:center; font-family:var(--display); font-weight:800; font-size:15px; flex:none}
+/* Знак — настоящий логотип, тот же файл, что иконкой приложения. Раньше
+   здесь стояла буква S в квадрате: заглушка, которая пережила все остальные. */
+.brand .mark{width:28px; height:28px; border-radius:9px; flex:none; display:block; object-fit:contain}
 .brand .nm{font-family:var(--display); font-size:18px; font-weight:800; letter-spacing:-.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .top-acts{margin-left:auto; display:flex; align-items:center; gap:8px; flex:none; min-width:0}
 /* Аватарка с именем рядом. Имя обрезается многоточием, а не выдавливает
@@ -521,7 +531,7 @@ body.mm-open{overflow:hidden}
 
 /* ============ ВХОД ============ */
 .auth{max-width:420px; margin:0 auto; padding:40px 0 60px}
-.auth .mark{width:52px; height:52px; border-radius:18px; background:var(--fg); color:var(--bg); display:grid; place-items:center; font-family:var(--display); font-weight:800; font-size:24px; margin:0 auto 20px}
+.auth .mark{width:52px; height:52px; border-radius:16px; display:block; margin:0 auto 20px; object-fit:contain}
 .auth h1{font-size:27px; text-align:center; margin-bottom:8px}
 .auth .s{font-size:14.5px; color:var(--fg-2); text-align:center; margin-bottom:26px}
 .auth .stub{font-size:12.5px; color:var(--fg-3); text-align:center; margin-top:18px; line-height:1.5}
@@ -552,14 +562,24 @@ body.mm-open{overflow:hidden}
 
   body{ padding-left:calc(var(--rail) + var(--gutter)) }
 
+  /* Колонка стоит по центру окна, пока страницу не тронули, и поднимается к
+     первому заголовку, как только начали листать. Причина: по центру она
+     хороша ровно на первом экране, а дальше человек смотрит вверх — туда, где
+     заголовок блока, — и меню, оставшееся посреди пустоты, читается как
+     забытое. Порог 24 пикселя, чтобы дрожание тачпада не дёргало колонку. */
+  /* Положение ведут две переменные, а не второе правило поверх первого:
+     скрипт меняет только их, а правило остаётся одно — спорить о старшинстве
+     нечему. По умолчанию колонка ровно по центру окна. */
   .tabbar{
-    left:var(--gutter); transform:translateY(-50%);
-    /* Ровно по центру окна: привязка к верху давала «чуть выше центра» —
-       положение, которое читается как небрежность, а не как решение. */
-    top:50%; bottom:auto;
+    left:var(--gutter);
+    top:var(--rail-y, 50%);
+    transform:translateY(var(--rail-shift, -50%));
+    bottom:auto;
     width:var(--rail);
     border-radius:22px; padding:10px;
+    transition:top .32s cubic-bezier(.2,.7,.3,1), transform .32s cubic-bezier(.2,.7,.3,1);
   }
+  @media (prefers-reduced-motion:reduce){ .tabbar{transition:none} }
   /* «Ещё» на широком экране не нужна: все десять пунктов помещаются. */
   .tabs-main{grid-template-columns:1fr; gap:2px}
   .tabs-main .tab.more{display:none}
@@ -636,3 +656,79 @@ body.mm-open{overflow:hidden}
 /* Крайний срок на карточке. Отличается от «просрочено» тем, что это ещё не
    беда, а условие: обводка тише, чем у красного. */
 .chip.hard{border:1px solid var(--stroke); color:var(--fg-2)}
+
+/* ============ РАЗГОВОР С SYN ============ */
+
+/* Окно разговора устроено как мессенджер, потому что это и есть разговор:
+   лента сверху, строка снизу, микрофон рядом со стрелкой. Высота ленты
+   фиксирована и прокручивается сама — иначе длинный разговор растягивал бы
+   окно на весь экран и кнопка отправки уезжала бы за край. */
+.syn-win{display:flex; flex-direction:column; min-height:0}
+.syn-top{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px}
+.syn-top h3{margin:0}
+
+.syn-log{flex:1; min-height:120px; max-height:46vh; overflow-y:auto; overscroll-behavior:contain;
+  display:flex; flex-direction:column; gap:8px; padding:2px 2px 4px; margin-bottom:12px}
+.syn-empty{font-size:13.5px; color:var(--fg-2); line-height:1.5; padding:6px 2px}
+
+.syn-msg{max-width:88%; font-size:14px; line-height:1.45; padding:9px 12px; border-radius:14px;
+  background:var(--soft); color:var(--fg); align-self:flex-start}
+.syn-msg.mine{align-self:flex-end; background:var(--accent-soft); color:var(--fg)}
+.syn-msg.wait{color:var(--fg-3)}
+
+/* Что изменилось — списком под ответом, а не отдельной карточкой: это часть
+   реплики, а не второй экран. Не применилось — тем же списком, но тише. */
+.syn-did{list-style:none; margin:0 0 2px; padding:0 2px; display:flex; flex-direction:column; gap:3px; align-self:flex-start; max-width:92%}
+.syn-did li{font-size:12.5px; color:var(--fg-2); padding-left:14px; position:relative}
+.syn-did li::before{content:''; position:absolute; left:3px; top:8px; width:5px; height:5px; border-radius:999px; background:var(--ok)}
+.syn-did.off li{color:var(--fg-3)}
+.syn-did.off li::before{background:var(--fg-3)}
+
+.syn-bar{display:flex; align-items:flex-end; gap:8px}
+.syn-bar textarea{flex:1; resize:none; min-height:44px; max-height:120px; padding:11px 12px}
+.syn-mic,.syn-go{flex:none; width:44px; height:44px; border-radius:999px; display:grid; place-items:center}
+.syn-mic{background:var(--soft); color:var(--fg-2)}
+.syn-mic svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.syn-mic:hover{color:var(--fg)}
+/* Слушает — это состояние, которое должно быть видно через всю комнату:
+   человек говорит, а не смотрит в экран. */
+.syn-mic.on{background:var(--accent); color:#fff; animation:mic-pulse 1.4s ease-in-out infinite}
+@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 var(--accent-soft)} 50%{box-shadow:0 0 0 9px transparent}}
+@media (prefers-reduced-motion:reduce){ .syn-mic.on{animation:none} }
+.syn-go{background:var(--fg); color:var(--bg); font-size:18px}
+.syn-go[disabled]{opacity:.5}
+.syn-error{margin-bottom:10px}
+.syn-voice-hint{margin-top:10px; text-align:center; color:var(--accent)}
+
+/* ============ МОЯ ПОДПИСКА ============ */
+
+.sub-state .sub-head{display:flex; gap:14px; align-items:flex-start}
+.sub-state.on{border-color:var(--accent)}
+.sub-mark{flex:none; display:grid; place-items:center; width:44px; height:44px; border-radius:999px;
+  background:var(--soft); color:var(--fg-3)}
+.sub-state.on .sub-mark{background:var(--accent-soft); color:var(--accent)}
+.sub-mark svg{width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.sub-state.on .sub-mark svg{fill:currentColor; stroke:none}
+.sub-code{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px solid var(--line)}
+.sub-code .lbl{margin:0}
+.sub-code b{font-size:15px; letter-spacing:.06em}
+
+/* Три тарифа рядом — так же, как на странице оплаты, чтобы человек, который
+   уже видел их там, не сравнивал заново. */
+.plancards{display:grid; gap:10px; margin-bottom:12px}
+@media (min-width:560px){ .plancards{grid-template-columns:repeat(3,1fr)} }
+.plancard{position:relative; display:flex; flex-direction:column; gap:3px; text-decoration:none; color:inherit;
+  background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); padding:16px; box-shadow:var(--shadow)}
+.plancard.main{border-color:var(--accent)}
+.plancard:hover{border-color:var(--accent)}
+.planname{font-size:13px; color:var(--fg-3)}
+.planprice{font-family:var(--display); font-size:24px; letter-spacing:-.04em}
+.plannote{font-size:12.5px; color:var(--fg-2); margin-top:2px}
+.planbuy{margin-top:10px; font-size:13px; color:var(--accent); font-weight:600}
+.plantag{position:absolute; top:12px; right:12px; font-size:11px; padding:3px 8px; border-radius:999px;
+  background:var(--accent-soft); color:var(--accent)}
+
+/* Главное дело дня из брифинга: одна строка, которую Syn просит не потерять. */
+.focus-main{margin-top:14px; padding:11px 13px; border-radius:var(--r-md); background:var(--accent-soft);
+  color:var(--fg); font-size:13.5px; line-height:1.45}
+.focus-main span{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:3px}

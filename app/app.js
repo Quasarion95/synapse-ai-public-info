@@ -47,6 +47,8 @@ function seed(){
     sub: null,
     auth: { stage: 'guest', email: '', sent: '', error: '' },
     pro: { active: false, plan: '', expiresAt: '', code: '' },
+    synChat: [],
+    briefing: null,
     profile: { name: '', avatar: '' },
     installID: '',
     openGoal: {},
@@ -133,6 +135,8 @@ function load(){
     // состояние «на полпути» больше ничего не значит.
     if (parsed.auth.stage !== 'in') parsed.auth.stage = 'guest';
     if (!parsed.pro) parsed.pro = { active: false, plan: '', expiresAt: '', code: '' };
+    if (!parsed.synChat || !parsed.synChat.length) parsed.synChat = [];
+    if (!parsed.briefing) parsed.briefing = null;
     if (!parsed.palette) parsed.palette = 'paper';
     if (!parsed.mm) parsed.mm = { zoom: 1 };
     if (!parsed.closed) parsed.closed = {};
@@ -151,6 +155,7 @@ function load(){
     // Раздела «Главная» больше нет: состояние, сохранённое на нём, никуда бы
     // не отрисовалось.
     if (parsed.view === 'home') parsed.view = 'tasks';
+    if (parsed.view === 'pricing') parsed.view = 'subscription';
     return parsed;
   } catch (e) {
     return seed();
@@ -783,7 +788,7 @@ var TABS = [
   // Тарифы стоят в самом меню, а не в углу настроек: два раздела из десяти
   // открываются только по подписке, и человек должен видеть, где про это
   // написано, в ту же секунду, когда упёрся.
-  { id: 'pricing',    title: 'Тарифы',    ic: '◈' },
+  { id: 'subscription', title: 'Моя подписка', ic: '◈', short: 'Подписка' },
   { id: 'settings',   title: 'Настройки', ic: '⚙' },
   { id: 'about',      title: 'О сервисе', ic: 'ⓘ' }
 ];
@@ -816,7 +821,7 @@ var VIEWS = {
   note:       { title: 'Заметка',    render: vNote },
   pomodoro:   { title: 'Метод Помодоро', render: vPomodoro },
   meditation: { title: 'Медитация',  render: vMeditation },
-  pricing:    { title: 'Тарифы',     render: vPricing },
+  subscription: { title: 'Моя подписка', render: vSubscription },
   auth:       { title: 'Вход',       render: vAuth }
 };
 
@@ -861,6 +866,8 @@ function render(){
   restoreComposer();
   fitMindMap();
   showToast();
+  // Высота шапки могла поменяться вместе с размером шрифта.
+  if (railRaised) document.documentElement.style.setProperty('--rail-y', railTop() + 'px');
 }
 
 /* ============ ТЕМА ============ */
@@ -901,7 +908,12 @@ var ICON = {
     '<path d="M6 2H2v4M10 2h4v4M10 14h4v-4M6 14H2v-4"/></svg>',
   lock: '<svg viewBox="0 0 24 24" aria-hidden="true">' +
     '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/>' +
-    '<path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7"/></svg>'
+    '<path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7"/></svg>',
+  pro: '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M12 3.6l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"/></svg>',
+  mic: '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<rect x="9" y="3" width="6" height="11" rx="3"/>' +
+    '<path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg>'
 };
 
 function paletteOf(id){
@@ -1063,7 +1075,8 @@ if (window.matchMedia){
 
 function vTop(){
   return '<div class="top-in">' +
-    '<div class="brand"><span class="mark">S</span><span class="nm">Synapse</span></div>' +
+    '<div class="brand"><img class="mark" src="icons/icon-192.png" alt="" width="28" height="28">' +
+      '<span class="nm">Synapse</span></div>' +
     '<div class="top-acts">' +
       '<button class="iconbtn" data-act="theme" title="Тема" aria-label="Сменить тему">' +
         (S.theme === 'dark' ? '☾' : S.theme === 'light' ? '☀' : '◐') + '</button>' +
@@ -1357,13 +1370,14 @@ function vFocus(){
     cnt(String(S.pomodoro.doneToday), 'помидоров сегодня') +
   '</div>';
 
+  /* Списка задач дня здесь больше нет. Он повторял «Задачи» карточка в
+     карточку — тот же блок «Сегодня», те же кнопки, — и экран фокуса
+     превращался во второй список дел. Фокус отвечает на вопрос «как идёт
+     день», а не «что в нём»: на это есть свой раздел. */
   if (!today.length){
     html += blank('✦', 'На сегодня пусто',
       'Ничего не назначено на сегодня — можно задать спокойный ритм или перенести сюда задачу из другого блока.',
       'go', 'Открыть задачи', ' data-view="tasks"');
-  } else {
-    html += '<p class="lbl">Что сегодня</p>';
-    html += '<div class="tasklist" data-drop="today">' + today.map(itemRow).join('') + '</div>';
   }
 
   var attention = S.goals.filter(function(g){ return !tasksOfGoal(g.id).length; });
@@ -1405,25 +1419,155 @@ function vFocusCard(today, todayDone, overdue, withTime){
       ' без единой задачи.']);
   }
 
+  /* Брифинг вытесняет сводку, а не встаёт рядом. Сводка — заготовка на случай,
+     когда разбора ещё нет: две карточки об одном и том же дне заставляли бы
+     читать дважды и сравнивать. */
+  var brief = S.briefing && S.briefing.text && S.briefing.date === isoOf(todayDate()) ? S.briefing : null;
+  var shown = brief ? briefingLines(brief.text) : lines;
+
   return '<section class="card focus">' +
     '<div class="focus-h">' +
       '<div class="focus-t">' +
-        '<h3>Фокус дня</h3>' +
-        '<p class="sub">' + (today.length
-          ? 'Сегодня в фокусе ' + taskCount(today.length)
-          : 'Можно задать спокойный ритм') + '</p>' +
+        '<h3>' + (brief ? 'Брифинг' : 'Фокус дня') + '</h3>' +
+        '<p class="sub">' + (brief
+          ? (brief.morning ? 'Утренний разбор от Syn' : 'Вечерний разбор от Syn')
+          : today.length
+            ? 'Сегодня в фокусе ' + taskCount(today.length)
+            : 'Можно задать спокойный ритм') + '</p>' +
       '</div>' +
       '<div class="focus-p"><b>' + percent + '%</b><span>Прогресс дня</span></div>' +
     '</div>' +
     '<div class="focus-lines">' +
-      lines.map(function(l){
+      shown.map(function(l){
         return '<div class="fl"><span class="fll">' + esc(l[0]) + '</span>' +
           '<span class="flt">' + esc(l[1]) + '</span></div>';
       }).join('') +
     '</div>' +
-    // Про подмену — вслух: сочинённый «брифинг» без ассистента был бы враньём.
-    '<p class="hint">Это сводка по вашим задачам. Разбор от Syn собирается только в приложении: ассистент в браузере пока не работает.</p>' +
+    (brief && brief.main ? '<p class="focus-main"><span>Главное</span>' + esc(brief.main) + '</p>' : '') +
+    (S.briefing && S.briefing.error ? '<p class="err" style="margin-top:12px">' + esc(S.briefing.error) + '</p>' : '') +
+    '<div class="acts">' +
+      '<button class="btn sm" data-act="briefing"' + (BRIEFING.busy ? ' disabled' : '') + '>' +
+        (BRIEFING.busy ? 'Syn собирает…' : brief ? 'Обновить брифинг' : 'Собрать брифинг') + '</button>' +
+      (brief ? '<span class="hint" style="align-self:center">' + esc(brief.at) + '</span>' : '') +
+    '</div>' +
+    (brief ? '' : '<p class="hint">Пока это сводка по вашим задачам. Брифинг соберёт Syn — он посмотрит на день целиком и скажет, с чего начать. Один запрос из дневной нормы.</p>') +
   '</section>';
+}
+
+/* ---- брифинг ---- */
+
+/* Тот же маршрут и тот же режим, что в приложении: POST /v1/synapse/research
+   с mode=daily_briefing. Модель отвечает строками вида «МЕТКА: текст» и
+   последней строкой «ГЛАВНОЕ: …» — её вынимаем и показываем отдельно, это
+   указание интерфейсу, а не то, что человеку надо прочитать дважды.
+
+   Утро или вечер решает час: до четырёх дня разбор про то, что впереди,
+   после — про то, что вышло. */
+var BRIEFING = { busy: false };
+
+function briefingIsMorning(){ return new Date().getHours() < 16; }
+
+/// Срез дня для разбора. Тот же смысл, что focusBriefingDigest в приложении:
+/// не весь список задач, а то, по чему можно судить о дне.
+function briefingDigest(){
+  var today = liveTasks().filter(function(t){ return t.bucket === 'today'; });
+  var doneCount = today.filter(function(t){ return t.done; }).length;
+  var overdue = liveTasks().filter(isOverdue);
+  var tomorrow = liveTasks().filter(function(t){ return t.bucket === 'tomorrow'; });
+
+  var lines = ['ДАТА: ' + isoOf(todayDate()),
+    'СЕЙЧАС: ' + clock(new Date().getHours(), new Date().getMinutes()),
+    'СДЕЛАНО СЕГОДНЯ: ' + doneCount + ' из ' + today.length];
+
+  if (today.length){
+    lines.push('ЗАДАЧИ ДНЯ:');
+    today.forEach(function(t){
+      lines.push('- ' + t.title + (t.time ? ' в ' + t.time : '') + (t.done ? ' (сделано)' : '') +
+        (t.deadline ? ' [срок ' + deadlineText(t.deadline) + ']' : ''));
+    });
+  }
+  if (overdue.length){
+    lines.push('ПРОСРОЧЕНО:');
+    overdue.forEach(function(t){ lines.push('- ' + t.title + (t.date ? ' с ' + t.date : '')); });
+  }
+  if (tomorrow.length){
+    lines.push('ЗАВТРА:');
+    tomorrow.forEach(function(t){ lines.push('- ' + t.title + (t.time ? ' в ' + t.time : '')); });
+  }
+  if (S.goals.length){
+    lines.push('ЦЕЛИ:');
+    S.goals.forEach(function(g){
+      var mine = tasksOfGoal(g.id);
+      lines.push('- ' + g.title + ' (' + (mine.length ? taskCount(mine.length) : 'без задач') + ')');
+    });
+  }
+  return lines.join('\n');
+}
+
+/// «МЕТКА: текст» → пара для карточки. Строки без метки тоже показываем —
+/// модель иногда отвечает обычным предложением, и терять его нельзя.
+function briefingLines(text){
+  return String(text).split('\n').map(function(line){
+    var trimmed = line.trim();
+    if (!trimmed) return null;
+    var at = trimmed.indexOf(':');
+    if (at > 0 && at <= 24 && trimmed.slice(0, at) === trimmed.slice(0, at).toUpperCase()){
+      return [trimmed.slice(0, at), trimmed.slice(at + 1).trim()];
+    }
+    return ['SYN', trimmed];
+  }).filter(Boolean);
+}
+
+function briefingRun(){
+  if (BRIEFING.busy) return;
+  var digest = briefingDigest();
+  BRIEFING.busy = true;
+  S.briefing = S.briefing || {};
+  S.briefing.error = '';
+  render();
+
+  var morning = briefingIsMorning();
+  synSession().then(function(token){
+    return synFetch('/v1/synapse/research', {
+      query: 'Собери брифинг по этому срезу.',
+      taskTitle: morning ? 'morning' : 'evening',
+      existingNote: digest,
+      mode: 'daily_briefing'
+    }, token);
+  }).then(function(data){
+    BRIEFING.busy = false;
+    var raw = String(data.note || '').trim();
+    if (!raw){
+      S.briefing.error = 'Syn не собрал брифинг. Попробуй ещё раз.';
+      commit();
+      return;
+    }
+    // «ГЛАВНОЕ: …» вынимаем из текста: это указание интерфейсу.
+    var main = '';
+    var kept = [];
+    raw.split('\n').forEach(function(line){
+      var trimmed = line.trim();
+      if (!trimmed) return;
+      var at = trimmed.toUpperCase().indexOf('ГЛАВНОЕ:');
+      if (at >= 0){
+        var value = trimmed.slice(at + 8).trim().replace(/^[«"]|[».,"]$/g, '');
+        if (value.toLowerCase().indexOf('нет') !== 0) main = value;
+        return;
+      }
+      kept.push(trimmed);
+    });
+
+    S.briefing = {
+      text: kept.join('\n'), main: main, morning: morning,
+      date: isoOf(todayDate()), at: clock(new Date().getHours(), new Date().getMinutes()), error: ''
+    };
+    commit('Брифинг собран');
+  }).catch(function(error){
+    BRIEFING.busy = false;
+    S.briefing = S.briefing || {};
+    S.briefing.error = synErrorText(error);
+    commit();
+  });
 }
 
 /// Полоса дня: по прямоугольнику на задачу плюс словесная легенда.
@@ -2483,13 +2627,26 @@ function vProfile(){
     '</div>' +
   '</section>';
 
+  /* Подписка в профиле — то, что человек ищет, когда спрашивает «а что у меня
+     подключено»: тариф, срок и сам код, который может понадобиться на другом
+     устройстве. Управление и отмена живут в «Моей подписке», сюда их не
+     дублируем — одна и та же кнопка в двух местах читается как две разные. */
   html += '<p class="lbl">Подписка</p><section class="card">' +
     '<h3>' + (isPro() ? 'Synapse Pro' : 'Бесплатный доступ') + '</h3>' +
     '<p class="sub">' + (isPro()
-      ? 'Открыты все разделы' + (S.pro.expiresAt ? ', до ' + esc(humanDateTime(S.pro.expiresAt)) : '') + '.'
+      ? planTitle(S.pro.plan) + (S.pro.expiresAt ? ' · действует до ' + esc(humanDateTime(S.pro.expiresAt)) : '') +
+        ' · открыты все разделы и ' + PRO_SYN_LIMIT + ' запросов к Syn в день'
       : 'Помодоро и медитация закрыты, ' + FREE_LIMITS.goals + ' цели, ' + FREE_LIMITS.lists +
-        ' списка, ' + FREE_LIMITS.notes + ' заметки.') + '</p>' +
-    '<div class="acts"><button class="btn sm soft" data-act="go" data-view="pricing">Тарифы</button></div>' +
+        ' списка, ' + FREE_LIMITS.notes + ' заметки, ' + FREE_SYN_LIMIT + ' запросов к Syn в день.') + '</p>' +
+    (isPro() && S.pro.code
+      ? '<div class="sub-code"><span class="lbl">Код</span><b class="mono">' + esc(S.pro.code) + '</b>' +
+        '<button class="btn sm soft" data-act="pro-copy">Скопировать</button></div>' +
+        '<p class="hint">Тот же код включает Pro в приложении на iPhone: телефон и браузер держатся отдельно и не гасят друг друга.</p>'
+      : '') +
+    '<div class="acts"><button class="btn sm soft" data-act="go" data-view="subscription">' +
+      (isPro() ? 'Моя подписка' : 'Тарифы и подписка') + '</button>' +
+      (isPro() ? '' : '<button class="btn sm soft" data-act="pro-code">Ввести код</button>') +
+    '</div>' +
   '</section>';
 
   return html;
@@ -2559,7 +2716,7 @@ function vSettings(){
   var html = head('Приложение', 'Настройки');
   html += settingsLink('profile', 'Профиль', S.profile.name || S.auth.email || 'Имя и фото') +
     settingsLink('auth', 'Вход', S.auth.stage === 'in' ? S.auth.email : 'Пока не выполнен') +
-    settingsLink('pricing', 'Тарифы', isPro() ? 'Подписка активна' : 'Бесплатно и Pro') +
+    settingsLink('subscription', 'Моя подписка', isPro() ? 'Подписка активна' : 'Бесплатно и Pro') +
     settingsLink('settings-view', 'Вид', fontOf(S.font).title + ' · ' + paletteOf(S.palette).title) +
     settingsLink('settings-data', 'Данные', 'Копия файлом, примеры, стирание') +
     settingsLink('about', 'О сервисе', 'Что умеет веб-версия');
@@ -2728,7 +2885,8 @@ function vAbout(){
    планировщик открыт и без входа. */
 function vAuth(){
   var a = S.auth;
-  var html = head('Аккаунт', 'Вход', 'settings') + '<div class="auth">';
+  var html = head('Аккаунт', 'Вход', 'settings') +
+    '<div class="auth"><img class="mark" src="icons/icon-192.png" alt="" width="52" height="52">';
 
   if (a.stage === 'in'){
     return html + '<h1>Вы вошли</h1>' +
@@ -2764,29 +2922,75 @@ function vAuth(){
   return html;
 }
 
-/* ============ ТАРИФЫ ============ */
+/* ============ МОЯ ПОДПИСКА ============ */
 
-/* Экран называет цену и границу бесплатного одним списком: человек, который
-   упёрся в замок, приходит сюда с вопросом «что мне это даёт» — и должен
-   увидеть ответ раньше, чем кнопку оплаты.
+/* Раздел отвечает на два вопроса сразу: что у меня сейчас и что можно
+   получить. Раньше они жили в разных местах — состояние подписки на сайте,
+   цены на другой странице, — и человеку приходилось держать в голове, где
+   что. Здесь это один экран в меню.
 
-   Оплата живёт на сайте: покупка отдаёт код, код вводится здесь. Того же
-   маршрута держится приложение — один код, одно устройство. */
-function vPricing(){
+   Шапки с надписью «Тарифы» нет: раздел уже назван в меню, а карточка
+   состояния говорит о себе сама. Две строки заголовка съедали первый экран
+   телефона, ничего к нему не добавляя. */
+
+/* Те же три тарифа и те же цены, что на странице оплаты. Ключи совпадают с
+   PLANS в checkout/index.html — они уезжают в ссылку параметром plan, и
+   страница открывается с уже выбранным тарифом. */
+var PLANS = [
+  { id: 'pro.weekly',  title: 'Неделя', price: '149 ₽',   note: 'Попробовать без длинного обязательства.' },
+  { id: 'pro.monthly', title: 'Месяц',  price: '590 ₽',   note: 'Основной тариф.', main: true },
+  { id: 'pro.yearly',  title: 'Год',    price: '4 990 ₽', note: 'Примерно 416 ₽ в месяц.', tag: 'выгодно' }
+];
+
+function planTitle(id){
+  for (var i = 0; i < PLANS.length; i++) if (PLANS[i].id === id) return PLANS[i].title;
+  return id;
+}
+
+function vSubscription(){
   var pro = isPro();
-  var html = head('Synapse', 'Тарифы');
+  var html = '';
 
-  if (pro){
-    html += '<section class="card pro-on">' +
-      '<h3>Подписка активна</h3>' +
-      '<p class="sub">' + (S.pro.plan ? esc(planTitle(S.pro.plan)) + '. ' : '') +
-        (S.pro.expiresAt ? 'Действует до ' + esc(humanDateTime(S.pro.expiresAt)) + '.' : 'Срок не назван сервером.') +
-        ' Открыты все разделы и ' + PRO_SYN_LIMIT + ' запросов к Syn в день.</p>' +
-      '<div class="acts">' +
-        '<button class="btn sm soft" data-act="pro-refresh">Проверить</button>' +
-        '<button class="btn sm soft" data-act="pro-forget">Отвязать код</button>' +
+  /* Состояние — первым, до цен. Человек, который уже платит, приходит сюда
+     посмотреть срок и код, а не выбирать тариф заново. */
+  html += '<section class="card sub-state' + (pro ? ' on' : '') + '">' +
+    '<div class="sub-head">' +
+      '<span class="sub-mark" aria-hidden="true">' + (pro ? ICON.pro : ICON.lock) + '</span>' +
+      '<div>' +
+        '<h3>' + (pro ? 'Synapse Pro' : 'Бесплатный доступ') + '</h3>' +
+        '<p class="sub">' + (pro
+          ? planTitle(S.pro.plan) + (S.pro.expiresAt ? ' · до ' + esc(humanDateTime(S.pro.expiresAt)) : '') +
+            ' · открыты все разделы'
+          : 'Задачи без ограничений. Помодоро и медитация закрыты, ' + FREE_LIMITS.goals + ' цели, ' +
+            FREE_LIMITS.lists + ' списка, ' + FREE_LIMITS.notes + ' заметки.') + '</p>' +
       '</div>' +
-    '</section>';
+    '</div>' +
+    (pro && S.pro.code ? '<div class="sub-code"><span class="lbl">Код подписки</span>' +
+      '<b class="mono">' + esc(S.pro.code) + '</b>' +
+      '<button class="btn sm soft" data-act="pro-copy">Скопировать</button></div>' : '') +
+    '<div class="acts">' +
+      (pro
+        ? '<button class="btn sm soft" data-act="pro-refresh">Проверить</button>' +
+          '<a class="btn sm soft" href="../account/">Управление и отмена</a>' +
+          '<button class="btn sm soft" data-act="pro-forget">Отвязать</button>'
+        : '<button class="btn sm" data-act="pro-code">У меня есть код</button>') +
+    '</div>' +
+  '</section>';
+
+  if (!pro){
+    html += '<p class="lbl">Тарифы</p>' +
+      '<div class="plancards">' +
+        PLANS.map(function(plan){
+          return '<a class="plancard' + (plan.main ? ' main' : '') + '" href="../checkout/?plan=' + plan.id + '">' +
+            (plan.tag ? '<span class="plantag">' + esc(plan.tag) + '</span>' : '') +
+            '<b class="planname">' + esc(plan.title) + '</b>' +
+            '<span class="planprice">' + esc(plan.price) + '</span>' +
+            '<span class="plannote">' + esc(plan.note) + '</span>' +
+            '<span class="planbuy">Оформить</span>' +
+          '</a>';
+        }).join('') +
+      '</div>' +
+      '<p class="hint">Оплата проходит на сайте, после неё придёт код. Он включает Pro и здесь, и в приложении на iPhone.</p>';
   }
 
   html += '<p class="lbl">Что входит</p>' +
@@ -2800,21 +3004,8 @@ function vPricing(){
       planRow('Медитация', '—', 'есть') +
     '</div></section>';
 
-  if (!pro){
-    html += '<p class="lbl">Подписка</p>' +
-      '<section class="card">' +
-        '<div class="plan-price"><b>590 ₽</b><span>в месяц</span></div>' +
-        '<p class="sub">Год — 4 990 ₽, это 416 ₽ в месяц. Есть короткий тариф на 7 дней за 149 ₽, чтобы попробовать.</p>' +
-        '<div class="acts">' +
-          '<a class="btn sm" href="../checkout/">Оформить на сайте</a>' +
-          '<button class="btn sm soft" data-act="pro-code">У меня есть код</button>' +
-        '</div>' +
-        '<p class="hint">Оплата проходит на сайте, после неё приходит код. Код вводится здесь и включает подписку в этом браузере.</p>' +
-      '</section>';
-  }
-
-  html += '<p class="lbl">Честно про веб-версию</p><section class="card">' +
-    '<p class="sub">Записи веб-версии лежат в этом браузере и не синхронизируются с приложением: перенести их можно файлом в разделе «Данные». Код подписки работает и там, и там, но занимает одно устройство за раз.</p>' +
+  html += '<p class="lbl">Как это работает</p><section class="card">' +
+    '<p class="sub">Один код открывает Pro и в браузере, и в приложении на iPhone — вводить его нужно в обоих. Записи при этом не общие: веб хранит их в браузере, приложение у себя, а перенести можно файлом в разделе «Данные».</p>' +
   '</section>';
 
   return html;
@@ -2827,9 +3018,6 @@ function planRow(title, free, pro){
     '<span class="plan-pro">' + esc(pro) + '</span>' +
   '</div>';
 }
-
-var PLANS = { week: 'Неделя', month: 'Месяц', year: 'Год' };
-function planTitle(id){ return PLANS[id] || id; }
 
 /// Дата со сроком подписки приходит с сервера в ISO с временем.
 function humanDateTime(iso){
@@ -2851,7 +3039,7 @@ function vLocked(view){
     '<h3>' + esc(PRO_ONLY[view]) + ' — в подписке</h3>' +
     '<p class="sub">' + about + '</p>' +
     '<div class="acts">' +
-      '<button class="btn sm" data-act="go" data-view="pricing">Что даёт подписка</button>' +
+      '<button class="btn sm" data-act="go" data-view="subscription">Что даёт подписка</button>' +
       '<button class="btn sm soft" data-act="pro-code">Ввести код</button>' +
     '</div>' +
   '</section>';
@@ -3041,21 +3229,82 @@ function synContext(){
   return lines.join('\n');
 }
 
-/* Окно ассистента. Живёт в модалке, а не отдельным экраном: разговор здесь
-   короткий — сказал, что сделать, увидел, что изменилось, закрыл. */
-function modalSyn(draft, reply, result){
-  return '<h3>Ассистент Syn</h3>' +
-    '<p class="s">Скажи словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель».</p>' +
-    '<form class="field" data-form="syn-send" style="margin-bottom:14px">' +
+/* Окно ассистента. Разговор, а не одиночный запрос: реплики копятся в ленте,
+   лента прокручивается, и «перенеси его на пятницу» после «что у меня в
+   четверг» понятно без повторения названия — прошлые реплики уезжают на
+   сервер вместе с новой.
+
+   Лента живёт в S, а не в памяти вкладки: разговор, исчезающий от случайной
+   перезагрузки, заставляет объяснять всё заново. Хранится последние
+   SYN_CHAT_KEEP реплик — больше в localStorage держать незачем. */
+var SYN_CHAT_KEEP = 40;
+var SYN_CHAT_SEND = 8;
+
+function synChatPush(role, text, result){
+  S.synChat.push({ role: role, text: String(text || ''),
+    done: result ? result.done : [], skipped: result ? result.skipped : [] });
+  if (S.synChat.length > SYN_CHAT_KEEP) S.synChat = S.synChat.slice(-SYN_CHAT_KEEP);
+}
+
+function modalSyn(draft, error){
+  return '<div class="syn-win">' +
+    '<div class="syn-top">' +
+      '<h3>Ассистент Syn</h3>' +
+      (S.synChat.length ? '<button class="btn sm soft" data-act="syn-clear">Очистить</button>' : '') +
+    '</div>' +
+    '<div class="syn-log" id="syn-log">' + synLogHTML() + '</div>' +
+    (error ? '<p class="err syn-error">' + esc(error) + '</p>' : '') +
+    '<form class="syn-bar" data-form="syn-send">' +
       '<label class="visually-hidden" for="syn-input">Что сделать</label>' +
-      '<textarea class="inp" id="syn-input" rows="3" enterkeyhint="send" ' +
-        'placeholder="Перенеси урок с преподавателем на субботу">' + esc(draft || '') + '</textarea>' +
+      '<textarea class="inp" id="syn-input" rows="1" enterkeyhint="send" ' +
+        'placeholder="Перенеси урок на субботу">' + esc(draft || '') + '</textarea>' +
+      (voiceSupported()
+        ? '<button class="syn-mic' + (voice.on ? ' on' : '') + '" type="button" data-act="syn-voice" ' +
+          'aria-label="' + (voice.on ? 'Остановить диктовку' : 'Продиктовать') + '" ' +
+          'title="' + (voice.on ? 'Остановить диктовку' : 'Продиктовать') + '">' + ICON.mic + '</button>'
+        : '') +
+      '<button class="syn-go" type="submit" aria-label="Отправить"' + (SYN.busy ? ' disabled' : '') + '>' +
+        (SYN.busy ? '…' : '↑') + '</button>' +
     '</form>' +
-    '<div id="syn-out">' + synOutHTML(reply, result) + '</div>' +
-    '<button class="btn full" data-act="syn-send"' + (SYN.busy ? ' disabled' : '') + '>' +
-      (SYN.busy ? 'Syn думает…' : 'Отправить') + '</button>' +
-    synQuotaHTML() +
-    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Закрыть</button></div>';
+    (voice.on
+      ? '<p class="hint syn-voice-hint">Слушаю. Замолчите — и Syn выполнит сказанное.</p>'
+      : synQuotaHTML()) +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Закрыть</button></div>' +
+  '</div>';
+}
+
+function synLogHTML(){
+  if (!S.synChat.length){
+    return '<p class="syn-empty">Скажи словами: «перенеси созвон на пятницу», «разбери мой день», ' +
+      '«сделай из этого цель», «включи дождь на 15 минут».' +
+      (voiceSupported() ? ' Или продиктуй голосом — Syn выполнит сказанное.' : '') + '</p>';
+  }
+
+  return S.synChat.map(function(item){
+    if (item.role === 'user'){
+      return '<div class="syn-msg mine"><span>' + esc(item.text) + '</span></div>';
+    }
+    var html = '<div class="syn-msg"><span>' + esc(item.text) + '</span></div>';
+    if (item.done && item.done.length){
+      html += '<ul class="syn-did">' + item.done.map(function(line){
+        return '<li>' + esc(line) + '</li>';
+      }).join('') + '</ul>';
+    }
+    // Про непринятое — вслух: иначе Syn пишет «перенёс», а на экране прежнее.
+    if (item.skipped && item.skipped.length){
+      html += '<ul class="syn-did off">' + item.skipped.map(function(line){
+        return '<li>' + esc(line) + '</li>';
+      }).join('') + '</ul>';
+    }
+    return html;
+  }).join('') + (SYN.busy ? '<div class="syn-msg wait"><span>Syn думает…</span></div>' : '');
+}
+
+/// Лента всегда показывает последнее сказанное: без этого новая реплика
+/// появляется ниже края, и кажется, что ответа нет.
+function synScrollDown(){
+  var log = $('syn-log');
+  if (log) log.scrollTop = log.scrollHeight;
 }
 
 /// Остаток запросов. Число берём у сервера, а до первого ответа называем
@@ -3071,63 +3320,158 @@ function synQuotaHTML(){
     text = (isPro() ? 'В подписке ' : 'Бесплатно ') + limit + ' запросов к Syn в день.';
   }
   if (!isPro()){
-    text += ' <a class="q-link" href="#" data-act="go" data-view="pricing">Тарифы</a>';
+    text += ' <a class="q-link" href="#" data-act="go" data-view="subscription">Подписка</a>';
   }
   return '<p class="hint syn-quota">' + text + '</p>';
 }
 
-function synOutHTML(reply, result){
-  if (!reply && !result) return '';
-  var html = '';
-  if (reply) html += '<section class="card syn-reply"><p class="sub">' + esc(reply) + '</p></section>';
-  if (result && result.done.length){
-    html += '<p class="lbl">Что изменилось</p><section class="card"><div class="lines">' +
-      result.done.map(function(line){ return '<div class="line"><span>' + esc(line) + '</span></div>'; }).join('') +
-      '</div></section>';
-  }
-  // Про непринятое — вслух: иначе Syn пишет «перенёс», а на экране прежнее.
-  if (result && result.skipped.length){
-    html += '<p class="lbl">Не применилось</p><section class="card"><div class="lines">' +
-      result.skipped.map(function(line){ return '<div class="line"><span style="color:var(--fg-3)">' + esc(line) + '</span></div>'; }).join('') +
-      '</div></section>';
-  }
-  return html;
+/// Перерисовать окно, не трогая остального экрана.
+function synRender(draft, error){
+  openModal(modalSyn(draft, error), true);
+  synScrollDown();
 }
 
-/// Отправка и применение. Модалку перерисовываем целиком, но текст в поле
-/// сохраняем — иначе повторить запрос с правкой было бы нечем.
+/// Отправка и применение. Текст в поле сохраняем при ошибке — иначе повторить
+/// запрос с правкой было бы нечем.
 function synSend(text){
-  SYN.busy = true;
-  openModal(modalSyn(text, '', null));
+  if (!text || SYN.busy) return;
+  voiceStop();
 
-  synAsk(text).then(function(data){
+  SYN.busy = true;
+  synChatPush('user', text, null);
+  save();
+  synRender('', '');
+
+  synAsk().then(function(data){
     if (data.quota) SYN.quota = data.quota;
     var result = synApplyActions(data.actions);
     SYN.busy = false;
+    synChatPush('assistant', data.reply || 'Готово.', result);
     save();
-    openModal(modalSyn('', data.reply || '', result));
-    // Экран под модалкой должен показывать уже новые данные.
+    synRender('', '');
+    // Экран под окном должен показывать уже новые данные.
     render();
   }).catch(function(error){
     SYN.busy = false;
-    var message = error && error.message ? error.message : 'Не получилось';
-    if (error && error.status === 503){
-      message = 'Syn для веба ещё не включён на сервере.';
-    } else if (error && error.status === 404){
-      // 404 приходит, пока на сервере нет маршрута веб-сессии: показывать
-      // человеку «Not found.» — значит не сказать ничего.
-      message = 'Syn в браузере ещё не включён на сервере.';
-    } else if (error && error.status === 402){
-      if (error.data && error.data.quota) SYN.quota = error.data.quota;
-      message = error.data && error.data.error ? error.data.error : 'Запросы к Syn на сегодня закончились.';
-    } else if (error && error.status === 403){
-      message = 'Сервер не принял запрос с этого адреса.';
-    } else if (error && error.status === 429){
-      message = 'Слишком часто. Подожди минуту и попробуй снова.';
-    } else if (error && error.status === undefined){
-      message = 'Сервер не ответил. Проверь соединение.';
+    // Неотвеченный вопрос не остаётся в ленте: иначе он уедет на сервер
+    // следующим запросом как будто на него уже ответили.
+    S.synChat.pop();
+    save();
+    synRender(text, synErrorText(error));
+  });
+}
+
+function synErrorText(error){
+  var message = error && error.message ? error.message : 'Не получилось';
+  if (!error) return message;
+  if (error.status === 503) return 'Syn для веба ещё не включён на сервере.';
+  if (error.status === 404) return 'Syn в браузере ещё не включён на сервере.';
+  if (error.status === 402){
+    if (error.data && error.data.quota) SYN.quota = error.data.quota;
+    return error.data && error.data.error ? error.data.error : 'Запросы к Syn на сегодня закончились.';
+  }
+  if (error.status === 403) return 'Сервер не принял запрос с этого адреса.';
+  if (error.status === 429) return 'Слишком часто. Подожди минуту и попробуй снова.';
+  if (error.status === undefined) return 'Сервер не ответил. Проверь соединение.';
+  return message;
+}
+
+/* ---- диктовка ---- */
+
+/* Распознавание речи браузером: SpeechRecognition, у Safari и Chrome под
+   вебкитовским именем. Своего сервера для этого не нужно — тем более что
+   маршрут распознавания у нас рассчитан на приложение.
+
+   Поведение выбрано под голосовую команду, а не под диктант: слушаем до
+   паузы, показываем текст по ходу, а как человек замолчал — сразу
+   отправляем. Голосом говорят «перенеси урок на субботу» и ждут, что это
+   случится, а не что придётся ещё нажать кнопку.
+
+   Чего здесь намеренно нет: постоянного слушания. Микрофон, включённый до
+   закрытия вкладки, — не та цена, которую стоит платить за экономию одного
+   нажатия. */
+var voice = { on: false, rec: null, final: '' };
+
+function voiceSupported(){
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+function voiceStart(){
+  if (voice.on || !voiceSupported()) return;
+
+  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = new Recognition();
+  rec.lang = 'ru-RU';
+  rec.continuous = false;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+
+  voice.rec = rec;
+  voice.on = true;
+  voice.final = '';
+
+  rec.onresult = function(event){
+    var interim = '';
+    for (var i = event.resultIndex; i < event.results.length; i++){
+      var chunk = event.results[i][0].transcript;
+      if (event.results[i].isFinal) voice.final += chunk;
+      else interim += chunk;
     }
-    openModal(modalSyn(text, message, null));
+    // Поле правим напрямую, без перерисовки окна: перерисовка увела бы
+    // курсор и оборвала бы распознавание на полуслове.
+    var field = $('syn-input');
+    if (field) field.value = (voice.final + interim).trim();
+  };
+
+  rec.onerror = function(event){
+    voice.on = false;
+    voice.rec = null;
+    var reason = event && event.error === 'not-allowed'
+      ? 'Браузер не дал доступ к микрофону.'
+      : event && event.error === 'no-speech'
+        ? 'Ничего не услышал.'
+        : 'Распознавание не сработало.';
+    synRender($('syn-input') ? $('syn-input').value : '', reason);
+  };
+
+  rec.onend = function(){
+    voice.on = false;
+    voice.rec = null;
+    var said = voice.final.trim();
+    voice.final = '';
+    // Замолчал — исполняем. Это и есть голосовая команда.
+    if (said) synSend(said);
+    else synRender($('syn-input') ? $('syn-input').value : '', '');
+  };
+
+  try {
+    rec.start();
+  } catch (error){
+    voice.on = false;
+    voice.rec = null;
+  }
+  synRender($('syn-input') ? $('syn-input').value : '', '');
+}
+
+function voiceStop(){
+  if (!voice.on || !voice.rec) return;
+  voice.on = false;
+  var rec = voice.rec;
+  voice.rec = null;
+  // abort, а не stop: stop досылает последний кусок и снова зовёт onend,
+  // который отправил бы уже отправленное.
+  try { rec.abort(); } catch (error){}
+}
+
+function synAsk(){
+  return synSession().then(function(token){
+    return synFetch('/v1/synapse/reply', {
+      workspace: synWorkspace(),
+      workspaceContext: synContext(),
+      messages: S.synChat.slice(-SYN_CHAT_SEND).map(function(item){
+        return { role: item.role === 'user' ? 'user' : 'assistant', text: item.text };
+      })
+    }, token);
   });
 }
 
@@ -3153,16 +3497,6 @@ function proActivate(code){
     };
     save();
     return S.pro;
-  });
-}
-
-function synAsk(text){
-  return synSession().then(function(token){
-    return synFetch('/v1/synapse/reply', {
-      workspace: synWorkspace(),
-      workspaceContext: synContext(),
-      messages: [{ role: 'user', text: text }]
-    }, token);
   });
 }
 
@@ -3922,9 +4256,21 @@ function importBackup(text){
 
 /* ============ МОДАЛКА ============ */
 
-function openModal(html){
+function openModal(html, toInput){
   $('modalIn').innerHTML = html;
   $('modal').classList.add('on');
+
+  // Окно ассистента перерисовывается на каждую реплику, и курсор должен
+  // остаться в строке ввода: иначе после ответа нельзя дописать следующее
+  // слово, не ткнув в поле.
+  if (toInput){
+    var input = $('syn-input');
+    if (input){
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+    return;
+  }
   // Курсор встаёт в первое пустое поле, а не в первое подряд: когда название
   // уже введено в строке создания, начинать надо со следующего вопроса.
   var fields = $('modalIn').querySelectorAll('input, textarea, select');
@@ -4062,7 +4408,7 @@ function modalKillGoal(goal){
 function modalPaywall(kind){
   return '<h3>Дальше — в подписке</h3>' +
     '<p class="s">' + esc(limitReason(kind)) + ' В Synapse Pro их сколько угодно, и открываются помодоро с медитацией.</p>' +
-    '<button class="btn full" data-act="go" data-view="pricing">Смотреть тарифы</button>' +
+    '<button class="btn full" data-act="go" data-view="subscription">Смотреть тарифы</button>' +
     '<div class="acts">' +
       '<button class="btn sm soft" data-act="pro-code">У меня есть код</button>' +
       '<button class="btn sm soft" data-act="close-modal">Не сейчас</button>' +
@@ -4087,7 +4433,7 @@ function modalProCode(error, busy){
       '<a class="btn sm soft" href="../checkout/">Купить на сайте</a>' +
       '<button class="btn sm soft" data-act="close-modal">Закрыть</button>' +
     '</div>' +
-    '<p class="hint">Код занимает одно устройство: если он уже введён в приложении, здесь он перестанет работать там.</p>';
+    '<p class="hint">Один код работает и здесь, и в приложении на iPhone: введите его в обоих местах. Записи при этом остаются раздельными.</p>';
 }
 
 function modalText(title, sub, label, act, placeholder){
@@ -4185,16 +4531,35 @@ var ACTS = {
   /* Ассистент. Строка из композера подставляется в поле — чаще всего человек
      уже начал печатать там и только потом сообразил, что это просьба к Syn. */
   ai: function(){
+    // Написанное в строке создания уходит Syn как есть: «разбери мой день»
+    // набирают там же, где обычную задачу, и жмут искру вместо стрелки.
     var field = $('field');
     var draft = field ? field.value.trim() : '';
-    openModal(modalSyn(draft, '', null));
-    if (draft) synSend(draft);
+    synRender(draft, '');
+    if (draft){
+      S.draft = '';
+      synSend(draft);
+    }
   },
   'syn-send': function(){
     var field = $('syn-input');
-    var text = field ? field.value.trim() : '';
-    if (!text || SYN.busy) return;
-    synSend(text);
+    synSend(field ? field.value.trim() : '');
+  },
+  briefing: function(){ briefingRun(); },
+  'syn-voice': function(){
+    if (voice.on) { voiceStop(); synRender($('syn-input') ? $('syn-input').value : '', ''); }
+    else voiceStart();
+  },
+  'syn-clear': function(){
+    S.synChat = [];
+    save();
+    synRender('', '');
+  },
+  'pro-copy': function(){
+    if (!S.pro.code || !navigator.clipboard) return;
+    navigator.clipboard.writeText(S.pro.code).then(function(){
+      toast('Код скопирован');
+    }).catch(function(){});
   },
   /* --- подписка --- */
   'pro-code': function(){ openModal(modalProCode('', false)); },
@@ -4790,6 +5155,14 @@ document.addEventListener('focusout', function(event){
 });
 
 document.addEventListener('keydown', function(event){
+  // В textarea Enter по умолчанию переносит строку и формы не отправляет.
+  // Для разговора нужнее отправка: перенос остаётся на Shift+Enter.
+  if (event.key === 'Enter' && !event.shiftKey && event.target.id === 'syn-input'){
+    event.preventDefault();
+    synSend(event.target.value.trim());
+    return;
+  }
+
   if (event.key === 'Escape'){
     // Развёрнутая карта закрывается тем же Esc, что и модалка, и раньше неё:
     // иначе из неё нет выхода с клавиатуры.
@@ -5147,6 +5520,73 @@ document.addEventListener('drop', function(event){
   var changed = dropTask(id, bucket, before);
   commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
 });
+
+/* --- колонка меню при прокрутке --- */
+
+/* На широком экране меню стоит по центру окна, пока страницу не листали, и
+   поднимается к первой строке под шапкой, как только начали. По центру оно
+   хорошо ровно на первом экране; дальше человек смотрит вверх, туда, где
+   заголовок блока, — и колонка, оставшаяся посреди пустоты, читается как
+   забытая.
+
+   «Пролистали или нет» решает не обработчик scroll, а наблюдатель за меткой в
+   двадцати четырёх пикселях от верха страницы: он не будит скрипт на каждый
+   пиксель прокрутки и не зависит от того, кто именно прокручивается — окно,
+   html или body. Метка создаётся один раз и живёт вне перерисовываемых
+   контейнеров, поэтому её не сносит render(). */
+var railRaised = null;
+
+function railTop(){
+  // Равняем по строке, которая при прокрутке стоит первой под шапкой. Шапка
+  // липкая, поэтому её высота — единственная величина, от которой это зависит.
+  var top = $('top');
+  var height = top ? Math.round(top.getBoundingClientRect().height) : 64;
+  return height + 22;
+}
+
+function setRail(raised){
+  if (raised === railRaised) return;
+  railRaised = raised;
+  var root = document.documentElement.style;
+  if (raised){
+    root.setProperty('--rail-y', railTop() + 'px');
+    root.setProperty('--rail-shift', '0px');
+  } else {
+    // Снимаем совсем, а не ставим «50%» руками: значения по умолчанию живут в
+    // одном месте — в самом правиле.
+    root.removeProperty('--rail-y');
+    root.removeProperty('--rail-shift');
+  }
+}
+
+function watchScrollTop(){
+  var mark = document.createElement('div');
+  mark.className = 'scroll-mark';
+  mark.setAttribute('aria-hidden', 'true');
+  document.body.insertBefore(mark, document.body.firstChild);
+
+  if (window.IntersectionObserver){
+    new IntersectionObserver(function(entries){
+      setRail(!entries[0].isIntersecting);
+    }).observe(mark);
+  }
+
+  /* И обработчик прокрутки рядом. Два способа об одном и том же держатся здесь
+     намеренно: наблюдатель молчит там, где движок считает страницу невидимой
+     (встроенные панели предпросмотра, фоновые вкладки), а обработчик — там, где
+     прокручивается не окно, а элемент. setRail при совпадении состояния выходит
+     сразу, поэтому лишней работы от пары нет. */
+  window.addEventListener('scroll', function(){
+    setRail(window.scrollY > 24 || document.documentElement.scrollTop > 24);
+  }, { passive: true });
+}
+
+// Высота шапки зависит от шрифта и его размера, а их меняют в настройках.
+window.addEventListener('resize', function(){
+  if (railRaised) document.documentElement.style.setProperty('--rail-y', railTop() + 'px');
+});
+
+watchScrollTop();
 
 /* ============ УСТАНОВКА И РАБОТА БЕЗ СЕТИ ============ */
 

@@ -14,7 +14,7 @@
   файлов — поднимите число, и старый кэш снесётся в activate.
 */
 
-var CACHE = 'synapse-shell-v6';
+var CACHE = 'synapse-shell-v8';
 
 var SHELL = [
   './',
