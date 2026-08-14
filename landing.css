@@ -39,7 +39,17 @@
 
   /* Поверхности */
   --bg: #f5f1e8;              /* ivory — бумага, а не кремовый фон */
-  --surface: #fbf9f4;         /* карточка почти растворяется в фоне */
+  --surface: #fbf9f4;         /* карточка: самый светлый слой на экране */
+
+  /* Заливка страницы. Плоского --bg было мало: карточка отличалась от фона на
+     2,7 по L*, и на «Тарифах» блок с ценой было не отделить от подложки.
+     Каждая точка держит теперь не меньше 6, и меряется это по тому, что
+     выходит ПОСЛЕ наложения свечений, — они умеют подтянуть фон обратно. */
+  --page-top: #e7e0d2;
+  --page-mid: #ebe7dc;
+  --page-bottom: #e7decb;
+  --glow-forest: rgba(31, 74, 56, 0.10);
+  --glow-brass: rgba(138, 110, 53, 0.08);
   --surface-2: #eae4d6;       /* bone — вторичные блоки и сцена под скриншотами */
   --surface-elevated: #ffffff; /* кнопка поверх тёмной карточки — самый верхний слой */
   --bg-band: #eae4d6;
@@ -110,6 +120,15 @@
     --bg-dark: #171d19;
     --surface-elevated: #2d3830;
 
+    --page-top: #101512;
+    --page-mid: #131916;
+    --page-bottom: #0d110f;
+    /* Вдвое тише, чем в светлой теме: на тёмном свечение осветляет, а осветлить
+       фон — значит придвинуть его обратно к цвету карточки. На узком экране
+       оба круга накрывают верх целиком и складываются — порог держим по сумме. */
+    --glow-forest: rgba(132, 162, 140, 0.038);
+    --glow-brass: rgba(177, 154, 108, 0.019);
+
     --text: #f5f1e8;
     --muted: #b9bbaf;
     --muted-strong: #c6c8bd;
@@ -157,6 +176,15 @@
     --bg-dark: #171d19;
     --surface-elevated: #2d3830;
 
+    --page-top: #101512;
+    --page-mid: #131916;
+    --page-bottom: #0d110f;
+    /* Вдвое тише, чем в светлой теме: на тёмном свечение осветляет, а осветлить
+       фон — значит придвинуть его обратно к цвету карточки. На узком экране
+       оба круга накрывают верх целиком и складываются — порог держим по сумме. */
+    --glow-forest: rgba(132, 162, 140, 0.038);
+    --glow-brass: rgba(177, 154, 108, 0.019);
+
     --text: #f5f1e8;
     --muted: #b9bbaf;
     --muted-strong: #c6c8bd;
@@ -191,16 +219,37 @@ html, body {
   padding: 0;
 }
 
+/* Запасной цвет — на html: слой заливки ниже стоит на z-index:-1, а
+   отрицательный слой рисуется раньше фонов блочных потомков, и фон body
+   закрыл бы его собой. */
+html {
+  background: var(--page-mid);
+}
+
 body {
   font-family: var(--font-text);
-  background:
-    radial-gradient(circle at 12% -10%, rgba(31, 74, 56, 0.10), transparent 42%),
-    radial-gradient(circle at 92% 4%, rgba(138, 110, 53, 0.08), transparent 38%),
-    var(--bg);
   color: var(--text);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+/* Заливка страницы отдельным слоем под содержимым.
+
+   На body её держать нельзя: главная длиной в десяток экранов, и растянутый
+   по всему документу градиент в пределах одного экрана выглядит ровным.
+   background-attachment: fixed делает то же, но дёргается на iOS Safari при
+   инерционной прокрутке. Приколоченный слой ведёт себя одинаково везде. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% -10%, var(--glow-forest), transparent 42%),
+    radial-gradient(circle at 92% 4%, var(--glow-brass), transparent 38%),
+    linear-gradient(168deg, var(--page-top) 0%, var(--page-mid) 43%, var(--page-bottom) 100%);
 }
 
 img { max-width: 100%; height: auto; display: block; }
