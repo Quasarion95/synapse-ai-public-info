@@ -808,17 +808,19 @@ function deadlinePassed(task){
   return day < todayDate();
 }
 
+/* Просрочка — это прошедшее время, и только оно.
+
+   У задачи без времени просрочки не бывает: «купить корм» на сегодня не
+   становится провалом в полночь, оно просто переезжает на следующий день и
+   висит дальше. Раньше такая задача получала красную отметку за то, что
+   пролежала день, — и отметка обесценивалась, потому что была почти у всех. */
 function isOverdue(task){
-  if (task.done || !task.date) return false;
-  var now = new Date();
+  if (task.done || !task.date || !task.time) return false;
   var day = dateOf(task.date);
   if (!day) return false;
-  if (task.time){
-    var parts = task.time.split(':');
-    day = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Number(parts[0]), Number(parts[1]));
-    return day < now;
-  }
-  return day < todayDate();
+  var parts = task.time.split(':');
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate(),
+    Number(parts[0]), Number(parts[1])) < new Date();
 }
 
 /* ============ ЗНАЧКИ РАЗДЕЛОВ ============ */
@@ -985,6 +987,7 @@ function render(){
   $('app').innerHTML = (PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render();
 
   restoreComposer();
+  growNotes();
   fitMindMap();
   showToast();
   // Высота шапки могла поменяться вместе с размером шрифта.
@@ -1034,7 +1037,12 @@ var ICON = {
     '<path d="M12 3.6l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"/></svg>',
   mic: '<svg viewBox="0 0 24 24" aria-hidden="true">' +
     '<rect x="9" y="3" width="6" height="11" rx="3"/>' +
-    '<path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg>'
+    '<path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg>',
+  // Повтор — рисунком, а не 🔁: эмодзи в разных системах то плоское, то
+  // цветное, и в мелкой мете оно единственное кричало цветом.
+  repeat: '<svg viewBox="0 0 24 24" aria-hidden="true" class="nav-ic">' +
+    '<path d="M4 9.5A5.5 5.5 0 0 1 9.5 4H16"/><path d="M13.5 1.5L16.5 4l-3 2.5"/>' +
+    '<path d="M20 14.5A5.5 5.5 0 0 1 14.5 20H8"/><path d="M10.5 22.5L7.5 20l3-2.5"/></svg>'
 };
 
 function paletteOf(id){
@@ -1454,19 +1462,28 @@ function itemRow(t){
   var subDone = t.subtasks.filter(function(s){ return s.done; }).length;
   var open = !!S.open[t.id];
 
+  /* Дата и время — справа от названия, одной тихой строкой.
+
+     Чипами они занимали отдельный ряд под названием, и карточка вырастала в
+     два раза: пять задач вместо десяти на экране телефона. В приложении это
+     мелкая мета в 9–10 пунктов, и здесь теперь так же — только вынесенная
+     вправо, где для неё есть пустое место, а не вниз, где его нет.
+
+     «Перенесено с такого-то» убрано вовсе. Задача, переехавшая на сегодня, не
+     нуждается в объяснении: она в «Сегодня», её надо делать. А вот время,
+     которое прошло, назвать надо — это единственное, что действительно
+     изменилось со вчера. Без времени задача просто висит, и никакой отметки на
+     ней не нужно. */
   var meta = [];
   if (t.date && t.bucket !== 'today') meta.push('<span>' + esc(humanDate(t.date)) + '</span>');
-  if (t.time) meta.push('<span>🕘 ' + esc(t.time) + '</span>');
-  if (t.repeat) meta.push('<span>🔁 ' + esc(repeatLabel(t.repeat)) + '</span>');
-  // Срок показывается словом «до»: без него строка «15 апреля 18:30» читалась
-  // бы как время самой задачи.
-  if (t.windowFrom && t.windowFrom.time) meta.push('<span class="chip">с ' + esc(t.windowFrom.time) + '</span>');
-  if (t.deadline) meta.push('<span class="chip' + (deadlinePassed(t) ? ' late' : ' hard') + '">до ' +
+  if (t.time) meta.push('<span class="mt">' + esc(t.time) + '</span>');
+  if (t.repeat) meta.push('<span class="mr" title="' + esc(repeatLabel(t.repeat)) + '">' + ICON.repeat + '</span>');
+  if (t.windowFrom && t.windowFrom.time) meta.push('<span>с ' + esc(t.windowFrom.time) + '</span>');
+  // Срок — со словом «до»: без него «15 апреля 18:30» читается как время самой
+  // задачи.
+  if (t.deadline) meta.push('<span class="' + (deadlinePassed(t) ? 'late' : 'hard') + '">до ' +
     esc(deadlineText(t.deadline)) + '</span>');
-  if (isOverdue(t)) meta.push('<span class="chip late">просрочено</span>');
-  // Задача, переехавшая с прошлого дня, должна об этом сказать: иначе завтра
-  // непонятно, почему она в «Сегодня» и сколько раз уже переезжала.
-  if (t.carriedFrom) meta.push('<span class="chip">перенесено с ' + esc(humanDate(t.carriedFrom)) + '</span>');
+  if (isOverdue(t)) meta.push('<span class="late">просрочено</span>');
   if (t.subtasks.length) meta.push('<span class="pct">' + pct(subDone, t.subtasks.length) + '%</span>');
 
   var expandable = t.subtasks.length || t.note;
@@ -1508,9 +1525,11 @@ function itemRow(t){
     '<div class="item-main" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
-        '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
-          esc(t.title) + '</button>' +
-        (meta.length ? '<div class="m">' + meta.join('') + '</div>' : '') +
+        '<div class="titleline">' +
+          '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
+            esc(t.title) + '</button>' +
+          (meta.length ? '<div class="m">' + meta.join('') + '</div>' : '') +
+        '</div>' +
         '<span class="expand"><span class="car">⌄</span>' + esc(summary) +
           (goal ? ' · цель' : '') + '</span>' +
       '</div>' +
@@ -2362,8 +2381,29 @@ function vMindMap(){
   }
 
   var colors = themeColors();
+
+  /* На телефоне карта односторонняя.
+
+     Симметричная раскладка — ствол в середине, цели веером в обе стороны —
+     даёт полотно 1400 на 350: соотношение четыре к одному. Экран телефона
+     ровно наоборот, 375 на 800, и такая карта вписывается в него полоской
+     высотой в палец, где от подписей остаются точки.
+
+     Односторонняя вдвое уже и вдвое выше: те же цели, но столбиком, и ствол
+     слева. Соотношение становится ближе к экрану, масштаб вырастает примерно в
+     полтора раза — структура видна без прокрутки, а подробности по-прежнему
+     достаются увеличением.
+
+     На широком экране остаётся симметричная: там места хватает, и веер в обе
+     стороны читается лучше столбца. */
+  var oneSided = window.innerWidth < 760;
+
   var left = [], right = [];
-  for (var i = 0; i < S.goals.length; i++) (i % 2 === 0 ? left : right).push(S.goals[i]);
+  if (oneSided){
+    right = S.goals.slice();
+  } else {
+    for (var i = 0; i < S.goals.length; i++) (i % 2 === 0 ? left : right).push(S.goals[i]);
+  }
 
   var sideHeight = function(list){
     var h = 0;
@@ -2376,8 +2416,9 @@ function vMindMap(){
   // Половина ширины считается по самому дальнему ряду плюс поля, чтобы
   // крайние карточки не липли к рамке (contentHalfWidth + edgeMargin).
   var halfWidth = MM.goalX + MM.stageX + MM.taskX + MM.taskW / 2 + 20;
-  var width = halfWidth * 2;
-  var cx = width / 2, cy = height / 2;
+  var width = oneSided ? halfWidth + MM.coreR + 24 : halfWidth * 2;
+  var cx = oneSided ? MM.coreR + 20 : width / 2;
+  var cy = height / 2;
 
   var body = '';
   var doneAll = 0, totalAll = 0;
@@ -2523,7 +2564,10 @@ function fitMindMap(){
     // получает общий вид, когда он нужен, и платит за это размером подписей
     // осознанно.
     var fitFull = Math.min(available / vw, (wrap.clientHeight - 32) / vh);
-    var scale = Math.max(0.9, Math.min(2.2, fitFull)) * zoom;
+    // На телефоне пол ниже: развернув карту на весь экран, человек просит
+    // общий вид, а не крупные подписи.
+    var floorFull = window.innerWidth < 760 ? 0.34 : 0.9;
+    var scale = Math.max(floorFull, Math.min(2.2, fitFull)) * zoom;
     svg.setAttribute('width', Math.max(60, Math.round(vw * scale)));
     svg.setAttribute('height', Math.round(vh * scale));
     wrap.scrollLeft = Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
@@ -2531,20 +2575,57 @@ function fitMindMap(){
     return;
   }
 
-  // Вписывать по ширине можно только до предела читаемости. Ужать карту в
-  // полоску высотой девяносто пикселей — это зеркало той же баги, что была в
-  // приложении: там подписи резались, здесь превращались бы в многоточия.
-  // Если не влезает — карта прокручивается и таскается внутри рамки.
-  var fit = available / vw;
-  var readable = Math.max(0.9, Math.min(1, 340 / vh));
-  var base = Math.max(readable, Math.min(1, fit));
+  /* На телефоне карта вписывается целиком, как в приложении.
 
-  svg.setAttribute('width', Math.max(60, Math.round(vw * base * zoom)));
-  svg.setAttribute('height', Math.round(vh * base * zoom));
+     Раньше здесь стоял пол читаемости 0.9: карта не сжималась мельче, а
+     переставала влезать и превращалась в полоску, которую надо таскать пальцем.
+     На широком экране это правильно — там места хватает и подписи важнее. На
+     телефоне нет: человек открывает карту, чтобы увидеть **всю** структуру
+     целей, а не читать один узел через прокрутку. Приложение поступает так же —
+     его нижний предел масштаба 0.2, и общий вид оно предпочитает крупным
+     буквам.
 
-  // Открываем на центре: ствол и обе колонки должны быть видны сразу, а не
-  // после того, как человек догадается прокрутить рамку.
-  wrap.scrollLeft = Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
+     Разглядеть подробности можно кнопкой «+» и перетаскиванием: увеличение —
+     осознанное действие, в отличие от прокрутки, которую никто не просил. */
+  var narrow = window.innerWidth < 760;
+  var frameHeight = wrap.clientHeight - 24;
+  var fit = Math.min(available / vw, frameHeight / vh);
+
+  var base;
+  if (narrow){
+    // Честная подгонка по обеим сторонам, но не мельче того, при чём ещё видно,
+    // что это карта, а не сетка точек.
+    base = Math.max(0.34, Math.min(1, fit));
+  } else {
+    // Вписывать по ширине можно только до предела читаемости. Ужать карту в
+    // полоску высотой девяносто пикселей — это зеркало той же баги, что была в
+    // приложении: там подписи резались, здесь превращались бы в многоточия.
+    var readable = Math.max(0.9, Math.min(1, 340 / vh));
+    base = Math.max(readable, Math.min(1, available / vw));
+  }
+
+  var drawnW = Math.max(60, Math.round(vw * base * zoom));
+  var drawnH = Math.round(vh * base * zoom);
+  svg.setAttribute('width', drawnW);
+  svg.setAttribute('height', drawnH);
+
+  /* Рамка на телефоне подгоняется под карту, а не наоборот.
+
+     Ширина экрана — жёсткий предел, поэтому карта редко занимает всю высоту
+     рамки: при фиксированных 460 пикселях под ней оставалась пустая половина,
+     и раздел выглядел недоделанным. Теперь рамка ровно по карте, но не выше
+     62% экрана — дальше начинается прокрутка внутри неё. */
+  if (narrow && !(S.mm && S.mm.full)){
+    var limit = Math.round(window.innerHeight * 0.62);
+    wrap.style.height = Math.min(limit, drawnH + 24) + 'px';
+  } else {
+    wrap.style.height = '';
+  }
+
+  /* Куда смотреть при открытии. На широком экране — в центр: ствол и обе
+     колонки. На телефоне карта односторонняя, и центр там — середина ветвей;
+     начинать надо от ствола, то есть от левого края. */
+  wrap.scrollLeft = narrow ? 0 : Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
 }
 
 /* Перетаскивание карты пальцем и мышью: при увеличении она шире рамки. */
@@ -2646,7 +2727,7 @@ function vNote(){
 
   var html = head('', n.title, 'notes');
   html += '<section class="card">' +
-    '<textarea class="note-field" data-notebody="' + n.id + '" placeholder="Текст записи">' + esc(n.body) + '</textarea>' +
+    '<textarea class="note-field" data-notebody="' + n.id + '" placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>' +
     '<p class="hint">Сохраняется по мере набора — заметка, которую надо не забыть сохранить, это заметка, которую теряют.</p>' +
     '<div class="acts"><button class="btn sm soft" data-act="kill-note" data-note="' + n.id + '">Удалить запись</button></div>' +
   '</section>';
@@ -3000,7 +3081,7 @@ function clockText(seconds){
    данные, переехало в настройки: раньше и то и другое лежало одной лентой,
    и найти в ней что-либо можно было только прокруткой. */
 function vProfile(){
-  var html = head('Аккаунт', 'Профиль', 'settings');
+  var html = head('', 'Профиль', 'settings');
 
   html += '<section class="card profile-card">' +
     '<div class="avatar-row">' +
@@ -3120,7 +3201,6 @@ function vSettings(){
   var html = head('Приложение', 'Настройки');
   html += settingsLink('profile', 'Профиль', S.profile.name || S.auth.email || 'Имя и фото') +
     settingsLink('auth', 'Вход', S.auth.stage === 'in' ? S.auth.email : 'Пока не выполнен') +
-    settingsLink('subscription', 'Моя подписка', isPro() ? 'Подписка активна' : 'Бесплатно и Pro') +
     settingsLink('settings-view', 'Вид', fontOf(S.font).title + ' · ' + paletteOf(S.palette).title) +
     settingsLink('settings-data', 'Данные', 'Копия файлом, примеры, стирание') +
     settingsLink('about', 'О сервисе', 'Что умеет веб-версия');
@@ -3789,6 +3869,26 @@ function synLogHTML(){
 
 /// Лента всегда показывает последнее сказанное: без этого новая реплика
 /// появляется ниже края, и кажется, что ответа нет.
+/* Заметка показывается целиком.
+
+   Поле было фиксированной высоты со своей полосой прокрутки внутри: страница
+   не двигалась, а текст ездил в окошке — читать длинную запись приходилось
+   через щель. Теперь поле растёт под содержимое, а прокручивается сама
+   страница, как и всё остальное на ней.
+
+   Предела нет намеренно: заметка на десять экранов — это нормальная заметка,
+   и обрезать её ради компактности значит спрятать то, ради чего её открыли. */
+function growNote(field){
+  if (!field) return;
+  field.style.height = 'auto';
+  field.style.height = field.scrollHeight + 'px';
+}
+
+function growNotes(){
+  var fields = document.querySelectorAll('.note-field');
+  for (var i = 0; i < fields.length; i++) growNote(fields[i]);
+}
+
 /// Поле ввода растёт под текст до своего предела — дальше прокручивается.
 function growInput(field){
   if (!field) return;
@@ -5808,6 +5908,7 @@ document.addEventListener('input', function(event){
   if (t.getAttribute && t.getAttribute('data-notebody')){
     var note = findNote(t.getAttribute('data-notebody'));
     if (note){ note.body = t.value; save(); }
+    growNote(t);
   }
 });
 

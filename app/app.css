@@ -420,6 +420,10 @@ select.inp{appearance:none}
 /* У рамки карты фиксированная высота. Раньше она подстраивалась под холст, и
    экран аналитики прыгал: одна цель — полоска, четыре — половина страницы. */
 .mmwrap{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:10px; margin-bottom:var(--gap); height:640px; overflow:auto; -webkit-overflow-scrolling:touch; display:grid; place-items:center}
+/* На телефоне рамка ниже экрана, но заметно выше полоски: карта вписывается в
+   неё целиком, и высота 640 пикселей там просто не нужна — она бы уехала под
+   нижнюю панель. */
+@media (max-width:759px){ .mmwrap{height:min(62vh, 460px)} }
 .mmwrap svg{display:block; height:auto}
 
 /* На телефоне в рамку помещался ствол и обрезанные края двух целей, а сверху
@@ -455,7 +459,11 @@ body.mm-open{overflow:hidden}
 .tilebtn .ic{font-size:20px}
 .tilebtn .tt{font-size:15.5px; font-weight:600}
 .tilebtn .ss{font-size:12.5px; color:var(--fg-3)}
-.note-field{width:100%; min-height:110px; border:0; background:var(--soft); border-radius:var(--r-md); padding:13px 15px; font-size:14.5px; resize:vertical; line-height:1.5; margin-top:10px}
+.note-field{width:100%; min-height:110px; border:0; background:var(--soft); border-radius:var(--r-md); padding:13px 15px; font-size:14.5px; line-height:1.5; margin-top:10px;
+  /* Ни своей прокрутки, ни ручного размера: высоту ведёт содержимое, а
+     прокручивается страница. Полоса внутри поля заставляла читать длинную
+     запись через щель. */
+  resize:none; overflow:hidden}
 /* ============ МЕДИТАЦИЯ ============ */
 /* Круг заполняется по ходу сеанса: conic-gradient по переменной --p, без
    единого кадра анимации в JS. Внутри круга — время и слово дыхания. */
@@ -843,3 +851,28 @@ body.mm-open{overflow:hidden}
 .card.preview{margin-top:0}
 .preview-task{display:flex; gap:11px; align-items:flex-start}
 .preview-task h3{font-size:16px}
+
+/* Строка названия задачи и мета справа от него.
+
+   Чипами дата и время занимали отдельный ряд под названием, и карточка
+   вырастала вдвое: пять задач на экране телефона вместо десяти. Теперь это
+   мелкая тихая строка справа — там, где есть пустое место, — и она не
+   переносится: длинное название сжимается первым. */
+.titleline{display:flex; align-items:baseline; gap:10px}
+.titleline .t{flex:1; min-width:0}
+.titleline .m{flex:none; margin-top:0; justify-content:flex-end; font-size:11.5px; gap:7px; white-space:nowrap}
+.titleline .m .late{color:var(--danger); font-weight:600}
+.titleline .m .hard{color:var(--fg-2)}
+.titleline .m .mt{font-variant-numeric:tabular-nums}
+.titleline .m .mr{display:inline-grid; place-items:center; color:var(--fg-3)}
+.titleline .m .mr .nav-ic{width:13px; height:13px; stroke-width:2}
+.titleline .m .pct{font-weight:600; color:var(--fg-2)}
+
+/* На узком экране мета остаётся справа, пока название помещается в строку, и
+   уходит под него, когда не помещается. Жёстко прибить её вправо нельзя:
+   длинное название сжалось бы до двух слов, а оно здесь главное. */
+@media (max-width:430px){
+  .titleline{flex-wrap:wrap; gap:1px 10px}
+  .titleline .t{flex:1 1 auto; min-width:55%}
+  .titleline .m{justify-content:flex-start}
+}
