@@ -19,7 +19,7 @@
   что выкладка не сработала. Обработчик — в app.js, registerServiceWorker.
 */
 
-var CACHE = 'synapse-shell-v12';
+var CACHE = 'synapse-shell-v13';
 
 var SHELL = [
   './',
@@ -34,9 +34,18 @@ var SHELL = [
 self.addEventListener('install', function(event){
   event.waitUntil(
     caches.open(CACHE).then(function(cache){
-      // addAll падает целиком, если хоть один файл не отдался. Оболочка
-      // должна лечь в кэш полностью или никак — половина хуже, чем ничего.
-      return cache.addAll(SHELL);
+      /* addAll падает целиком, если хоть один файл не отдался. Оболочка должна
+         лечь в кэш полностью или никак — половина хуже, чем ничего.
+
+         cache: 'reload' обязателен, и вот почему. Обычный addAll ходит за
+         файлами через HTTP-кэш браузера, а там лежит прошлая версия — и новый
+         worker бережно перекладывал в свой свежий кэш старый app.js. Со
+         стороны это выглядело как «выкатка не сработала»: на сервере новое, в
+         браузере прежнее, помогал только Cmd+Shift+R. Здесь мы требуем ходить
+         в сеть. */
+      return cache.addAll(SHELL.map(function(url){
+        return new Request(url, { cache: 'reload' });
+      }));
     }).then(function(){ return self.skipWaiting(); })
   );
 });
