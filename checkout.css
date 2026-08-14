@@ -442,8 +442,12 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .alert { color: var(--error); }
+  :root:not([data-theme="light"]) .alert { color: var(--error); }
 }
+
+/* То же самое, когда тему выбрали кнопкой, а не системой. */
+:root[data-theme="dark"] .alert { color: var(--error); }
+
 
 .alert a { color: inherit; }
 
@@ -513,8 +517,12 @@
 .btn-danger:hover { background: rgba(229, 72, 77, 0.08); }
 
 @media (prefers-color-scheme: dark) {
-  .btn-danger { color: var(--error); }
+  :root:not([data-theme="light"]) .btn-danger { color: var(--error); }
 }
+
+/* То же самое, когда тему выбрали кнопкой, а не системой. */
+:root[data-theme="dark"] .btn-danger { color: var(--error); }
+
 
 /* ---------- modal ---------- */
 
@@ -616,3 +624,30 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* ---------- переключатель темы ---------- */
+
+/* Тема — светлая или тёмная, третьего состояния нет: «как в системе» означало
+   бы кнопку, которая не отвечает на вопрос «какая сейчас тема». Систему
+   спрашиваем один раз, до первого выбора. Выбор хранится в том же ключе, что и
+   в веб-версии приложения, поэтому переключённое здесь остаётся переключённым
+   и там. */
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 60;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.theme-toggle:hover { border-color: var(--forest); }

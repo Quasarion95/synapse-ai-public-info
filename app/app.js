@@ -53,7 +53,7 @@ function seed(){
     installID: '',
     openGoal: {},
     goalDraft: '',
-    theme: 'system',
+    theme: systemPrefersDark() ? 'dark' : 'light',
     palette: 'paper',
     font: 'rounded',
     fontSize: 'standard',
@@ -138,6 +138,9 @@ function load(){
     if (!parsed.synChat || !parsed.synChat.length) parsed.synChat = [];
     if (!parsed.briefing) parsed.briefing = null;
     if (!parsed.palette) parsed.palette = 'paper';
+    // «Как в системе» больше нет: тема теперь решение человека, а не среды.
+    // Тем, у кого стояла системная, ставим ту, которую они и видели.
+    if (parsed.theme !== 'light' && parsed.theme !== 'dark') parsed.theme = systemPrefersDark() ? 'dark' : 'light';
     if (!parsed.mm) parsed.mm = { zoom: 1 };
     if (!parsed.closed) parsed.closed = {};
     if (!parsed.open) parsed.open = {};
@@ -947,10 +950,18 @@ function rgba(c, alpha){
   return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + alpha + ')';
 }
 
+/* Тема — светлая или тёмная, третьего нет.
+
+   «Как в системе» звучит разумно, но на деле означает третье состояние, в
+   котором переключатель не отвечает на вопрос «какая сейчас тема»: нажал — и
+   не знаешь, что получишь. Системная настройка используется ровно один раз, в
+   самом начале, чтобы первое открытие не било по глазам. */
+function systemPrefersDark(){
+  return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+
 function isDarkNow(){
-  if (S.theme === 'dark') return true;
-  if (S.theme === 'light') return false;
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return S.theme === 'dark';
 }
 
 /// Цвета, которыми пользуется и CSS, и mind map. Считаются по тем же
@@ -1064,22 +1075,14 @@ function applyTheme(){
   document.documentElement.setAttribute('data-box', S.box || 'square');
 }
 
-// Смена системной темы должна долетать сразу: переменные считает скрипт, а не
-// медиазапрос, поэтому без подписки страница осталась бы светлой.
-if (window.matchMedia){
-  var systemWatch = window.matchMedia('(prefers-color-scheme: dark)');
-  if (systemWatch.addEventListener){
-    systemWatch.addEventListener('change', function(){ if (S.theme === 'system') render(); });
-  }
-}
-
 function vTop(){
   return '<div class="top-in">' +
     '<div class="brand"><img class="mark" src="icons/icon-192.png" alt="" width="28" height="28">' +
       '<span class="nm">Synapse</span></div>' +
     '<div class="top-acts">' +
-      '<button class="iconbtn" data-act="theme" title="Тема" aria-label="Сменить тему">' +
-        (S.theme === 'dark' ? '☾' : S.theme === 'light' ? '☀' : '◐') + '</button>' +
+      '<button class="iconbtn" data-act="theme" title="' + (isDarkNow() ? 'Светлая тема' : 'Тёмная тема') +
+        '" aria-label="' + (isDarkNow() ? 'Включить светлую тему' : 'Включить тёмную тему') + '">' +
+        (isDarkNow() ? '☀' : '☾') + '</button>' +
       // Рядом с аватаркой — имя: без него в шапке висит безымянный кружок с
       // буквой, и непонятно, чей это аккаунт.
       '<button class="whoami' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
@@ -1457,6 +1460,10 @@ function vFocusCard(today, todayDone, overdue, withTime){
     '<div class="acts">' +
       '<button class="btn sm" data-act="briefing"' + (BRIEFING.busy ? ' disabled' : '') + '>' +
         (BRIEFING.busy ? 'Syn собирает…' : brief ? 'Обновить брифинг' : 'Собрать брифинг') + '</button>' +
+      (brief && speechSupported()
+        ? '<button class="btn sm soft" data-act="briefing-say">' +
+          (speech.on ? 'Остановить' : 'Прослушать') + '</button>'
+        : '') +
       (brief ? '<span class="hint" style="align-self:center">' + esc(brief.at) + '</span>' : '') +
     '</div>' +
     (brief ? '' : '<p class="hint">Пока это сводка по вашим задачам. Брифинг соберёт Syn — он посмотрит на день целиком и скажет, с чего начать. Один запрос из дневной нормы.</p>') +
@@ -1525,6 +1532,58 @@ function briefingLines(text){
     }
     return ['SYN', trimmed];
   }).filter(Boolean);
+}
+
+/* ---- озвучка ---- */
+
+/* Брифинг можно послушать. Смысл не в озвучке ради озвучки: разбор дня читают
+   утром, когда руки заняты — одеваются, едут, варят кофе. Тогда он должен
+   звучать, а не ждать, пока на него посмотрят.
+
+   Синтез браузерный (SpeechSynthesis), своего сервера не нужно. Голос берём
+   русский, если он в системе есть; если нет — молча читаем тем, что стоит по
+   умолчанию: чужой акцент лучше тишины.
+
+   Метки «СЕЙЧАС», «ПЛАН» в озвучку не идут: на письме они разделяют куски, а
+   вслух звучат как выкрики. */
+var speech = { on: false };
+
+function speechSupported(){ return 'speechSynthesis' in window; }
+
+function speechStop(){
+  if (!speechSupported()) return;
+  window.speechSynthesis.cancel();
+  speech.on = false;
+}
+
+function speechSay(text, done){
+  if (!speechSupported() || !text) return;
+  window.speechSynthesis.cancel();
+
+  var utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'ru-RU';
+  utterance.rate = 0.98;
+  utterance.pitch = 1;
+
+  var voices = window.speechSynthesis.getVoices() || [];
+  for (var i = 0; i < voices.length; i++){
+    if ((voices[i].lang || '').toLowerCase().indexOf('ru') === 0){ utterance.voice = voices[i]; break; }
+  }
+
+  utterance.onend = function(){ speech.on = false; if (done) done(); };
+  utterance.onerror = function(){ speech.on = false; if (done) done(); };
+
+  speech.on = true;
+  window.speechSynthesis.speak(utterance);
+}
+
+/// Текст брифинга для чтения вслух: без меток и с «Главное» в конце фразой.
+function briefingSpeech(){
+  var brief = S.briefing;
+  if (!brief || !brief.text) return '';
+  var lines = briefingLines(brief.text).map(function(pair){ return pair[1]; });
+  if (brief.main) lines.push('Главное на сегодня: ' + brief.main);
+  return lines.join(' ');
 }
 
 function briefingRun(){
@@ -2768,7 +2827,7 @@ function vSettingsView(){
   var html = head('Настройки', 'Вид', 'settings');
 
   html += '<p class="lbl">Тема</p><div class="radios">' +
-    [['system', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
+    [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
       return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
     }).join('') + '</div>';
 
@@ -3316,11 +3375,32 @@ function synLogHTML(){
       (voiceSupported() ? ' Или продиктуй голосом — Syn выполнит сказанное.' : '') + '</p>';
   }
 
-  return S.synChat.map(function(item){
+  return S.synChat.map(function(item, index){
+    item.i = index;
     if (item.role === 'user'){
       return '<div class="syn-msg mine"><span>' + esc(item.text) + '</span></div>';
     }
     var html = '<div class="syn-msg"><span>' + esc(item.text) + '</span></div>';
+
+    /* Ответ без единого действия — самая обидная поломка ассистента: он
+       написал «добавил», а на экране прежнее, и человек верит словам. Модель
+       иногда так отвечает, и никакой каталог действий этого не исправит —
+       поправить можно только молчание интерфейса.
+
+       Поэтому пустой ответ называется прямо, и рядом даётся выход: повторить
+       запрос или создать задачу из той же фразы своим разбором строки — тем
+       самым, что работает в строке создания. Второе не стоит ни запроса, ни
+       ожидания. */
+    if (item.none){
+      html += '<div class="syn-none">' +
+        '<b>Ничего не изменилось.</b> Syn ответил словами, но не прислал ни одного действия.' +
+        '<div class="syn-none-acts">' +
+          (item.said ? '<button class="btn sm" data-act="syn-local" data-i="' + item.i + '">Создать задачу из фразы</button>' : '') +
+          (item.said ? '<button class="btn sm soft" data-act="syn-again" data-i="' + item.i + '">Повторить</button>' : '') +
+        '</div>' +
+      '</div>';
+    }
+
     if (item.done && item.done.length){
       html += '<ul class="syn-did">' + item.done.map(function(line){
         return '<li>' + esc(line) + '</li>';
@@ -3395,6 +3475,13 @@ function synSend(text){
     var result = synApplyActions(data.actions);
     SYN.busy = false;
     synChatPush('assistant', data.reply || 'Готово.', result);
+    // Помечаем именно «действий не было вовсе»: пустой список — это не то же
+    // самое, что действия, которые не применились, — про те сказано отдельно.
+    if (!(data.actions || []).length){
+      var last = S.synChat[S.synChat.length - 1];
+      last.none = true;
+      last.said = text;
+    }
     save();
     synRender('', '');
     // Экран под окном должен показывать уже новые данные.
@@ -4159,9 +4246,13 @@ synAct('start_meditation stop_meditation', function(a, done, skipped){
 
 synAct('set_theme_mode', function(a, done, skipped){
   var value = String(a.value || a.mode || '');
-  if (['system', 'light', 'dark'].indexOf(value) < 0) return skipped.push('не понял тему');
+  // «Как в системе» сервер прислать может — в приложении такой режим есть.
+  // В вебе его нет, поэтому системную превращаем в ту, что сейчас в системе:
+  // это ближе к просьбе, чем отказ.
+  if (value === 'system') value = systemPrefersDark() ? 'dark' : 'light';
+  if (value !== 'light' && value !== 'dark') return skipped.push('не понял тему');
   S.theme = value;
-  done.push('тема — ' + (value === 'system' ? 'как в системе' : value === 'dark' ? 'тёмная' : 'светлая'));
+  done.push('тема — ' + (value === 'dark' ? 'тёмная' : 'светлая'));
 });
 
 synAct('set_color_theme', function(a, done, skipped){
@@ -4603,7 +4694,7 @@ var ACTS = {
   go: function(d){ closeModal(); go(d.view); },
 
   theme: function(){
-    S.theme = S.theme === 'system' ? 'light' : S.theme === 'light' ? 'dark' : 'system';
+    S.theme = isDarkNow() ? 'light' : 'dark';
     commit();
   },
   more: function(){ S.more = !S.more; commit(); },
@@ -4626,10 +4717,47 @@ var ACTS = {
     synSend(field ? field.value.trim() : '');
   },
   briefing: function(){ briefingRun(); },
+  'briefing-say': function(){
+    if (speech.on){ speechStop(); render(); return; }
+    // Перерисовываем по окончании: кнопка должна вернуться в «Прослушать»
+    // сама, а не остаться «Остановить» на замолчавшем экране.
+    speechSay(briefingSpeech(), function(){ render(); });
+    render();
+  },
   'syn-voice': function(){
     if (voice.on) { voiceStop(); synRender($('syn-input') ? $('syn-input').value : '', ''); }
     else voiceStart();
   },
+  /* Разобрать фразу своим парсером и завести задачу. Тот же путь, что у
+     строки создания: «купить корм коту завтра в 11 утра» превращается в
+     задачу с датой и временем без всякого сервера. */
+  'syn-local': function(d){
+    var item = S.synChat[Number(d.i)];
+    if (!item || !item.said) return;
+    var parsed = parseSchedule(item.said, 'today');
+    if (!parsed.title) return;
+    S.tasks.push({
+      id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
+      time: parsed.time, repeat: '', series: null, goalId: null, stageId: null, subtasks: []
+    });
+    S.closed[parsed.bucket] = false;
+    item.none = false;
+    item.done = ['создана задача «' + parsed.title + '» — разобрано без Syn'];
+    save();
+    synRender('', '');
+    render();
+  },
+
+  'syn-again': function(d){
+    var item = S.synChat[Number(d.i)];
+    if (!item || !item.said) return;
+    // Убираем неудачную пару реплик: иначе она поедет на сервер как контекст,
+    // в котором Syn уже «ответил», и он повторит тот же ответ.
+    S.synChat = S.synChat.slice(0, Number(d.i) - 1);
+    save();
+    synSend(item.said);
+  },
+
   'syn-clear': function(){
     S.synChat = [];
     save();
@@ -5641,6 +5769,34 @@ function syncRail(){
 
 window.addEventListener('resize', syncRail);
 syncRail();
+
+/* --- нижняя панель на телефоне --- */
+
+/* Панель и строка создания прибиты к низу окна через position:fixed. На
+   телефоне этого мало: когда открывается клавиатура, Safari и Chrome не
+   уменьшают окно, а сдвигают видимую его часть — «визуальный вьюпорт». Всё
+   зафиксированное остаётся считаться от прежнего низа, то есть уезжает вверх
+   и там же остаётся, пока страницу не тронут.
+
+   Лечится единственным способом: спрашивать у visualViewport, где сейчас
+   настоящий низ, и сдвигать панель на разницу. Ставим переменную, остальное
+   делает CSS.
+
+   На десктопе visualViewport совпадает с окном, и сдвиг всегда нулевой —
+   отдельной ветки для него не нужно. */
+function syncViewportShift(){
+  var vv = window.visualViewport;
+  if (!vv) return;
+  // Насколько низ видимой части выше низа окна: высота клавиатуры, по сути.
+  var shift = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  document.documentElement.style.setProperty('--vv-shift', shift + 'px');
+}
+
+if (window.visualViewport){
+  window.visualViewport.addEventListener('resize', syncViewportShift);
+  window.visualViewport.addEventListener('scroll', syncViewportShift);
+  syncViewportShift();
+}
 
 /* ============ УСТАНОВКА И РАБОТА БЕЗ СЕТИ ============ */
 

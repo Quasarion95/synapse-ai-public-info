@@ -91,7 +91,7 @@
 /* Тёмная тема — тёмная библиотека, а не игровой интерфейс. Чистый чёрный не
    используется: он выглядит как выключенный экран. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     /* На тёмном лес светлеет до шалфея, иначе он неразличим. Значение чуть
        выше исходного #7c9a84: на карточке тот давал 4.4, то есть текст на ней
        уже не проходил порог читаемости. */
@@ -136,6 +136,53 @@
     --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   }
 }
+
+/* То же самое, когда тему выбрали кнопкой, а не системой. */
+:root[data-theme="dark"] {
+    /* На тёмном лес светлеет до шалфея, иначе он неразличим. Значение чуть
+       выше исходного #7c9a84: на карточке тот давал 4.4, то есть текст на ней
+       уже не проходил порог читаемости. */
+    --forest: #84a28c;
+    --forest-deep: #6f8c78;
+    --forest-active: #9ab8a2;
+    --olive: #8c9a86;
+    --brass: #b19a6c;
+    --brass-light: #c9b489;
+    --burgundy: #b98782;
+
+    --bg: #1d2420;
+    --surface: #263029;
+    --surface-2: #2d3830;
+    --bg-band: #222b26;
+    --bg-dark: #171d19;
+    --surface-elevated: #2d3830;
+
+    --text: #f5f1e8;
+    --muted: #b9bbaf;
+    --muted-strong: #c6c8bd;
+    --text-on-dark: #f5f1e8;
+    --muted-on-dark: #b9bbaf;
+    --disabled: #737a70;
+
+    --stroke: #3a443d;
+    --stroke-strong: #4a564c;
+    --divider: #333d36;
+
+    --success: #84a28c;
+    --success-soft: #24312a;
+    --warning: #c2a06a;
+    --warning-soft: #332c1e;
+    --error: #b98782;
+    --error-soft: #33241f;
+    --info: #8aa6a4;
+    --info-soft: #223030;
+
+    --track: #333d36;
+    --accent-soft: #2a362d;
+
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  }
+
 
 * { box-sizing: border-box; }
 
@@ -411,13 +458,22 @@ a { color: var(--accent-strong); }
    поверхности — и получает обводку: без неё панель на панели теряет края, а
    кнопка перестаёт выглядеть нажимаемой. */
 @media (prefers-color-scheme: dark) {
-  .btn-store {
+  :root:not([data-theme="light"]) .btn-store {
     background: var(--surface);
     border-color: var(--stroke-strong);
     color: var(--text);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
   }
 }
+
+/* То же самое, когда тему выбрали кнопкой, а не системой. */
+:root[data-theme="dark"] .btn-store {
+    background: var(--surface);
+    border-color: var(--stroke-strong);
+    color: var(--text);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  }
+
 
 /* The store is not open yet — the button says so and does not pretend to work. */
 .btn-disabled { opacity: 0.82; cursor: default; }
@@ -679,13 +735,22 @@ a { color: var(--accent-strong); }
 }
 
 @media (prefers-color-scheme: dark) {
-  .device {
+  :root:not([data-theme="light"]) .device {
     background: linear-gradient(160deg, #3a4038 0%, #545a50 24%, #2e332c 62%, #545a50 100%);
     box-shadow:
       0 26px 60px rgba(0, 0, 0, 0.5),
       inset 0 0 0 1px rgba(255, 255, 255, 0.14);
   }
 }
+
+/* То же самое, когда тему выбрали кнопкой, а не системой. */
+:root[data-theme="dark"] .device {
+    background: linear-gradient(160deg, #3a4038 0%, #545a50 24%, #2e332c 62%, #545a50 100%);
+    box-shadow:
+      0 26px 60px rgba(0, 0, 0, 0.5),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  }
+
 
 .shots figcaption {
   margin-top: 16px;
@@ -1260,8 +1325,12 @@ a { color: var(--accent-strong); }
 .btn-apple .ico { width: 19px; height: 19px; }
 
 @media (prefers-color-scheme: dark) {
-  .btn-apple { background: var(--surface); color: var(--text); }
+  :root:not([data-theme="light"]) .btn-apple { background: var(--surface); color: var(--text); }
 }
+
+/* То же самое, когда тему выбрали кнопкой, а не системой. */
+:root[data-theme="dark"] .btn-apple { background: var(--surface); color: var(--text); }
+
 
 @media (max-width: 560px) {
   .account-actions .btn { flex: 1 1 100%; }
@@ -1329,4 +1398,37 @@ a { color: var(--accent-strong); }
 
 @media (max-width: 520px) {
   .account-plans { grid-template-columns: 1fr; }
+}
+
+/* ---------- переключатель темы ---------- */
+
+/* Тема — светлая или тёмная, третьего состояния нет: «как в системе» означало
+   бы кнопку, которая не отвечает на вопрос «какая сейчас тема». Систему
+   спрашиваем один раз, до первого выбора. Выбор хранится в том же ключе, что и
+   в веб-версии приложения, поэтому переключённое здесь остаётся переключённым
+   и там. */
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 60;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.theme-toggle:hover { border-color: var(--forest); }
+
+/* В шапке лендинга кнопка встаёт в ряд с остальными, а не поверх страницы. */
+@media (min-width: 861px) {
+  .nav .theme-toggle { position: static; margin-left: 4px; box-shadow: none; }
 }

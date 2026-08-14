@@ -40,7 +40,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --forest: #84a28c;
     --forest-deep: #6f8c78;
     --olive: #8c9a86;
@@ -77,6 +77,45 @@
     --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   }
 }
+
+/* То же самое, когда тему выбрали кнопкой, а не системой. */
+:root[data-theme="dark"] {
+    --forest: #84a28c;
+    --forest-deep: #6f8c78;
+    --olive: #8c9a86;
+    --brass: #b19a6c;
+    --burgundy: #b98782;
+
+    --bg: #1d2420;
+    --panel: #263029;
+    --panel-strong: #2d3830;
+    --surface: #263029;
+    --surface-2: #2d3830;
+    --surface-elevated: #2d3830;
+
+    --text: #f5f1e8;
+    --text-secondary: #cfd1c6;
+    --muted: #b9bbaf;
+    --muted-strong: #c6c8bd;
+    --disabled: #737a70;
+
+    --accent: var(--forest);
+    --accent-strong: var(--forest-deep);
+    --accent-soft: #2a362d;
+
+    --stroke: #3a443d;
+    --stroke-strong: #4a564c;
+    --divider: #333d36;
+
+    --success: #84a28c;
+    --warning: #c2a06a;
+    --error: #b98782;
+    --info: #8aa6a4;
+    --track: #333d36;
+
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  }
+
 
 * {
   box-sizing: border-box;
@@ -233,3 +272,30 @@ a {
     border-radius: 22px;
   }
 }
+
+/* ---------- переключатель темы ---------- */
+
+/* Тема — светлая или тёмная, третьего состояния нет: «как в системе» означало
+   бы кнопку, которая не отвечает на вопрос «какая сейчас тема». Систему
+   спрашиваем один раз, до первого выбора. Выбор хранится в том же ключе, что и
+   в веб-версии приложения, поэтому переключённое здесь остаётся переключённым
+   и там. */
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 60;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.theme-toggle:hover { border-color: var(--forest); }
