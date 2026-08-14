@@ -580,6 +580,10 @@ body.mm-open{overflow:hidden}
    просто продолжение колонки. */
 .tabs-rest{display:none}
 .tabs-rest.open{display:grid; gap:2px; padding:8px 2px 4px; margin-top:6px; border-top:1px solid var(--line)}
+/* Черта между смысловыми группами меню. На телефоне граница у .tabs-rest
+   отделяет выпавший список от панели — это про устройство; а вот эта
+   делит разделы по смыслу и рисуется там, где сказано в TABS. */
+.tabs-sep{height:1px; background:var(--line); margin:7px 8px}
 .tab.wide{grid-template-columns:22px 1fr; justify-items:start; align-items:center; gap:11px; font-size:14px; padding:10px 12px; text-align:left}
 .tab.wide .ic{justify-self:center; width:24px; height:24px}
 .tab.wide .nav-ic{width:21px; height:21px}
@@ -619,7 +623,7 @@ body.mm-open{overflow:hidden}
   /* «Ещё» на широком экране не нужна: все десять пунктов помещаются. */
   .tabs-main{grid-template-columns:1fr; gap:2px}
   .tabs-main .tab.more{display:none}
-  .tabs-rest{display:grid !important; gap:2px; padding:8px 0 0; margin-top:8px; border-top:1px solid var(--line)}
+  .tabs-rest{display:grid !important; gap:2px; padding:0; margin-top:2px; border-top:0}
   .tab{
     grid-template-columns:24px 1fr; justify-items:start; align-items:center;
     gap:12px; font-size:14.5px; padding:10px 13px; text-align:left;
