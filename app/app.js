@@ -2422,7 +2422,7 @@ function goalBody(g){
   for (var i = 0; i < g.stages.length; i++){
     var st = g.stages[i];
     var list = tasksOfStage(g.id, st.id);
-    html += '<div class="stage">' +
+    html += '<div class="stage' + (st.status === 'done' ? ' on' : '') + '">' +
       '<div class="stage-h">' +
         '<button class="box' + (st.status === 'done' ? ' on' : '') + '" data-act="stage-toggle" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Готово">✓</button>' +
         '<span class="t">' + esc(st.title) + '</span>' +
@@ -2467,6 +2467,11 @@ function vGoalComposer(){
       '<label class="visually-hidden" for="gfield">Новая цель</label>' +
       '<input id="gfield" type="text" autocomplete="off" enterkeyhint="done" ' +
         'placeholder="Выучить английский за год" value="' + esc(S.goalDraft || '') + '">' +
+      /* Та же искра, что в задачах, но с другим намерением. Стрелка заводит
+         цель с одним названием и пустой серединой — это правильно, когда
+         человек уже знает, чего хочет. Искра нужна, когда не знает: Syn
+         сам придумает этапы, сроки и первые задачи. */
+      '<button class="ai" type="button" data-act="ai-goal" aria-label="Придумать цель с Syn" title="Придумать цель с Syn">' + ICON.ai + '</button>' +
       '<button class="send" type="submit" aria-label="Создать цель">' + NAV_ICONS.send + '</button>' +
     '</form>' +
   '</div>';
@@ -4389,8 +4394,10 @@ function voiceStop(){
 
 function synAsk(){
   return synSession().then(function(token){
+    var workspace = synWorkspace();
+    if (S.synIntent) workspace.assistantIntent = S.synIntent;
     return synFetch('/v1/synapse/reply', {
-      workspace: synWorkspace(),
+      workspace: workspace,
       workspaceContext: synContext(),
       messages: S.synChat.slice(-SYN_CHAT_SEND).map(function(item){
         return { role: item.role === 'user' ? 'user' : 'assistant', text: item.text };
@@ -5626,9 +5633,23 @@ var ACTS = {
     // набирают там же, где обычную задачу, и жмут искру вместо стрелки.
     var field = $('field');
     var draft = field ? field.value.trim() : '';
+    S.synIntent = '';
     synRender(draft, '');
     if (draft){
       S.draft = '';
+      synSend(draft);
+    }
+  },
+  /* Тот же ассистент, но разговор про цели. Намерение задаётся явно, а не
+     угадывается по словам: «хочу английский» на экране задач — это задача, а
+     на экране целей — цель, и различает их не текст, а место, откуда нажали. */
+  'ai-goal': function(){
+    var field = $('gfield');
+    var draft = field ? field.value.trim() : '';
+    S.synIntent = 'planning';
+    synRender(draft, '');
+    if (draft){
+      S.goalDraft = '';
       synSend(draft);
     }
   },

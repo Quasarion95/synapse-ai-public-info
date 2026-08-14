@@ -396,18 +396,59 @@ select.inp{appearance:none}
 .goalcard .goalbody > .lbl{margin:16px 0 8px}
 .goalcard .goalbody > .acts{margin-top:14px}
 
-.stage{background:var(--soft); border-radius:var(--r-md); padding:10px 12px; margin-top:8px}
+/* Этап — не коробка внутри коробки.
+   Было три вложенных фона подряд: карточка цели, плашка этапа поверх неё и
+   карточка задачи поверх плашки. Матрёшка: границ много, а какая из них
+   что означает — на глаз не разобрать, и взгляд спотыкается о каждую.
+
+   Иерархию держит вертикальная черта слева и отступ, а не заливка. Черта
+   тянется вдоль всего этапа, поэтому видно, где он кончился, а фон остаётся
+   один на всю цель. */
+.stage{
+  background:none; border-radius:0; margin-top:16px;
+  padding:0 0 0 13px; border-left:2px solid var(--soft-2);
+}
+.stage:first-of-type{margin-top:12px}
+/* Пройденный этап гасит черту: список сверху вниз читается как «эти позади». */
+.stage.on{border-left-color:var(--ok)}
 .stage-h{display:flex; gap:10px; align-items:center}
 .stage-h .t{font-size:14.5px; font-weight:600; flex:1; min-width:0; overflow-wrap:anywhere}
 .stage-h .kill{color:var(--fg-3); font-size:12px; flex:none}
 .stage.on .stage-h .t{color:var(--fg-3)}
 .stage .detail{font-size:12.5px; color:var(--fg-3); margin-top:4px; padding-left:30px}
-/* Задачи этапа не сдвигаем вправо: три уровня отступов подряд — карточка
-   цели, плашка этапа и ещё один отступ — на телефоне оставляли под названием
-   задачи полосу в полтора слова, и слова рвались посередине. Группировку и
-   так держит фон этапа. */
-.stage .tasks{margin-top:8px; display:grid; grid-template-columns:minmax(0,1fr); gap:6px}
+
+/* Задача внутри этапа — строка, а не карточка. Свой фон, рамка и тень у неё
+   были ровно тем третьим слоем, который и путал; здесь её место в списке
+   задано отступом и волосяной линией сверху. На экране «Задачи» карточка
+   остаётся карточкой — там она сама себе контекст, и отнимать у неё вид
+   незачем. */
+.stage .tasks{margin-top:8px; display:grid; grid-template-columns:minmax(0,1fr); gap:0}
+.stage .tasks .item{
+  background:none; border:0; border-radius:0; box-shadow:none;
+  padding:7px 0; border-top:1px solid var(--line);
+}
+.stage .tasks .item:first-child{border-top:0}
+.stage .tasks .item.drop-before::before{top:-1px}
 .stage .none{font-size:12.5px; color:var(--fg-3); padding-left:30px; margin-top:6px}
+/* Добавление задачи этапа — действие второго ряда, и выглядеть должно так же.
+   С обычным полем и тёмной кнопкой оно оказывалось самым тяжёлым пятном в
+   раскрытой цели и перебивало то, ради чего её открыли. */
+.stage .rowadd{margin-top:8px; gap:6px}
+.stage .rowadd .inp{
+  background:none; border:0; border-bottom:1px solid var(--line);
+  border-radius:0; padding:6px 2px; font-size:13.5px;
+}
+.stage .rowadd .inp:focus{box-shadow:none; border-bottom-color:var(--fg-3)}
+.stage .rowadd .btn{
+  background:none; color:var(--fg-3); border:1px solid var(--stroke);
+  box-shadow:none; padding:6px 12px; font-size:13px; font-weight:500;
+}
+.stage .rowadd .btn:hover{color:var(--fg); border-color:var(--fg-3); opacity:1}
+
+/* Черта этапа чуть плотнее фона: на бумажных палитрах stroke почти сливается
+   с карточкой, а именно она здесь несёт всю иерархию. */
+.stage{border-left-color:var(--panel-strong)}
+:root[data-dark="1"] .stage{border-left-color:var(--soft-2)}
 @media (min-width:560px){
   .stage .tasks{padding-left:30px}
 }
