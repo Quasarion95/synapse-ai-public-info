@@ -872,11 +872,41 @@ a { color: var(--accent-strong); }
   .section { padding-block: 40px; }
   .cta .btn { flex: 1 1 100%; }
   .footer-links { margin-left: 0; }
-  /* Narrower gutters and a slightly smaller mark so the brand and the pill
-     still sit on one line at 375px with room left over. */
-  .nav { padding: 12px 16px; gap: 12px; }
-  .brand { font-size: 17px; }
-  .brand .mark { width: 36px; height: 36px; border-radius: 10px; }
+  /* Шапка на телефоне.
+
+     Раньше в неё пытались влезть логотип с названием, «Открыть Synapse»,
+     «Telegram» и переключатель темы — вчетвером они не помещались и налезали
+     друг на друга: кнопка Telegram доходила до самого края экрана, а
+     переключатель висел поверх неё, потому что был прижат к углу окна.
+
+     Решение — по важности. Логотип со знаком остаётся: это опора страницы.
+     «Открыть Synapse» остаётся кнопкой со словами: это то, ради чего сюда
+     пришли. Telegram и тема сжимаются до значков — обе понятны без подписи и
+     обе не про первое действие. Переключатель встаёт в общий ряд, а не поверх
+     него. */
+  .nav { padding: 12px 14px; gap: 8px; flex-wrap: nowrap; }
+  .brand { font-size: 17px; min-width: 0; }
+  .brand .mark { width: 34px; height: 34px; border-radius: 10px; }
+  /* Название прячем, знак оставляем. Обрезанное «Syn…» читается как поломка,
+     пустое место рядом со знаком — как решение. Знак узнаваем сам по себе, а
+     имя продукта стоит в заголовке страницы двумя экранами ниже. */
+  .brand span:not(.mark) { display: none; }
+
+  .nav .theme-toggle {
+    position: static;
+    margin-left: auto;
+    width: 38px;
+    height: 38px;
+    box-shadow: none;
+  }
+
+  .nav .btn-small { padding: 10px 14px; font-size: 14px; white-space: nowrap; flex: none; }
+
+  /* Telegram — значком: подпись рядом с иконкой съедала место, которого нет. */
+  .nav .btn-tg { padding: 0; width: 38px; height: 38px; }
+  .nav .btn-tg .ico { margin: 0 }
+  .nav .btn-tg span, .nav .btn-tg { font-size: 0 }
+  .nav .btn-tg .ico { font-size: initial }
 }
 
 /* ---------- creed ---------- */
@@ -1230,10 +1260,16 @@ a { color: var(--accent-strong); }
   .plans { grid-template-columns: 1fr; }
   .plans .plan-hero { grid-column: auto; }
   .plan { padding: 24px 24px 62px; }
-  /* Stacked, the chip has no edge to hang over — it becomes a normal line. */
+  /* В столбик у плашки нет края, над которым висеть, — она становится обычной
+     строкой. transform снимаем обязательно: он остался от абсолютного
+     положения и на статичном элементе продолжал сдвигать плашку на половину её
+     ширины влево — за край карточки. */
   .plan-badge {
     position: static;
     display: inline-block;
+    transform: none;
+    left: auto;
+    top: auto;
     margin: 0 0 14px;
     white-space: normal;
   }
