@@ -278,10 +278,17 @@ function liveTasks(){
    сервер, и обойти это, почистив localStorage, нельзя. */
 var FREE_LIMITS = { lists: 2, notes: 2, goals: 2 };
 
-var PRO_ONLY = {
-  pomodoro: 'Метод Помодоро',
-  meditation: 'Медитация'
-};
+/* Платных разделов больше нет.
+
+   Помодоро и медитация были за подпиской, и это оказалось той жадностью, которую
+   замечают первой: таймер и запись дождя не стоят нам ничего, никому не мешают и
+   ничего не решают в деньгах. Платят здесь за ассистента и за масштаб — за то,
+   что стоит денег нам и растёт вместе с работой человека.
+
+   Объект остаётся пустым, а не удаляется: сама развилка «платный раздел»
+   рабочая, и когда такой раздел появится, его хватит вписать сюда одной
+   строкой. */
+var PRO_ONLY = {};
 
 function isPro(){
   if (!S.pro || !S.pro.active) return false;
@@ -3370,8 +3377,8 @@ function vProfile(){
     '<p class="sub">' + (isPro()
       ? planTitle(S.pro.plan) + (S.pro.expiresAt ? ' · действует до ' + esc(humanDateTime(S.pro.expiresAt)) : '') +
         ' · открыты все разделы и ' + PRO_SYN_LIMIT + ' запросов к Syn в день'
-      : 'Помодоро и медитация закрыты, ' + FREE_LIMITS.goals + ' цели, ' + FREE_LIMITS.lists +
-        ' списка, ' + FREE_LIMITS.notes + ' заметки, ' + FREE_SYN_LIMIT + ' запросов к Syn в день.') + '</p>' +
+      : FREE_LIMITS.goals + ' цели, ' + FREE_LIMITS.lists + ' списка, ' + FREE_LIMITS.notes +
+        ' заметки, ' + FREE_SYN_LIMIT + ' запросов к Syn в день. Помодоро и медитация открыты.') + '</p>' +
     (isPro() && S.pro.code
       ? '<div class="sub-code"><span class="lbl">Код</span><b class="mono">' + esc(S.pro.code) + '</b>' +
         '<button class="btn sm soft" data-act="pro-copy">Скопировать</button></div>' +
@@ -3754,7 +3761,7 @@ function vSubscription(){
         '<p class="sub">' + (pro
           ? planTitle(S.pro.plan) + (S.pro.expiresAt ? ' · до ' + esc(humanDateTime(S.pro.expiresAt)) : '') +
             ' · открыты все разделы'
-          : 'Задачи без ограничений. Помодоро и медитация закрыты, ' + FREE_LIMITS.goals + ' цели, ' +
+          : 'Задачи, помодоро и медитация — без ограничений. Дальше: ' + FREE_LIMITS.goals + ' цели, ' +
             FREE_LIMITS.lists + ' списка, ' + FREE_LIMITS.notes + ' заметки.') + '</p>' +
       '</div>' +
     '</div>' +
@@ -3793,8 +3800,8 @@ function vSubscription(){
       planRow('Списки', FREE_LIMITS.lists + ' списка', 'без ограничений') +
       planRow('Заметки', FREE_LIMITS.notes + ' заметки', 'без ограничений') +
       planRow('Ассистент Syn', FREE_SYN_LIMIT + ' запросов в день', PRO_SYN_LIMIT + ' в день') +
-      planRow('Метод Помодоро', '—', 'есть') +
-      planRow('Медитация', '—', 'есть') +
+      planRow('Метод Помодоро', 'есть', 'есть') +
+      planRow('Медитация', 'есть', 'есть') +
     '</div></section>';
 
   html += '<p class="lbl">Как это работает</p><section class="card">' +
@@ -4028,9 +4035,9 @@ function synContext(){
     '», шрифт «' + fontOf(S.font).title + '», размер ' + fontSizeOf(S.fontSize).title + '.');
   if (!isPro()){
     lines.push('');
-    lines.push('ЭТО ВЕБ-ВЕРСИЯ БЕЗ ПОДПИСКИ: помодоро и медитация недоступны, ' +
-      'списков не больше ' + FREE_LIMITS.lists + ', заметок ' + FREE_LIMITS.notes +
-      ', целей ' + FREE_LIMITS.goals + '. Не обещай того, что закрыто подпиской.');
+    lines.push('ЭТО ВЕБ-ВЕРСИЯ БЕЗ ПОДПИСКИ: списков не больше ' + FREE_LIMITS.lists +
+      ', заметок ' + FREE_LIMITS.notes + ', целей ' + FREE_LIMITS.goals +
+      '. Помодоро и медитация открыты. Не обещай того, что закрыто подпиской.');
   }
 
   if (S.goals.length){
@@ -4596,13 +4603,6 @@ function synDeadline(a){
   return { date: when.date, time: when.time, hard: a.hardDeadline === true };
 }
 
-/// Замок для платных разделов: Syn его не обходит, а объясняет.
-function synPro(what, skipped){
-  if (isPro()) return true;
-  skipped.push(what + ' — только в подписке');
-  return false;
-}
-
 /// Граница бесплатного. Проверяется и здесь, иначе третью цель можно было бы
 /// завести голосом в обход кнопки.
 function synRoom(kind, skipped){
@@ -5043,7 +5043,6 @@ synAct('move_note create_note_folder rename_note_folder delete_note_folder', fun
 /* ---- помодоро и медитация ---- */
 
 synAct('start_pomodoro pause_pomodoro reset_pomodoro', function(a, done, skipped){
-  if (!synPro('Метод Помодоро', skipped)) return;
   if (a.interval && a.kind === 'start_pomodoro'){
     S.pomodoro.focus = Math.max(1, Math.min(180, Number(a.interval)));
     S.pomodoro.mode = 'focus';
@@ -5066,7 +5065,6 @@ synAct('start_pomodoro pause_pomodoro reset_pomodoro', function(a, done, skipped
 });
 
 synAct('set_pomodoro_mode set_pomodoro_focus_minutes set_pomodoro_break_minutes set_pomodoro_daily_goal', function(a, done, skipped){
-  if (!synPro('Метод Помодоро', skipped)) return;
   var minutes = Math.max(1, Math.min(180, Number(a.interval || a.value) || 0));
 
   if (a.kind === 'set_pomodoro_mode'){
@@ -5093,7 +5091,6 @@ synAct('set_pomodoro_mode set_pomodoro_focus_minutes set_pomodoro_break_minutes 
 });
 
 synAct('start_meditation stop_meditation', function(a, done, skipped){
-  if (!synPro('Медитация', skipped)) return;
   if (a.kind === 'stop_meditation'){
     medStop(true);
     done.push('медитация остановлена');
@@ -5495,7 +5492,7 @@ function modalKillGoal(goal){
    что часть людей уже купила подписку на сайте. */
 function modalPaywall(kind){
   return '<h3>Дальше — в подписке</h3>' +
-    '<p class="s">' + esc(limitReason(kind)) + ' В Synapse Pro их сколько угодно, и открываются помодоро с медитацией.</p>' +
+    '<p class="s">' + esc(limitReason(kind)) + ' В Synapse Pro их сколько угодно.</p>' +
     '<button class="btn full" data-act="go" data-view="subscription">Смотреть тарифы</button>' +
     '<div class="acts pair">' +
       '<button class="btn soft" data-act="pro-code">У меня есть код</button>' +
