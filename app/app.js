@@ -821,6 +821,71 @@ function isOverdue(task){
   return day < todayDate();
 }
 
+/* ============ ЗНАЧКИ РАЗДЕЛОВ ============ */
+
+/* Свой набор вместо символов шрифта.
+
+   Раньше в меню стояли ☑ ◎ ✦ ◔ ≡ ✎ ⚙ ⓘ — символы Unicode. У них два неустранимых
+   недостатка: рисует их шрифт системы, поэтому в Safari, Chrome и на Android они
+   разной толщины и разного размера, и управлять этим нельзя — только кеглем. На
+   телефоне из-за этого они выглядели мелкими и бледными рядом с жирными
+   подписями.
+
+   Здесь один набор, нарисованный по одним правилам: сетка 24×24, штрих 1.8 без
+   заливки, скруглённые концы. Так рисуют Lucide и Feather, и причина та же —
+   при таком штрихе значки читаются и в 18 пикселей, и в 26, и не спорят друг с
+   другом по весу. Никакой библиотеки при этом не подключается: набор небольшой,
+   а зависимостей у этого проекта нет и не будет.
+
+   Форма выбиралась по узнаваемости в маленьком размере, а не по красоте в
+   большом: шестерёнка настроек в 18 пикселей превращается в кляксу, поэтому
+   настройки — ползунки. */
+function navIcon(path){
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" class="nav-ic">' + path + '</svg>';
+}
+
+var NAV_ICONS = {
+  // Задачи — квадрат с галочкой: самый прямой образ отметки о выполнении.
+  tasks: navIcon('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><path d="M8 12.2l2.7 2.6L16 9.4"/>'),
+  // Цели — мишень: круги, сходящиеся к точке.
+  goals: navIcon('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/>'),
+  // Фокус — искра: то же, что у кнопки ассистента, но одна.
+  focus: navIcon('<path d="M12 3.4l1.9 5.1 5.1 1.9-5.1 1.9-1.9 5.1-1.9-5.1-5.1-1.9 5.1-1.9z"/><path d="M18.6 16.4l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8z"/>'),
+  // Аналитика — столбцы: разговор про числа и сравнение.
+  analytics: navIcon('<path d="M4 20V4"/><path d="M4 20h16"/><path d="M8.5 20v-6.5"/><path d="M13 20V8.5"/><path d="M17.5 20v-4"/>'),
+  // Списки — строки с отметками.
+  lists: navIcon('<path d="M9 7h11M9 12h11M9 17h11"/><path d="M4 7h.01M4 12h.01M4 17h.01"/>'),
+  // Заметки — лист с текстом и загнутым углом.
+  notes: navIcon('<path d="M14 3.5H7a2.5 2.5 0 0 0-2.5 2.5v12A2.5 2.5 0 0 0 7 20.5h10a2.5 2.5 0 0 0 2.5-2.5V9z"/><path d="M14 3.5V9h5.5"/><path d="M8.5 13.5h7M8.5 17h4.5"/>'),
+  // Помодоро — таймер: круг, стрелка и кнопка сверху.
+  pomodoro: navIcon('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.8"/><path d="M9.5 2.5h5"/><path d="M12 2.5v3.5"/>'),
+  // Медитация — волны: ровное дыхание, а не поза лотоса, которую в 18 пикселей
+  // не разобрать.
+  meditation: navIcon('<path d="M3 8.5c2-2 3.5-2 5.5 0s3.5 2 5.5 0 3.5-2 4.5 0"/><path d="M3 13c2-2 3.5-2 5.5 0s3.5 2 5.5 0 3.5-2 4.5 0"/><path d="M3 17.5c2-2 3.5-2 5.5 0s3.5 2 5.5 0 3.5-2 4.5 0"/>'),
+  // Подписка — карта: то, чем платят, без золота и короны.
+  subscription: navIcon('<rect x="2.8" y="5.5" width="18.4" height="13" rx="3"/><path d="M2.8 10h18.4"/><path d="M6.5 14.5h3"/>'),
+  // Настройки — ползунки. Шестерёнка в маленьком размере превращается в кляксу.
+  settings: navIcon('<path d="M4 8h10M18 8h2M4 16h4M12 16h8"/><circle cx="16" cy="8" r="2.2"/><circle cx="10" cy="16" r="2.2"/>'),
+  // О сервисе — «i» в круге.
+  about: navIcon('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.8h.01"/>'),
+  // Ещё — три точки.
+  more: navIcon('<circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
+  // Закрыть «Ещё» — крест.
+  close: navIcon('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'),
+  // Выход — дверь со стрелкой наружу.
+  leave: navIcon('<path d="M9.5 20.5H6a2.5 2.5 0 0 1-2.5-2.5V6A2.5 2.5 0 0 1 6 3.5h3.5"/><path d="M15.5 16l4.5-4-4.5-4"/><path d="M20 12H9"/>'),
+
+  // Строка со стрелкой вправо: «здесь есть продолжение».
+  chevron: navIcon('<path d="M9.5 5.5l6.5 6.5-6.5 6.5"/>'),
+  // Отправить — стрелка вверх, как в строке создания.
+  send: navIcon('<path d="M12 19.5V5"/><path d="M5.5 11.5L12 5l6.5 6.5"/>'),
+  // Тема: солнце и месяц.
+  sun: navIcon('<circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.2M12 19v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.8 12h2.2M19 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>'),
+  moon: navIcon('<path d="M20 13.5A8.2 8.2 0 0 1 10.5 4a8.2 8.2 0 1 0 9.5 9.5z"/>'),
+  // Этап цели — ромб: шаг на пути, а не отметка.
+  stage: navIcon('<path d="M12 3.6l8.4 8.4-8.4 8.4L3.6 12z"/>')
+};
+
 /* ============ РОУТИНГ ============ */
 
 /* Порядок разделов задан владельцем: задачи, цели, мой фокус, аналитика,
@@ -833,20 +898,20 @@ function isOverdue(task){
    половину разделов за горизонтальной прокруткой хуже, чем честно показать,
    что их больше. */
 var TABS = [
-  { id: 'tasks',      title: 'Задачи',    ic: '☑', primary: true },
-  { id: 'goals',      title: 'Цели',      ic: '◎', primary: true },
-  { id: 'focus',      title: 'Мой фокус', ic: '✦', primary: true, short: 'Фокус' },
-  { id: 'analytics',  title: 'Аналитика', ic: '◔', primary: true },
-  { id: 'lists',      title: 'Списки',    ic: '≡' },
-  { id: 'notes',      title: 'Заметки',   ic: '✎' },
-  { id: 'pomodoro',   title: 'Метод Помодоро', ic: '◔', short: 'Помодоро' },
-  { id: 'meditation', title: 'Медитация', ic: '◐' },
+  { id: 'tasks',      title: 'Задачи',    primary: true },
+  { id: 'goals',      title: 'Цели',      primary: true },
+  { id: 'focus',      title: 'Мой фокус', primary: true, short: 'Фокус' },
+  { id: 'analytics',  title: 'Аналитика', primary: true },
+  { id: 'lists',      title: 'Списки'    },
+  { id: 'notes',      title: 'Заметки'   },
+  { id: 'pomodoro',   title: 'Метод Помодоро', short: 'Помодоро' },
+  { id: 'meditation', title: 'Медитация' },
   // Тарифы стоят в самом меню, а не в углу настроек: два раздела из десяти
   // открываются только по подписке, и человек должен видеть, где про это
   // написано, в ту же секунду, когда упёрся.
-  { id: 'subscription', title: 'Моя подписка', ic: '◈', short: 'Подписка' },
-  { id: 'settings',   title: 'Настройки', ic: '⚙' },
-  { id: 'about',      title: 'О сервисе', ic: 'ⓘ' }
+  { id: 'subscription', title: 'Моя подписка', short: 'Подписка' },
+  { id: 'settings',   title: 'Настройки' },
+  { id: 'about',      title: 'О сервисе' }
 ];
 
 /* Какой пункт меню подсвечивать на экране, который сам пунктом не является. */
@@ -1135,7 +1200,7 @@ function vTop(){
     '<div class="top-acts">' +
       '<button class="iconbtn" data-act="theme" title="' + (isDarkNow() ? 'Светлая тема' : 'Тёмная тема') +
         '" aria-label="' + (isDarkNow() ? 'Включить светлую тему' : 'Включить тёмную тему') + '">' +
-        (isDarkNow() ? '☀' : '☾') + '</button>' +
+        (isDarkNow() ? NAV_ICONS.sun : NAV_ICONS.moon) + '</button>' +
       // Рядом с аватаркой — имя: без него в шапке висит безымянный кружок с
       // буквой, и непонятно, чей это аккаунт.
       '<button class="whoami' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
@@ -1169,7 +1234,7 @@ function tabButton(t, cls){
   var on = activeTab() === t.id;
   return '<button class="' + cls + '" data-act="go" data-view="' + t.id + '"' +
     (on ? ' aria-current="page"' : '') + '>' +
-    '<span class="ic">' + t.ic + '</span>' +
+    '<span class="ic">' + (NAV_ICONS[t.id] || '') + '</span>' +
     '<span class="tx">' + esc(cls === 'tab' && t.short ? t.short : t.title) + '</span></button>';
 }
 
@@ -1184,7 +1249,8 @@ function vTabbar(){
       TABS.filter(function(t){ return t.primary; }).map(function(t){ return tabButton(t, 'tab'); }).join('') +
       '<button class="tab more' + (restOn ? ' on' : '') + '" data-act="more"' +
         ' aria-expanded="' + !!S.more + '" aria-label="Остальные разделы">' +
-        '<span class="ic">' + (S.more ? '✕' : '⋯') + '</span><span class="tx">Ещё</span></button>' +
+        '<span class="ic">' + (S.more ? NAV_ICONS.close : NAV_ICONS.more) + '</span>' +
+        '<span class="tx">Ещё</span></button>' +
     '</div>' +
     '<div class="tabs-rest' + (S.more ? ' open' : '') + '">' +
       rest.map(function(t){ return tabButton(t, 'tab wide'); }).join('') +
@@ -1192,7 +1258,7 @@ function vTabbar(){
       // приложения на сайт. Записи при этом остаются в браузере, о чём
       // спрашивают в первую очередь, поэтому это сказано в подсказке кнопки.
       '<button class="tab wide leave" data-act="leave" title="Записи останутся в этом браузере">' +
-        '<span class="ic">⤺</span><span class="tx">Выйти</span></button>' +
+        '<span class="ic">' + NAV_ICONS.leave + '</span><span class="tx">Выйти</span></button>' +
     '</div>';
 }
 
@@ -1345,7 +1411,7 @@ function vTasks(){
   if (tourVisible()){
     html += vTour();
   } else if (!liveTasks().length){
-    html += blank('☑', 'Задач пока нет',
+    html += blank(NAV_ICONS.tasks, 'Задач пока нет',
       'Напиши первую в строке внизу. День и время можно сказать прямо там: «купить молоко завтра в 9 утра».');
   }
 
@@ -1471,7 +1537,7 @@ function vComposer(){
       // Syn как есть, поэтому «разбери мой день» можно набрать там же, где
       // обычную задачу, и нажать искру вместо стрелки.
       '<button class="ai" type="button" data-act="ai" aria-label="Ассистент Syn" title="Ассистент Syn">' + ICON.ai + '</button>' +
-      '<button class="send" type="submit" aria-label="Добавить задачу">↑</button>' +
+      '<button class="send" type="submit" aria-label="Добавить задачу">' + NAV_ICONS.send + '</button>' +
     '</form>' +
     // Подсказка про разбор строки нужна ровно один раз: дальше она просто
     // занимает место над панелью и закрывает собой карточки. Гасим её после
@@ -1553,7 +1619,7 @@ function vFocus(){
      превращался во второй список дел. Фокус отвечает на вопрос «как идёт
      день», а не «что в нём»: на это есть свой раздел. */
   if (!today.length){
-    html += blank('✦', 'На сегодня пусто',
+    html += blank(NAV_ICONS.focus, 'На сегодня пусто',
       'Ничего не назначено на сегодня — можно задать спокойный ритм или перенести сюда задачу из другого блока.',
       'go', 'Открыть задачи', ' data-view="tasks"');
   }
@@ -2001,7 +2067,7 @@ function vGoals(){
   var html = '';
 
   if (!S.goals.length){
-    return blank('◎', 'Целей пока нет',
+    return blank(NAV_ICONS.goals, 'Целей пока нет',
       'Цель — это то, ради чего задачи вообще существуют. Назови её в строке внизу, а этапы добавишь потом.') +
       vGoalComposer();
   }
@@ -2085,7 +2151,7 @@ function vGoalComposer(){
       '<label class="visually-hidden" for="gfield">Новая цель</label>' +
       '<input id="gfield" type="text" autocomplete="off" enterkeyhint="done" ' +
         'placeholder="Выучить английский за год" value="' + esc(S.goalDraft || '') + '">' +
-      '<button class="send" type="submit" aria-label="Создать цель">↑</button>' +
+      '<button class="send" type="submit" aria-label="Создать цель">' + NAV_ICONS.send + '</button>' +
     '</form>' +
   '</div>';
 }
@@ -2093,7 +2159,7 @@ function vGoalComposer(){
 function vGoal(){
   var g = findGoal(S.activeGoal);
   if (!g) return head('Цель', 'Цель не найдена', 'goals') +
-    blank('◎', 'Похоже, она уже была удалена', 'Вернись к списку целей.', 'go', 'Все цели', ' data-view="goals"');
+    blank(NAV_ICONS.goals, 'Похоже, она уже была удалена', 'Вернись к списку целей.', 'go', 'Все цели', ' data-view="goals"');
 
   var p = goalProgress(g);
   var html = head('Цель', g.title, 'goals');
@@ -2109,7 +2175,7 @@ function vGoal(){
   '</section>';
 
   if (!g.stages.length){
-    html += blank('◇', 'У цели пока нет этапов',
+    html += blank(NAV_ICONS.stage, 'У цели пока нет этапов',
       'Разбей цель на понятные шаги — к каждому можно будет привязать задачи.',
       'new-stage', 'Создать этап', ' data-goal="' + g.id + '"');
   }
@@ -2159,7 +2225,7 @@ function vAnalytics(){
   var html = '';
 
   if (!S.tasks.length && !S.goals.length){
-    return html + blank('◔', 'Считать пока нечего',
+    return html + blank(NAV_ICONS.analytics, 'Считать пока нечего',
       'Появятся задачи и цели — здесь соберётся статистика и карта целей.',
       'go', 'К задачам', ' data-view="tasks"');
   }
@@ -2510,7 +2576,7 @@ function mmTree(cx, cy){
 function vLists(){
   var html = '';
   if (!S.lists.length){
-    return html + blank('☰', 'Списков пока нет',
+    return html + blank(NAV_ICONS.lists, 'Списков пока нет',
       'Список — это то, что отмечают галочками и не тащат в задачи: покупки, сборы, чек-лист поездки.',
       'new-list', 'Новый список');
   }
@@ -2530,7 +2596,7 @@ function vLists(){
 function vList(){
   var l = findList(S.activeList);
   if (!l) return head('', 'Список не найден', 'lists') +
-    blank('☰', 'Похоже, он уже был удалён', 'Вернись к спискам.', 'go', 'Списки', ' data-view="lists"');
+    blank(NAV_ICONS.lists, 'Похоже, он уже был удалён', 'Вернись к спискам.', 'go', 'Списки', ' data-view="lists"');
 
   var html = head('', l.title, 'lists');
   html += '<section class="card">' +
@@ -2558,7 +2624,7 @@ function vList(){
 function vNotes(){
   var html = '';
   if (!S.notes.length){
-    return html + blank('✎', 'Заметок пока нет',
+    return html + blank(NAV_ICONS.notes, 'Заметок пока нет',
       'Сюда складывают то, что не задача: итоги встречи, мысль, список вопросов.',
       'new-note', 'Новая запись');
   }
@@ -2576,7 +2642,7 @@ function vNotes(){
 function vNote(){
   var n = findNote(S.activeNote);
   if (!n) return head('', 'Заметка не найдена', 'notes') +
-    blank('✎', 'Похоже, она уже была удалена', 'Вернись к заметкам.', 'go', 'Заметки', ' data-view="notes"');
+    blank(NAV_ICONS.notes, 'Похоже, она уже была удалена', 'Вернись к заметкам.', 'go', 'Заметки', ' data-view="notes"');
 
   var html = head('', n.title, 'notes');
   html += '<section class="card">' +
@@ -3064,7 +3130,7 @@ function vSettings(){
 function settingsLink(view, title, sub){
   return '<button class="setrow tall" data-act="go" data-view="' + view + '">' +
     '<span class="st"><b>' + esc(title) + '</b><i>' + esc(sub) + '</i></span>' +
-    '<span class="arrow">›</span></button>';
+    '<span class="arrow">' + NAV_ICONS.chevron + '</span></button>';
 }
 
 /* ---- вид ---- */
@@ -3163,8 +3229,8 @@ function vSettingsData(){
   '</section>';
 
   html += '<p class="lbl">Содержимое</p>' +
-    '<button class="setrow" data-act="reset-demo"><span>Заполнить примерами</span><span class="arrow">›</span></button>' +
-    '<button class="setrow" data-act="wipe"><span>Стереть всё в этом браузере</span><span class="arrow">›</span></button>';
+    '<button class="setrow" data-act="reset-demo"><span>Заполнить примерами</span><span class="arrow">' + NAV_ICONS.chevron + '</span></button>' +
+    '<button class="setrow" data-act="wipe"><span>Стереть всё в этом браузере</span><span class="arrow">' + NAV_ICONS.chevron + '</span></button>';
 
   html += '<section class="card" style="margin-top:14px">' +
     '<h3>Где лежат данные</h3>' +
@@ -3228,12 +3294,12 @@ function vAbout(){
   '</section>';
 
   html += '<p class="lbl">Документы и помощь</p>' +
-    '<a class="setrow" href="../"><span>Сайт Synapse</span><span class="arrow">›</span></a>' +
-    '<a class="setrow" href="../support/"><span>Поддержка</span><span class="arrow">›</span></a>' +
-    '<a class="setrow" href="../privacy/"><span>Политика конфиденциальности</span><span class="arrow">›</span></a>' +
-    '<a class="setrow" href="../terms/"><span>Пользовательское соглашение</span><span class="arrow">›</span></a>' +
-    '<a class="setrow" href="../offer/"><span>Публичная оферта</span><span class="arrow">›</span></a>' +
-    '<a class="setrow" href="../requisites/"><span>Реквизиты</span><span class="arrow">›</span></a>';
+    '<a class="setrow" href="../"><span>Сайт Synapse</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
+    '<a class="setrow" href="../support/"><span>Поддержка</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
+    '<a class="setrow" href="../privacy/"><span>Политика конфиденциальности</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
+    '<a class="setrow" href="../terms/"><span>Пользовательское соглашение</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
+    '<a class="setrow" href="../offer/"><span>Публичная оферта</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
+    '<a class="setrow" href="../requisites/"><span>Реквизиты</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>';
 
   return html;
 }
@@ -4889,7 +4955,7 @@ function modalMove(task){
     BUCKETS.map(function(b){
       return '<button class="setrow" data-act="move-task" data-task="' + task.id + '" data-bucket="' + b.id + '">' +
         '<span>' + b.title + '</span>' +
-        (task.bucket === b.id ? '<span class="val">сейчас здесь</span>' : '<span class="arrow">›</span>') +
+        (task.bucket === b.id ? '<span class="val">сейчас здесь</span>' : '<span class="arrow">' + NAV_ICONS.chevron + '</span>') +
       '</button>';
     }).join('') +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';

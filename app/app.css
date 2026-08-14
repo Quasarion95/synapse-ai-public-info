@@ -109,6 +109,7 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 .whoami.on{background:var(--fg); color:var(--bg); border-color:var(--fg)}
 .whoami.on .avatar{background:transparent; color:var(--bg)}
 .iconbtn{width:38px; height:38px; border-radius:999px; background:var(--card); border:1px solid var(--stroke); box-shadow:var(--shadow); display:grid; place-items:center; font-size:15px; flex:none}
+.iconbtn .nav-ic{width:19px; height:19px}
 .iconbtn.on{background:var(--fg); color:var(--bg)}
 
 /* Снизу оставлено место под таб-бар и строку ввода, иначе они накрывают
@@ -162,7 +163,8 @@ h1.page{font-size:clamp(28px,7vw,38px); margin:2px 0 20px}
 
 /* пустые состояния */
 .blank{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); text-align:center; padding:40px 22px; margin-bottom:var(--gap)}
-.blank .ill{width:58px; height:58px; border-radius:20px; background:var(--soft); display:grid; place-items:center; margin:0 auto 16px; font-size:23px}
+.blank .ill{width:58px; height:58px; border-radius:20px; background:var(--soft); display:grid; place-items:center; margin:0 auto 16px; color:var(--fg-3)}
+.blank .ill .nav-ic{width:26px; height:26px; stroke-width:1.7}
 .blank h3{font-size:19px; margin-bottom:7px}
 .blank p{font-size:14px; color:var(--fg-2); max-width:42ch; margin:0 auto}
 .blank .btn{margin-top:18px}
@@ -330,6 +332,7 @@ select.inp{appearance:none}
 .say .ai:hover{background:var(--accent-soft); border-color:var(--accent)}
 .say .ai svg{width:19px; height:19px; fill:currentColor; stroke:none}
 .say .send{width:38px; height:38px; border-radius:999px; background:var(--fg); color:var(--bg); display:grid; place-items:center; flex:none; font-size:17px}
+.say .send .nav-ic{width:19px; height:19px; stroke-width:2}
 .composer .hint{margin:8px auto 0; font-size:11.5px; background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px 8px 14px; max-width:520px; box-shadow:var(--shadow)}
 .composer .hint.tip{display:flex; align-items:flex-start; gap:8px; text-align:left}
 .composer .hint.tip span{flex:1; min-width:0}
@@ -511,7 +514,8 @@ body.mm-open{overflow:hidden}
 .mode[aria-pressed="true"] span{color:var(--bg); opacity:.65}
 .pomo-actions{display:flex; gap:9px; justify-content:center}
 .setrow{display:flex; align-items:center; gap:12px; padding:15px 17px; border-radius:var(--r-md); background:var(--card); border:1px solid var(--stroke); box-shadow:var(--shadow); font-size:15.5px; width:100%; margin-bottom:var(--gap-row); text-decoration:none; color:inherit}
-.setrow .arrow{margin-left:auto; color:var(--fg-3)}
+.setrow .arrow{margin-left:auto; color:var(--fg-3); display:grid; place-items:center}
+.setrow .arrow .nav-ic{width:17px; height:17px}
 .setrow .val{margin-left:auto; color:var(--fg-3); font-size:13.5px}
 /* Пункт меню настроек: название и под ним то, что сейчас выбрано, — иначе
    в раздел приходится заходить, чтобы вспомнить. */
@@ -552,7 +556,15 @@ body.mm-open{overflow:hidden}
 .tabbar{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(18px + var(--vv-shift, 0px)); z-index:50; background:var(--card); border:1px solid var(--stroke); border-radius:24px; padding:8px; box-shadow:var(--shadow-lift); width:min(560px, calc(100% - 24px))}
 .tabs-main{display:grid; grid-template-columns:repeat(5,1fr); align-items:center}
 .tab{display:grid; justify-items:center; gap:4px; font-size:10.5px; color:var(--fg-3); padding:6px 2px; border-radius:16px; text-align:center; line-height:1.2}
-.tab .ic{font-size:17px; line-height:1}
+/* Значок — рисунок, а не буква. Размер задаётся здесь, а не кеглем шрифта:
+   раньше меню собирали символы Unicode, и в каждом браузере они выходили своей
+   толщины и своего размера — на телефоне выглядели мелкими и бледными. */
+.tab .ic{display:grid; place-items:center; width:26px; height:26px}
+.nav-ic{width:24px; height:24px; display:block; fill:none; stroke:currentColor;
+  stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+/* У выбранного раздела штрих чуть плотнее: подсветки фоном на нижней панели
+   нет, и вес — единственное, чем он отличается. */
+.tab[aria-current="page"] .nav-ic{stroke-width:2.1}
 .tab[aria-current="page"]{color:var(--fg); font-weight:600}
 .tab.more.on{color:var(--fg)}
 
@@ -561,7 +573,8 @@ body.mm-open{overflow:hidden}
 .tabs-rest{display:none}
 .tabs-rest.open{display:grid; gap:2px; padding:8px 2px 4px; margin-top:6px; border-top:1px solid var(--line)}
 .tab.wide{grid-template-columns:22px 1fr; justify-items:start; align-items:center; gap:11px; font-size:14px; padding:10px 12px; text-align:left}
-.tab.wide .ic{font-size:15px; justify-self:center}
+.tab.wide .ic{justify-self:center; width:24px; height:24px}
+.tab.wide .nav-ic{width:21px; height:21px}
 .tab.wide[aria-current="page"]{background:var(--soft)}
 
 /* ============ ШИРОКИЙ ЭКРАН ============ */
@@ -603,7 +616,8 @@ body.mm-open{overflow:hidden}
     grid-template-columns:24px 1fr; justify-items:start; align-items:center;
     gap:12px; font-size:14.5px; padding:10px 13px; text-align:left;
   }
-  .tab .ic{font-size:16px; justify-self:center}
+  .tab .ic{justify-self:center; width:24px; height:24px}
+  .tab .nav-ic{width:21px; height:21px}
   .tab[aria-current="page"]{background:var(--soft)}
 
   /* Строка создания задачи прижимается к колонке текста, а не к центру окна. */
