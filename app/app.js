@@ -53,7 +53,6 @@ function seed(){
     version: 2,
     view: 'tasks',
     sub: null,
-    auth: { stage: 'guest', email: '', sent: '', error: '' },
     pro: { active: false, plan: '', expiresAt: '', code: '' },
     synChat: [],
     briefing: null,
@@ -155,10 +154,8 @@ function load(){
     if (!parsed || parsed.version !== 2 || !parsed.tasks) return seed();
     // Поля, которых могло не быть в раньше сохранённом состоянии.
     parsed.drag = null;
-    if (!parsed.auth) parsed.auth = { stage: 'guest', email: '', sent: '', error: '' };
-    // Вход перестал быть стеной: у тех, кого прошлая версия оставила на форме,
-    // состояние «на полпути» больше ничего не значит.
-    if (parsed.auth.stage !== 'in') parsed.auth.stage = 'guest';
+    // Поле auth осталось у тех, кто открывал прошлые версии. Не читаем и не
+    // пишем: входа больше нет, а чужие ключи в хранилище чистить не наше дело.
     if (!parsed.pro) parsed.pro = { active: false, plan: '', expiresAt: '', code: '' };
     if (!parsed.synChat || !parsed.synChat.length) parsed.synChat = [];
     if (!parsed.briefing) parsed.briefing = null;
@@ -189,6 +186,8 @@ function load(){
     // не отрисовалось.
     if (parsed.view === 'home') parsed.view = 'tasks';
     if (parsed.view === 'pricing') parsed.view = 'subscription';
+    // Экрана входа больше нет: сохранённый на нём никуда бы не отрисовался.
+    if (parsed.view === 'auth') parsed.view = 'settings';
     return parsed;
   } catch (e) {
     return seed();
@@ -1015,7 +1014,6 @@ var TAB_OF_VIEW = {
   list: 'lists',
   note: 'notes',
   profile: 'settings',
-  auth: 'settings',
   'settings-view': 'settings',
   'settings-data': 'settings'
 };
@@ -1039,7 +1037,6 @@ var VIEWS = {
   meditation: { title: 'Медитация',  render: vMeditation },
   trash:      { title: 'Корзина',    render: vTrash },
   subscription: { title: 'Моя подписка', render: vSubscription },
-  auth:       { title: 'Вход',       render: vAuth }
 };
 
 function go(view){
@@ -1324,7 +1321,7 @@ function vStorageWarning(){
 }
 
 function initials(){
-  var source = (S.profile && S.profile.name) || S.auth.email || '?';
+  var source = (S.profile && S.profile.name) || '?';
   return source.trim().charAt(0).toUpperCase() || '?';
 }
 
@@ -3356,15 +3353,13 @@ function vProfile(){
     '<p class="hint">Имя и фото никуда не отправляются: они лежат в этом браузере рядом с задачами.</p>' +
   '</section>';
 
-  html += '<p class="lbl">Вход</p><section class="card">' +
-    '<h3>' + esc(S.auth.stage === 'in' ? (S.auth.email || 'Без почты') : 'Вход не выполнен') + '</h3>' +
-    '<p class="sub">' + (S.auth.stage === 'in'
-      ? 'Заглушка без сервера: записи всё равно лежат в этом браузере.'
-      : 'Планировщик работает и без входа — записи хранятся в этом браузере.') + '</p>' +
+  /* Вместо входа — прямой ответ на вопрос «а где мои записи». Он и был
+     настоящей причиной, по которой люди искали здесь вход. */
+  html += '<p class="lbl">Где записи</p><section class="card">' +
+    '<h3>Только в этом браузере</h3>' +
+    '<p class="sub">Входа нет и не нужно: задачи, цели, списки и заметки лежат здесь, на этом устройстве, и никуда не отправляются. Подписка включается кодом с сайта — он и опознаёт вас, если оплата есть.</p>' +
     '<div class="acts">' +
-      (S.auth.stage === 'in'
-        ? '<button class="btn sm soft" data-act="logout">Выйти</button>'
-        : '<button class="btn sm soft" data-act="go" data-view="auth">Войти</button>') +
+      '<button class="btn sm soft" data-act="go" data-view="settings-data">Сохранить копию</button>' +
     '</div>' +
   '</section>';
 
@@ -3455,8 +3450,7 @@ function avatarHTML(size){
 
 function vSettings(){
   var html = head('Приложение', 'Настройки');
-  html += settingsLink('profile', 'Профиль', S.profile.name || S.auth.email || 'Имя и фото') +
-    settingsLink('auth', 'Вход', S.auth.stage === 'in' ? S.auth.email : 'Пока не выполнен') +
+  html += settingsLink('profile', 'Профиль', S.profile.name || 'Имя и фото') +
     settingsLink('settings-view', 'Вид', fontOf(S.font).title + ' · ' + paletteOf(S.palette).title) +
     settingsLink('settings-data', 'Данные', 'Копия файлом, примеры, стирание') +
     settingsLink('about', 'О сервисе', 'Что умеет веб-версия');
@@ -3640,7 +3634,7 @@ function vAbout(){
   html += '<p class="lbl">Чего пока нет</p><section class="card"><div class="lines">' +
     [['Уведомления', 'закрытый браузер ничего не пришлёт'],
      ['Синхронизация с приложением', 'перенос файлом в разделе «Данные»'],
-     ['Настоящий вход', 'состояние входа лежит в этом браузере']].map(function(pair){
+     ['Вход и аккаунт', 'не нужны: записи и так у вас, подписка — по коду']].map(function(pair){
       return '<div class="line"><span>' + esc(pair[0]) + '</span>' +
         '<span class="line-note">' + esc(pair[1]) + '</span></div>';
     }).join('') + '</div></section>';
@@ -3673,54 +3667,26 @@ function vAbout(){
   return html;
 }
 
-/* ============ ВХОД ============ */
+/* ============ ЛИЧНОСТЬ ============ */
 
-/* ЗАГЛУШКА, и это сказано на самом экране. Сервера для входа по почте пока не
-   существует: код не отправляется, а показывается на экране, и проверяется тут
-   же в браузере. Apple и Google на сайте недоступны (вход по Apple на вебе
-   владелец делать запретил), SMS требует ИП — поэтому почта и только почта.
+/* Входа в веб-версии нет, и это решение, а не недоделка.
 
-   Экран держится ради своего места в интерфейсе: когда появится настоящий
-   аккаунт, поменяется начинка, а не путь к ней. Работать он не мешает —
-   планировщик открыт и без входа. */
-function vAuth(){
-  var a = S.auth;
-  var html = head('', '', 'settings') +
-    '<div class="auth"><img class="mark" src="icons/icon-192.png" alt="" width="72" height="72">';
+   Он тут стоял заглушкой: почта, код из шести цифр, показанный на том же
+   экране, проверка в браузере. Заглушка оказалась хуже отсутствия — человек
+   жал «Войти», вводил почту и узнавал, что сервис ненастоящий. Доверие она
+   тратила, а не копила.
 
-  if (a.stage === 'in'){
-    return html + '<h1>Вы вошли</h1>' +
-      '<p class="s">Почта ' + esc(a.email || '') + '</p>' +
-      '<section class="card"><p class="sub">Пока это ничего не меняет: записи всё равно лежат в этом браузере, а не на сервере. Вход появится по-настоящему вместе с аккаунтом и переносом данных.</p>' +
-      '<div class="acts"><button class="btn sm soft" data-act="logout">Выйти</button></div></section></div>';
-  }
+   Разобрались, кому и зачем здесь вообще нужна личность:
 
-  if (a.stage === 'guest' || a.stage === 'email'){
-    html += '<h1>Вход в Synapse</h1>' +
-      '<p class="s">Введи почту — пришлём код из шести цифр.</p>' +
-      '<form class="card" data-form="auth-send">' +
-        '<div class="field"><label for="authmail">Почта</label>' +
-          '<input class="inp" type="email" id="authmail" placeholder="you@example.com" value="' + esc(a.email) + '" autocomplete="email" enterkeyhint="next"></div>' +
-        (a.error ? '<p class="err">' + esc(a.error) + '</p>' : '') +
-        '<button class="btn full" type="submit">Получить код</button>' +
-      '</form>';
-  } else {
-    html += '<h1>Код отправлен</h1>' +
-      '<p class="s">Отправили на ' + esc(a.email) + '</p>' +
-      '<form class="card" data-form="auth-check">' +
-        '<div class="field"><label for="authcode">Код из письма</label>' +
-          '<input class="inp mono" type="text" id="authcode" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" enterkeyhint="go"></div>' +
-        (a.error ? '<p class="err">' + esc(a.error) + '</p>' : '') +
-        '<button class="btn full" type="submit">Войти</button>' +
-        '<div class="acts"><button class="btn sm soft" data-act="auth-back">Другая почта</button></div>' +
-        '<p class="stub">Письма нет и не будет: сервера для почты пока нет. Код для этого прототипа — <b class="mono">' + esc(a.sent) + '</b></p>' +
-      '</form>';
-  }
+   — планировщику не нужна: записи лежат в этом браузере и никуда не уходят;
+   — подписке уже есть чем опознать человека — код с сайта: сервер связывает
+     установку браузера с оплаченным аккаунтом, и это работает;
+   — суточной норме Syn личность нужна, и вот здесь дыра: очистив данные сайта,
+     человек получает новую установку и новые шесть запросов. Закрыть это может
+     только настоящий аккаунт, и это единственная причина, по которой его
+     когда-нибудь стоит завести.
 
-  html += '<p class="stub">Это заглушка без сервера. Ни почта, ни код никуда не отправляются, состояние входа лежит в этом браузере. Планировщик работает и без входа.</p>' +
-    '<div class="acts"><button class="btn sm soft" data-act="go" data-view="tasks">Продолжить без входа</button></div></div>';
-  return html;
-}
+   Пока такой причины не набралось на отдельный сервер почты — входа нет. */
 
 /* ============ МОЯ ПОДПИСКА ============ */
 
@@ -5288,7 +5254,6 @@ function importBackup(text){
   for (var i = 0; i < fields.length; i++){
     if (parsed[fields[i]] !== undefined) fresh[fields[i]] = parsed[fields[i]];
   }
-  fresh.auth = S.auth;          // вход у этого браузера свой
   fresh.view = 'profile';
   fresh.lastOpened = isoOf(todayDate());
   S = fresh;
@@ -5773,41 +5738,6 @@ var ACTS = {
   },
 
   /* --- вход (заглушка) --- */
-  'auth-send': function(){
-    var mail = mval('authmail') || '';
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){
-      S.auth.error = 'Похоже, в почте опечатка.';
-      S.auth.email = mail;
-      commit();
-      return;
-    }
-    S.auth.email = mail;
-    S.auth.error = '';
-    // Код «отправляется» тем, что показывается на экране: сервера нет.
-    S.auth.sent = String(Math.floor(100000 + Math.random() * 900000));
-    S.auth.stage = 'code';
-    commit();
-  },
-  'auth-check': function(){
-    var code = mval('authcode');
-    if (code !== S.auth.sent){
-      S.auth.error = 'Код не совпал. Он написан ниже — сервера пока нет.';
-      commit();
-      return;
-    }
-    S.auth.error = '';
-    S.auth.stage = 'in';
-    commit('С возвращением');
-  },
-  'auth-back': function(){
-    S.auth.stage = 'email';
-    S.auth.error = '';
-    commit();
-  },
-  logout: function(){
-    S.auth = { stage: 'guest', email: S.auth.email, sent: '', error: '' };
-    commit();
-  },
 
   /* Выход из веб-версии ведёт на главную сайта — туда, где рассказано, что это
      за продукт. Уходя, человек попадает не в пустоту и не на форму входа, а на
@@ -5816,7 +5746,6 @@ var ACTS = {
      Записи не трогаем: они лежат в этом браузере, и стирать их за человека — не
      то, о чём просили. Для стирания есть «Настройки → Данные». */
   leave: function(){
-    S.auth = { stage: 'guest', email: S.auth.email, sent: '', error: '' };
     S.more = false;
     save();
     location.href = '../';
@@ -6284,23 +6213,21 @@ var ACTS = {
 
   /* --- данные --- */
   'reset-demo': function(){
-    var mail = S.auth.email, theme = S.theme, view = S.view, palette = S.palette;
+    var theme = S.theme, view = S.view, palette = S.palette;
     S = demoState();
-    S.auth = { stage: 'in', email: mail, sent: '', error: '' };
     S.theme = theme;
     S.palette = palette;
     S.view = view;
     commit('Примеры на месте');
   },
   wipe: function(){
-    var mail = S.auth.email, theme = S.theme, view = S.view, palette = S.palette;
+    var theme = S.theme, view = S.view, palette = S.palette;
     S = seed();
     S.view = view;
     S.palette = palette;
     S.tasks = []; S.goals = []; S.lists = []; S.notes = [];
     S.pomodoro.doneToday = 0;
     S.meditation.doneTotal = 0;
-    S.auth = { stage: 'in', email: mail, sent: '', error: '' };
     S.theme = theme;
     commit('Пусто');
   },
