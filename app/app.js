@@ -4396,6 +4396,7 @@ function synAsk(){
   return synSession().then(function(token){
     var workspace = synWorkspace();
     if (S.synIntent) workspace.assistantIntent = S.synIntent;
+    if (S.synGoalCreate) workspace.assistantGoalCreate = true;
     return synFetch('/v1/synapse/reply', {
       workspace: workspace,
       workspaceContext: synContext(),
@@ -5634,6 +5635,7 @@ var ACTS = {
     var field = $('field');
     var draft = field ? field.value.trim() : '';
     S.synIntent = '';
+    S.synGoalCreate = false;
     synRender(draft, '');
     if (draft){
       S.draft = '';
@@ -5647,6 +5649,10 @@ var ACTS = {
     var field = $('gfield');
     var draft = field ? field.value.trim() : '';
     S.synIntent = 'planning';
+    // Поле создания цели уже сказало, чего человек хочет, — ему незачем
+    // повторять «создай цель» словами. Без этой подсказки Syn отвечал
+    // предложением и вопросом вместо готовой цели с этапами.
+    S.synGoalCreate = true;
     synRender(draft, '');
     if (draft){
       S.goalDraft = '';
