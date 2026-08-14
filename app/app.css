@@ -95,11 +95,19 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
    колонке: начинается ровно под логотипом и кончается под аватаркой. */
 .top-in{max-width:var(--col); margin:0 auto; padding:14px var(--pad); display:flex; align-items:center; gap:12px; position:relative}
 .top-in::after{content:''; position:absolute; left:var(--pad); right:var(--pad); bottom:0; height:1px; background:var(--line)}
-.brand{display:flex; align-items:center; gap:10px; min-width:0}
+.brand{display:flex; align-items:center; gap:12px; min-width:0}
 /* Знак — настоящий логотип, тот же файл, что иконкой приложения. Раньше
    здесь стояла буква S в квадрате: заглушка, которая пережила все остальные. */
-.brand .mark{width:36px; height:36px; border-radius:11px; flex:none; display:block; object-fit:contain}
-.brand .nm{font-family:var(--display); font-size:22px; font-weight:800; letter-spacing:-.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* Логотип и название крупнее. Шапка — единственное место, где написано, в
+   чём человек вообще находится, и мельче остального текста ей быть незачем. */
+.brand .mark{width:44px; height:44px; border-radius:13px; flex:none; display:block; object-fit:contain}
+.brand .nm{font-family:var(--display); font-size:27px; font-weight:800; letter-spacing:-.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* На узком экране рядом с названием стоят тема и аватарка: там крупный знак
+   вытолкнул бы их за край. */
+@media (max-width:420px){
+  .brand .mark{width:36px; height:36px; border-radius:11px}
+  .brand .nm{font-size:22px}
+}
 .top-acts{margin-left:auto; display:flex; align-items:center; gap:8px; flex:none; min-width:0}
 /* Аватарка с именем рядом. Имя обрезается многоточием, а не выдавливает
    кнопку темы с экрана. */
