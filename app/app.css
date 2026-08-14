@@ -564,6 +564,9 @@ body.mm-open{overflow:hidden}
 .tabbar{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(18px + var(--vv-shift, 0px)); z-index:50; background:var(--card); border:1px solid var(--stroke); border-radius:24px; padding:8px; box-shadow:var(--shadow-lift); width:min(560px, calc(100% - 24px))}
 .tabs-main{display:grid; grid-template-columns:repeat(5,1fr); align-items:center}
 .tab{display:grid; justify-items:center; gap:4px; font-size:10.5px; color:var(--fg-3); padding:6px 2px; border-radius:16px; text-align:center; line-height:1.2}
+/* Пункт «Поддержка» — настоящая ссылка, а не кнопка: подчёркивание и
+   наследуемый цвет ссылки в меню лишние. */
+a.tab{text-decoration:none; color:var(--fg-3)}
 /* Значок — рисунок, а не буква. Размер задаётся здесь, а не кеглем шрифта:
    раньше меню собирали символы Unicode, и в каждом браузере они выходили своей
    толщины и своего размера — на телефоне выглядели мелкими и бледными. */

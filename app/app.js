@@ -958,6 +958,9 @@ var NAV_ICONS = {
   settings: navIcon('<path d="M4 8h10M18 8h2M4 16h4M12 16h8"/><circle cx="16" cy="8" r="2.2"/><circle cx="10" cy="16" r="2.2"/>'),
   // О сервисе — «i» в круге.
   about: navIcon('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.8h.01"/>'),
+  // Поддержка — спасательный круг: узнаётся мгновенно и не путается с
+  // «О сервисе», у которого тоже круг.
+  support: navIcon('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M14.4 9.6l3.6-3.6M6 6l3.6 3.6M14.4 14.4l3.6 3.6M6 18l3.6-3.6"/>'),
   // Ещё — три точки.
   more: navIcon('<circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   // Закрыть «Ещё» — крест.
@@ -1007,7 +1010,13 @@ var TABS = [
   // ниже — то, что открывают про сам сервис. Корзина принадлежит работе.
   { id: 'subscription', title: 'Моя подписка', short: 'Подписка', sep: true },
   { id: 'settings',   title: 'Настройки' },
-  { id: 'about',      title: 'О сервисе' }
+  { id: 'about',      title: 'О сервисе' },
+  // Поддержка — не экран приложения, а телеграм-канал, поэтому у пункта есть
+  // href: он уводит наружу, и притворяться разделом ему незачем. Открывается
+  // в новой вкладке: человек уходит спросить, а не уходит из планировщика,
+  // и вернуться он должен туда же, где стоял.
+  { id: 'support',    title: 'Служба поддержки', short: 'Поддержка',
+    href: 'https://t.me/synapseapp', external: true }
 ];
 
 /* Какой пункт меню подсвечивать на экране, который сам пунктом не является. */
@@ -1333,10 +1342,20 @@ function activeTab(){
 
 function tabButton(t, cls){
   var on = activeTab() === t.id;
-  return '<button class="' + cls + '" data-act="go" data-view="' + t.id + '"' +
-    (on ? ' aria-current="page"' : '') + '>' +
+  var inside =
     '<span class="ic">' + (NAV_ICONS[t.id] || '') + '</span>' +
-    '<span class="tx">' + esc(cls === 'tab' && t.short ? t.short : t.title) + '</span></button>';
+    '<span class="tx">' + esc(cls === 'tab' && t.short ? t.short : t.title) + '</span>';
+
+  // Пункт со ссылкой — настоящая ссылка, а не кнопка: её можно открыть в
+  // новой вкладке средним щелчком, и она видна читалке с экрана как переход
+  // наружу, а не как ещё один раздел приложения.
+  if (t.href){
+    return '<a class="' + cls + '" href="' + t.href + '"' +
+      (t.external ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + inside + '</a>';
+  }
+
+  return '<button class="' + cls + '" data-act="go" data-view="' + t.id + '"' +
+    (on ? ' aria-current="page"' : '') + '>' + inside + '</button>';
 }
 
 /* Одна разметка на обе раскладки: слева колонка целиком, снизу четыре пункта
