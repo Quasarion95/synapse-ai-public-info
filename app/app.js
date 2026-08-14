@@ -1267,6 +1267,25 @@ var TOUR_STEPS = [
   }
 ];
 
+/* Пройдено ли обучение — записывается, а не вычисляется каждый раз.
+
+   Разница принципиальная. Шаги сами по себе выводятся из состояния: есть
+   задача, есть закрытая, есть цель, был разговор с Syn. Но состояние меняется
+   и в обратную сторону: человек прошёл все четыре, удалил тестовую задачу — и
+   первый шаг снова «не сделан», а карточка возвращается, как будто он ничего
+   не делал. Именно это и случилось.
+
+   Поэтому факт прохождения фиксируется навсегда отдельным флагом. Вызывать эту
+   проверку нужно отовсюду, где состояние меняется, — в том числе из ответа
+   Syn, который идёт мимо commit(). Раньше он мимо и шёл: четвёртый шаг
+   выполнялся, а записать это было некому. */
+function tourCheck(){
+  if (S.tourDone) return false;
+  if (TOUR_STEPS.some(function(step){ return !step.done(); })) return false;
+  S.tourDone = true;
+  return true;
+}
+
 function tourVisible(){
   if (S.tourDone) return false;
   return TOUR_STEPS.some(function(step){ return !step.done(); });
@@ -1287,7 +1306,7 @@ function vTour(){
         '<h3>Первые шаги</h3>' +
         '<p class="sub">Пройдено ' + passed + ' из ' + TOUR_STEPS.length + '</p>' +
       '</div>' +
-      '<button class="tour-hide" data-act="tour-hide" aria-label="Скрыть первые шаги">✕</button>' +
+      '<button class="tour-hide" data-act="tour-hide" aria-label="Пропустить первые шаги" title="Пропустить">✕</button>' +
     '</div>' +
     '<div class="tour-bar"><i style="width:' + Math.round(passed / TOUR_STEPS.length * 100) + '%"></i></div>' +
     '<div class="tour-steps">' +
@@ -1307,6 +1326,9 @@ function vTour(){
         '</div>';
       }).join('') +
     '</div>' +
+    // Кнопка словом, а не только крестиком в углу: пропустить знакомство —
+    // это нормальный выбор, и он не должен выглядеть как закрытие рекламы.
+    '<div class="acts"><button class="btn sm soft" data-act="tour-hide">Пропустить знакомство</button></div>' +
   '</section>';
 }
 
@@ -3725,6 +3747,9 @@ function synSend(text){
     var result = synApplyActions(data.actions);
     SYN.busy = false;
     synChatPush('assistant', data.reply || 'Готово.', result);
+    // Разговор с Syn — четвёртый шаг обучения, и записать это надо здесь:
+    // ответ ассистента идёт мимо commit().
+    tourCheck();
     // Помечаем именно «действий не было вовсе»: пустой список — это не то же
     // самое, что действия, которые не применились, — про те сказано отдельно.
     if (!(data.actions || []).length){
@@ -4938,12 +4963,7 @@ var pendingToast = '';
 var pendingImport = '';
 
 function commit(message){
-  // Все четыре шага сделаны — обучение больше не нужно. Гасим здесь, а не в
-  // отрисовке: отрисовка не должна менять состояние.
-  if (!S.tourDone && !TOUR_STEPS.some(function(step){ return !step.done(); })){
-    S.tourDone = true;
-    if (!message) message = 'Первые шаги пройдены';
-  }
+  if (tourCheck() && !message) message = 'Первые шаги пройдены';
   // Сообщение держим в переменной, а не в S: попав в localStorage, оно
   // всплывало бы снова при каждом открытии страницы.
   if (message) pendingToast = message;
