@@ -779,3 +779,29 @@ body.mm-open{overflow:hidden}
 .syn-none b{color:var(--fg)}
 .syn-none-acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:9px}
 .syn-none-acts .btn{padding:7px 12px; font-size:12.5px}
+
+/* ============ ПЕРВЫЕ ШАГИ ============ */
+
+/* Обучение выглядит как карточка задач, а не как баннер поверх них: это часть
+   работы, а не реклама самой себя. Раскрыт всегда один шаг — текущий. */
+.card.tour{border-color:var(--accent)}
+.tour-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px}
+.tour-head h3{margin:0}
+.tour-hide{flex:none; width:28px; height:28px; border-radius:999px; color:var(--fg-3); display:grid; place-items:center; font-size:13px}
+.tour-hide:hover{background:var(--soft); color:var(--fg)}
+
+.tour-bar{height:4px; border-radius:999px; background:var(--soft); overflow:hidden; margin:14px 0 4px}
+.tour-bar i{display:block; height:100%; border-radius:999px; background:var(--accent); transition:width .3s ease}
+
+.tour-steps{display:flex; flex-direction:column}
+.tour-step{display:flex; gap:12px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line)}
+.tour-step:last-child{border-bottom:0; padding-bottom:0}
+.tour-mark{flex:none; width:22px; height:22px; border-radius:999px; border:2px solid var(--soft-2); color:#fff;
+  display:grid; place-items:center; font-size:11px; margin-top:1px}
+.tour-step.on .tour-mark{background:var(--ok); border-color:var(--ok)}
+.tour-step.on .tour-body b{color:var(--fg-3); text-decoration:line-through}
+.tour-step.now .tour-mark{border-color:var(--accent)}
+.tour-body{min-width:0}
+.tour-body b{font-size:14.5px; display:block}
+.tour-body p{font-size:13px; color:var(--fg-2); line-height:1.45; margin-top:4px}
+.tour-body .btn{margin-top:10px}

@@ -38,9 +38,17 @@ function seedDay(offset){
   return day.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
 }
 
+/* Первое открытие — пустой планировщик, а не чужой день.
+
+   Раньше здесь лежали примеры: презентация, автосервис, английский за год. Они
+   хорошо показывали возможности и ровно так же ломали доверие — двое разных
+   людей открывали сервис и видели одни и те же задачи, свои ли это, понять
+   было нельзя. Планировщик, который начинается с чужих дел, не выглядит
+   личным.
+
+   Примеры никуда не делись: они лежат в demoState() и заводятся по кнопке в
+   «Настройки → Данные». Разница в том, что теперь их заводят, а не получают. */
 function seed(){
-  var g1 = uid(), s11 = uid(), s12 = uid(), s13 = uid();
-  var g2 = uid(), s21 = uid(), s22 = uid();
   return {
     version: 2,
     view: 'tasks',
@@ -59,6 +67,8 @@ function seed(){
     fontSize: 'standard',
     box: 'square',
     hintSeen: false,
+    // Обучение показывается, пока не пройдено или пока его не закрыли руками.
+    tourDone: false,
     more: false,
     draft: '',
     drag: null,
@@ -67,59 +77,73 @@ function seed(){
     activeGoal: null,
     activeList: null,
     activeNote: null,
-    tasks: [
-      { id: uid(), title: 'Собрать материалы для презентации', bucket: 'today', date: seedDay(0), done: false,
-        note: 'Черновик на десять слайдов, дизайн пока не нужен.', time: null, repeat: '', series: null,
-        goalId: null, stageId: null,
-        subtasks: [
-          { id: uid(), title: 'Выбрать структуру', done: true },
-          { id: uid(), title: 'Собрать цифры', done: false },
-          { id: uid(), title: 'Сверить с прошлым кварталом', done: false }
-        ] },
-      { id: uid(), title: 'Позвонить в автосервис', bucket: 'today', date: seedDay(0), done: false, note: '',
-        time: null, repeat: '', series: null, goalId: null, stageId: null, subtasks: [] },
-      { id: uid(), title: 'Разговорный клуб', bucket: 'today', date: seedDay(0), done: true, note: '',
-        time: '19:00', repeat: '', series: null, goalId: g1, stageId: s13, subtasks: [] },
-      { id: uid(), title: 'Урок с преподавателем', bucket: 'tomorrow', date: seedDay(1), done: false, note: '',
-        time: '08:00', repeat: 'weekly', series: null, goalId: g1, stageId: s12, subtasks: [] },
-      { id: uid(), title: 'Тренировка 30 минут', bucket: 'tomorrow', date: seedDay(1), done: false, note: '',
-        time: '08:00', repeat: 'weekdays', series: null, goalId: g2, stageId: s21, subtasks: [] },
-      { id: uid(), title: 'Оплатить аренду', bucket: 'thisWeek', date: null, done: false,
-        note: 'Каждый месяц по одному числу.', time: null, repeat: 'monthly', series: null,
-        goalId: null, stageId: null, subtasks: [] }
-    ],
-    goals: [
-      { id: g1, title: 'Выучить английский за год',
-        purpose: 'Чтобы читать документацию и говорить на созвонах без страха',
-        sphere: 'career', horizon: 'Год', pinned: true,
-        stages: [
-          { id: s11, title: 'Сдать пробный экзамен', detail: 'Понять уровень, от которого идём', status: 'done' },
-          { id: s12, title: 'Заниматься трижды в неделю', detail: '', status: 'active' },
-          { id: s13, title: 'Разговорный клуб раз в месяц', detail: '', status: 'planned' }
-        ] },
-      { id: g2, title: 'Вернуть форму',
-        purpose: 'Чтобы хватало сил на вечер, а не только на работу',
-        sphere: 'health', horizon: 'Полгода', pinned: false,
-        stages: [
-          { id: s21, title: 'Три тренировки в неделю', detail: '', status: 'active' },
-          { id: s22, title: 'Сон до полуночи', detail: '', status: 'planned' }
-        ] }
-    ],
-    lists: [
-      { id: uid(), title: 'Собрать чемодан в Сочи', note: 'Вылет в субботу утром',
-        items: [
-          { id: uid(), title: 'Паспорт и билеты', done: true },
-          { id: uid(), title: 'Крем от солнца', done: false },
-          { id: uid(), title: 'Зарядка для телефона', done: false }
-        ] }
-    ],
-    notes: [
-      { id: uid(), title: 'Встреча с подрядчиком',
-        body: 'Обсудили сроки: черновой этап к 20 числу, приём работ через неделю.' }
-    ],
+    tasks: [],
+    goals: [],
+    lists: [],
+    notes: [],
     pomodoro: { focus: 25, shortBreak: 5, longBreak: 15, mode: 'focus', doneToday: 0, goal: 0 },
     meditation: { minutes: 10, sound: 'Дождь', doneTotal: 0, totalMinutes: 0, volume: 0.7 }
   };
+}
+
+/// Те же примеры, что раньше стояли по умолчанию. Теперь — по кнопке.
+function demoState(){
+  var base = seed();
+  var g1 = uid(), s11 = uid(), s12 = uid(), s13 = uid();
+  var g2 = uid(), s21 = uid(), s22 = uid();
+
+  base.tourDone = true;
+  base.tasks = [
+    { id: uid(), title: 'Собрать материалы для презентации', bucket: 'today', date: seedDay(0), done: false,
+      note: 'Черновик на десять слайдов, дизайн пока не нужен.', time: null, repeat: '', series: null,
+      goalId: null, stageId: null,
+      subtasks: [
+        { id: uid(), title: 'Выбрать структуру', done: true },
+        { id: uid(), title: 'Собрать цифры', done: false },
+        { id: uid(), title: 'Сверить с прошлым кварталом', done: false }
+      ] },
+    { id: uid(), title: 'Позвонить в автосервис', bucket: 'today', date: seedDay(0), done: false, note: '',
+      time: null, repeat: '', series: null, goalId: null, stageId: null, subtasks: [] },
+    { id: uid(), title: 'Разговорный клуб', bucket: 'today', date: seedDay(0), done: true, note: '',
+      time: '19:00', repeat: '', series: null, goalId: g1, stageId: s13, subtasks: [] },
+    { id: uid(), title: 'Урок с преподавателем', bucket: 'tomorrow', date: seedDay(1), done: false, note: '',
+      time: '08:00', repeat: 'weekly', series: null, goalId: g1, stageId: s12, subtasks: [] },
+    { id: uid(), title: 'Тренировка 30 минут', bucket: 'tomorrow', date: seedDay(1), done: false, note: '',
+      time: '08:00', repeat: 'weekdays', series: null, goalId: g2, stageId: s21, subtasks: [] },
+    { id: uid(), title: 'Оплатить аренду', bucket: 'thisWeek', date: null, done: false,
+      note: 'Каждый месяц по одному числу.', time: null, repeat: 'monthly', series: null,
+      goalId: null, stageId: null, subtasks: [] }
+  ];
+  base.goals = [
+    { id: g1, title: 'Выучить английский за год',
+      purpose: 'Чтобы читать документацию и говорить на созвонах без страха',
+      sphere: 'career', horizon: 'Год', pinned: true,
+      stages: [
+        { id: s11, title: 'Сдать пробный экзамен', detail: 'Понять уровень, от которого идём', status: 'done' },
+        { id: s12, title: 'Заниматься трижды в неделю', detail: '', status: 'active' },
+        { id: s13, title: 'Разговорный клуб раз в месяц', detail: '', status: 'planned' }
+      ] },
+    { id: g2, title: 'Вернуть форму',
+      purpose: 'Чтобы хватало сил на вечер, а не только на работу',
+      sphere: 'health', horizon: 'Полгода', pinned: false,
+      stages: [
+        { id: s21, title: 'Три тренировки в неделю', detail: '', status: 'active' },
+        { id: s22, title: 'Сон до полуночи', detail: '', status: 'planned' }
+      ] }
+  ];
+  base.lists = [
+    { id: uid(), title: 'Собрать чемодан в Сочи', note: 'Вылет в субботу утром',
+      items: [
+        { id: uid(), title: 'Паспорт и билеты', done: true },
+        { id: uid(), title: 'Крем от солнца', done: false },
+        { id: uid(), title: 'Зарядка для телефона', done: false }
+      ] }
+  ];
+  base.notes = [
+    { id: uid(), title: 'Встреча с подрядчиком',
+      body: 'Обсудили сроки: черновой этап к 20 числу, приём работ через неделю.' }
+  ];
+  return base;
 }
 
 function load(){
@@ -137,6 +161,10 @@ function load(){
     if (!parsed.pro) parsed.pro = { active: false, plan: '', expiresAt: '', code: '' };
     if (!parsed.synChat || !parsed.synChat.length) parsed.synChat = [];
     if (!parsed.briefing) parsed.briefing = null;
+    // Тем, у кого уже что-то заведено, обучение показывать поздно и незачем.
+    if (typeof parsed.tourDone !== 'boolean'){
+      parsed.tourDone = (parsed.tasks && parsed.tasks.length > 0) || (parsed.goals && parsed.goals.length > 0);
+    }
     if (!parsed.palette) parsed.palette = 'paper';
     // «Как в системе» больше нет: тема теперь решение человека, а не среды.
     // Тем, у кого стояла системная, ставим ту, которую они и видели.
@@ -1172,6 +1200,91 @@ function cnt(value, label){
   return '<div class="cnt"><span class="v">' + esc(value) + '</span><span class="l">' + esc(label) + '</span></div>';
 }
 
+/* ============ ПЕРВЫЕ ШАГИ ============ */
+
+/* Обучение, которое ничему не учит на словах.
+
+   Четыре шага, и каждый отмечается сам — по состоянию, а не по нажатию
+   «понятно». Это важнее, чем кажется: галочка, которую ставит человек,
+   означает «я прочитал», а галочка, которую ставит сервис, означает «я сделал».
+   Второе и есть обучение.
+
+   Шаги выбраны так, чтобы после них планировщик был уже своим: появилась
+   задача, одна закрыта, есть цель, и ассистент один раз ответил. Дальше
+   карточка исчезает навсегда — обучение, которое остаётся на экране после
+   того, как всё пройдено, превращается в мебель. */
+var TOUR_STEPS = [
+  {
+    id: 'task',
+    title: 'Создай первую задачу',
+    hint: 'Напиши её в строке внизу. День и время можно сказать прямо там: «купить молоко завтра в 9 утра» — из названия эти слова уйдут.',
+    done: function(){ return S.tasks.length > 0; }
+  },
+  {
+    id: 'done',
+    title: 'Отметь её выполненной',
+    hint: 'Нажми на кружок слева от названия. Отмеченное сегодня останется в аналитике, а завтра уйдёт из списка само.',
+    done: function(){ return S.tasks.some(function(t){ return t.done || t.archived; }); }
+  },
+  {
+    id: 'goal',
+    title: 'Заведи цель',
+    hint: 'Раздел «Цели». У цели есть этапы, у этапов — свои задачи: так большое дело превращается в то, что можно сделать сегодня.',
+    done: function(){ return S.goals.length > 0; },
+    act: 'go', extra: ' data-view="goals"', label: 'Открыть цели'
+  },
+  {
+    id: 'syn',
+    title: 'Попроси Syn',
+    hint: 'Скажи словами: «разбери мой день» или «перенеси урок на субботу». Можно голосом — Syn выполнит сказанное.',
+    done: function(){ return S.synChat.length > 0; },
+    act: 'ai', label: 'Открыть ассистента'
+  }
+];
+
+function tourVisible(){
+  if (S.tourDone) return false;
+  return TOUR_STEPS.some(function(step){ return !step.done(); });
+}
+
+function vTour(){
+  var passed = TOUR_STEPS.filter(function(step){ return step.done(); }).length;
+  // Текущий шаг — первый незакрытый. Раскрыт только он: четыре подсказки
+  // разом читаются как инструкция, а не как следующий шаг.
+  var current = null;
+  for (var i = 0; i < TOUR_STEPS.length; i++){
+    if (!TOUR_STEPS[i].done()){ current = TOUR_STEPS[i]; break; }
+  }
+
+  return '<section class="card tour">' +
+    '<div class="tour-head">' +
+      '<div>' +
+        '<h3>Первые шаги</h3>' +
+        '<p class="sub">Пройдено ' + passed + ' из ' + TOUR_STEPS.length + '</p>' +
+      '</div>' +
+      '<button class="tour-hide" data-act="tour-hide" aria-label="Скрыть первые шаги">✕</button>' +
+    '</div>' +
+    '<div class="tour-bar"><i style="width:' + Math.round(passed / TOUR_STEPS.length * 100) + '%"></i></div>' +
+    '<div class="tour-steps">' +
+      TOUR_STEPS.map(function(step){
+        var isDone = step.done();
+        var isNow = current && current.id === step.id;
+        return '<div class="tour-step' + (isDone ? ' on' : '') + (isNow ? ' now' : '') + '">' +
+          '<span class="tour-mark">' + (isDone ? '✓' : '') + '</span>' +
+          '<div class="tour-body">' +
+            '<b>' + esc(step.title) + '</b>' +
+            (isNow ? '<p>' + esc(step.hint) + '</p>' : '') +
+            (isNow && step.act
+              ? '<button class="btn sm" data-act="' + step.act + '"' + (step.extra || '') + '>' +
+                esc(step.label) + '</button>'
+              : '') +
+          '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>' +
+  '</section>';
+}
+
 /* ============ ЗАДАЧИ ============ */
 
 /* Заголовка «Задачи» и счётчика над ним нет намеренно: раздел уже назван в
@@ -1180,7 +1293,11 @@ function cnt(value, label){
 function vTasks(){
   var html = '';
 
-  if (!liveTasks().length){
+  // Обучение стоит выше пустого экрана и заменяет его: два объяснения подряд
+  // об одном и том же — это уже уговоры.
+  if (tourVisible()){
+    html += vTour();
+  } else if (!liveTasks().length){
     html += blank('☑', 'Задач пока нет',
       'Напиши первую в строке внизу. День и время можно сказать прямо там: «купить молоко завтра в 9 утра».');
   }
@@ -1494,6 +1611,8 @@ function briefingDigest(){
   var lines = ['ДАТА: ' + isoOf(todayDate()),
     'СЕЙЧАС: ' + clock(new Date().getHours(), new Date().getMinutes()),
     'СДЕЛАНО СЕГОДНЯ: ' + doneCount + ' из ' + today.length];
+  // Имя — чтобы вслух брифинг начинался с обращения, а не с «здравствуйте».
+  if (S.profile.name) lines.splice(1, 0, 'ИМЯ: ' + S.profile.name);
 
   if (today.length){
     lines.push('ЗАДАЧИ ДНЯ:');
@@ -1577,10 +1696,20 @@ function speechSay(text, done){
   window.speechSynthesis.speak(utterance);
 }
 
-/// Текст брифинга для чтения вслух: без меток и с «Главное» в конце фразой.
+/* Что читать вслух.
+
+   Живой пересказ, если он пришёл: он написан для уха — с обращением, связными
+   фразами и временем словами. Экранный брифинг для этого не годится: он
+   разбит на метки, а метки вслух звучат как выкрики, и «19:00» диктуется
+   цифрами.
+
+   Если пересказа нет — старый ответ сервера, сбой модели, — читаем сам
+   брифинг без меток. Хуже, но лучше молчания. */
 function briefingSpeech(){
   var brief = S.briefing;
-  if (!brief || !brief.text) return '';
+  if (!brief) return '';
+  if (brief.voice) return brief.voice;
+  if (!brief.text) return '';
   var lines = briefingLines(brief.text).map(function(pair){ return pair[1]; });
   if (brief.main) lines.push('Главное на сегодня: ' + brief.main);
   return lines.join(' ');
@@ -1610,12 +1739,31 @@ function briefingRun(){
       commit();
       return;
     }
-    // «ГЛАВНОЕ: …» вынимаем из текста: это указание интерфейсу.
+    /* Из ответа вынимаются две служебные строки.
+
+       «ГЛАВНОЕ» — указание интерфейсу, какую задачу подсветить.
+       «ВСЛУХ» — тот же брифинг, рассказанный голосом: с обращением по имени,
+       связными фразами и временем словами. Он приходит тем же запросом, а не
+       вторым, поэтому прослушивание не стоит ещё одного обращения к Syn.
+
+       Строка ВСЛУХ может оказаться многострочной, если модель перенесла
+       предложение, — поэтому после её начала всё остальное считается ею. */
     var main = '';
+    var voice = '';
     var kept = [];
+    var inVoice = false;
     raw.split('\n').forEach(function(line){
       var trimmed = line.trim();
       if (!trimmed) return;
+
+      var voiceAt = trimmed.toUpperCase().indexOf('ВСЛУХ:');
+      if (voiceAt >= 0){
+        inVoice = true;
+        voice = trimmed.slice(voiceAt + 6).trim();
+        return;
+      }
+      if (inVoice){ voice += ' ' + trimmed; return; }
+
       var at = trimmed.toUpperCase().indexOf('ГЛАВНОЕ:');
       if (at >= 0){
         var value = trimmed.slice(at + 8).trim().replace(/^[«"]|[».,"]$/g, '');
@@ -1626,7 +1774,7 @@ function briefingRun(){
     });
 
     S.briefing = {
-      text: kept.join('\n'), main: main, morning: morning,
+      text: kept.join('\n'), main: main, voice: voice.trim(), morning: morning,
       date: isoOf(todayDate()), at: clock(new Date().getHours(), new Date().getMinutes()), error: ''
     };
     commit('Брифинг собран');
@@ -4627,6 +4775,12 @@ var pendingToast = '';
 var pendingImport = '';
 
 function commit(message){
+  // Все четыре шага сделаны — обучение больше не нужно. Гасим здесь, а не в
+  // отрисовке: отрисовка не должна менять состояние.
+  if (!S.tourDone && !TOUR_STEPS.some(function(step){ return !step.done(); })){
+    S.tourDone = true;
+    if (!message) message = 'Первые шаги пройдены';
+  }
   // Сообщение держим в переменной, а не в S: попав в localStorage, оно
   // всплывало бы снова при каждом открытии страницы.
   if (message) pendingToast = message;
@@ -4900,6 +5054,7 @@ var ACTS = {
   /* --- задачи --- */
   add: function(){ S.hintSeen = true; addTask(); },
   'hint-off': function(){ S.hintSeen = true; commit(); },
+  'tour-hide': function(){ S.tourDone = true; commit('Первые шаги скрыты'); },
   toggle: function(d){
     var t = findTask(d.task);
     if (!t) return;
@@ -5291,7 +5446,7 @@ var ACTS = {
   /* --- данные --- */
   'reset-demo': function(){
     var mail = S.auth.email, theme = S.theme, view = S.view, palette = S.palette;
-    S = seed();
+    S = demoState();
     S.auth = { stage: 'in', email: mail, sent: '', error: '' };
     S.theme = theme;
     S.palette = palette;
