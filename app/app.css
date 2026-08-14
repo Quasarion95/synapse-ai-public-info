@@ -852,6 +852,75 @@ body.mm-open{overflow:hidden}
 .preview-task{display:flex; gap:11px; align-items:flex-start}
 .preview-task h3{font-size:16px}
 
+/* Мета в строке раскрытия — там же, где «подпункты», сразу за ней.
+
+   Чипами дата и время занимали отдельный ряд под названием, и карточка
+   вырастала вдвое: пять задач на экране телефона вместо десяти. Справа от
+   названия они отжимали название до двух слов. В нижней строке место уже есть,
+   и она всё равно оставалась полупустой. */
+.item .expand .m{display:inline-flex; align-items:baseline; gap:8px; margin:0 0 0 8px;
+  font-size:11.5px; color:var(--fg-3)}
+.item .expand .m::before{content:'·'; color:var(--fg-3); margin-right:2px}
+.item .expand .m .late{color:var(--danger); font-weight:600}
+.item .expand .m .hard{color:var(--fg-2)}
+.item .expand .m .mt{font-variant-numeric:tabular-nums}
+.item .expand .m .mr{display:inline-grid; place-items:center; color:var(--fg-3)}
+.item .expand .m .mr .nav-ic{width:12px; height:12px; stroke-width:2}
+.item .expand .m .pct{font-weight:600; color:var(--fg-2)}
+/* Строка может не влезть на узком экране — тогда переносится целиком, а не
+   разрывает дату посередине. */
+.item .expand{display:flex; flex-wrap:wrap; align-items:baseline; row-gap:2px}
+
+/* ============ ПЕРВЫЕ ШАГИ ============ */
+
+/* Обучение выглядит как карточка задач, а не как баннер поверх них: это часть
+   работы, а не реклама самой себя. Раскрыт всегда один шаг — текущий. */
+.card.tour{border-color:var(--accent)}
+.tour-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px}
+.tour-head h3{margin:0}
+.tour-hide{flex:none; width:28px; height:28px; border-radius:999px; color:var(--fg-3); display:grid; place-items:center; font-size:13px}
+.tour-hide:hover{background:var(--soft); color:var(--fg)}
+
+.tour-bar{height:4px; border-radius:999px; background:var(--soft); overflow:hidden; margin:14px 0 4px}
+.tour-bar i{display:block; height:100%; border-radius:999px; background:var(--accent); transition:width .3s ease}
+
+.tour-steps{display:flex; flex-direction:column}
+.tour-step{display:flex; gap:12px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line)}
+.tour-step:last-child{border-bottom:0; padding-bottom:0}
+.tour-mark{flex:none; width:22px; height:22px; border-radius:999px; border:2px solid var(--soft-2); color:#fff;
+  display:grid; place-items:center; font-size:11px; margin-top:1px}
+.tour-step.on .tour-mark{background:var(--ok); border-color:var(--ok)}
+.tour-step.on .tour-body b{color:var(--fg-3); text-decoration:line-through}
+.tour-step.now .tour-mark{border-color:var(--accent)}
+.tour-body{min-width:0}
+.tour-body b{font-size:14.5px; display:block}
+.tour-body p{font-size:13px; color:var(--fg-2); line-height:1.45; margin-top:4px}
+.tour-body .btn{margin-top:10px}
+
+/* ============ НАСТРОЙКИ ВИДА ============ */
+
+/* Каждая настройка — карточка с названием и одной строкой объяснения. Плоский
+   список «подпись — ряд кнопок — подпись — ряд» сливался в полотно: не было
+   видно, где кончается одна настройка и начинается следующая. */
+.setblock{padding:18px}
+.setblock + .setblock{margin-top:12px}
+.setblock-h{margin-bottom:14px}
+.setblock-h h3{font-size:16.5px}
+.setblock-h .sub{margin-top:4px}
+
+/* Подряд идущие ряды внутри одной карточки — «Начертание» и «Размер». Разделены
+   чертой, а не только отступом: иначе два ряда кнопок читаются как один
+   длинный, перенесённый на вторую строку. */
+.subrow + .subrow{margin-top:14px; padding-top:14px; border-top:1px solid var(--line)}
+.subrow-l{display:block; font-size:12.5px; color:var(--fg-3); margin-bottom:9px}
+
+/* Превью — отдельный сюжет. Показывает задачу целиком: отметка, название,
+   подпись, чипы. Раньше показывало только текст, и выбранная форма отметки
+   проверялась взглядом на кнопку, а не на результат. */
+.card.preview{margin-top:0}
+.preview-task{display:flex; gap:11px; align-items:flex-start}
+.preview-task h3{font-size:16px}
+
 /* Строка названия задачи и мета справа от него.
 
    Чипами дата и время занимали отдельный ряд под названием, и карточка
@@ -876,3 +945,33 @@ body.mm-open{overflow:hidden}
   .titleline .t{flex:1 1 auto; min-width:55%}
   .titleline .m{justify-content:flex-start}
 }
+
+/* ============ КОРЗИНА ============ */
+
+.trashlist{display:flex; flex-direction:column; gap:8px}
+.trashrow{display:flex; align-items:center; gap:12px; padding:14px 16px; margin:0}
+.trashrow-t{min-width:0; flex:1}
+.trashrow-t b{display:block; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.trashrow-t .sub{font-size:12px; margin-top:2px}
+.trashrow-a{display:flex; gap:7px; flex:none}
+@media (max-width:520px){
+  .trashrow{flex-direction:column; align-items:stretch; gap:10px}
+  .trashrow-a .btn{flex:1}
+}
+
+/* Дата цели и этапа: сама дата плюс сколько до неё осталось. Близкая
+   подсвечивается, прошедшая — красным, но без паники: цель, у которой срок
+   прошёл, не ошибка, а решение, которое надо принять. */
+.gtarget{font-size:12.5px; color:var(--fg-2); margin:0 0 10px}
+.gtarget.soon{color:var(--accent-warm); font-weight:600}
+.gtarget.late{color:var(--danger); font-weight:600}
+.stage-target{color:var(--fg-2)}
+.stage-target.soon{color:var(--accent-warm)}
+.stage-target.late{color:var(--danger)}
+.field .opt{color:var(--fg-3); font-weight:400; text-transform:none; letter-spacing:0}
+.item .expand .m .carried{color:var(--fg-2); font-weight:600}
+
+/* Своё правило повтора: три поля, нужные одному человеку из десяти. Скрыто,
+   пока его не выбрали в списке — иначе модалка задачи вырастает вдвое у всех. */
+.ruleblock{display:none}
+.ruleblock.on{display:block; margin-top:4px; padding-top:14px; border-top:1px solid var(--line)}

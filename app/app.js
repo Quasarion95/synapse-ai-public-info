@@ -81,6 +81,7 @@ function seed(){
     goals: [],
     lists: [],
     notes: [],
+    trash: [],
     pomodoro: { focus: 25, shortBreak: 5, longBreak: 15, mode: 'focus', doneToday: 0, goal: 0 },
     meditation: { minutes: 10, sound: 'Дождь', doneTotal: 0, totalMinutes: 0, volume: 0.7 }
   };
@@ -161,6 +162,7 @@ function load(){
     if (!parsed.pro) parsed.pro = { active: false, plan: '', expiresAt: '', code: '' };
     if (!parsed.synChat || !parsed.synChat.length) parsed.synChat = [];
     if (!parsed.briefing) parsed.briefing = null;
+    if (!parsed.trash) parsed.trash = [];
     // Тем, у кого уже что-то заведено, обучение показывать поздно и незачем.
     if (typeof parsed.tourDone !== 'boolean'){
       parsed.tourDone = (parsed.tasks && parsed.tasks.length > 0) || (parsed.goals && parsed.goals.length > 0);
@@ -233,13 +235,25 @@ function rolloverIfNeeded(){
       if (!t.archived){ t.archived = true; archived += 1; }
       continue;
     }
+    /* Счётчик переносов. Сама дата, с которой задача переехала, ничего не
+       говорит — а число переездов говорит: задача, перенесённая пятый раз, это
+       не «не успел», это «не буду», и увидеть это надо раньше, чем через
+       месяц. То же поле есть в приложении (missStreak). */
     t.carriedFrom = t.carriedFrom || t.date;
+    t.carried = (t.carried || 0) + 1;
     t.date = today;
     t.bucket = 'today';
     moved += 1;
   }
 
+  // Заодно уходит просроченное хранение в корзине: это единственное место, где
+  // мы и так сверяем даты.
+  var swept = trashSweep();
+
   S.lastOpened = today;
+  if (swept && !moved && !archived){
+    pendingToast = 'Из корзины убрано: ' + swept;
+  }
   if (moved || archived){
     pendingToast = (moved ? 'Перенесено на сегодня: ' + moved : '') +
       (moved && archived ? ' · ' : '') +
@@ -494,6 +508,8 @@ function adjustHour(hour, meridiem){
 }
 
 /// Возвращает { title, date, time, hasDate, hasTime, bucket }.
+/// Возвращает {title, bucket, date, time, hasDate, hasTime}: два последних —
+/// назвал ли человек день и время сам или мы вывели их из блока.
 function parseSchedule(text, fallbackBucket){
   var original = String(text == null ? '' : text).trim();
   var work = normalizeText(original);
@@ -642,6 +658,13 @@ function parseSchedule(text, fallbackBucket){
    Правила нет ни в приложении, ни на сервере: это новая логика, а не перенос.
    Сервер теперь тоже об этом просят в промпте, но промпт — просьба, а это
    проверка. */
+/* «Дату назвали явно» — отдельный факт, а не догадка по наличию времени.
+
+   Разница видна на карточке: у задачи, которой день назвали («в пятницу»),
+   дата — обещание, и её показывают всегда. У задачи, попавшей в блок без даты,
+   дата выведена нами из блока, и показывать её как решение человека — врать.
+   В приложении для этого есть hasExplicitDate/hasExplicitTime, теперь есть и
+   здесь. */
 function pushPastTimeToTomorrow(parsed, source){
   if (!parsed.time || parsed.bucket !== 'today') return parsed;
   if (/(^|[^а-яa-z])сегодня([^а-яa-z]|$)/i.test(String(source || ''))) return parsed;
@@ -683,7 +706,65 @@ function repeatPreset(id){
   return REPEAT_PRESETS[0];
 }
 
-function repeatLabel(id){
+/* Своё правило повтора, а не один из шести пресетов.
+
+   Пресеты закрывают обычные случаи и остаются главным путём: «каждый день», «по
+   будням». Но правила, которые присылает Syn и которые люди правда держат в
+   голове, ими не выражаются — «каждые три дня», «по вторникам и четвергам», «5 и
+   20 числа». Раньше такие округлялись до ближайшего пресета, то есть тихо
+   подменялись другим правилом.
+
+   Своё правило лежит в task.rule, а task.repeat при этом равен 'custom'. Так
+   старые задачи с пресетом продолжают работать без миграции, а весь остальной
+   код спрашивает правило одной функцией. */
+var CUSTOM_REPEAT = 'custom';
+
+function taskRule(task){
+  if (!task || !task.repeat) return null;
+  if (task.repeat === CUSTOM_REPEAT) return task.rule || null;
+  return repeatPreset(task.repeat).rule;
+}
+
+var WEEKDAY_SHORT_RU = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+
+/// Человеческое название любого правила — и пресета, и своего.
+/// Правило из того, что уже лежит в объекте, — без обращения к полям формы.
+/// Нужна отдельно, чтобы подпись «Сейчас: …» считалась и до открытия модалки.
+function ruleFromFields(rule){
+  if (!rule) return null;
+  return {
+    unit: rule.unit || 'day',
+    interval: Math.max(1, Math.min(365, Number(rule.interval) || 1)),
+    weekdaysOnly: false,
+    weeklyWeekdays: rule.weeklyWeekdays || [],
+    monthlyDays: rule.monthlyDays || []
+  };
+}
+
+function ruleLabel(rule){
+  if (!rule) return '';
+  var step = normalizedInterval(rule);
+
+  if (rule.unit === 'day'){
+    if (rule.weekdaysOnly) return 'по будням';
+    if (step === 1) return 'каждый день';
+    return 'каждые ' + step + ' ' + plural(step, 'день', 'дня', 'дней');
+  }
+
+  if (rule.unit === 'week'){
+    var days = (rule.weeklyWeekdays || []).slice().sort(function(a, b){ return a - b; });
+    var prefix = step === 1 ? '' : 'через ' + (step - 1) + ' нед · ';
+    if (days.length) return prefix + 'по ' + days.map(function(d){ return WEEKDAY_SHORT_RU[d]; }).join(', ');
+    return step === 1 ? 'каждую неделю' : 'каждые ' + step + ' недели';
+  }
+
+  var numbers = (rule.monthlyDays || []).slice().sort(function(a, b){ return a - b; });
+  if (numbers.length) return numbers.join(' и ') + ' числа';
+  return step === 1 ? 'каждый месяц' : 'каждые ' + step + ' месяца';
+}
+
+function repeatLabel(id, task){
+  if (task) return ruleLabel(taskRule(task));
   var preset = repeatPreset(id);
   return preset.rule ? preset.title.toLowerCase() : '';
 }
@@ -742,8 +823,7 @@ function daysInMonth(year, month){
 
 /// nextOccurrence(after:onOrAfter:) — шагает, пока не уйдёт за минимум, и
 /// прекращает, как только шаг перестал двигать дату (иначе вечный цикл).
-function nextOccurrence(fromISO, ruleId, minISO){
-  var rule = repeatPreset(ruleId).rule;
+function nextOccurrence(fromISO, rule, minISO){
   if (!rule) return null;
   var candidate = dateOf(fromISO) || todayDate();
   var minimum = dateOf(minISO) || candidate;
@@ -760,7 +840,7 @@ function nextOccurrence(fromISO, ruleId, minISO){
 /// Следующее повторение той же серии. Возвращает созданную задачу или null.
 function spawnNextOccurrence(task){
   var base = task.date || isoOf(todayDate());
-  var next = nextOccurrence(base, task.repeat, isoOf(addDays(dateOf(base) || todayDate(), 1)));
+  var next = nextOccurrence(base, taskRule(task), isoOf(addDays(dateOf(base) || todayDate(), 1)));
   if (!next) return null;
 
   var series = task.series || task.id;
@@ -772,7 +852,9 @@ function spawnNextOccurrence(task){
 
   var copy = {
     id: uid(), title: task.title, bucket: derivedBucket(next), date: next, done: false,
-    note: task.note, time: task.time, repeat: task.repeat, series: series,
+    note: task.note, time: task.time, repeat: task.repeat, rule: task.rule || null, series: series,
+    deadline: task.deadline || null, windowFrom: task.windowFrom || null,
+    hasExplicitDate: task.hasExplicitDate, hasExplicitTime: task.hasExplicitTime,
     goalId: task.goalId, stageId: task.stageId,
     subtasks: task.subtasks.map(function(s){ return { id: uid(), title: s.title, done: false }; })
   };
@@ -874,6 +956,9 @@ var NAV_ICONS = {
   more: navIcon('<circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   // Закрыть «Ещё» — крест.
   close: navIcon('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'),
+  // Корзина — ведро с крышкой.
+  trash: navIcon('<path d="M4 7.5h16"/><path d="M9.5 7.5V5.2A1.7 1.7 0 0 1 11.2 3.5h1.6A1.7 1.7 0 0 1 14.5 5.2v2.3"/>' +
+    '<path d="M6.5 7.5l.9 11a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9l.9-11"/><path d="M10.5 11.5v5M13.5 11.5v5"/>'),
   // Выход — дверь со стрелкой наружу.
   leave: navIcon('<path d="M9.5 20.5H6a2.5 2.5 0 0 1-2.5-2.5V6A2.5 2.5 0 0 1 6 3.5h3.5"/><path d="M15.5 16l4.5-4-4.5-4"/><path d="M20 12H9"/>'),
 
@@ -911,6 +996,7 @@ var TABS = [
   // Тарифы стоят в самом меню, а не в углу настроек: два раздела из десяти
   // открываются только по подписке, и человек должен видеть, где про это
   // написано, в ту же секунду, когда упёрся.
+  { id: 'trash',      title: 'Корзина' },
   { id: 'subscription', title: 'Моя подписка', short: 'Подписка' },
   { id: 'settings',   title: 'Настройки' },
   { id: 'about',      title: 'О сервисе' }
@@ -944,6 +1030,7 @@ var VIEWS = {
   note:       { title: 'Заметка',    render: vNote },
   pomodoro:   { title: 'Метод Помодоро', render: vPomodoro },
   meditation: { title: 'Медитация',  render: vMeditation },
+  trash:      { title: 'Корзина',    render: vTrash },
   subscription: { title: 'Моя подписка', render: vSubscription },
   auth:       { title: 'Вход',       render: vAuth }
 };
@@ -1299,6 +1386,143 @@ function cnt(value, label){
   return '<div class="cnt"><span class="v">' + esc(value) + '</span><span class="l">' + esc(label) + '</span></div>';
 }
 
+/* ============ КОРЗИНА ============ */
+
+/* Удаление, которое можно отменить.
+
+   До этого «✕» на карточке стирал задачу навсегда — единственная необратимая
+   операция во всём сервисе, и та без подтверждения. Один промах пальцем по
+   мелкой кнопке, и работа исчезла. В приложении для этого есть корзина
+   (`trashedAt` у задачи), в вебе не было.
+
+   Устройство простое и намеренно одинаковое для всех четырёх видов записей:
+   удалённое не выбрасывается, а перекладывается в S.trash вместе с тем, чем
+   оно было, — целиком, объектом. Восстановление кладёт объект назад, туда же,
+   откуда взяли. Так не нужно ни отдельных полей вроде `deletedAt` в каждой
+   модели, ни фильтров «покажи только не удалённые» на каждом экране: удалённого
+   в рабочих списках просто нет.
+
+   Срок хранения — TRASH_DAYS. Дальше запись уходит сама, иначе корзина
+   становится второй базой, которую никто не чистит, и её объём начинает влиять
+   на квоту localStorage. Чистка идёт при первом открытии в новый день, вместе с
+   переносом задач: это единственное место, где мы и так трогаем даты. */
+var TRASH_DAYS = 30;
+
+var TRASH_KINDS = {
+  task: { title: 'Задача', many: 'Задачи' },
+  goal: { title: 'Цель', many: 'Цели' },
+  list: { title: 'Список', many: 'Списки' },
+  note: { title: 'Заметка', many: 'Заметки' }
+};
+
+/// Положить в корзину. `extra` — то, что нужно знать при восстановлении и чего
+/// нет в самом объекте (например, задачи удалённой цели).
+function trashPut(kind, data, extra){
+  S.trash.unshift({
+    id: uid(),
+    kind: kind,
+    at: Date.now(),
+    title: String(data && data.title || 'Без названия'),
+    data: data,
+    extra: extra || null
+  });
+}
+
+function trashFind(id){
+  for (var i = 0; i < S.trash.length; i++) if (S.trash[i].id === id) return S.trash[i];
+  return null;
+}
+
+/// Убрать из корзины просроченное хранение. Возвращает, сколько убрано.
+function trashSweep(){
+  var edge = Date.now() - TRASH_DAYS * 86400000;
+  var before = S.trash.length;
+  S.trash = S.trash.filter(function(item){ return item.at >= edge; });
+  return before - S.trash.length;
+}
+
+/// Сколько дней записи осталось лежать.
+function trashDaysLeft(item){
+  var left = Math.ceil((item.at + TRASH_DAYS * 86400000 - Date.now()) / 86400000);
+  return Math.max(0, left);
+}
+
+/* Восстановление. Задача возвращается в свой блок — но если её день уже прошёл,
+   то в «Сегодня»: возвращать в прошлое бессмысленно, там её никто не увидит.
+
+   Цель возвращается вместе со связями: задачи, которые были к ней привязаны,
+   привязываются обратно. Их идентификаторы сохранены в extra, потому что сами
+   задачи никуда не удалялись — у них лишь снялась связь. */
+function trashRestore(id){
+  var item = trashFind(id);
+  if (!item) return '';
+
+  if (item.kind === 'task'){
+    var task = item.data;
+    if (task.date && task.date < isoOf(todayDate())){
+      task.date = isoOf(todayDate());
+      task.bucket = 'today';
+      task.archived = false;
+    }
+    S.tasks.push(task);
+  } else if (item.kind === 'goal'){
+    S.goals.push(item.data);
+    var links = (item.extra && item.extra.taskIDs) || [];
+    S.tasks.forEach(function(t){
+      for (var i = 0; i < links.length; i++){
+        if (links[i].id === t.id){
+          t.goalId = item.data.id;
+          t.stageId = links[i].stageId || null;
+        }
+      }
+    });
+  } else if (item.kind === 'list'){
+    S.lists.push(item.data);
+  } else if (item.kind === 'note'){
+    S.notes.push(item.data);
+  }
+
+  S.trash = S.trash.filter(function(entry){ return entry.id !== id; });
+  return item.title;
+}
+
+function vTrash(){
+  var html = head('', 'Корзина');
+
+  if (!S.trash.length){
+    return html + blank(NAV_ICONS.trash, 'Корзина пуста',
+      'Удалённые задачи, цели, списки и заметки лежат здесь ' + TRASH_DAYS +
+      ' дней, и всё это время их можно вернуть.');
+  }
+
+  html += '<section class="card">' +
+    '<p class="sub" style="margin:0">Удалённое хранится ' + TRASH_DAYS +
+      ' дней, потом уходит само. Восстановленная задача с прошедшей датой возвращается в «Сегодня».</p>' +
+    '<div class="acts"><button class="btn sm soft" data-act="trash-empty">Очистить корзину</button></div>' +
+  '</section>';
+
+  html += '<div class="trashlist">' +
+    S.trash.map(function(item){
+      var kind = TRASH_KINDS[item.kind] || { title: 'Запись' };
+      var left = trashDaysLeft(item);
+      return '<article class="card trashrow">' +
+        '<div class="trashrow-t">' +
+          '<b>' + esc(item.title) + '</b>' +
+          '<span class="sub">' + esc(kind.title) + ' · ' +
+            (left ? 'удалится через ' + left + ' ' + plural(left, 'день', 'дня', 'дней') : 'удалится сегодня') +
+          '</span>' +
+        '</div>' +
+        '<div class="trashrow-a">' +
+          '<button class="btn sm" data-act="trash-restore" data-item="' + item.id + '">Вернуть</button>' +
+          '<button class="btn sm soft" data-act="trash-kill" data-item="' + item.id + '">Стереть</button>' +
+        '</div>' +
+      '</article>';
+    }).join('') +
+  '</div>';
+
+  return html;
+}
+
 /* ============ ПЕРВЫЕ ШАГИ ============ */
 
 /* Обучение, которое ничему не учит на словах.
@@ -1475,15 +1699,23 @@ function itemRow(t){
      изменилось со вчера. Без времени задача просто висит, и никакой отметки на
      ней не нужно. */
   var meta = [];
-  if (t.date && t.bucket !== 'today') meta.push('<span>' + esc(humanDate(t.date)) + '</span>');
+  // Дату показываем, когда её назвали сами или когда блок не «сегодня».
+  // Выведенная нами дата сегодняшнего блока не сообщает ничего.
+  if (t.date && (t.hasExplicitDate || t.bucket !== 'today')){
+    meta.push('<span>' + esc(humanDate(t.date)) + '</span>');
+  }
   if (t.time) meta.push('<span class="mt">' + esc(t.time) + '</span>');
-  if (t.repeat) meta.push('<span class="mr" title="' + esc(repeatLabel(t.repeat)) + '">' + ICON.repeat + '</span>');
+  if (t.repeat) meta.push('<span class="mr" title="' + esc(repeatLabel(t.repeat, t)) + '">' + ICON.repeat + '</span>');
   if (t.windowFrom && t.windowFrom.time) meta.push('<span>с ' + esc(t.windowFrom.time) + '</span>');
   // Срок — со словом «до»: без него «15 апреля 18:30» читается как время самой
   // задачи.
   if (t.deadline) meta.push('<span class="' + (deadlinePassed(t) ? 'late' : 'hard') + '">до ' +
     esc(deadlineText(t.deadline)) + '</span>');
   if (isOverdue(t)) meta.push('<span class="late">просрочено</span>');
+  // Один перенос — житейское дело, о нём молчим. Со второго это уже привычка,
+  // и человек имеет право её видеть.
+  if ((t.carried || 0) >= 2) meta.push('<span class="carried" title="Столько раз переносилась">' +
+    t.carried + '×</span>');
   if (t.subtasks.length) meta.push('<span class="pct">' + pct(subDone, t.subtasks.length) + '%</span>');
 
   var expandable = t.subtasks.length || t.note;
@@ -1525,13 +1757,16 @@ function itemRow(t){
     '<div class="item-main" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
-        '<div class="titleline">' +
-          '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
-            esc(t.title) + '</button>' +
-          (meta.length ? '<div class="m">' + meta.join('') + '</div>' : '') +
-        '</div>' +
+        '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
+          esc(t.title) + '</button>' +
+        /* Дата, время и повтор живут в той же нижней строке, что «подпункты»:
+           слева, сразу за ней. Отдельным рядом чипов они удваивали высоту
+           карточки, а справа от названия отжимали само название. Здесь для них
+           уже есть строка, и она всё равно короткая. */
         '<span class="expand"><span class="car">⌄</span>' + esc(summary) +
-          (goal ? ' · цель' : '') + '</span>' +
+          (goal ? ' · цель' : '') +
+          (meta.length ? '<span class="m">' + meta.join('') + '</span>' : '') +
+        '</span>' +
       '</div>' +
       '<div class="side">' +
         // Надёжный путь переноса: жест на сенсоре может не получиться, а с
@@ -1589,7 +1824,9 @@ function addTask(){
   parsed = pushPastTimeToTomorrow(parsed, raw);
   S.tasks.push({
     id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
-    time: parsed.time, repeat: '', series: null, goalId: null, stageId: null, subtasks: []
+    time: parsed.time, repeat: '', rule: null, series: null,
+    hasExplicitDate: !!parsed.hasDate, hasExplicitTime: !!parsed.hasTime,
+    goalId: null, stageId: null, subtasks: []
   });
   S.draft = '';
   S.closed[parsed.bucket] = false;
@@ -2123,6 +2360,13 @@ function goalBody(g){
 
   if (g.purpose) html += '<p class="sub gpurpose">' + esc(g.purpose) + '</p>';
 
+  /* Дата цели — вместе с тем, сколько до неё осталось. Сама дата без остатка
+     заставляет считать в голове, а именно остаток и есть повод шевелиться. */
+  if (g.targetDate){
+    html += '<p class="gtarget' + (dueSoonClass(g.targetDate)) + '">' +
+      'Дата цели: ' + esc(humanDate(g.targetDate)) + ' · ' + esc(untilText(g.targetDate)) + '</p>';
+  }
+
   if (!g.stages.length){
     html += '<p class="none">Этапов пока нет. Разбей цель на шаги — к каждому можно привязать задачи.</p>';
   }
@@ -2135,9 +2379,14 @@ function goalBody(g){
         '<button class="box' + (st.status === 'done' ? ' on' : '') + '" data-act="stage-toggle" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Готово">✓</button>' +
         '<span class="t">' + esc(st.title) + '</span>' +
         '<span class="status">' + STATUS[st.status] + '</span>' +
+        '<button class="kill" data-act="edit-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Править этап" title="Править">' + ICON.edit + '</button>' +
         '<button class="kill" data-act="kill-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Удалить этап">✕</button>' +
       '</div>' +
       (st.detail ? '<p class="detail">' + esc(st.detail) + '</p>' : '') +
+      (st.targetDate && st.status !== 'done'
+        ? '<p class="detail stage-target' + dueSoonClass(st.targetDate) + '">К ' +
+          esc(humanDate(st.targetDate)) + ' · ' + esc(untilText(st.targetDate)) + '</p>'
+        : '') +
       (list.length
         ? '<div class="tasks">' + list.map(itemRow).join('') + '</div>'
         : '<p class="none">У этого этапа пока нет задач.</p>') +
@@ -3564,6 +3813,31 @@ function planRow(title, free, pro){
 }
 
 /// Дата со сроком подписки приходит с сервера в ISO с временем.
+/* Сколько осталось до даты, словами. «Через 12 дней» человек понимает сразу, а
+   «15 сентября» требует посчитать — и обычно не считают. */
+function untilText(iso){
+  var days = dayDiff(isoOf(todayDate()), iso);
+  if (days === null) return '';
+  if (days === 0) return 'сегодня';
+  if (days === 1) return 'завтра';
+  if (days < 0){
+    var late = -days;
+    return 'прошло ' + late + ' ' + plural(late, 'день', 'дня', 'дней');
+  }
+  if (days < 31) return 'через ' + days + ' ' + plural(days, 'день', 'дня', 'дней');
+  var months = Math.round(days / 30);
+  return 'через ' + months + ' ' + plural(months, 'месяц', 'месяца', 'месяцев');
+}
+
+/// Класс для даты, которая близко или уже прошла.
+function dueSoonClass(iso){
+  var days = dayDiff(isoOf(todayDate()), iso);
+  if (days === null) return '';
+  if (days < 0) return ' late';
+  if (days <= 7) return ' soon';
+  return '';
+}
+
 function humanDateTime(iso){
   var date = new Date(iso);
   if (isNaN(date.getTime())) return iso;
@@ -4222,22 +4496,56 @@ function synFindStage(target){
    повтор это один из шести пресетов, как в приложении. Переводим в ближайший;
    то, чего среди пресетов нет (минуты, часы, произвольные дни недели), честно
    возвращает null и попадает в «не применилось». */
-function synRepeatID(a){
-  if (a.repeat && repeatPreset(a.repeat)) return a.repeat;
-  var unit = String(a.unit || '').toLowerCase();
-  var interval = Math.max(1, Number(a.interval) || 1);
-  var weekdaysOnly = a.weekdaysOnly === true ||
-    (a.weekdays && a.weekdays.length === 5 && a.weekdays.indexOf(6) < 0 && a.weekdays.indexOf(7) < 0);
+/* Правило повтора из действия сервера.
 
-  if (unit === 'minute' || unit === 'hour') return null;
-  if (unit === 'week') return 'weekly';
-  if (unit === 'month') return 'monthly';
-  if (unit === 'day'){
-    if (weekdaysOnly) return 'weekdays';
-    return interval >= 2 ? 'every2' : 'daily';
+   Возвращает {repeat, rule}: либо id пресета, либо 'custom' со своим правилом.
+   Округлять до пресета, как было раньше, значит подменять правило: «каждые три
+   дня» становилось «каждые два», «по вторникам и четвергам» — просто
+   «каждую неделю». Человек при этом видел на карточке одно, а получал другое.
+
+   Минуты и часы по-прежнему не выражаются: у задачи в этом планировщике нет
+   времени внутри дня чаще, чем раз в день, и делать вид, что есть, нельзя. */
+function synRepeat(a){
+  if (a.repeat && a.repeat !== CUSTOM_REPEAT && repeatPreset(a.repeat).rule){
+    return { repeat: a.repeat, rule: null };
   }
-  if (weekdaysOnly) return 'weekdays';
-  if (a.weekday || (a.weekdays && a.weekdays.length)) return 'weekly';
+
+  var unit = String(a.unit || '').toLowerCase();
+  if (unit === 'minute' || unit === 'hour') return null;
+
+  var interval = Math.max(1, Math.min(365, Number(a.interval) || 1));
+  var weekdays = (a.weekdays || []).map(Number).filter(function(d){ return d >= 0 && d <= 7; })
+    // Сервер нумерует дни с единицы от понедельника, JS — с нуля от воскресенья.
+    .map(function(d){ return d === 7 ? 0 : d % 7; });
+  if (!weekdays.length && a.weekday) weekdays = [Number(a.weekday) === 7 ? 0 : Number(a.weekday) % 7];
+  var monthlyDays = (a.monthlyDays || []).map(Number).filter(function(d){ return d >= 1 && d <= 31; });
+  var weekdaysOnly = a.weekdaysOnly === true ||
+    (weekdays.length === 5 && weekdays.indexOf(0) < 0 && weekdays.indexOf(6) < 0);
+
+  // Ровно пресет — берём пресет: на карточке он называется словами, которые
+  // человек и выбирал бы руками.
+  if (unit === 'day' && weekdaysOnly) return { repeat: 'weekdays', rule: null };
+  if (unit === 'day' && interval === 1 && !weekdays.length) return { repeat: 'daily', rule: null };
+  if (unit === 'day' && interval === 2 && !weekdays.length) return { repeat: 'every2', rule: null };
+  if (unit === 'week' && interval === 1 && !weekdays.length) return { repeat: 'weekly', rule: null };
+  if (unit === 'month' && interval === 1 && !monthlyDays.length) return { repeat: 'monthly', rule: null };
+
+  if (unit === 'day' || unit === 'week' || unit === 'month'){
+    return { repeat: CUSTOM_REPEAT, rule: {
+      unit: unit, interval: interval,
+      weekdaysOnly: weekdaysOnly || false,
+      weeklyWeekdays: unit === 'week' ? weekdays : [],
+      monthlyDays: unit === 'month' ? monthlyDays : []
+    } };
+  }
+
+  // Единицы нет, но дни названы — это неделя.
+  if (weekdays.length){
+    return { repeat: CUSTOM_REPEAT, rule: { unit: 'week', interval: interval, weeklyWeekdays: weekdays, monthlyDays: [] } };
+  }
+  if (monthlyDays.length){
+    return { repeat: CUSTOM_REPEAT, rule: { unit: 'month', interval: interval, weeklyWeekdays: [], monthlyDays: monthlyDays } };
+  }
   return null;
 }
 
@@ -4331,7 +4639,10 @@ synAct('create_task create_task_for_goal', function(a, done, skipped){
     id: uid(), title: String(a.title || '').trim() || 'Без названия',
     bucket: bucket,
     date: when.date, time: when.time, done: false,
-    note: String(a.note || ''), repeat: '', series: null,
+    // Дату и время назвал человек, если они пришли в действии: модель их не
+    // выдумывает, она их вычитала из фразы.
+    hasExplicitDate: !!when.date, hasExplicitTime: !!when.time,
+    note: String(a.note || ''), repeat: '', rule: null, series: null,
     deadline: synDeadline(a),
     // Окно выполнения: «сделай между двумя и шестью». В приложении это
     // отдельное поле, и в вебе теперь тоже — иначе начало окна терялось.
@@ -4348,10 +4659,13 @@ synAct('create_task create_task_for_goal', function(a, done, skipped){
   /* Повтор: из полей действия, а если их нет — из самой фразы человека.
      Тот же порядок, что в приложении (repeatRule(from:fallbackSourcePrompt:)):
      модель нередко пишет «каждый день» в названии и забывает про unit. */
-  var repeat = a.unit || a.interval || a.weekdays || a.weekday || a.weekdaysOnly ? synRepeatID(a) : '';
-  if (repeat === null) skipped.push('повтор «' + (a.unit || '') + '» в вебе не выражается');
-  else if (repeat) fresh.repeat = repeat;
-  else fresh.repeat = repeatFromText(a.sourcePrompt || a.title || '');
+  if (a.unit || a.interval || a.weekdays || a.weekday || a.weekdaysOnly || a.monthlyDays){
+    var made = synRepeat(a);
+    if (!made) skipped.push('повтор «' + (a.unit || '') + '» в вебе не выражается');
+    else { fresh.repeat = made.repeat; fresh.rule = made.rule; }
+  } else {
+    fresh.repeat = repeatFromText(a.sourcePrompt || a.title || '');
+  }
 
   if (a.kind === 'create_task_for_goal' || a.goalTitle){
     var goal = synFindGoal(a.goalTitle);
@@ -4396,16 +4710,18 @@ synAct('clear_task_schedule', function(a, done, skipped){
 synAct('set_task_repeat', function(a, done, skipped){
   var task = synFindTask(a.target);
   if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
-  var repeat = synRepeatID(a);
-  if (repeat === null) return skipped.push('такой повтор в вебе не выражается');
-  task.repeat = repeat;
-  done.push('повтор у «' + task.title + '» — ' + repeatLabel(repeat).toLowerCase());
+  var made = synRepeat(a);
+  if (!made) return skipped.push('такой повтор в вебе не выражается');
+  task.repeat = made.repeat;
+  task.rule = made.rule;
+  done.push('повтор у «' + task.title + '» — ' + ruleLabel(taskRule(task)));
 });
 
 synAct('clear_task_repeat', function(a, done, skipped){
   var task = synFindTask(a.target);
   if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
   task.repeat = '';
+  task.rule = null;
   task.series = null;
   done.push('снят повтор у «' + task.title + '»');
 });
@@ -4436,8 +4752,11 @@ synAct('rename_task', function(a, done, skipped){
 synAct('delete_task', function(a, done, skipped){
   var task = synFindTask(a.target);
   if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  // В корзину, а не в никуда: то же правило, что у кнопки на карточке. Ошибка
+  // ассистента не должна стоить работы дороже, чем ошибка пальца.
+  trashPut('task', task);
   S.tasks = S.tasks.filter(function(t){ return t.id !== task.id; });
-  done.push('удалена «' + task.title + '»');
+  done.push('удалена «' + task.title + '» — лежит в корзине');
 });
 
 synAct('complete_task mark_task_done reopen_task uncomplete_task', function(a, done, skipped){
@@ -4453,11 +4772,21 @@ synAct('complete_task mark_task_done reopen_task uncomplete_task', function(a, d
 
 synAct('restore_task', function(a, done, skipped){
   var target = String(a.target || '').toLowerCase().trim();
+
+  // Сначала корзина: «верни задачу» после удаления — самый частый случай.
+  for (var t = 0; t < S.trash.length; t++){
+    if (S.trash[t].kind === 'task' && S.trash[t].title.toLowerCase().indexOf(target) >= 0){
+      var title = trashRestore(S.trash[t].id);
+      done.push('возвращена из корзины «' + title + '»');
+      return;
+    }
+  }
+
   var found = null;
   for (var i = 0; i < S.tasks.length; i++){
     if (S.tasks[i].archived && S.tasks[i].title.toLowerCase().indexOf(target) >= 0){ found = S.tasks[i]; break; }
   }
-  if (!found) return skipped.push('в архиве нет «' + (a.target || '') + '»');
+  if (!found) return skipped.push('ни в корзине, ни в архиве нет «' + (a.target || '') + '»');
   found.archived = false;
   found.done = false;
   found.bucket = 'today';
@@ -4566,6 +4895,8 @@ synAct('rename_goal update_goal_purpose update_goal_horizon', function(a, done, 
 synAct('delete_goal', function(a, done, skipped){
   var goal = synFindGoal(a.target);
   if (!goal) return skipped.push('не нашёл цель «' + (a.target || '') + '»');
+  trashPut('goal', goal, { taskIDs: S.tasks.filter(function(t){ return t.goalId === goal.id; })
+    .map(function(t){ return { id: t.id, stageId: t.stageId }; }) });
   S.goals = S.goals.filter(function(g){ return g.id !== goal.id; });
   // Задачи цели не удаляются вместе с ней, а отвязываются: удалить чужую
   // работу заодно — не то, о чём просили.
@@ -4587,8 +4918,9 @@ synAct('set_active_goal', function(a, done, skipped){
 synAct('create_stage', function(a, done, skipped){
   var goal = synFindGoal(a.goalTitle || a.target);
   if (!goal) return skipped.push('не нашёл цель «' + (a.goalTitle || a.target || '') + '»');
+  var stageWhen = synSplitDateTime(a.datetime || a.deadline || a.targetDate);
   var stage = { id: uid(), title: String(a.title || '').trim() || 'Этап',
-    detail: String(a.detail || ''), status: 'planned' };
+    detail: String(a.detail || ''), targetDate: stageWhen.date || '', status: 'planned' };
   goal.stages.push(stage);
   done.push('этап «' + stage.title + '» в цели «' + goal.title + '»');
 });
@@ -4636,6 +4968,7 @@ synAct('rename_list', function(a, done, skipped){
 synAct('delete_list', function(a, done, skipped){
   var list = synFindList(a.target);
   if (!list) return skipped.push('не нашёл список «' + (a.target || '') + '»');
+  trashPut('list', list);
   S.lists = S.lists.filter(function(l){ return l.id !== list.id; });
   if (S.activeList === list.id) S.activeList = null;
   done.push('удалён список «' + list.title + '»');
@@ -4697,6 +5030,7 @@ synAct('update_note append_note', function(a, done, skipped){
 synAct('delete_note', function(a, done, skipped){
   var note = synFindNote(a.target);
   if (!note) return skipped.push('не нашёл заметку «' + (a.target || '') + '»');
+  trashPut('note', note);
   S.notes = S.notes.filter(function(n){ return n.id !== note.id; });
   if (S.activeNote === note.id) S.activeNote = null;
   done.push('удалена заметка «' + note.title + '»');
@@ -4855,13 +5189,19 @@ synAct('open_screen open_utility open_settings', function(a, done, skipped){
 synAct('delete_all_tasks clear_tasks reset_tasks', function(a, done, skipped){
   var count = S.tasks.length;
   if (!count) return skipped.push('задач и так нет');
+  // Пачкой — тем более в корзину: это самая дорогая ошибка из возможных.
+  S.tasks.forEach(function(t){ trashPut('task', t); });
   S.tasks = [];
-  done.push('удалены все задачи: ' + count);
+  done.push('удалены все задачи: ' + count + ' — лежат в корзине');
 });
 
 synAct('delete_all_goals clear_goals reset_goals', function(a, done, skipped){
   var count = S.goals.length;
   if (!count) return skipped.push('целей и так нет');
+  S.goals.forEach(function(g){
+    trashPut('goal', g, { taskIDs: S.tasks.filter(function(t){ return t.goalId === g.id; })
+      .map(function(t){ return { id: t.id, stageId: t.stageId }; }) });
+  });
   S.goals = [];
   S.tasks.forEach(function(t){ t.goalId = null; t.stageId = null; });
   S.activeGoal = null;
@@ -5007,7 +5347,7 @@ var BOXES = [
 /// `draftTitle` приходит из строки создания: название уже введено, спросить
 /// осталось два оставшихся поля.
 function modalGoal(goal, draftTitle){
-  var g = goal || { title: draftTitle || '', purpose: '', horizon: '' };
+  var g = goal || { title: draftTitle || '', purpose: '', horizon: '', targetDate: '' };
   var fresh = !goal;
   return '<h3>' + (fresh ? 'Ещё два вопроса' : 'Редактировать цель') + '</h3>' +
     '<p class="s">' + (fresh
@@ -5028,21 +5368,35 @@ function modalGoal(goal, draftTitle){
         }).join('') +
       '</div>' +
     '</div>' +
+    /* Целевая дата — рядом с горизонтом, но не вместо него. Горизонт это
+       намерение словами («год», «до защиты диплома»), дата — обязательство,
+       по которому считается, успеваешь ли. В приложении это два разных поля
+       (horizon и targetDate), и путать их нельзя: цель без даты нормальна,
+       цель без «зачем» — нет. */
+    '<div class="field"><label for="m-target">Дата цели <span class="opt">по желанию</span></label>' +
+      '<input class="inp" id="m-target" type="date" value="' + esc(g.targetDate || '') + '"></div>' +
     '<button class="btn full" data-act="save-goal"' + (goal ? ' data-goal="' + goal.id + '"' : '') + '>' +
       (fresh ? 'Создать цель' : 'Сохранить') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
-function modalStage(goalId){
-  return '<h3>Создать этап</h3>' +
+function modalStage(goalId, stage){
+  var st = stage || { title: '', detail: '', targetDate: '' };
+  return '<h3>' + (stage ? 'Редактировать этап' : 'Создать этап') + '</h3>' +
     '<p class="s">Разбей цель на понятные шаги.</p>' +
-    '<div class="field"><label>Название</label><input class="inp" id="m-title" placeholder="Например: сдать пробный экзамен"></div>' +
-    '<div class="field"><label>Описание</label><input class="inp" id="m-detail" placeholder="Если нужен контекст, добавь его сюда"></div>' +
-    '<button class="btn full" data-act="save-stage" data-goal="' + goalId + '">Создать этап</button>' +
+    '<div class="field"><label>Название</label><input class="inp" id="m-title" value="' + esc(st.title) + '" placeholder="Например: сдать пробный экзамен"></div>' +
+    '<div class="field"><label>Описание</label><input class="inp" id="m-detail" value="' + esc(st.detail) + '" placeholder="Если нужен контекст, добавь его сюда"></div>' +
+    // У этапа своя дата: «сдать экзамен к 15 мая» — это срок шага, а не цели.
+    '<div class="field"><label>Дата этапа <span class="opt">по желанию</span></label>' +
+      '<input class="inp" id="m-target" type="date" value="' + esc(st.targetDate || '') + '"></div>' +
+    '<button class="btn full" data-act="save-stage" data-goal="' + goalId + '"' +
+      (stage ? ' data-stage="' + stage.id + '"' : '') + '>' +
+      (stage ? 'Сохранить' : 'Создать этап') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
 function modalTask(t){
+  var rule = taskRule(t) || { unit: 'day', interval: 1, weeklyWeekdays: [], monthlyDays: [] };
   var goalOptions = '<option value="">Без цели</option>';
   for (var i = 0; i < S.goals.length; i++){
     var g = S.goals[i];
@@ -5068,7 +5422,9 @@ function modalTask(t){
       '<div class="field"><label>Повтор</label><select class="inp" id="m-repeat">' +
         REPEAT_PRESETS.map(function(r){
           return '<option value="' + r.id + '"' + (t.repeat === r.id ? ' selected' : '') + '>' + r.title + '</option>';
-        }).join('') + '</select></div>' +
+        }).join('') +
+        '<option value="' + CUSTOM_REPEAT + '"' + (t.repeat === CUSTOM_REPEAT ? ' selected' : '') + '>Своё правило…</option>' +
+        '</select></div>' +
       '<div class="field"><label>Связь с целью</label><select class="inp" id="m-goal">' + goalOptions + '</select></div>' +
     '</div>' +
     '<div class="row2">' +
@@ -5076,6 +5432,34 @@ function modalTask(t){
         '<input class="inp" id="m-dl-date" type="date" value="' + esc(t.deadline && t.deadline.date || '') + '"></div>' +
       '<div class="field"><label>Время срока</label>' +
         '<input class="inp" id="m-dl-time" type="time" value="' + esc(t.deadline && t.deadline.time || '') + '"></div>' +
+    '</div>' +
+    /* Своё правило показывается только когда его выбрали: три поля, которые
+       нужны одному человеку из десяти, не должны стоять в модалке у всех.
+       Единица решает, что означают остальные поля, поэтому она первой. */
+    '<div class="ruleblock' + (t.repeat === CUSTOM_REPEAT ? ' on' : '') + '" id="m-ruleblock">' +
+      '<p class="lbl">Своё правило</p>' +
+      '<div class="row2">' +
+        '<div class="field"><label for="m-runit">Единица</label>' +
+          '<select class="inp" id="m-runit">' +
+            [['day', 'дни'], ['week', 'недели'], ['month', 'месяцы']].map(function(u){
+              return '<option value="' + u[0] + '"' + (rule.unit === u[0] ? ' selected' : '') + '>' + u[1] + '</option>';
+            }).join('') + '</select></div>' +
+        '<div class="field"><label for="m-rint">Каждые</label>' +
+          '<input class="inp" id="m-rint" type="number" min="1" max="365" value="' + (rule.interval || 1) + '"></div>' +
+      '</div>' +
+      '<div class="field"><label>Дни недели <span class="opt">для недель</span></label>' +
+        '<div class="radios sm" id="m-rdays">' +
+          [1, 2, 3, 4, 5, 6, 0].map(function(d){
+            var on = (rule.weeklyWeekdays || []).indexOf(d) >= 0;
+            return '<button class="radio" data-act="rule-day" data-day="' + d + '" aria-pressed="' + on + '">' +
+              WEEKDAY_SHORT_RU[d] + '</button>';
+          }).join('') +
+        '</div>' +
+      '</div>' +
+      '<div class="field"><label for="m-rdates">Числа месяца <span class="opt">через запятую</span></label>' +
+        '<input class="inp" id="m-rdates" placeholder="5, 20" value="' +
+          esc((rule.monthlyDays || []).join(', ')) + '"></div>' +
+      '<p class="hint" style="margin-top:0">Сейчас: ' + esc(ruleLabel(ruleFromFields(rule)) || 'без повтора') + '</p>' +
     '</div>' +
     '<button class="btn full" data-act="save-task" data-task="' + t.id + '">Сохранить</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>' +
@@ -5348,6 +5732,14 @@ var ACTS = {
   'set-fontsize': function(d){ S.fontSize = d.size; commit(); },
   'set-box': function(d){ S.box = d.box; commit(); },
 
+  /* Дни недели в своём правиле переключаются на месте, без перерисовки модалки:
+     перерисовка стёрла бы остальные поля, которые человек уже заполнил. */
+  'rule-day': function(d){
+    var button = document.querySelector('#m-rdays .radio[data-day="' + d.day + '"]');
+    if (!button) return;
+    button.setAttribute('aria-pressed', button.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+  },
+
   /* Фото профиля. Кладём его в состояние как data-URI, поэтому картинку
      сначала ужимаем: снимок с телефона — это мегабайты, а весь localStorage
      обычно пять. Квадрат 256×256 умещается примерно в 30 КБ. */
@@ -5436,6 +5828,23 @@ var ACTS = {
   /* --- задачи --- */
   add: function(){ S.hintSeen = true; addTask(); },
   'hint-off': function(){ S.hintSeen = true; commit(); },
+  'trash-restore': function(d){
+    var title = trashRestore(d.item);
+    if (!title) return;
+    commit('Вернули «' + title + '»');
+  },
+  'trash-kill': function(d){
+    var item = trashFind(d.item);
+    if (!item) return;
+    S.trash = S.trash.filter(function(entry){ return entry.id !== d.item; });
+    commit('Стёрто навсегда');
+  },
+  'trash-empty': function(){
+    if (!S.trash.length) return;
+    var count = S.trash.length;
+    S.trash = [];
+    commit('Корзина пуста: стёрто ' + count);
+  },
   'tour-hide': function(){ S.tourDone = true; commit('Первые шаги скрыты'); },
   toggle: function(d){
     var t = findTask(d.task);
@@ -5462,8 +5871,11 @@ var ACTS = {
     foldOpen(card, card.querySelector('.detail-wrap'), S.open[d.task]);
   },
   'kill-task': function(d){
+    var task = findTask(d.task);
+    if (!task) return;
+    trashPut('task', task);
     S.tasks = S.tasks.filter(function(t){ return t.id !== d.task; });
-    commit('Задача удалена');
+    commit('Задача в корзине');
   },
   'edit-task': function(d){
     var t = findTask(d.task);
@@ -5479,6 +5891,25 @@ var ACTS = {
     t.date = dateForBucket(t.bucket);
     t.time = spansSeveralDays(t.bucket) ? null : (mval('m-time') || null);
     t.repeat = mval('m-repeat');
+    if (t.repeat === CUSTOM_REPEAT){
+      var days = [].map.call(document.querySelectorAll('#m-rdays .radio[aria-pressed="true"]'), function(b){
+        return Number(b.getAttribute('data-day'));
+      });
+      var dates = (mval('m-rdates') || '').split(',').map(function(part){ return parseInt(part, 10); })
+        .filter(function(n){ return n >= 1 && n <= 31; });
+      t.rule = {
+        unit: mval('m-runit') || 'day',
+        interval: Math.max(1, Math.min(365, Number(mval('m-rint')) || 1)),
+        weekdaysOnly: false,
+        weeklyWeekdays: days,
+        monthlyDays: dates
+      };
+      // Правило без единицы и без дней — это отсутствие правила, а не пустое
+      // правило: иначе задача считалась бы повторяющейся и молча плодила копии.
+      if (t.rule.unit === 'week' && !days.length && t.rule.interval === 1) t.rule.weeklyWeekdays = [];
+    } else {
+      t.rule = null;
+    }
     var dlDate = mval('m-dl-date');
     var dlTime = mval('m-dl-time');
     // Время без даты — это «сегодня до»: срок без дня недоказуем.
@@ -5548,12 +5979,13 @@ var ACTS = {
     if (!title) return;
     var purpose = $('m-purpose') ? $('m-purpose').value.trim() : '';
     var horizon = mval('m-horizon');
+    var target = mval('m-target') || '';
     if (d.goal){
       var g = findGoal(d.goal);
-      if (g){ g.title = title; g.purpose = purpose; g.horizon = horizon; }
+      if (g){ g.title = title; g.purpose = purpose; g.horizon = horizon; g.targetDate = target; }
     } else {
       if (!canAdd('goals')) return openModal(modalPaywall('goals'));
-      var fresh = { id: uid(), title: title, purpose: purpose, horizon: horizon,
+      var fresh = { id: uid(), title: title, purpose: purpose, horizon: horizon, targetDate: target,
         sphere: 'personal', pinned: false, stages: [] };
       S.goals.push(fresh);
       // Раскрываем на месте, а не уводим на отдельный экран: список целей
@@ -5664,22 +6096,44 @@ var ACTS = {
     ACTS['kill-goal-do'](d);
   },
   'kill-goal-do': function(d){
+    var goal = findGoal(d.goal);
+    if (!goal) return;
     // Вместе с целью её задачи не удаляются, а отвязываются: задача остаётся в
     // своём блоке дня, потому что она всё ещё дело, которое надо сделать.
+    // Связи запоминаем, чтобы восстановление вернуло не только цель.
+    var links = S.tasks.filter(function(t){ return t.goalId === d.goal; })
+      .map(function(t){ return { id: t.id, stageId: t.stageId }; });
+    trashPut('goal', goal, { taskIDs: links });
     S.goals = S.goals.filter(function(g){ return g.id !== d.goal; });
     S.tasks.forEach(function(t){ if (t.goalId === d.goal){ t.goalId = null; t.stageId = null; } });
     S.activeGoal = null;
     S.view = 'goals';
-    commit('Цель удалена, её задачи остались');
+    commit('Цель в корзине, её задачи остались');
   },
   'new-stage': function(d){ openModal(modalStage(d.goal)); },
   'save-stage': function(d){
     var g = findGoal(d.goal);
     var title = mval('m-title');
     if (!g || !title) return;
-    g.stages.push({ id: uid(), title: title, detail: mval('m-detail'), status: 'planned' });
+    var target = mval('m-target') || '';
+
+    if (d.stage){
+      var stage = findStage(g, d.stage);
+      if (stage){ stage.title = title; stage.detail = mval('m-detail'); stage.targetDate = target; }
+      closeModal();
+      commit('Этап сохранён');
+      return;
+    }
+
+    g.stages.push({ id: uid(), title: title, detail: mval('m-detail'), targetDate: target, status: 'planned' });
     closeModal();
     commit('Этап создан');
+  },
+  'edit-stage': function(d){
+    var g = findGoal(d.goal);
+    if (!g) return;
+    var stage = findStage(g, d.stage);
+    if (stage) openModal(modalStage(g.id, stage));
   },
   'stage-toggle': function(d){
     var st = findStage(findGoal(d.goal), d.stage);
@@ -5726,9 +6180,12 @@ var ACTS = {
   },
   'open-list': function(d){ S.activeList = d.list; go('list'); },
   'kill-list': function(d){
+    var list = findList(d.list);
+    if (!list) return;
+    trashPut('list', list);
     S.lists = S.lists.filter(function(l){ return l.id !== d.list; });
     S.view = 'lists';
-    commit('Список удалён');
+    commit('Список в корзине');
   },
   'item-toggle': function(d){
     var l = findList(d.list);
@@ -5770,9 +6227,12 @@ var ACTS = {
   },
   'open-note': function(d){ S.activeNote = d.note; go('note'); },
   'kill-note': function(d){
+    var note = findNote(d.note);
+    if (!note) return;
+    trashPut('note', note);
     S.notes = S.notes.filter(function(n){ return n.id !== d.note; });
     S.view = 'notes';
-    commit('Запись удалена');
+    commit('Запись в корзине');
   },
 
   /* --- помодоро --- */
@@ -5875,6 +6335,15 @@ document.addEventListener('submit', function(event){
   event.preventDefault();
   var act = ACTS[form.getAttribute('data-form')];
   if (act) act(form.dataset);
+});
+
+/* Список повторов управляет блоком своего правила: выбрал «Своё правило…» —
+   блок появился. Через класс, а не перерисовкой: перерисовка стёрла бы уже
+   заполненные поля модалки. */
+document.addEventListener('change', function(event){
+  if (event.target.id !== 'm-repeat') return;
+  var block = $('m-ruleblock');
+  if (block) block.classList.toggle('on', event.target.value === CUSTOM_REPEAT);
 });
 
 document.addEventListener('input', function(event){
