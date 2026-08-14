@@ -632,6 +632,31 @@ function parseSchedule(text, fallbackBucket){
   return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: !!date, hasTime: !!time };
 }
 
+/* Время, которое сегодня уже прошло, — это завтра.
+
+   «Купить молоко в девять утра», сказанное в два часа дня, означает завтрашние
+   девять: задача, созданная просроченной, выглядит как ошибка сервиса, а не как
+   планирование. Исключение одно, и оно важное: человек сказал «сегодня» явно —
+   значит, он знает, что делает, и спорить с ним незачем.
+
+   Правила нет ни в приложении, ни на сервере: это новая логика, а не перенос.
+   Сервер теперь тоже об этом просят в промпте, но промпт — просьба, а это
+   проверка. */
+function pushPastTimeToTomorrow(parsed, source){
+  if (!parsed.time || parsed.bucket !== 'today') return parsed;
+  if (/(^|[^а-яa-z])сегодня([^а-яa-z]|$)/i.test(String(source || ''))) return parsed;
+
+  var now = new Date();
+  var parts = parsed.time.split(':');
+  var planned = new Date(now.getFullYear(), now.getMonth(), now.getDate(),
+    Number(parts[0]), Number(parts[1]));
+  if (planned >= now) return parsed;
+
+  parsed.bucket = 'tomorrow';
+  parsed.date = dateForBucket('tomorrow');
+  return parsed;
+}
+
 function clock(h, m){
   return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
 }
@@ -1347,6 +1372,7 @@ function itemRow(t){
   if (t.repeat) meta.push('<span>🔁 ' + esc(repeatLabel(t.repeat)) + '</span>');
   // Срок показывается словом «до»: без него строка «15 апреля 18:30» читалась
   // бы как время самой задачи.
+  if (t.windowFrom && t.windowFrom.time) meta.push('<span class="chip">с ' + esc(t.windowFrom.time) + '</span>');
   if (t.deadline) meta.push('<span class="chip' + (deadlinePassed(t) ? ' late' : ' hard') + '">до ' +
     esc(deadlineText(t.deadline)) + '</span>');
   if (isOverdue(t)) meta.push('<span class="chip late">просрочено</span>');
@@ -1453,6 +1479,7 @@ function addTask(){
   if (!raw) return;
   var parsed = parseSchedule(raw, 'today');
   if (!parsed.title) return;
+  parsed = pushPastTimeToTomorrow(parsed, raw);
   S.tasks.push({
     id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
     time: parsed.time, repeat: '', series: null, goalId: null, stageId: null, subtasks: []
@@ -1578,8 +1605,8 @@ function vFocusCard(today, todayDone, overdue, withTime){
       '<button class="btn sm" data-act="briefing"' + (BRIEFING.busy ? ' disabled' : '') + '>' +
         (BRIEFING.busy ? 'Syn собирает…' : brief ? 'Обновить брифинг' : 'Собрать брифинг') + '</button>' +
       (brief && speechSupported()
-        ? '<button class="btn sm soft" data-act="briefing-say">' +
-          (speech.on ? 'Остановить' : 'Прослушать') + '</button>'
+        ? '<button class="btn sm soft" data-act="briefing-say"' + (speech.busy ? ' disabled' : '') + '>' +
+          (speech.busy ? 'Готовим голос…' : speech.on ? 'Остановить' : 'Прослушать') + '</button>'
         : '') +
       (brief ? '<span class="hint" style="align-self:center">' + esc(brief.at) + '</span>' : '') +
     '</div>' +
@@ -1665,20 +1692,72 @@ function briefingLines(text){
 
    Метки «СЕЙЧАС», «ПЛАН» в озвучку не идут: на письме они разделяют куски, а
    вслух звучат как выкрики. */
-var speech = { on: false };
+var speech = { on: false, audio: null, url: '', busy: false };
 
-function speechSupported(){ return 'speechSynthesis' in window; }
-
-function speechStop(){
-  if (!speechSupported()) return;
-  window.speechSynthesis.cancel();
-  speech.on = false;
+function speechSupported(){
+  // Системный синтез есть почти везде; голос с сервера — сверх него. Если
+  // сервера нет, читать всё равно есть чем.
+  return ('speechSynthesis' in window) || typeof Audio === 'function';
 }
 
-function speechSay(text, done){
-  if (!speechSupported() || !text) return;
-  window.speechSynthesis.cancel();
+function speechStop(){
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (speech.audio){
+    speech.audio.pause();
+    speech.audio.src = '';
+    speech.audio = null;
+  }
+  if (speech.url){
+    URL.revokeObjectURL(speech.url);
+    speech.url = '';
+  }
+  speech.on = false;
+  speech.busy = false;
+}
 
+/* Озвучка брифинга.
+
+   Сначала голос с сервера: SpeechKit читает нейросетевым голосом, и разницу
+   слышно — системный синтезатор читает правильно, но узнаваемо машинно.
+
+   Если сервер не настроен, не ответил или отказал — читаем системным. Это не
+   путь «на всякий случай», а обычный: пока ключа нет, так работает у всех, и
+   брифинг человек слышит в любом случае. Молчание в ответ на «прослушать» было
+   бы худшим из возможных исходов.
+
+   Про разницу в тембре в интерфейсе не пишем: человек просил послушать — он
+   слушает. */
+function speechSay(text, done){
+  var clean = String(text || '').trim();
+  if (!clean) return;
+
+  speechStop();
+  speech.on = true;
+  speech.busy = true;
+  render();
+
+  ttsFromServer(clean).then(function(blob){
+    if (!speech.on) return;                       // успели нажать «остановить»
+    speech.busy = false;
+    speech.url = URL.createObjectURL(blob);
+    var audio = new Audio(speech.url);
+    speech.audio = audio;
+    audio.onended = function(){ speechStop(); if (done) done(); };
+    audio.onerror = function(){ speechFallback(clean, done); };
+    audio.play().catch(function(){ speechFallback(clean, done); });
+    render();
+  }).catch(function(){
+    if (!speech.on) return;
+    speech.busy = false;
+    speechFallback(clean, done);
+  });
+}
+
+/// Системный синтезатор — когда серверного голоса нет.
+function speechFallback(text, done){
+  if (!('speechSynthesis' in window)){ speechStop(); if (done) done(); return; }
+
+  window.speechSynthesis.cancel();
   var utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'ru-RU';
   utterance.rate = 0.98;
@@ -1689,11 +1768,32 @@ function speechSay(text, done){
     if ((voices[i].lang || '').toLowerCase().indexOf('ru') === 0){ utterance.voice = voices[i]; break; }
   }
 
-  utterance.onend = function(){ speech.on = false; if (done) done(); };
-  utterance.onerror = function(){ speech.on = false; if (done) done(); };
+  utterance.onend = function(){ speech.on = false; speech.busy = false; if (done) done(); };
+  utterance.onerror = function(){ speech.on = false; speech.busy = false; if (done) done(); };
 
   speech.on = true;
+  speech.busy = false;
   window.speechSynthesis.speak(utterance);
+  render();
+}
+
+/// Запрос к своему серверу за озвучкой: отдаёт mp3 или падает. Второе тоже
+/// нормально — выше есть чем прочитать.
+function ttsFromServer(text){
+  return synSession().then(function(token){
+    return fetch(SYN.base + '/v1/synapse/tts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'X-Synapse-Install-ID': webInstallID()
+      },
+      body: JSON.stringify({ text: text })
+    });
+  }).then(function(response){
+    if (!response.ok) throw new Error('tts ' + response.status);
+    return response.blob();
+  });
 }
 
 /* Что читать вслух.
@@ -3378,9 +3478,11 @@ function synSession(){
 function synWorkspace(){
   return {
     userID: synInstallID(),
-    // Дату сервер берёт отсюда: без неё «перенеси на завтра» считается по
-    // часам сервера, а он в Москве и не обязан совпадать с человеком.
+    // Дату и время сервер берёт отсюда: без них «перенеси на завтра» и «в
+    // девять утра» считаются по часам сервера, а он в Москве и не обязан
+    // совпадать с человеком.
     localDate: isoOf(todayDate()),
+    localTime: clock(new Date().getHours(), new Date().getMinutes()),
     currentScreen: (VIEWS[S.view] || VIEWS.tasks).title,
     tasks: liveTasks().map(function(t){
       return {
@@ -3915,6 +4017,45 @@ function synRepeatID(a){
   return null;
 }
 
+/// Начало окна выполнения: «сделай между двумя и шестью» — здесь два часа.
+function synWindowStart(a){
+  var when = synSplitDateTime(a.executionWindowStartAt);
+  if (!when.date && !when.time) return null;
+  return { date: when.date, time: when.time };
+}
+
+/* Повтор из самой фразы, когда модель его не закодировала.
+
+   Приложение делает так же: поля действия первичны, но если их нет, правило
+   ищется в исходной фразе. «Тренировка каждый день» без unit — обычный ответ
+   модели, и терять из-за него повтор жалко. */
+function repeatFromText(text){
+  var normalized = ' ' + String(text || '').toLowerCase() + ' ';
+  if (/кажд[а-я]* (буднич|будн)/.test(normalized) || /по будня/.test(normalized)) return 'weekdays';
+  if (/кажд[а-я]* (недел|понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)/.test(normalized)) return 'weekly';
+  if (/кажд[а-я]* месяц|ежемесячн/.test(normalized)) return 'monthly';
+  if (/кажд[а-я]* два дня|через день/.test(normalized)) return 'every2';
+  if (/кажд[а-я]* день|ежедневн/.test(normalized)) return 'daily';
+  return '';
+}
+
+/* Прошедшее время — на завтра. То же правило, что при ручном вводе; сказанное
+   вслух, потому что молча переехавшая дата пугает сильнее, чем просрочка. */
+function synPushPast(task, source, done){
+  if (!task.time || task.bucket !== 'today') return task;
+  if (/(^|[^а-яa-z])сегодня([^а-яa-z]|$)/i.test(String(source || ''))) return task;
+
+  var now = new Date();
+  var parts = task.time.split(':');
+  var planned = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Number(parts[0]), Number(parts[1]));
+  if (planned >= now) return task;
+
+  task.bucket = 'tomorrow';
+  task.date = dateForBucket('tomorrow');
+  if (done) done.push('время уже прошло — поставил на завтра');
+  return task;
+}
+
 /// Крайний срок. Хранится отдельно от даты в плане: «стоит на завтра» и
 /// «должно быть сделано до пятницы» — разные вещи, и в приложении тоже.
 function synDeadline(a){
@@ -3951,21 +4092,42 @@ function synAct(kinds, fn){
 
 synAct('create_task create_task_for_goal', function(a, done, skipped){
   var when = synSplitDateTime(a.datetime);
+
+  /* Блок дня выводится из даты, а не берётся из действия.
+
+     Так делает приложение (bucket(forScheduledDate:)), и на то есть причина:
+     модель присылает и bucket, и datetime, и они расходятся — «сегодня» с
+     датой завтрашнего дня встречается регулярно. Дата конкретнее слова,
+     поэтому она и решает; bucket остаётся ответом на случай, когда даты нет
+     вовсе. */
+  var bucket = when.date ? bucketForDate(when.date)
+    : (a.bucket && bucketTitle(a.bucket) ? a.bucket : 'today');
+
   var fresh = {
     id: uid(), title: String(a.title || '').trim() || 'Без названия',
-    bucket: a.bucket && bucketTitle(a.bucket) ? a.bucket : (when.date ? bucketForDate(when.date) : 'today'),
+    bucket: bucket,
     date: when.date, time: when.time, done: false,
     note: String(a.note || ''), repeat: '', series: null,
     deadline: synDeadline(a),
+    // Окно выполнения: «сделай между двумя и шестью». В приложении это
+    // отдельное поле, и в вебе теперь тоже — иначе начало окна терялось.
+    windowFrom: synWindowStart(a),
     goalId: null, stageId: null,
     subtasks: (a.subtasks || []).map(function(t){ return { id: uid(), title: String(t), done: false }; })
   };
   if (!fresh.date) fresh.date = dateForBucket(fresh.bucket);
   if (spansSeveralDays(fresh.bucket)) fresh.time = null;
 
+  // Прошедшее время — на завтра, как и при ручном вводе.
+  fresh = synPushPast(fresh, a.sourcePrompt || '', done);
+
+  /* Повтор: из полей действия, а если их нет — из самой фразы человека.
+     Тот же порядок, что в приложении (repeatRule(from:fallbackSourcePrompt:)):
+     модель нередко пишет «каждый день» в названии и забывает про unit. */
   var repeat = a.unit || a.interval || a.weekdays || a.weekday || a.weekdaysOnly ? synRepeatID(a) : '';
   if (repeat === null) skipped.push('повтор «' + (a.unit || '') + '» в вебе не выражается');
-  else fresh.repeat = repeat || '';
+  else if (repeat) fresh.repeat = repeat;
+  else fresh.repeat = repeatFromText(a.sourcePrompt || a.title || '');
 
   if (a.kind === 'create_task_for_goal' || a.goalTitle){
     var goal = synFindGoal(a.goalTitle);
@@ -3994,6 +4156,7 @@ synAct('move_task set_task_schedule', function(a, done, skipped){
   if (when.time) task.time = when.time;
   if (spansSeveralDays(task.bucket)) task.time = null;
   task.carriedFrom = null;
+  synPushPast(task, a.sourcePrompt || '', done);
   done.push('перенесена «' + task.title + '»');
 });
 
