@@ -819,3 +819,27 @@ body.mm-open{overflow:hidden}
 .tour-body b{font-size:14.5px; display:block}
 .tour-body p{font-size:13px; color:var(--fg-2); line-height:1.45; margin-top:4px}
 .tour-body .btn{margin-top:10px}
+
+/* ============ НАСТРОЙКИ ВИДА ============ */
+
+/* Каждая настройка — карточка с названием и одной строкой объяснения. Плоский
+   список «подпись — ряд кнопок — подпись — ряд» сливался в полотно: не было
+   видно, где кончается одна настройка и начинается следующая. */
+.setblock{padding:18px}
+.setblock + .setblock{margin-top:12px}
+.setblock-h{margin-bottom:14px}
+.setblock-h h3{font-size:16.5px}
+.setblock-h .sub{margin-top:4px}
+
+/* Подряд идущие ряды внутри одной карточки — «Начертание» и «Размер». Разделены
+   чертой, а не только отступом: иначе два ряда кнопок читаются как один
+   длинный, перенесённый на вторую строку. */
+.subrow + .subrow{margin-top:14px; padding-top:14px; border-top:1px solid var(--line)}
+.subrow-l{display:block; font-size:12.5px; color:var(--fg-3); margin-bottom:9px}
+
+/* Превью — отдельный сюжет. Показывает задачу целиком: отметка, название,
+   подпись, чипы. Раньше показывало только текст, и выбранная форма отметки
+   проверялась взглядом на кнопку, а не на результат. */
+.card.preview{margin-top:0}
+.preview-task{display:flex; gap:11px; align-items:flex-start}
+.preview-task h3{font-size:16px}

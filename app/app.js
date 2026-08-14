@@ -3159,55 +3159,88 @@ function fontSizeOf(id){
   return FONT_SIZES[1];
 }
 
+/* Каждая настройка — своя карточка с названием и одной строкой объяснения.
+
+   До этого экран был плоским списком: подпись мелкими буквами, ряд кнопок,
+   снова подпись, снова ряд. Пять таких пар подряд сливались в одно полотно —
+   не было видно, где кончается одна настройка и начинается другая, а превью в
+   конце вообще прилипало к последнему ряду и читалось как его часть.
+
+   Объяснения короткие и по делу: не «выберите тему», а что именно поменяется.
+   Шрифт и размер собраны в одну карточку «Текст»: их выбирают вместе и смотрят
+   на один и тот же результат. */
+function settingsBlock(title, note, body){
+  return '<section class="card setblock">' +
+    '<div class="setblock-h">' +
+      '<h3>' + esc(title) + '</h3>' +
+      (note ? '<p class="sub">' + esc(note) + '</p>' : '') +
+    '</div>' + body +
+  '</section>';
+}
+
+function settingsRow(label, body){
+  return '<div class="subrow">' +
+    (label ? '<span class="subrow-l">' + esc(label) + '</span>' : '') +
+    '<div class="radios">' + body + '</div>' +
+  '</div>';
+}
+
 function vSettingsView(){
   var html = head('Настройки', 'Вид', 'settings');
 
-  html += '<p class="lbl">Тема</p><div class="radios">' +
-    [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
+  html += settingsBlock('Тема', isDarkNow() ? 'Сейчас тёмная.' : 'Сейчас светлая.',
+    settingsRow('', [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
       return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
-    }).join('') + '</div>';
+    }).join('')));
 
   // Те же десять палитр, что в приложении, — из AppTheme.swift. Кружок — фон
   // палитры, точка внутри — её акцент, оба в текущей теме: без этого «Бордо»
   // от «Индиго» отличить можно было только применив.
-  html += '<p class="lbl">Палитра <span class="val">' + esc(paletteOf(S.palette).title) + '</span></p>' +
-    '<div class="radios">' +
-      PALETTES.map(function(p){
-        var dark = isDarkNow();
-        var bg = paletteColor(p, dark ? 'darkBackground' : 'lightBackground');
-        var ac = paletteColor(p, dark ? 'accentDark' : 'accent');
-        return '<button class="radio pal" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
-          '<span class="sw" style="background:' + rgb(bg) + '"><i style="background:' + rgb(ac) + '"></i></span>' +
-          p.title + '</button>';
-      }).join('') + '</div>';
+  html += settingsBlock('Палитра · ' + paletteOf(S.palette).title,
+    'Цвет фона и акцента. В кружке — фон, точкой внутри — акцент.',
+    settingsRow('', PALETTES.map(function(p){
+      var dark = isDarkNow();
+      var bg = paletteColor(p, dark ? 'darkBackground' : 'lightBackground');
+      var ac = paletteColor(p, dark ? 'accentDark' : 'accent');
+      return '<button class="radio pal" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
+        '<span class="sw" style="background:' + rgb(bg) + '"><i style="background:' + rgb(ac) + '"></i></span>' +
+        p.title + '</button>';
+    }).join('')));
 
   // Начертание выбирают глазами, поэтому каждая кнопка набрана своим шрифтом.
-  html += '<p class="lbl">Шрифт</p><div class="radios">' +
-    FONTS.map(function(f){
+  html += settingsBlock('Текст', 'Начертание и размер — во всём сервисе сразу.',
+    settingsRow('Начертание', FONTS.map(function(f){
       return '<button class="radio" data-act="set-font" data-font="' + f.id + '" aria-pressed="' + (S.font === f.id) + '" ' +
         'style="font-family:' + f.css + '">' + f.title + '</button>';
-    }).join('') + '</div>';
-
-  html += '<p class="lbl">Размер</p><div class="radios">' +
-    FONT_SIZES.map(function(z){
+    }).join('')) +
+    settingsRow('Размер', FONT_SIZES.map(function(z){
       return '<button class="radio" data-act="set-fontsize" data-size="' + z.id + '" aria-pressed="' + (S.fontSize === z.id) + '">' + z.title + '</button>';
-    }).join('') + '</div>';
+    }).join('')));
 
   // Отметку показываем прямо на кнопке выбора — заполненной, чтобы было
   // видно, как она будет выглядеть у закрытой задачи.
-  html += '<p class="lbl">Отметка выполнения</p><div class="radios">' +
-    BOXES.map(function(b){
+  html += settingsBlock('Отметка выполнения', 'Форма галочки у закрытой задачи.',
+    settingsRow('', BOXES.map(function(b){
       return '<button class="radio boxpick" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '">' +
         '<span class="box on" data-shape="' + b.id + '">✓</span>' + b.title + '</button>';
-    }).join('') + '</div>';
+    }).join('')));
 
-  html += '<section class="card preview">' +
-    '<h3>Собрать материалы</h3>' +
-    '<p class="sub">Так будет выглядеть текст при выбранном шрифте и размере.</p>' +
-    '<div class="chips" style="margin-top:12px">' +
-      '<span class="chip">Сегодня</span><span class="chip">09:00</span>' +
-      '<span class="chip goal">Выучить английский</span></div>' +
-  '</section>';
+  /* Превью — отдельный сюжет, а не продолжение последнего ряда. Своя подпись
+     сверху и воздух перед ней: раньше карточка стояла вплотную к кнопкам
+     формы отметки и выглядела их частью. */
+  html += '<p class="lbl">Как это выглядит</p>' +
+    '<section class="card preview">' +
+      '<div class="preview-task">' +
+        '<span class="box on" data-shape="' + (S.box || 'square') + '">✓</span>' +
+        '<div>' +
+          '<h3>Собрать материалы</h3>' +
+          '<p class="sub">Так выглядит задача при выбранном шрифте, размере и отметке.</p>' +
+          '<div class="chips" style="margin-top:10px">' +
+            '<span class="chip">Сегодня</span><span class="chip">09:00</span>' +
+            '<span class="chip goal">Выучить английский</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
 
   return html;
 }
