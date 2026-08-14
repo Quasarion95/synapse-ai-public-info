@@ -1010,7 +1010,8 @@ var TABS = [
   // ниже — то, что открывают про сам сервис. Корзина принадлежит работе.
   { id: 'subscription', title: 'Моя подписка', short: 'Подписка', sep: true },
   { id: 'settings',   title: 'Настройки' },
-  { id: 'about',      title: 'О сервисе' },
+  // «О сервисе» в меню нет: он открывается из настроек, и держать один и тот
+  // же экран в двух местах — лишний пункт в списке из десяти.
   // Поддержка — не экран приложения, а телеграм-канал, поэтому у пункта есть
   // href: он уводит наружу, и притворяться разделом ему незачем. Открывается
   // в новой вкладке: человек уходит спросить, а не уходит из планировщика,
@@ -1026,7 +1027,8 @@ var TAB_OF_VIEW = {
   note: 'notes',
   profile: 'settings',
   'settings-view': 'settings',
-  'settings-data': 'settings'
+  'settings-data': 'settings',
+  about: 'settings'
 };
 
 var VIEWS = {
@@ -2967,11 +2969,20 @@ function vLists(){
   for (var i = 0; i < S.lists.length; i++){
     var l = S.lists[i];
     var d = l.items.filter(function(x){ return x.done; }).length;
-    html += '<button class="card" style="display:block;width:100%" data-act="open-list" data-list="' + l.id + '">' +
-      '<h3>' + esc(l.title) + '</h3>' +
-      '<p class="sub">Готово ' + d + ' из ' + l.items.length + '</p>' +
-      '<div style="margin-top:12px"><div class="bar slim"><i style="width:' + pct(d, l.items.length) + '%"></i></div></div>' +
-    '</button>';
+    // Не одна большая кнопка, а карточка с кнопкой внутри: переименовать и
+    // удалить теперь можно прямо отсюда, не заходя внутрь. Кнопку в кнопку
+    // браузер не пускает, поэтому обёртка — обычный article.
+    html += '<article class="card row-card" data-list="' + l.id + '">' +
+      '<button class="main" data-act="open-list" data-list="' + l.id + '">' +
+        '<h3>' + esc(l.title) + '</h3>' +
+        '<p class="sub">Готово ' + d + ' из ' + l.items.length + '</p>' +
+        '<div style="margin-top:12px"><div class="bar slim"><i style="width:' + pct(d, l.items.length) + '%"></i></div></div>' +
+      '</button>' +
+      '<div class="side">' +
+        '<button data-act="rename-list" data-list="' + l.id + '" aria-label="Переименовать список" title="Переименовать">' + ICON.edit + '</button>' +
+        '<button data-act="kill-list" data-list="' + l.id + '" aria-label="Удалить список" title="Удалить">' + ICON.kill + '</button>' +
+      '</div>' +
+    '</article>';
   }
   return html;
 }
@@ -3014,10 +3025,16 @@ function vNotes(){
   html += '<div class="acts" style="margin:0 0 16px"><button class="btn" data-act="new-note">+ Новая запись</button></div>';
   for (var i = 0; i < S.notes.length; i++){
     var n = S.notes[i];
-    html += '<button class="card" style="display:block;width:100%" data-act="open-note" data-note="' + n.id + '">' +
-      '<h3>' + esc(n.title) + '</h3>' +
-      '<p class="sub">' + esc(n.body ? n.body.slice(0, 120) : 'Пустая запись') + '</p>' +
-    '</button>';
+    html += '<article class="card row-card" data-note="' + n.id + '">' +
+      '<button class="main" data-act="open-note" data-note="' + n.id + '">' +
+        '<h3>' + esc(n.title) + '</h3>' +
+        '<p class="sub">' + esc(n.body ? n.body.slice(0, 120) : 'Пустая запись') + '</p>' +
+      '</button>' +
+      '<div class="side">' +
+        '<button data-act="rename-note" data-note="' + n.id + '" aria-label="Переименовать запись" title="Переименовать">' + ICON.edit + '</button>' +
+        '<button data-act="kill-note" data-note="' + n.id + '" aria-label="Удалить запись" title="Удалить">' + ICON.kill + '</button>' +
+      '</div>' +
+    '</article>';
   }
   return html;
 }
@@ -3655,7 +3672,7 @@ function vSettingsData(){
 /* ---- о сервисе ---- */
 
 function vAbout(){
-  var html = head('', 'О сервисе');
+  var html = head('', 'О сервисе', 'settings');
 
   /* Экран отвечает на два вопроса подряд, каждый своей карточкой: что это и
      где лежат мои записи. Раньше второй ответ стоял в «Данных», а сюда человек
@@ -5534,11 +5551,15 @@ function modalProCode(error, busy){
     '<p class="hint">Один код работает и здесь, и на телефоне. Записи при этом остаются раздельными.</p>';
 }
 
-function modalText(title, sub, label, act, placeholder){
+function modalText(title, sub, label, act, placeholder, opts){
+  // opts: value — что уже вписано в поле, cta — надпись на кнопке,
+  // attrs — доп. атрибуты кнопки (например data-list). Нужны переименованию:
+  // оно открывает то же окно, но со старым названием и словом «Сохранить».
+  opts = opts || {};
   return '<h3>' + esc(title) + '</h3>' +
     (sub ? '<p class="s">' + esc(sub) + '</p>' : '') +
-    '<div class="field"><label>' + esc(label) + '</label><input class="inp" id="m-title" placeholder="' + esc(placeholder || '') + '"></div>' +
-    '<button class="btn full" data-act="' + act + '">Создать</button>' +
+    '<div class="field"><label>' + esc(label) + '</label><input class="inp" id="m-title" placeholder="' + esc(placeholder || '') + '" value="' + esc(opts.value || '') + '"></div>' +
+    '<button class="btn full" data-act="' + act + '"' + (opts.attrs || '') + '>' + esc(opts.cta || 'Создать') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
@@ -6170,6 +6191,20 @@ var ACTS = {
     commit();
   },
   'open-list': function(d){ S.activeList = d.list; go('list'); },
+  'rename-list': function(d){
+    var list = findList(d.list);
+    if (!list) return;
+    openModal(modalText('Переименовать список', '', 'Название списка', 'save-list-title', 'Название списка',
+      { value: list.title, cta: 'Сохранить', attrs: ' data-list="' + list.id + '"' }));
+  },
+  'save-list-title': function(d){
+    var list = findList(d.list);
+    var title = mval('m-title');
+    if (!list || !title) return;
+    list.title = title;
+    closeModal();
+    commit('Название изменено');
+  },
   'kill-list': function(d){
     var list = findList(d.list);
     if (!list) return;
@@ -6217,6 +6252,20 @@ var ACTS = {
     commit();
   },
   'open-note': function(d){ S.activeNote = d.note; go('note'); },
+  'rename-note': function(d){
+    var note = findNote(d.note);
+    if (!note) return;
+    openModal(modalText('Переименовать запись', '', 'Заголовок', 'save-note-title', 'Название',
+      { value: note.title, cta: 'Сохранить', attrs: ' data-note="' + note.id + '"' }));
+  },
+  'save-note-title': function(d){
+    var note = findNote(d.note);
+    var title = mval('m-title');
+    if (!note || !title) return;
+    note.title = title;
+    closeModal();
+    commit('Название изменено');
+  },
   'kill-note': function(d){
     var note = findNote(d.note);
     if (!note) return;

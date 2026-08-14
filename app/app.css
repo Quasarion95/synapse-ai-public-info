@@ -295,6 +295,33 @@ select.inp{appearance:none}
 /* Значки были символами шрифта (⇅ ✎ ✕): в разных браузерах разной толщины,
    а «перенести в блок» из стрелок не читалось вовсе. Теперь рисунок свой. */
 .item .side button svg{width:16px; height:16px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+
+/* ---- карточка списка и заметки ---- */
+/* Была одна большая кнопка на всю карточку. Теперь внутри неё живут ещё две —
+   правка и удаление, — а кнопку в кнопку класть нельзя, поэтому снаружи
+   обычный article, а «открыть» осталось кнопкой на всю ширину. */
+.row-card{display:flex; align-items:flex-start; gap:8px}
+.row-card .main{flex:1; min-width:0; display:block; width:100%; text-align:left}
+.row-card .side{display:flex; gap:1px; flex:none; margin:-4px -6px 0 0}
+.row-card .side button{width:30px; height:30px; border-radius:999px; display:grid; place-items:center; color:var(--fg-3)}
+.row-card .side button:hover{background:var(--soft); color:var(--fg)}
+.row-card .side button svg{width:16px; height:16px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+
+/* Правка и удаление — по наведению.
+
+   Нужны они раз в сотню взглядов на карточку, а висели на виду всегда и тянули
+   глаз на себя вместо названия. Место под них остаётся занятым: убери его —
+   и название на каждом наведении перекладывалось бы заново, строка бы прыгала.
+   Там, где наведения не бывает (телефон, планшет), кнопки видны всегда — иначе
+   до них попросту не добраться. */
+@media (hover:hover) and (pointer:fine){
+  .item .side, .row-card .side{opacity:0; transition:opacity .14s ease}
+  .item .side button, .row-card .side button{pointer-events:none}
+  .item:hover .side, .item:focus-within .side,
+  .row-card:hover .side, .row-card:focus-within .side{opacity:1}
+  .item:hover .side button, .item:focus-within .side button,
+  .row-card:hover .side button, .row-card:focus-within .side button{pointer-events:auto}
+}
 /* ---- плавное раскрытие ---- */
 /* Высоту ведёт JS замером (foldOpen): приём с grid-template-rows от 0fr к 1fr
    короче, но в части движков нулевая fr-дорожка не схлопывается — карточка
