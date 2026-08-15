@@ -5381,6 +5381,26 @@ function settingsRow(label, body){
 function vSettingsView(){
   var html = head('Настройки', 'Вид', 'settings');
 
+  /* Превью стоит первым, а не последним.
+
+     Внизу его не было видно: меняешь палитру наверху — а результат за краем
+     экрана, и приходится листать туда-обратно после каждого нажатия. Теперь
+     карточка прямо под шапкой: любое изменение видно, не сходя с места. */
+  html += '<p class="lbl">Как это выглядит</p>' +
+    '<section class="card preview">' +
+      '<div class="preview-task">' +
+        '<span class="box on" data-shape="' + (S.box || 'square') + '">✓</span>' +
+        '<div>' +
+          '<h3>Собрать материалы</h3>' +
+          '<p class="sub">Так выглядит задача при выбранном шрифте, размере и отметке.</p>' +
+          '<div class="chips" style="margin-top:10px">' +
+            '<span class="chip">Сегодня</span><span class="chip">09:00</span>' +
+            '<span class="chip goal">Выучить английский</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+
+
   html += settingsBlock('Тема', isDarkNow() ? 'Сейчас тёмная.' : 'Сейчас светлая.',
     settingsRow('', [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
       return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
@@ -5417,23 +5437,6 @@ function vSettingsView(){
       return '<button class="radio boxpick" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '">' +
         '<span class="box on" data-shape="' + b.id + '">✓</span>' + b.title + '</button>';
     }).join('')));
-
-  /* Превью — отдельный сюжет, а не продолжение последнего ряда. Своя подпись
-     сверху и воздух перед ней: раньше карточка стояла вплотную к кнопкам
-     формы отметки и выглядела их частью. */
-  html += '<p class="lbl">Как это выглядит</p>' +
-    '<section class="card preview">' +
-      '<div class="preview-task">' +
-        '<span class="box on" data-shape="' + (S.box || 'square') + '">✓</span>' +
-        '<div>' +
-          '<h3>Собрать материалы</h3>' +
-          '<p class="sub">Так выглядит задача при выбранном шрифте, размере и отметке.</p>' +
-          '<div class="chips" style="margin-top:10px">' +
-            '<span class="chip">Сегодня</span><span class="chip">09:00</span>' +
-            '<span class="chip goal">Выучить английский</span></div>' +
-        '</div>' +
-      '</div>' +
-    '</section>';
 
   return html;
 }

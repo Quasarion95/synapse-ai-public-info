@@ -1223,9 +1223,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 /* Крестик виден по наведению — как в задачах и списках. */
 @media (hover:hover) and (pointer:fine){
-  .finrow .fr-x, .subrow .fr-x{opacity:0; transition:opacity .14s ease}
-  .finrow:hover .fr-x, .finrow:focus-within .fr-x,
-  .subrow:hover .fr-x, .subrow:focus-within .fr-x{opacity:1}
+  .finrow:hover .fr-x, .finrow:focus-within .fr-x{opacity:1}
 }
 
 /* Долг и копилка: крупная сумма — это ответ, всё остальное к ней пояснение. */
@@ -1235,16 +1233,13 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .card.debt.done, .card.jar.full{opacity:.72}
 .card.jar.full{border-color:var(--ok)}
 
+/* Список конвертов. Раньше тут же лежали правила для .subrow — строки
+   платежей, — и они доставались настройкам вида: там класс .subrow свой и
+   означает совсем другое. Отсюда и брались полоски поперёк экрана настроек,
+   которых никто не рисовал. Разметка платежей давно живёт на .payrow, а эти
+   правила остались висеть. */
 .sublist{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
   box-shadow:var(--shadow); overflow:hidden}
-.subrow{display:flex; align-items:center; gap:10px; padding:11px var(--fin-pad);
-  border-top:1px solid var(--line)}
-.sublist .subrow:first-child{border-top:0}
-.subrow.off{opacity:.5}
-.sr-t{flex:1; min-width:0; font-size:14px; display:flex; flex-direction:column; gap:1px}
-.sr-n{font-size:11.5px; color:var(--fg-3)}
-.sr-v{font-size:14px; font-variant-numeric:tabular-nums; flex:none}
-.sr-v i{font-style:normal; font-size:11.5px; color:var(--fg-3)}
 
 /* Переключатель стороны в окне долга: та же форма, что у «трата/доход», —
    в разделе не должно быть двух разных способов выбрать одно из двух. */
@@ -1356,9 +1351,6 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .fr-pay:hover{opacity:.85}
 .fr-pay.on{width:28px; padding:0; height:28px; display:grid; place-items:center;
   background:var(--ok); color:#fff; font-size:14px}
-.subrow.paid .sr-t{opacity:.65}
-.subrow.paid .sr-v{color:var(--ok)}
-.sr-none{color:var(--fg-3); font-size:12.5px}
 
 /* Шаблоны платежей по группам. Каждая — своя строка с прокруткой вбок; весь
    блок прокручивается вниз. Тридцать кнопок в одну ленту не просматриваются,
