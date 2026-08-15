@@ -1208,16 +1208,26 @@ function render(){
    выдуманы заново, а взяты оттуда. */
 var PALETTE_KEYS = ['lightBackground','darkBackground','lightTextPrimary','darkTextPrimary','lightTextSecondary','darkTextSecondary','lightStroke','darkStroke','accent','accentDark','accentWarm','accentWarmDark','focusBlue','focusBlueDark','focusGreen','focusGreenDark','focusOrange','focusOrangeDark'];
 var PALETTES = [
-  { id: 'paper', title: 'Бумага', v: [246,242,231,28,31,26,33,31,26,244,240,230,97,92,80,184,181,166,220,213,196,58,63,53,37,80,59,143,194,166,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
-  { id: 'graphite', title: 'Графит', v: [240,241,242,25,27,29,29,32,35,237,239,241,88,93,99,174,180,186,210,213,217,51,56,61,70,84,95,159,178,190,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
-  { id: 'forest', title: 'Лес', v: [235,242,235,17,26,20,21,32,24,232,241,233,78,92,81,167,184,171,203,218,204,38,55,43,38,113,75,105,194,152,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
-  { id: 'brass', title: 'Латунь', v: [249,241,220,33,28,17,36,30,18,246,238,219,102,91,65,190,177,142,226,213,180,65,55,35,126,96,35,219,184,106,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
-  { id: 'burgundy', title: 'Бордо', v: [249,238,236,33,24,25,36,26,25,246,236,235,106,86,84,192,167,166,229,207,204,65,44,45,126,58,62,222,146,149,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
-  { id: 'tobacco', title: 'Табак', v: [245,236,222,30,24,17,35,27,18,242,234,221,101,87,66,186,169,143,222,203,174,58,46,34,110,75,51,199,152,120,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
-  { id: 'indigo', title: 'Индиго', v: [236,240,248,19,23,34,23,27,38,234,238,247,82,90,109,168,177,198,203,212,230,43,51,72,47,74,122,143,174,224,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
-  { id: 'plum', title: 'Слива', v: [245,237,245,29,22,32,33,26,35,243,235,244,97,83,105,183,166,190,222,203,224,58,44,64,94,58,110,194,149,212,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
-  { id: 'sea', title: 'Море', v: [231,242,242,12,27,28,15,33,34,228,241,241,70,93,94,158,182,183,194,219,218,30,55,57,11,112,120,95,195,198,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
-  { id: 'charcoal', title: 'Уголь', v: [242,239,233,24,22,19,28,26,22,240,237,231,90,85,75,176,170,156,217,210,196,51,47,41,58,52,42,200,185,148,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] }
+  /* lift — насколько карточка светлее (или темнее) фона, в единицах L*.
+
+     Раньше он был один на все десять — 5,5, — и темы отличались только
+     оттенком фона: одинаковая светлота, одинаковый шаг, почти одинаковый
+     текст. Отсюда и ощущение, что всё в смежных цветах: оно было верным.
+
+     Теперь у каждой темы свои три числа — светлота фона, шаг до карточки и
+     насыщенность. Спокойные живут выше по светлоте и с мягким шагом,
+     современные — ниже и с резким. «Уголь» стоит на краю: почти белое
+     против почти чёрного, шаг 9. */
+  { id: 'paper', title: 'Бумага', lift: 4.5, v: [247,245,239,37,31,17,47,39,20,242,240,237,121,102,57,189,181,165,216,205,177,71,60,35,93,78,46,203,186,148,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
+  { id: 'graphite', title: 'Графит', lift: 7.5, v: [240,241,241,24,26,30,29,34,40,243,243,244,95,104,118,180,182,184,198,201,207,52,57,63,63,82,107,175,189,208,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
+  { id: 'forest', title: 'Лес', lift: 5.0, v: [239,243,241,20,32,26,24,41,33,236,239,237,72,112,92,172,185,178,185,208,196,42,63,53,38,90,64,132,202,167,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
+  { id: 'brass', title: 'Латунь', lift: 4.0, v: [244,238,229,40,31,14,53,40,18,238,235,229,127,100,54,193,180,160,216,198,165,76,60,33,101,75,32,215,183,129,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
+  { id: 'burgundy', title: 'Бордо', lift: 5.5, v: [245,240,240,45,26,27,57,30,32,241,237,237,152,85,91,194,179,180,220,195,198,86,51,53,140,49,57,227,174,179,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
+  { id: 'tobacco', title: 'Табак', lift: 4.0, v: [241,235,231,42,31,22,57,41,27,235,232,229,131,97,68,191,181,172,213,194,177,80,60,43,108,73,42,215,181,152,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
+  { id: 'indigo', title: 'Индиго', lift: 7.0, v: [242,243,248,21,27,44,26,34,60,239,241,244,79,101,168,176,182,197,196,204,226,44,56,90,42,73,166,171,187,234,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
+  { id: 'plum', title: 'Слива', lift: 6.0, v: [246,241,246,40,22,42,54,28,56,243,240,243,144,80,149,193,177,194,219,195,222,80,46,83,128,43,135,223,169,228,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
+  { id: 'sea', title: 'Море', lift: 6.5, v: [243,247,248,17,33,35,20,41,44,238,241,242,59,112,120,167,185,188,182,213,217,36,64,69,28,88,97,113,200,214,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] },
+  { id: 'charcoal', title: 'Уголь', lift: 9.0, v: [248,247,247,24,21,19,31,27,23,247,247,246,113,102,92,183,181,180,211,208,204,54,50,46,91,77,64,198,185,173,138,110,53,198,164,105,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92] }
 ];
 
 /* Значки на карточке задачи. Раньше здесь стояли символы шрифта — ⇅, ✎, ✕:
@@ -1365,17 +1375,19 @@ function themeColors(){
   var accent = paletteColor(pal, dark ? 'accentDark' : 'accent');
 
   // На тёмном фоне светлота растёт, на светлом падает — карточка всегда
-  // «ближе» к зрителю, чем фон под ней.
+  // «ближе» к зрителю, чем фон под ней. Величину шага задаёт сама тема:
+  // у «Латуни» он мягкий, у «Угля» вдвое резче.
   var dir = dark ? 1 : -1;
+  var lift = pal.lift || 5.5;
 
   return {
     dark: dark,
     background: background,
     // Небольшая примесь акцента остаётся: без неё панели у всех десяти
     // палитр выглядели одинаково серыми.
-    panel: blend(shiftL(background, dir * 5.5), accent, 0.03),
-    panelStrong: blend(shiftL(background, dir * 11), accent, 0.04),
-    stroke: blend(shiftL(background, dir * 20), accent, dark ? 0.07 : 0.09),
+    panel: blend(shiftL(background, dir * lift), accent, 0.03),
+    panelStrong: blend(shiftL(background, dir * lift * 2), accent, 0.04),
+    stroke: blend(shiftL(background, dir * (lift * 2 + 9)), accent, dark ? 0.07 : 0.09),
     text: paletteColor(pal, dark ? 'darkTextPrimary' : 'lightTextPrimary'),
     textSecondary: paletteColor(pal, dark ? 'darkTextSecondary' : 'lightTextSecondary'),
     accent: accent,
@@ -1959,22 +1971,51 @@ var FIN_SUB_TEMPLATES = [
   { g: 'kids', duty: true, title: 'Репетитор',     amount: 0, every: 'month', cat: 'learn' },
   { g: 'kids', duty: true, title: 'Няня',          amount: 0, every: 'month', cat: 'learn' },
 
-  { g: 'subs', mark: ['#5B6770','СВ'], title: 'Мобильная связь', amount: 60000,  every: 'month', cat: 'subs' },
-  { g: 'subs', mark: ['#FC3F1D','Я'], dom: 'yandex.ru', title: 'Яндекс Плюс',     amount: 39900,  every: 'month' },
-  { g: 'subs', mark: ['#0077FF','VK'], dom: 'vk.com', title: 'VK Музыка',       amount: 26900,  every: 'month' },
-  { g: 'subs', mark: ['#2AABEE','T'], dom: 'telegram.org', title: 'Telegram Premium',amount: 34900,  every: 'month' },
-  { g: 'subs', mark: ['#21A038','С'], title: 'СберПрайм',       amount: 39900,  every: 'month' },
-  { g: 'subs', mark: ['#E30611','М'], title: 'МТС Premium',     amount: 34900,  every: 'month' },
-  { g: 'subs', mark: ['#FF0055','И'], dom: 'ivi.ru', title: 'Иви',             amount: 39900,  every: 'month' },
-  { g: 'subs', mark: ['#7B2BFF','O'], dom: 'okko.tv', title: 'Okko',            amount: 39900,  every: 'month' },
-  { g: 'subs', mark: ['#A100FF','W'], title: 'Wink',            amount: 29900,  every: 'month' },
-  { g: 'subs', mark: ['#FF6D00','Л'], dom: 'litres.ru', title: 'Литрес',          amount: 49900,  every: 'month' },
-  { g: 'subs', mark: ['#FC3F1D','360'], dom: 'yandex.ru', title: 'Яндекс 360',      amount: 19900,  every: 'month' },
-  { g: 'subs', mark: ['#3693F3','iC'], dom: 'icloud.com', title: 'iCloud+',         amount: 5900,   every: 'month' },
-  { g: 'subs', mark: ['#10A37F','AI'], title: 'ChatGPT Plus',    amount: 200000, every: 'month' },
-  { g: 'subs', mark: ['#3E6B4F','ЗАЛ'], title: 'Абонемент в зал', amount: 250000, every: 'month', cat: 'health' },
-  { g: 'subs', mark: ['#4A6FA5','www'], title: 'Домен',           amount: 90000,  every: 'year' },
-  { g: 'subs', mark: ['#3B4A5A','srv'], title: 'Хостинг',         amount: 600000, every: 'year' }
+  { g: 'subs', dom: 'mts.ru',            title: 'Мобильная связь', amount: 60000,  every: 'month', cat: 'subs' },
+  { g: 'subs', dom: 'plus.yandex.ru',    title: 'Яндекс Плюс',     amount: 39900,  every: 'month' },
+  { g: 'subs', dom: 'kinopoisk.ru',      title: 'Кинопоиск',       amount: 39900,  every: 'month' },
+  { g: 'subs', dom: 'music.yandex.ru',   title: 'Яндекс Музыка',   amount: 29900,  every: 'month' },
+  { g: 'subs', dom: 'vk.com',            title: 'VK Музыка',       amount: 26900,  every: 'month' },
+  { g: 'subs', dom: 'zvuk.com',          title: 'Звук',            amount: 26900,  every: 'month' },
+  { g: 'subs', dom: 'telegram.org',      title: 'Telegram Premium',amount: 34900,  every: 'month' },
+  { g: 'subs', dom: 'sber.ru',           title: 'СберПрайм',       amount: 39900,  every: 'month' },
+  { g: 'subs', dom: 'tbank.ru',          title: 'Т-Банк Pro',      amount: 19900,  every: 'month' },
+  { g: 'subs', dom: 'alfabank.ru',       title: 'Альфа-Смарт',     amount: 19900,  every: 'month' },
+  { g: 'subs', dom: 'ozon.ru',           title: 'Ozon Premium',    amount: 39900,  every: 'month' },
+  { g: 'subs', dom: 'wildberries.ru',    title: 'WB Клуб',         amount: 19900,  every: 'month' },
+  { g: 'subs', dom: 'mts.ru',            title: 'МТС Premium',     amount: 34900,  every: 'month' },
+  { g: 'subs', dom: 'megafon.ru',        title: 'Мегафон',         amount: 60000,  every: 'month', cat: 'subs' },
+  { g: 'subs', dom: 'beeline.ru',        title: 'Билайн',          amount: 60000,  every: 'month', cat: 'subs' },
+  { g: 'subs', dom: 'ivi.ru',            title: 'Иви',             amount: 39900,  every: 'month' },
+  { g: 'subs', dom: 'okko.tv',           title: 'Okko',            amount: 39900,  every: 'month' },
+  { g: 'subs', dom: 'wink.ru',           title: 'Wink',            amount: 29900,  every: 'month' },
+  { g: 'subs', dom: 'kion.ru',           title: 'KION',            amount: 29900,  every: 'month' },
+  { g: 'subs', dom: 'premier.one',       title: 'Premier',         amount: 29900,  every: 'month' },
+  { g: 'subs', dom: 'start.ru',          title: 'Start',           amount: 29900,  every: 'month' },
+  { g: 'subs', dom: 'more.tv',           title: 'more.tv',         amount: 29900,  every: 'month' },
+  { g: 'subs', dom: 'amediateka.ru',     title: 'Амедиатека',      amount: 59900,  every: 'month' },
+  { g: 'subs', dom: 'rutube.ru',         title: 'Rutube',          amount: 0,      every: 'month' },
+  { g: 'subs', dom: 'litres.ru',         title: 'Литрес',          amount: 49900,  every: 'month' },
+  { g: 'subs', dom: 'bookmate.ru',       title: 'Букмейт',         amount: 29900,  every: 'month' },
+  { g: 'subs', dom: 'skyeng.ru',         title: 'Skyeng',          amount: 300000, every: 'month', cat: 'learn' },
+  { g: 'subs', dom: 'duolingo.com',      title: 'Duolingo',        amount: 79000,  every: 'month', cat: 'learn' },
+  { g: 'subs', dom: 'yandex.ru',         title: 'Яндекс 360',      amount: 19900,  every: 'month' },
+  { g: 'subs', dom: 'icloud.com',        title: 'iCloud+',         amount: 5900,   every: 'month' },
+  { g: 'subs', dom: 'one.google.com',    title: 'Google One',      amount: 19900,  every: 'month' },
+  { g: 'subs', dom: 'dropbox.com',       title: 'Dropbox',         amount: 90000,  every: 'month' },
+  { g: 'subs', dom: 'openai.com',        title: 'ChatGPT Plus',    amount: 200000, every: 'month' },
+  { g: 'subs', dom: 'notion.so',         title: 'Notion',          amount: 80000,  every: 'month' },
+  { g: 'subs', dom: 'figma.com',         title: 'Figma',           amount: 120000, every: 'month' },
+  { g: 'subs', dom: 'github.com',        title: 'GitHub',          amount: 40000,  every: 'month' },
+  { g: 'subs', dom: 'boosty.to',         title: 'Boosty',          amount: 50000,  every: 'month' },
+  { g: 'subs', dom: 'twitch.tv',         title: 'Twitch',          amount: 30000,  every: 'month' },
+  { g: 'subs', dom: 'steampowered.com',  title: 'Steam',           amount: 0,      every: 'month', cat: 'fun' },
+  { g: 'subs', dom: 'playstation.com',   title: 'PS Plus',         amount: 69900,  every: 'month', cat: 'fun' },
+  { g: 'subs', dom: 'xbox.com',          title: 'Game Pass',       amount: 69900,  every: 'month', cat: 'fun' },
+  { g: 'subs', dom: 'kaspersky.ru',      title: 'Kaspersky',       amount: 180000, every: 'year' },
+  { g: 'subs', dom: 'vseinstrumenti.ru', title: 'Абонемент в зал', amount: 250000, every: 'month', cat: 'health' },
+  { g: 'subs', dom: 'reg.ru',            title: 'Домен',           amount: 90000,  every: 'year' },
+  { g: 'subs', dom: 'timeweb.com',       title: 'Хостинг',         amount: 600000, every: 'year' }
 ];
 
 var FIN_EVERY = {
@@ -2907,6 +2948,19 @@ function finSyncJarStages(){
    Если логотипа нет (Сбер и МТС свою фавиконку закрыли), сети нет или
    картинка не загрузилась — на её месте остаётся плашка с фирменным цветом
    и буквой. Поэтому список читается и офлайн. */
+/* Откуда берётся логотип.
+
+   Своих плашек с буквой было заметно много: сайт отдаёт фавиконку не всегда
+   (у Сбера и МТС она закрыта, у OpenAI отвечает 403), и там оставалась
+   самоделка. Служба фавиконок Яндекса знает их все и работает в России —
+   в отличие от DuckDuckGo, который здесь заблокирован, и Clearbit, который
+   стал платным.
+
+   Плата за это — запрос уходит к Яндексу, и он видит, что человек открыл
+   список сервисов. Уходит он только когда список раскрыли, и только за
+   картинкой. Плашка с буквой осталась запасной: сети нет — виден знак. */
+var FIN_LOGO = 'https://favicon.yandex.net/favicon/v2/https://';
+
 function finTplMark(tpl){
   var fallback = tpl.mark
     ? '<span class="tplmark" style="background:' + tpl.mark[0] + '">' + esc(tpl.mark[1]) + '</span>'
@@ -2921,7 +2975,7 @@ function finTplMark(tpl){
      Плашка лежит под картинкой и видна всё это время. */
   return '<span class="tpllogo">' +
     fallback +
-    '<img src="https://' + tpl.dom + '/favicon.ico" alt="" width="20" height="20" loading="lazy" ' +
+    '<img src="' + FIN_LOGO + tpl.dom + '?size=120" alt="" width="20" height="20" loading="lazy" ' +
       'onload="this.classList.add(&quot;ok&quot;)">' +
   '</span>';
 }
