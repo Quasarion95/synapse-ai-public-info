@@ -276,6 +276,15 @@ select.inp{appearance:none}
    запасное значение и отметка красится темой, как раньше. */
 .box.on{background:var(--mark, var(--ok)); border-color:var(--mark, var(--ok)); color:#fff}
 
+/* Галочка — линия, а не заливка.
+
+   Правила у неё не было вовсе, и браузер применял своё умолчание: fill чёрным.
+   Контур из трёх точек, залитый чёрным, превращается в кривую закорючку — её
+   и было видно внутри каждой формы. Рисуем как задумано: белая линия по
+   текущему цвету, без заливки. */
+.box svg{width:11px; height:11px; display:block; fill:none; stroke:currentColor;
+  stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round}
+
 :root[data-box="circle"] .box:not([data-shape]),
 .box[data-shape="circle"]{border-radius:999px}
 :root[data-box="sharp"] .box:not([data-shape]),
@@ -294,7 +303,10 @@ select.inp{appearance:none}
 :root[data-box="star"] .box.on:not([data-shape]),
 :root[data-box="heart"] .box.on:not([data-shape]),
 .box.on[data-shape="triangle"], .box.on[data-shape="star"], .box.on[data-shape="heart"]{
-  background:var(--ok); color:transparent;
+  /* Тот же выбранный цвет, что и у остальных форм. Здесь он красит саму
+     фигуру, а не рамку с галочкой внутри — но выбирают-то один цвет на
+     отметку, и три формы из шести не могли остаться при своём. */
+  background:var(--mark, var(--ok)); color:transparent;
 }
 :root[data-box="triangle"] .box:not([data-shape]), .box[data-shape="triangle"]{
   clip-path:polygon(50% 4%, 96% 92%, 4% 92%);

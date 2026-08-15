@@ -1263,7 +1263,10 @@ var MARK_COLORS = [
   { id: 'brick',   title: 'Кирпич',     css: '#B24A38' },
   { id: 'amber',   title: 'Янтарь',     css: '#B07A1E' },
   { id: 'clay',    title: 'Глина',      css: '#8A6A4F' },
-  { id: 'slate',   title: 'Графит',     css: '#55606B' }
+  { id: 'slate',   title: 'Графит',     css: '#55606B' },
+  // Двенадцатый не для красоты: одиннадцать кнопок вставали шестью и пятью,
+  // и ряд обрывался неровно. Двенадцать делятся на шесть без остатка.
+  { id: 'moss',    title: 'Мох',        css: '#6B7A3D' }
 ];
 
 function markColorOf(id){
