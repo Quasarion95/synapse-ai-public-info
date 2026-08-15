@@ -67,14 +67,58 @@
           </div>
           <p class="cta-note">Открывается в браузере сразу, без регистрации и установки. Ассистент Syn отвечает текстом и голосом — шесть обращений в сутки бесплатно.</p>
         </div>
+        <!-- Ноутбук и телефон вместе, в самом верху.
+
+             Раньше здесь стоял один телефон, и веб-версии на странице будто
+             не существовало — при том, что открыть её можно кнопкой рядом,
+             без установки. Ноутбук нарисован вёрсткой: снимок интерфейса
+             стареет с каждой правкой и мылится на плотных экранах, а макет
+             всегда чёткий и сам берёт цвета текущей темы. -->
         <div class="hero-shot">
           <div class="shot-glow" aria-hidden="true"></div>
-          <div class="device">
-              <div class="device-screen">
-                <img src="./screens/screen-1.png" alt="Экран задач Synapse: блоки Сегодня, Завтра, Послезавтра и На неделе" width="552" height="1200" fetchpriority="high">
-                <span class="device-island" aria-hidden="true"></span>
+          <div class="duo-stage">
+            <div class="laptop" aria-label="Веб-версия Synapse в браузере">
+              <div class="laptop-screen">
+                <div class="webshot">
+                  <div class="ws-top">
+                    <span class="ws-mark"></span>
+                    <b>Synapse</b>
+                    <span class="ws-acts"><i></i><i class="wide"></i></span>
+                  </div>
+                  <div class="ws-body">
+                    <div class="ws-rail">
+                      <span class="on">Задачи</span>
+                      <span>Цели</span>
+                      <span>Фокус</span>
+                      <span>Аналитика</span>
+                      <span>Списки</span>
+                      <span>Заметки</span>
+                      <span>Финансы</span>
+                    </div>
+                    <div class="ws-main">
+                      <p class="ws-day">Сегодня<i>2 задачи</i></p>
+                      <div class="ws-task done"><span class="ws-box on"></span><b>Купить продукты</b></div>
+                      <div class="ws-task"><span class="ws-box"></span><b>Позвонить другу</b><i>14:00</i></div>
+                      <p class="ws-day">Завтра<i>1 задача</i></p>
+                      <div class="ws-task"><span class="ws-box"></span><b>Написать отчёт</b><i>15:00</i></div>
+                      <p class="ws-day">На неделе<i>пусто</i></p>
+                      <div class="ws-say"><span>Купить молоко завтра в 9 утра</span><i>AI</i></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="laptop-base" aria-hidden="true"></div>
+            </div>
+
+            <div class="duo-phone">
+              <div class="device">
+                <div class="device-screen">
+                  <img src="./screens/screen-1.png" alt="Приложение Synapse на iPhone: экран задач" width="552" height="1200" fetchpriority="high">
+                  <span class="device-island" aria-hidden="true"></span>
+                </div>
               </div>
             </div>
+          </div>
         </div>
       </section>
 
@@ -179,72 +223,6 @@
         </div>
       </section>
 
-
-      <!-- Браузер и телефон рядом.
-
-           На странице были только снимки приложения, и веб-версии будто не
-           существовало — при том, что открыть её можно прямо отсюда, без
-           установки. Ноутбук нарисован вёрсткой, а не снимком: снимок
-           интерфейса стареет со следующей же правкой и мылится на плотных
-           экранах, а такой макет всегда чёткий и сам меняет цвета вместе с
-           темой страницы. -->
-      <section class="section duo" id="duo">
-        <p class="section-eyebrow">Где угодно</p>
-        <h2 class="section-title">Одно и то же — в браузере и в кармане</h2>
-        <p class="section-lead">
-          Веб-версия открывается сразу, без установки и регистрации.
-          Приложение — то же самое, но всегда под рукой.
-        </p>
-
-        <div class="duo-stage">
-          <div class="laptop" aria-label="Веб-версия Synapse в браузере">
-            <div class="laptop-screen">
-              <div class="webshot">
-                <div class="ws-top">
-                  <span class="ws-mark"></span>
-                  <b>Synapse</b>
-                  <span class="ws-acts"><i></i><i class="wide"></i></span>
-                </div>
-                <div class="ws-body">
-                  <div class="ws-rail">
-                    <span class="on">Задачи</span>
-                    <span>Цели</span>
-                    <span>Фокус</span>
-                    <span>Аналитика</span>
-                    <span>Списки</span>
-                    <span>Заметки</span>
-                    <span>Мои финансы</span>
-                  </div>
-                  <div class="ws-main">
-                    <p class="ws-day">Сегодня<i>2 задачи</i></p>
-                    <div class="ws-task"><span class="ws-box on"></span><b>Купить продукты</b><i>09:00</i></div>
-                    <div class="ws-task"><span class="ws-box"></span><b>Позвонить другу</b><i>14:00</i></div>
-                    <p class="ws-day">Завтра<i>1 задача</i></p>
-                    <div class="ws-task"><span class="ws-box"></span><b>Написать отчёт</b><i>15:00</i></div>
-                    <p class="ws-day">На неделе<i>пусто</i></p>
-                    <div class="ws-say"><span>Купить молоко завтра в 9 утра</span><i>AI</i></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="laptop-base" aria-hidden="true"></div>
-          </div>
-
-          <div class="duo-phone">
-            <div class="device">
-              <div class="device-screen">
-                <img src="./screens/screen-1.png" alt="Приложение Synapse на iPhone: экран задач" loading="lazy" width="552" height="1200">
-                <span class="device-island" aria-hidden="true"></span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p class="duo-note">
-          Записи хранятся на самом устройстве. Подписка одна на оба вида —
-          купили на сайте, работает и в браузере, и в приложении.
-        </p>
-      </section>
 
       <section class="section" id="features">
         <p class="section-eyebrow">Возможности</p>

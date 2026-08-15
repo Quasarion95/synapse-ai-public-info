@@ -5371,10 +5371,16 @@ function settingsBlock(title, note, body, wide){
   '</section>';
 }
 
-function settingsRow(label, body){
+/* cols — сколько кнопок в ряду.
+
+   Раньше кнопки просто переносились по мере заполнения строки, и ряд
+   получался рваным: «Rounded» шире «Clean», «Треугольник» шире «Круг», и
+   каждая строка кончалась в своём месте. Сетка с равными колонками делает
+   их одинаковыми, а число колонок подбирается под содержимое блока. */
+function settingsRow(label, body, cols){
   return '<div class="subrow">' +
     (label ? '<span class="subrow-l">' + esc(label) + '</span>' : '') +
-    '<div class="radios">' + body + '</div>' +
+    '<div class="radios"' + (cols ? ' style="--cols:' + cols + '"' : '') + '>' + body + '</div>' +
   '</div>';
 }
 
@@ -5410,17 +5416,17 @@ function vSettingsView(){
   html += settingsBlock('Тема', isDarkNow() ? 'Сейчас тёмная.' : 'Сейчас светлая.',
     settingsRow('', [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
       return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
-    }).join('')));
+    }).join(''), 2));
 
   // Начертание выбирают глазами, поэтому каждая кнопка набрана своим шрифтом.
   html += settingsBlock('Текст', 'Начертание и размер — во всём сервисе сразу.',
     settingsRow('Начертание', FONTS.map(function(f){
       return '<button class="radio" data-act="set-font" data-font="' + f.id + '" aria-pressed="' + (S.font === f.id) + '" ' +
         'style="font-family:' + f.css + '">' + f.title + '</button>';
-    }).join('')) +
+    }).join(''), 3) +
     settingsRow('Размер', FONT_SIZES.map(function(z){
       return '<button class="radio" data-act="set-fontsize" data-size="' + z.id + '" aria-pressed="' + (S.fontSize === z.id) + '">' + z.title + '</button>';
-    }).join('')));
+    }).join(''), 3));
 
   // Те же десять палитр, что в приложении, — из AppTheme.swift. Кружок — фон
   // палитры, точка внутри — её акцент, оба в текущей теме: без этого «Бордо»
@@ -5434,7 +5440,7 @@ function vSettingsView(){
       return '<button class="radio pal" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
         '<span class="sw" style="background:' + rgb(bg) + '"><i style="background:' + rgb(ac) + '"></i></span>' +
         p.title + '</button>';
-    }).join('')));
+    }).join(''), 2));
 
   // Отметку показываем прямо на кнопке выбора — заполненной, чтобы было
   // видно, как она будет выглядеть у закрытой задачи.
@@ -5442,7 +5448,7 @@ function vSettingsView(){
     settingsRow('', BOXES.map(function(b){
       return '<button class="radio boxpick" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '">' +
         '<span class="box on" data-shape="' + b.id + '">✓</span>' + b.title + '</button>';
-    }).join('')), true);
+    }).join(''), 6), true);
 
   html += '</div>';
 

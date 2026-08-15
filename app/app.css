@@ -303,7 +303,22 @@ select.inp{appearance:none}
 /* Название — кнопка: карточка раскрывается тапом целиком, но с клавиатуры
    нужна цель для табуляции. Выглядит как текст. */
 .item .t{font-size:15px; font-weight:600; letter-spacing:-.015em; line-height:1.28; display:block; width:100%; overflow-wrap:anywhere; padding:0}
-.item.done .t{color:var(--fg-3); text-decoration:line-through; text-decoration-color:var(--soft-2)}
+/* Выполненная задача выглядит выключенной.
+
+   Раньше отличие сводилось к зачёркиванию цветом --soft-2 — то есть линией
+   чуть темнее фона: на светлой теме её попросту не было видно, и закрытая
+   задача читалась как открытая. Теперь линия того же цвета, что текст, сама
+   карточка приглушена и стоит на утопленном фоне: сделанное не спорит за
+   внимание с тем, что ещё предстоит. */
+.item.done{background:var(--soft); border-color:transparent; box-shadow:none}
+.item.done .t{
+  color:var(--fg-3);
+  text-decoration:line-through;
+  text-decoration-color:currentColor;
+  text-decoration-thickness:1.5px;
+}
+.item.done .expand, .item.done .side{opacity:.55}
+.item.done .m span{color:var(--fg-3)}
 .item-main{cursor:pointer}
 .item .expand .car{display:inline-block; transition:transform .18s ease}
 .item.open .expand .car{transform:rotate(180deg)}
@@ -1595,7 +1610,9 @@ button.fintile:hover{background:var(--soft)}
 @media (min-width:880px){
   /* Доли подобраны по содержимому: «Светлая» и «Тёмная» должны встать в одну
      строку, три начертания — тоже, а палитре нужно место на десять кружков. */
-  .setgrid{grid-template-columns:minmax(0,.95fr) minmax(0,1.12fr) minmax(0,1.43fr)}
+  /* «Текст» шире соседей: в нём самое длинное слово во всём экране —
+     «маленький», и в узкой колонке оно обрезалось многоточием. */
+  .setgrid{grid-template-columns:minmax(0,.78fr) minmax(0,1.34fr) minmax(0,1.38fr)}
 }
 
 /* Кнопки прижаты к верху карточки, а не размазаны по её высоте: карточки в
@@ -1617,3 +1634,33 @@ button.fintile:hover{background:var(--soft)}
 .setgrid .radio.pal{padding:6px 11px 6px 6px}
 .setgrid .radios{gap:6px}
 .setgrid .setblock-h .sub{font-size:12.5px}
+
+/* Кнопки в ряду настроек — сеткой, а не переносом по мере заполнения.
+
+   При переносе ряд получался рваным: «Rounded» шире «Clean», «Треугольник»
+   шире «Круга», и каждая строка кончалась в своём месте. Равные колонки
+   делают кнопки одинаковыми, а число колонок задаётся под содержимое. */
+.setgrid .radios{
+  display:grid;
+  grid-template-columns:repeat(var(--cols, 2), minmax(0, 1fr));
+  gap:6px;
+}
+.setgrid .radio{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:9px 8px;
+  text-align:center;
+  min-width:0;
+}
+/* У палитры и отметки внутри кнопки кружок: он должен стоять слева от
+   названия, а вся пара — по центру кнопки. */
+.setgrid .radio.pal, .setgrid .radio.boxpick{justify-content:flex-start; padding-left:8px}
+.setgrid .radio .sw, .setgrid .radio .box{flex:none}
+.setgrid .radio span:not(.sw):not(.box){overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+/* Блоки каждый своей высоты: тянуть «Тему» с двумя кнопками до высоты
+   «Палитры» с десятью — это полкарточки пустоты, только уже внутри. */
+.setgrid{align-items:start}
+.setgrid .setblock{margin:0}
