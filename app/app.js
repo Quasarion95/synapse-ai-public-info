@@ -1162,9 +1162,46 @@ function go(view){
   }
   save();
   rolloverIfNeeded();
-render();
+  pushView(view);
+  render();
   window.scrollTo(0, 0);
 }
+
+/* Переход между разделами — запись в истории браузера.
+
+   Раньше её не было вовсе, и кнопка «назад» уводила с сайта целиком: человек
+   заходил в настройки, жал назад и оказывался там, откуда пришёл, вместо
+   экрана задач. В приложении на андроиде это было бы ещё грубее — системная
+   кнопка закрывала бы приложение с любого экрана.
+
+   Заменяющая запись для первого экрана и добавляющая для остальных: иначе в
+   истории копится по записи на каждое переключение, и чтобы выйти, назад
+   пришлось бы жать десять раз. */
+var historyReady = false;
+
+function pushView(view){
+  if (!window.history || !window.history.pushState) return;
+  var state = { view: view };
+  if (!historyReady){
+    window.history.replaceState(state, '', location.href);
+    historyReady = true;
+    return;
+  }
+  // Повторный переход в тот же раздел записи не заслуживает.
+  if (window.history.state && window.history.state.view === view) return;
+  window.history.pushState(state, '', location.href);
+}
+
+window.addEventListener('popstate', function(event){
+  var view = event.state && event.state.view;
+  if (!view || !VIEWS[view]) return;
+  // Не через go(): она сама пишет в историю, и мы бы зациклились.
+  S.view = view;
+  S.more = false;
+  save();
+  render();
+  window.scrollTo(0, 0);
+});
 
 /* ============ ОТРИСОВКА ============ */
 

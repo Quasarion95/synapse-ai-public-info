@@ -3,6 +3,8 @@ package ru.synapseapp.app;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.net.Uri;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.ViewGroup;
 import android.webkit.WebResourceRequest;
@@ -13,8 +15,8 @@ import android.webkit.WebViewClient;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.WebViewAssetLoader;
 
 /**
@@ -52,21 +54,38 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Рисуем под системными панелями: веб-версия сама разбирается с
-        // безопасными отступами через env(safe-area-inset-*).
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        /* Контент не заезжает под системные полосы.
 
-        /* Обслуживаем и /app/, и /fonts/.
+           Первая попытка была нарисовать во весь экран и отбиться через
+           env(safe-area-inset-*), как на айфоне. В WebView на андроиде эти
+           значения приходят нулями, и шапка с логотипом легла прямо на часы.
+           Вторая попытка — спросить отступы у системы и поставить их полем
+           вьюхе — не сработала тоже: WebView отступ проигнорировал.
 
-           Приложение просит шрифты как ../fonts/fonts.css — это соседняя папка,
-           а не подпапка /app/. Обслуживай мы только /app/, запрос ушёл бы в
-           настоящую сеть: офлайн начертания «Rounded» и «Clean» отвалились бы
-           обратно в системный шрифт, а онлайн приложение молча ходило бы наружу
-           за файлами, которые лежат у него внутри. */
+           Третья короче обеих: не залезать под полосы вовсе. Система сама
+           уложит контент между ними, а полосы получат фон окна — который мы
+           красим под выбранную тему. */
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+
+        /* Обработчик подключён к корню, и это не небрежность.
+
+           AssetsPathHandler отрезает префикс, под которым подключён, а остаток
+           ищет от корня assets. Подключи мы его к «/app/», запрос
+           /app/index.html превратился бы в assets/index.html — а файл лежит в
+           assets/app/index.html, и WebView показывал бы ERR_INVALID_RESPONSE на
+           пустом экране. Ровно это и случилось при первом запуске.
+
+           От корня остаток совпадает с раскладкой один в один: /app/… идёт в
+           assets/app/…, /fonts/… — в assets/fonts/…. Заодно одним обработчиком
+           закрыты обе папки: шрифты лежат рядом с приложением, а не внутри, и
+           иначе за ними пришлось бы ходить в настоящую сеть.
+
+           Чужие адреса этого не касаются: api.synapseapp.ru — другой хост,
+           loader его не трогает, а страницы сайта вроде /privacy/ перехватывает
+           shouldOverrideUrlLoading и отдаёт браузеру. */
         final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .setDomain(APP_HOST)
-                .addPathHandler("/app/", new WebViewAssetLoader.AssetsPathHandler(this))
-                .addPathHandler("/fonts/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
         web = new WebView(this);
@@ -90,6 +109,26 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 return loader.shouldInterceptRequest(request.getUrl());
+            }
+
+            /* Полоса статуса под цвет выбранной темы.
+
+               Тем десять, у каждой светлый и тёмный вариант, и выбирает их
+               человек внутри приложения — снаружи мы этого знать не можем.
+               Поэтому после загрузки спрашиваем у самой страницы её цвет фона
+               и красим окно им же. Иначе при тёмной теме сверху оставалась бы
+               светлая полоса — мелочь, по которой сразу видно, что приложение
+               собрано наспех. */
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                view.evaluateJavascript(
+                        "getComputedStyle(document.body).backgroundColor", value -> {
+                            Integer цвет = разобратьЦвет(value);
+                            if (цвет == null) return;
+                            getWindow().setBackgroundDrawable(new ColorDrawable(цвет));
+                            new WindowInsetsControllerCompat(getWindow(), view)
+                                    .setAppearanceLightStatusBars(светлыйЛи(цвет));
+                        });
             }
 
             /**
@@ -118,7 +157,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         setContentView(web);
-        ViewCompat.setOnApplyWindowInsetsListener(web, (v, insets) -> insets);
 
         /* Кнопка «назад» ходит по разделам, а не закрывает приложение.
 
@@ -143,6 +181,25 @@ public class MainActivity extends AppCompatActivity {
         } else {
             web.restoreState(savedInstanceState);
         }
+    }
+
+    /** Из «"rgb(245, 241, 232)"» — в цвет. null, если строка не та. */
+    private static Integer разобратьЦвет(String value) {
+        if (value == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(\\d+)\\D+(\\d+)\\D+(\\d+)").matcher(value);
+        if (!m.find()) return null;
+        try {
+            return Color.rgb(Integer.parseInt(m.group(1)),
+                    Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3)));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Тёмные значки часов и батареи нужны на светлом фоне, и наоборот. */
+    private static boolean светлыйЛи(int цвет) {
+        return (0.299 * Color.red(цвет) + 0.587 * Color.green(цвет) + 0.114 * Color.blue(цвет)) > 150;
     }
 
     /** Поворот экрана не должен начинать всё заново. */
