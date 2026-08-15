@@ -9420,8 +9420,46 @@ function syncViewportShift(){
     root.style.setProperty('--vv-shift', shift + 'px');
   }
 
-  root.classList.toggle('kbd', shift > 0);
 }
+
+/* Панель убирается по факту ввода, а не по замеру экрана.
+
+   Прошлая версия вешала класс, только если visualViewport отчитался о
+   сжатии не меньше чем на 140 пикселей. На бумаге верно, на живом айфоне —
+   нет: событие приходит с задержкой, при переходе между полями клавиатура
+   не закрывается и размер не меняется вовсе, а при появлении панели
+   предиктивного ввода меняется не так, как мы ждём. Панель то исчезала, то
+   оставалась — ровно то, на что жаловался владелец.
+
+   Курсор в поле — единственный признак, который не врёт и приходит сразу:
+   если в поле стоит курсор, человек печатает, и панель ему мешает.
+   Клавиатура при этом может быть аппаратной или ещё не выехать — не важно,
+   решение то же.
+
+   Сдвиг --vv-shift остаётся отдельно: он двигает строку создания над
+   клавиатурой, и вот ему замеры нужны. */
+var kbdOffTimer = 0;
+
+function setKeyboardMode(on){
+  clearTimeout(kbdOffTimer);
+  if (on){
+    document.documentElement.classList.add('kbd');
+    return;
+  }
+  // Переход между двумя полями — это focusout и сразу focusin. Без паузы
+  // панель успевала бы мигнуть между ними.
+  kbdOffTimer = setTimeout(function(){
+    if (!editableFocused()) document.documentElement.classList.remove('kbd');
+  }, 120);
+}
+
+document.addEventListener('focusin', function(event){
+  var node = event.target;
+  if (!node || !node.tagName) return;
+  var tag = node.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || node.isContentEditable) setKeyboardMode(true);
+});
+document.addEventListener('focusout', function(){ setKeyboardMode(false); });
 
 /* Подписка на прокрутку — только пока открыта клавиатура.
 
