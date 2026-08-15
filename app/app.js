@@ -3561,21 +3561,34 @@ function itemRow(t){
   // Дату показываем, когда её назвали сами или когда блок не «сегодня».
   // Выведенная нами дата сегодняшнего блока не сообщает ничего.
   if (t.date && (t.hasExplicitDate || t.bucket !== 'today')){
-    meta.push('<span>' + esc(humanDate(t.date)) + '</span>');
+    meta.push('<span class="chip">' + esc(humanDate(t.date)) + '</span>');
   }
-  if (t.time) meta.push('<span class="mt">' + esc(t.time) + '</span>');
-  if (t.repeat) meta.push('<span class="mr" title="' + esc(repeatLabel(t.repeat, t)) + '">' + ICON.repeat + '</span>');
-  if (t.windowFrom && t.windowFrom.time) meta.push('<span>с ' + esc(t.windowFrom.time) + '</span>');
+  if (t.time) meta.push('<span class="chip">' + esc(t.time) + '</span>');
+  if (t.repeat) meta.push('<span class="chip rep">' + ICON.repeat +
+    esc(repeatLabel(t.repeat, t)) + '</span>');
+  if (t.windowFrom && t.windowFrom.time) meta.push('<span class="chip">с ' + esc(t.windowFrom.time) + '</span>');
   // Срок — со словом «до»: без него «15 апреля 18:30» читается как время самой
   // задачи.
-  if (t.deadline) meta.push('<span class="' + (deadlinePassed(t) ? 'late' : 'hard') + '">до ' +
+  if (t.deadline) meta.push('<span class="chip ' + (deadlinePassed(t) ? 'late' : 'hard') + '">до ' +
     esc(deadlineText(t.deadline)) + '</span>');
-  if (isOverdue(t)) meta.push('<span class="late">просрочено</span>');
+  if (isOverdue(t)) meta.push('<span class="chip late">просрочено</span>');
   // Один перенос — житейское дело, о нём молчим. Со второго это уже привычка,
   // и человек имеет право её видеть.
-  if ((t.carried || 0) >= 2) meta.push('<span class="carried" title="Столько раз переносилась">' +
+  if ((t.carried || 0) >= 2) meta.push('<span class="chip carried" title="Столько раз переносилась">' +
     t.carried + '×</span>');
-  if (t.subtasks.length) meta.push('<span class="pct">' + pct(subDone, t.subtasks.length) + '%</span>');
+  // Цель — такой же чип, как дата, только акцентный: задача, которая ведёт к
+  // цели, этим и отличается от рядовой, и сказать об этом надо словами, а не
+  // припиской «· цель», из которой не понять, к какой именно.
+  if (goal) meta.push('<span class="chip goal">' + esc(goal.title) + '</span>');
+  // Подпункты — последним чипом и только когда они есть. Раньше слово
+  // «подпункты» стояло в каждой карточке, включая те, где их ноль: подпись
+  // обещала содержимое, которого нет.
+  if (t.subtasks.length){
+    meta.push('<span class="chip sub"><span class="car">⌄</span>' +
+      subDone + ' из ' + t.subtasks.length + '</span>');
+  } else if (t.note){
+    meta.push('<span class="chip sub"><span class="car">⌄</span>описание</span>');
+  }
 
   var expandable = t.subtasks.length || t.note;
 
@@ -3609,8 +3622,6 @@ function itemRow(t){
   // задаче — самый ожидаемый жест, и искать для него мелкую подпись внизу
   // карточки незачем. data-act висит на .item-main, чтобы нажатия внутри
   // раскрытой части не сворачивали её обратно.
-  var summary = t.subtasks.length ? subDone + ' из ' + t.subtasks.length
-    : (t.note ? 'описание' : 'подпункты');
 
   return '<article class="item' + (t.done ? ' done' : '') + (open ? ' open' : '') + '" draggable="true" data-task="' + t.id + '">' +
     '<div class="item-main" data-act="expand" data-task="' + t.id + '">' +
@@ -3618,14 +3629,17 @@ function itemRow(t){
       '<div class="body">' +
         '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
           esc(t.title) + '</button>' +
-        /* Дата, время и повтор живут в той же нижней строке, что «подпункты»:
-           слева, сразу за ней. Отдельным рядом чипов они удваивали высоту
-           карточки, а справа от названия отжимали само название. Здесь для них
-           уже есть строка, и она всё равно короткая. */
-        '<span class="expand"><span class="car">⌄</span>' + esc(summary) +
-          (goal ? ' · цель' : '') +
-          (meta.length ? '<span class="m">' + meta.join('') + '</span>' : '') +
-        '</span>' +
+        /* Всё, что известно о задаче, — рядом чипов под названием.
+
+           Мелкой серой строкой справа это занимало одну строку вместо двух, но
+           читалось как сноска: дату и срок приходилось искать. Владелец увидел
+           такую карточку в превью настроек и попросил её же здесь — а раз
+           смотреть на них будут по сто раз в день, пусть смотреть будет легко.
+           Карточка от этого выше на строку, и это честная плата.
+
+           Ряда нет вовсе, если сказать нечего: у задачи без даты, цели и
+           подпунктов остаётся одно название. */
+        (meta.length ? '<div class="chips">' + meta.join('') + '</div>' : '') +
       '</div>' +
       '<div class="side">' +
         // Надёжный путь переноса: жест на сенсоре может не получиться, а с

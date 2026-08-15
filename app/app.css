@@ -1038,11 +1038,27 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    вырастала вдвое: пять задач на экране телефона вместо десяти. Справа от
    названия они отжимали название до двух слов. В нижней строке место уже есть,
    и она всё равно оставалась полупустой. */
-.item .expand .m{display:inline-flex; align-items:baseline; gap:8px; margin:0 0 0 8px;
-  font-size:11.5px; color:var(--fg-3)}
-.item .expand .m::before{content:'·'; color:var(--fg-3); margin-right:2px}
-.item .expand .m .late{color:var(--danger); font-weight:600}
-.item .expand .m .hard{color:var(--fg-2)}
+/* Ряд чипов в карточке задачи.
+
+   Чуть мельче, чем чипы в превью и в других разделах: тут их бывает пять
+   подряд — дата, время, повтор, срок, цель, — и в полный размер они начинают
+   спорить с названием за внимание. */
+.item .chips{margin-top:7px; gap:6px}
+.item .chips .chip{font-size:11.5px; padding:3px 9px; gap:5px}
+.item .chips .chip.rep svg{width:11px; height:11px}
+/* Срок и просрочка — единственное, что кричит. Остальное ровным серым. */
+.item .chips .chip.hard{background:transparent; color:var(--fg-2); box-shadow:inset 0 0 0 1px var(--stroke)}
+.item .chips .chip.late{background:transparent; color:var(--danger); font-weight:600; box-shadow:inset 0 0 0 1px var(--danger)}
+.item .chips .chip.carried{background:transparent; color:var(--fg-3); box-shadow:inset 0 0 0 1px var(--stroke)}
+/* Чип подпунктов несёт стрелку раскрытия — она и говорит, что карточка
+   открывается. У карточек без подпунктов и без описания её нет, и открывать
+   там нечего. */
+.item .chips .chip.sub .car{display:inline-block; font-size:13px; line-height:1;
+  transition:transform .18s ease}
+.item.open .chips .chip.sub .car{transform:rotate(180deg)}
+/* Выполненная задача глушит и чипы: иначе цветная цель на зачёркнутой строке
+   выглядит живее самой задачи. */
+.item.done .chips{opacity:.55}
 .item .expand .m .mt{font-variant-numeric:tabular-nums}
 .item .expand .m .mr{display:inline-grid; place-items:center; color:var(--fg-3)}
 .item .expand .m .mr .nav-ic{width:12px; height:12px; stroke-width:2}
