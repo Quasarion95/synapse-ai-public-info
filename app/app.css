@@ -1407,3 +1407,44 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .ai-mark{font-size:12px; font-weight:800; letter-spacing:.04em; line-height:1;
   font-family:var(--display, inherit)}
 .say .ai, .rowadd .ai{font-weight:800}
+
+/* ---- долги строками ---- */
+
+.debtlist{display:flex; flex-direction:column;
+  background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
+  box-shadow:var(--shadow); overflow:hidden}
+.debtrow{padding:10px var(--fin-pad, 18px); border-top:1px solid var(--line)}
+.debtlist .debtrow:first-child{border-top:0}
+.debtrow.done{opacity:.55}
+.dr-main{display:flex; align-items:center; gap:10px}
+.dr-t{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; font-size:14px}
+/* Подпись переносится, а не обрезается многоточием: «я должен · до 1
+   сентября · отдано 5 000 из 15 000» — это и есть всё, что нужно знать о
+   долге, и терять хвост нельзя. */
+.dr-n{font-size:11.5px; color:var(--fg-3); line-height:1.35}
+.dr-v{font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; flex:none}
+.dr-v.closed{font-size:12.5px; font-weight:400; color:var(--fg-3)}
+.dr-a{display:flex; align-items:center; gap:2px; flex:none}
+@media (hover:hover) and (pointer:fine){
+  .debtrow .fr-x{opacity:0; transition:opacity .14s ease}
+  .debtrow:hover .fr-x, .debtrow:focus-within .fr-x{opacity:1}
+}
+
+/* Значок сервиса в шаблоне: узнают по картинке быстрее, чем читают. */
+.tplchip{display:inline-flex; align-items:center; gap:6px}
+.tplic{font-size:14px; line-height:1}
+
+/* «Или своё» под шаблонами: два поля в строку и кнопка — всё, что нужно,
+   чтобы завести платёж, которого нет в списке. */
+.ownadd{border-top:1px solid var(--line); padding-top:14px; margin-top:4px}
+.ownadd-t{margin:0 0 8px; font-size:10.5px; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--fg-3); font-weight:600}
+.inp-sum{max-width:96px; flex:none}
+
+/* Плитки на телефоне: три штуки в ряд вместо двух и пустой клетки. */
+@media (max-width:560px){
+  .fintiles{grid-template-columns:repeat(auto-fit, minmax(96px, 1fr))}
+  .fintile{padding:11px 12px}
+  .fintile b{font-size:16px}
+  .fintile span{font-size:10px}
+}
