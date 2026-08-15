@@ -1485,22 +1485,27 @@ a { color: var(--accent-strong); }
 .laptop { width: 100%; }
 
 .laptop-screen {
-  border-radius: 14px 14px 3px 3px;
-  padding: 10px 10px 12px;
-  background: linear-gradient(160deg, #cfcabc 0%, #efece4 22%, #c4bfb1 60%, #e8e5db 100%);
+  border-radius: 12px 12px 4px 4px;
+  /* Поля одинаковые с трёх сторон, снизу шире — там у ноутбука подбородок. */
+  padding: 9px 9px 16px;
+  background: linear-gradient(158deg, #d7d2c4 0%, #f2efe8 26%, #cac5b7 62%, #ebe8de 100%);
   box-shadow:
-    0 26px 60px rgba(40, 36, 28, 0.18),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+    0 22px 48px rgba(40, 36, 28, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55);
 }
 
 /* Подставка шире корпуса и сужается книзу — так ноутбук стоит, а не висит. */
+/* Подставка шире корпуса и по центру: раньше её сдвигал отрицательный
+   margin-left, и ноутбук стоял криво относительно телефона. */
 .laptop-base {
-  height: 10px;
-  width: 112%;
-  margin-left: -6%;
-  border-radius: 0 0 10px 10px;
-  background: linear-gradient(180deg, #d8d3c6 0%, #b6b1a4 100%);
-  box-shadow: 0 14px 26px rgba(40, 36, 28, 0.22);
+  height: 9px;
+  width: 110%;
+  /* auto-поля не центрируют то, что шире контейнера: они превращаются в ноль,
+     и подставка съезжала вправо. Половина превышения — ровно −5%. */
+  margin-left: -5%;
+  border-radius: 0 0 9px 9px;
+  background: linear-gradient(180deg, #ddd8cb 0%, #b6b1a4 100%);
+  box-shadow: 0 12px 22px rgba(40, 36, 28, 0.2);
 }
 
 /* Экран держит пропорцию: содержимое внутри может быть любой длины, но
@@ -1513,9 +1518,11 @@ a { color: var(--accent-strong); }
    пропорций и растянуть её не могут. */
 .laptop-screen > .screen-inner {
   position: relative;
-  aspect-ratio: 16 / 10;
+  /* Ровно пропорция снимка: при 16:10 object-fit срезал края, и левое меню
+     веб-версии уходило за рамку — это и было «разъехалось внутри». */
+  aspect-ratio: 1400 / 795;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 5px;
   background: var(--bg);
 }
 
@@ -1618,9 +1625,9 @@ a { color: var(--accent-strong); }
    что это одно и то же, а не два продукта рядом. */
 .duo-phone {
   position: absolute;
-  right: -6%;
-  bottom: -6%;
-  width: 30%;
+  right: -4%;
+  bottom: 0;
+  width: 29%;
 }
 .duo-phone .device { padding: 5px; border-radius: 26px; }
 .duo-phone .device-screen, .duo-phone .device-screen img { border-radius: 21px; }

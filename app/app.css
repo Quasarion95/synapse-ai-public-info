@@ -1654,9 +1654,10 @@ button.fintile:hover{background:var(--soft)}
   text-align:center;
   min-width:0;
 }
-/* У палитры и отметки внутри кнопки кружок: он должен стоять слева от
-   названия, а вся пара — по центру кнопки. */
-.setgrid .radio.pal, .setgrid .radio.boxpick{justify-content:flex-start; padding-left:8px}
+/* У палитры и отметки внутри кнопки значок. Пара «значок + название» стоит
+   по центру кнопки, а не прижимается влево: кнопки одной ширины, и прижатое
+   содержимое выдаёт их за разные. */
+.setgrid .radio.pal, .setgrid .radio.boxpick{justify-content:center; padding-left:8px}
 .setgrid .radio .sw, .setgrid .radio .box{flex:none}
 .setgrid .radio span:not(.sw):not(.box){overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 
