@@ -1161,9 +1161,18 @@ function render(){
   $('top').innerHTML = vTop() + (storageBroken ? vStorageWarning() : '');
   $('tabbar').classList.remove('hidden');
   $('tabbar').innerHTML = vTabbar();
+  // Полоса вкладок финансов прокручена вбок, и перерисовка сбрасывала её в
+  // самое начало: нажал «Подписки» справа — и они уехали за край экрана.
+  // Запоминаем сдвиг до перерисовки, возвращаем после.
+  var stripLeft = (function(){
+    var strip = document.querySelector('.fintabs');
+    return strip ? strip.scrollLeft : null;
+  })();
+
   // Платный раздел не подменяется тарифами молча: у него свой экран, с тем же
   // названием в шапке, — иначе нажатие в меню выглядит как промах.
   $('app').innerHTML = (PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render();
+  restoreTabStrip(stripLeft);
 
   restoreComposer();
   restoreAddField();
@@ -1387,8 +1396,12 @@ function applyTheme(){
 
 function vTop(){
   return '<div class="top-in">' +
-    '<div class="brand"><img class="mark" src="icons/icon-192.png" alt="" width="28" height="28">' +
-      '<span class="nm">Synapse</span></div>' +
+    // Логотип с названием — кнопка «домой»: из любого раздела возвращает к
+    // задачам. Так устроен любой сайт, и человек пробует это первым, ещё до
+    // того, как найдёт «Задачи» в меню.
+    '<button class="brand" data-act="go" data-view="tasks" title="К задачам" aria-label="К задачам">' +
+      '<img class="mark" src="icons/icon-192.png" alt="" width="28" height="28">' +
+      '<span class="nm">Synapse</span></button>' +
     '<div class="top-acts">' +
       '<button class="iconbtn" data-act="theme" title="' + (isDarkNow() ? 'Светлая тема' : 'Тёмная тема') +
         '" aria-label="' + (isDarkNow() ? 'Включить светлую тему' : 'Включить тёмную тему') + '">' +
@@ -3314,6 +3327,30 @@ function restoreComposer(){
 var refocusSelector = '';
 
 function keepFocus(selector){ refocusSelector = selector; }
+
+/* Полоса вкладок остаётся там, где её оставили.
+
+   Сдвиг возвращается как был, а дальше проверяется одно: видна ли нажатая
+   вкладка целиком. Не видна — дотягиваем ровно до неё, а не в начало и не в
+   центр. Нажатие не должно ни сбрасывать полосу, ни дёргать её, когда и так
+   всё на виду. */
+function restoreTabStrip(left){
+  var strip = document.querySelector('.fintabs');
+  if (!strip) return;
+  if (left !== null && left !== undefined) strip.scrollLeft = left;
+
+  var active = strip.querySelector('.fintab.on');
+  if (!active) return;
+
+  var pad = 12;
+  var from = strip.scrollLeft;
+  var view = strip.clientWidth;
+  var start = active.offsetLeft;
+  var end = start + active.offsetWidth;
+
+  if (start < from + pad) strip.scrollLeft = Math.max(0, start - pad);
+  else if (end > from + view - pad) strip.scrollLeft = end - view + pad;
+}
 
 function restoreAddField(){
   if (!refocusSelector) return;
@@ -7188,6 +7225,49 @@ function toast(message){
   showToast();
 }
 
+/* Отказ показывается у того поля, из-за которого он случился.
+
+   Плашка внизу экрана — правильный способ сказать «сделано», но негодный,
+   чтобы сказать «не сделано»: человек смотрит в поле, куда только что писал,
+   а сообщение улетает к нижнему краю и через три секунды гаснет. На телефоне
+   его вдобавок закрывает нижняя панель.
+
+   Поэтому: поле краснеет, под ним встаёт строка с причиной, и всё это
+   гаснет от первого же нажатия клавиши — как только человек начал править,
+   ругаться больше не на что. */
+function fieldError(id, message){
+  var node = $(id);
+  if (!node){ toast(message); return; }
+
+  node.classList.add('bad');
+  var hint = document.getElementById(id + '-err');
+  if (!hint){
+    hint = document.createElement('p');
+    hint.className = 'field-err';
+    hint.id = id + '-err';
+    var box = node.closest ? node.closest('.field') : null;
+    if (box){
+      box.appendChild(hint);
+    } else {
+      /* Поле стоит в ряду с кнопкой, а ряд — это flex. Положить подсказку
+         внутрь него значит сделать её третьей колонкой: строка ввода
+         сплющивается в кружок, а текст встаёт сбоку от кнопки. Кладём под
+         весь ряд. */
+      var row = node.parentNode;
+      row.parentNode.insertBefore(hint, row.nextSibling);
+    }
+  }
+  hint.textContent = message;
+
+  var clear = function(){
+    node.classList.remove('bad');
+    if (hint && hint.parentNode) hint.parentNode.removeChild(hint);
+    node.removeEventListener('input', clear);
+  };
+  node.addEventListener('input', clear);
+  node.focus();
+}
+
 /* Уменьшение картинки перед тем, как класть её в localStorage. Снимок с
    телефона — это несколько мегабайт, а всё хранилище обычно пять: без сжатия
    одна аватарка выбивает квоту и роняет сохранение задач.
@@ -7472,7 +7552,7 @@ var ACTS = {
   'fin-acc-save': function(d){
     var title = mval('m-title');
     var parsed = finParse(mval('m-amount') || '0', 'spend');
-    if (!title) return;
+    if (!title) return fieldError('m-title', 'Как называется счёт?');
     var kind = $('m-kind') ? $('m-kind').value : 'card';
     var opening = parsed ? parsed.amount : 0;
     // Остаток может быть и отрицательным — кредитка живёт в минусе.
@@ -7499,7 +7579,8 @@ var ACTS = {
   'fin-budget-save': function(){
     var cat = $('m-cat') ? $('m-cat').value : '';
     var parsed = finParse(mval('m-amount'), 'spend');
-    if (!cat || !parsed) return;
+    if (!parsed) return fieldError('m-amount', 'Сколько кладём на эту категорию в месяц?');
+    if (!cat) return;
     var fresh = !(S.finance.budgets || {})[cat];
     if (fresh && !canAdd('budgets')) return openModal(modalPaywall('budgets'));
     S.finance.budgets[cat] = parsed.amount;
@@ -7519,7 +7600,7 @@ var ACTS = {
   },
   'fin-cat-save': function(){
     var title = mval('m-title');
-    if (!title) return;
+    if (!title) return fieldError('m-title', 'Как назвать категорию?');
     if (!canAdd('cats')) return openModal(modalPaywall('cats'));
     S.finance.cats.push({
       id: 'own' + uid(), title: title,
@@ -7537,7 +7618,11 @@ var ACTS = {
     var field = $('finfield');
     if (!field) return;
     var parsed = finParse(field.value, S.finKind || 'spend');
-    if (!parsed) return toast('Нужна сумма: «кофе 350»');
+    if (!parsed){
+      return fieldError('finfield', field.value.trim()
+        ? 'Не вижу суммы. Напишите её в той же строке: «' + field.value.trim() + ' 350»'
+        : 'Напишите, что и на сколько: «кофе 350»');
+    }
     var when = $('findate') ? $('findate').value : '';
     var acc = $('finacc') ? $('finacc').value : '';
     S.finance.ops.push({
@@ -7584,7 +7669,8 @@ var ACTS = {
   'fin-op-save': function(d){
     var op = finOp(d.op);
     var parsed = finParse(mval('m-amount'), 'spend');
-    if (!op || !parsed) return;
+    if (!op) return;
+    if (!parsed) return fieldError('m-amount', 'Нужна сумма — одним числом');
     op.title = mval('m-title') || op.title;
     op.amount = parsed.amount;
     op.cat = $('m-cat') ? $('m-cat').value : op.cat;
@@ -7627,7 +7713,8 @@ var ACTS = {
   'fin-debt-save': function(){
     var who = mval('m-who');
     var parsed = finParse(mval('m-amount'), 'spend');
-    if (!who || !parsed) return;
+    if (!who) return fieldError('m-who', S.finDraftMine !== false ? 'У кого вы заняли?' : 'Кто взял у вас?');
+    if (!parsed) return fieldError('m-amount', 'Нужна сумма — одним числом');
     S.finance.debts.push({
       id: uid(), who: who, mine: S.finDraftMine !== false, amount: parsed.amount, paid: 0,
       due: mval('m-due'), note: mval('m-note'), closed: false, at: Date.now()
@@ -7680,7 +7767,8 @@ var ACTS = {
   'fin-jar-save': function(d){
     var title = mval('m-title');
     var parsed = finParse(mval('m-amount'), 'spend');
-    if (!title || !parsed) return;
+    if (!title) return fieldError('m-title', 'На что копим?');
+    if (!parsed) return fieldError('m-amount', 'Сколько нужно собрать?');
     var jar = finJar(d.jar);
     if (jar){
       jar.title = title; jar.target = parsed.amount; jar.due = mval('m-due');
@@ -7724,7 +7812,8 @@ var ACTS = {
   'fin-sub-save': function(d){
     var title = mval('m-title');
     var parsed = finParse(mval('m-amount'), 'spend');
-    if (!title || !parsed) return;
+    if (!title) return fieldError('m-title', 'За что списывают?');
+    if (!parsed) return fieldError('m-amount', 'Сколько списывают за раз?');
     var every = $('m-every') ? $('m-every').value : 'month';
     var since = mval('m-due') || isoOf(todayDate());
     var sub = finSub(d.sub);
@@ -7758,7 +7847,8 @@ var ACTS = {
   'fin-rec-save': function(d){
     var title = mval('m-title');
     var parsed = finParse(mval('m-amount'), 'spend');
-    if (!title || !parsed) return;
+    if (!title) return fieldError('m-title', 'Как называется операция?');
+    if (!parsed) return fieldError('m-amount', 'Нужна сумма — одним числом');
     var rule = finRec(d.rec);
     var patch = {
       title: title, amount: parsed.amount,
@@ -8166,7 +8256,7 @@ var ACTS = {
   },
   'save-list': function(){
     var title = mval('m-title');
-    if (!title) return;
+    if (!title) return fieldError('m-title', 'Как назвать список?');
     if (!canAdd('lists')) return openModal(modalPaywall('lists'));
     var fresh = { id: uid(), title: title, note: '', items: [] };
     S.lists.push(fresh);
@@ -8185,7 +8275,8 @@ var ACTS = {
   'save-list-title': function(d){
     var list = findList(d.list);
     var title = mval('m-title');
-    if (!list || !title) return;
+    if (!list) return;
+    if (!title) return fieldError('m-title', 'Название не может быть пустым');
     list.title = title;
     closeModal();
     commit('Название изменено');
@@ -8229,7 +8320,7 @@ var ACTS = {
   },
   'save-note': function(){
     var title = mval('m-title');
-    if (!title) return;
+    if (!title) return fieldError('m-title', 'Как назвать запись?');
     if (!canAdd('notes')) return openModal(modalPaywall('notes'));
     var fresh = { id: uid(), title: title, body: '' };
     S.notes.push(fresh);
@@ -8248,7 +8339,8 @@ var ACTS = {
   'save-note-title': function(d){
     var note = findNote(d.note);
     var title = mval('m-title');
-    if (!note || !title) return;
+    if (!note) return;
+    if (!title) return fieldError('m-title', 'Название не может быть пустым');
     note.title = title;
     closeModal();
     commit('Название изменено');
@@ -8440,6 +8532,7 @@ document.addEventListener('keydown', function(event){
   if (t.id === 'field'){ event.preventDefault(); addTask(); return; }
   if (t.id === 'authmail'){ event.preventDefault(); ACTS['auth-send']({}); return; }
   if (t.id === 'authcode'){ event.preventDefault(); ACTS['auth-check']({}); return; }
+  if (t.id === 'finfield'){ event.preventDefault(); ACTS['fin-add']({}); return; }
   if (t.getAttribute && t.getAttribute('data-subadd')){
     event.preventDefault(); ACTS.subadd({ task: t.getAttribute('data-subadd') }); return;
   }

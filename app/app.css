@@ -95,7 +95,13 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
    колонке: начинается ровно под логотипом и кончается под аватаркой. */
 .top-in{max-width:var(--col); margin:0 auto; padding:14px var(--pad); display:flex; align-items:center; gap:12px; position:relative}
 .top-in::after{content:''; position:absolute; left:var(--pad); right:var(--pad); bottom:0; height:1px; background:var(--line)}
-.brand{display:flex; align-items:center; gap:12px; min-width:0}
+/* Логотип теперь кнопка «домой»: убираем всё, что браузер добавляет кнопке
+   от себя, и оставляем нажимаемость — курсор и лёгкое затемнение. */
+.brand{display:flex; align-items:center; gap:12px; min-width:0;
+  background:none; border:0; padding:0; margin:0; font:inherit; color:inherit;
+  cursor:pointer; text-align:left; border-radius:12px}
+.brand:hover{opacity:.78}
+.brand:active{opacity:.6}
 /* Знак — настоящий логотип, тот же файл, что иконкой приложения. Раньше
    здесь стояла буква S в квадрате: заглушка, которая пережила все остальные. */
 /* Логотип и название крупнее. Шапка — единственное место, где написано, в
@@ -363,9 +369,12 @@ select.inp{appearance:none}
 .say input::placeholder{color:var(--fg-3); opacity:.85}
 /* Кнопка ассистента слева от отправки: тише её, но заметнее обычной иконки.
    Фон — карточный, а не soft: сама панель уже soft, и кружок на ней пропадал. */
-.say .ai{width:38px; height:38px; border-radius:999px; display:grid; place-items:center; flex:none; background:var(--card); border:1px solid var(--stroke); color:var(--accent)}
-.say .ai:hover{background:var(--accent-soft); border-color:var(--accent)}
-.say .ai svg{width:19px; height:19px; fill:currentColor; stroke:none}
+/* Искра одинаковая и в строке задач, и в строке финансов: правила были
+   привязаны к .say, и в финансах кнопка выходила нулевой ширины — на экране
+   её просто не было. */
+.say .ai, .rowadd .ai{width:38px; height:38px; border-radius:999px; display:grid; place-items:center; flex:none; background:var(--card); border:1px solid var(--stroke); color:var(--accent)}
+.say .ai:hover, .rowadd .ai:hover{background:var(--accent-soft); border-color:var(--accent)}
+.say .ai svg, .rowadd .ai svg{width:19px; height:19px; fill:currentColor; stroke:none}
 .say .send{width:38px; height:38px; border-radius:999px; background:var(--fg); color:var(--bg); display:grid; place-items:center; flex:none; font-size:17px}
 .say .send .nav-ic{width:19px; height:19px; stroke-width:2}
 .composer .hint{margin:8px auto 0; font-size:11.5px; background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px 8px 14px; max-width:520px; box-shadow:var(--shadow)}
@@ -1282,3 +1291,18 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .syn-fin b{display:block; font-size:13.5px; margin-bottom:8px}
 .syn-fin ul{margin:0 0 10px; padding-left:18px}
 .syn-fin li{font-size:13px; line-height:1.5; color:var(--fg-2); font-variant-numeric:tabular-nums}
+
+/* Отказ у самого поля. Красная рамка и строка причины под ней: плашка внизу
+   экрана годится, чтобы сказать «сделано», но не «не сделано» — человек
+   смотрит туда, куда писал, а на телефоне плашку вдобавок закрывает нижняя
+   панель. Гаснет от первого нажатия клавиши. */
+.inp.bad, input.bad, textarea.bad{
+  border-color:var(--crit);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--crit) 16%, transparent);
+}
+.field-err{
+  margin:6px 0 0;
+  font-size:12.5px;
+  line-height:1.45;
+  color:var(--crit);
+}
