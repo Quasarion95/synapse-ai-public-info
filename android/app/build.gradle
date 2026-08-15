@@ -21,10 +21,32 @@ android {
         main { assets.srcDirs = ['build/webapp'] }
     }
 
+    /* Подпись читается из файла вне репозитория.
+
+       Ключ подписи — это право выпускать обновления от вашего имени, и он
+       единственный: потеряете — обновить приложение в магазине будет уже
+       нельзя, только выкладывать заново под новым именем, потеряв всех
+       установивших. Поэтому он лежит в ~/.synapse-ops рядом с остальными
+       ключами и в репозиторий не попадает никогда. */
+    signingConfigs {
+        release {
+            def файл = new File(System.getProperty('user.home'), '.synapse-ops/android-signing.properties')
+            if (файл.exists()) {
+                def свойства = new Properties()
+                файл.withInputStream { свойства.load(it) }
+                storeFile file(свойства['storeFile'])
+                storePassword свойства['storePassword']
+                keyAlias свойства['keyAlias']
+                keyPassword свойства['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false      // Кода на Java здесь на один экран
             shrinkResources false
+            signingConfig signingConfigs.release
         }
     }
 
@@ -72,8 +94,12 @@ tasks.register('копияШрифтов', Copy) {
     into layout.buildDirectory.dir('webapp/fonts')
 }
 
-tasks.configureEach { task ->
-    if (task.name.startsWith('generate') && task.name.endsWith('Assets')) {
-        task.dependsOn 'копияВебВерсии', 'копияШрифтов'
-    }
+/* Копирование цепляем к preBuild, а не к сборке assets.
+
+   Цеплять к generate*Assets было мало: релизная сборка ещё запускает проверку
+   кода, которая читает ту же папку и про наши задачи не знает — Gradle честно
+   отказался собирать, не зная порядка. preBuild идёт раньше вообще всего, и
+   вопрос порядка снимается для всех, кто заглянет в эту папку потом. */
+tasks.named('preBuild') {
+    dependsOn 'копияВебВерсии', 'копияШрифтов'
 }

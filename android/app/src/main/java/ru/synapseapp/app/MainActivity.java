@@ -88,6 +88,17 @@ public class MainActivity extends AppCompatActivity {
                 .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
+        /* Отладка страницы — только в отладочной сборке.
+
+           Без неё проверять приложение можно лишь тыкая в экран вслепую по
+           координатам, и первая же такая проверка увела меня не туда. С ней
+           страница видна с компьютера как обычная вкладка. В релиз это не
+           попадает: включённая отладка в магазинном приложении — открытая
+           дверь к чужим данным на устройстве. */
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
+
         web = new WebView(this);
         web.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -200,6 +211,25 @@ public class MainActivity extends AppCompatActivity {
     /** Тёмные значки часов и батареи нужны на светлом фоне, и наоборот. */
     private static boolean светлыйЛи(int цвет) {
         return (0.299 * Color.red(цвет) + 0.587 * Color.green(цвет) + 0.114 * Color.blue(цвет)) > 150;
+    }
+
+    /* Сворачивание — повод дописать записи на диск.
+
+       WebView держит localStorage в своей базе и сбрасывает её на диск когда
+       сочтёт нужным. Проверено на эмуляторе: свернул и убил процесс — записи
+       целы, убил сразу без сворачивания — последняя пропала. Система почти
+       всегда даёт паузу перед тем как убить приложение, но «почти» здесь
+       лишнее: onPause у самой вьюхи как раз и говорит ей дописать. */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (web != null) web.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (web != null) web.onResume();
     }
 
     /** Поворот экрана не должен начинать всё заново. */
