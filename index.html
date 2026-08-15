@@ -79,10 +79,11 @@
           <div class="duo-stage">
             <div class="laptop" aria-label="Веб-версия Synapse в браузере">
               <div class="laptop-screen">
-                <!-- Настоящий снимок веб-версии ложится поверх свёрстанного
-                     макета и проявляется, когда загрузился. Пока файла нет —
-                     виден макет, и страница не показывает битую картинку.
-                     Файл: screens/web-1.png -->
+                <!-- Пустая рамка нужных пропорций, а внутренности слоями:
+                     снизу свёрстанный макет, сверху настоящий снимок. Снимок
+                     проявляется по загрузке — пока его нет, виден макет, и
+                     страница ни секунды не показывает пустой прямоугольник. -->
+                <div class="screen-inner">
                 <img class="webshot-img" src="./screens/web-1.png" alt="Веб-версия Synapse: экран задач"
                      loading="eager" onload="this.classList.add('ok')">
                 <div class="webshot">
@@ -111,6 +112,7 @@
                       <div class="ws-say"><span>Купить молоко завтра в 9 утра</span><i>AI</i></div>
                     </div>
                   </div>
+                </div>
                 </div>
               </div>
               <div class="laptop-base" aria-hidden="true"></div>
