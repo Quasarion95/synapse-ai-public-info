@@ -1369,8 +1369,6 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 /* ---- две таблицы платежей в одной вкладке ---- */
 
 .paysec{margin-bottom:26px}
-.paysec .finhead{margin-bottom:4px}
-.paysec-lead{margin:0 0 12px; font-size:12.5px}
 .paysec .fintiles{margin-bottom:12px}
 
 /* Таблица: название тянется, две колонки сумм фиксированной ширины и
@@ -1547,8 +1545,24 @@ input[type="date"]::-webkit-datetime-edit{
    а выбор из двух: и ширина у кнопок поэтому одна. */
 .paytabs{display:grid; grid-template-columns:1fr 1fr; gap:3px; padding:3px;
   margin:0 0 16px; background:var(--soft); border:1px solid var(--line); border-radius:14px}
+/* Надпись по центру своей кнопки: кнопки одной ширины, и текст, прижатый
+   влево, выдавал бы их за разные по весу. */
 .paytab{border:0; background:none; border-radius:11px; padding:10px 12px;
-  font-size:14px; color:var(--fg-2); cursor:pointer; white-space:nowrap}
+  font-size:14px; color:var(--fg-2); cursor:pointer; white-space:nowrap;
+  display:grid; place-items:center}
 .paytab:hover{color:var(--fg)}
 .paytab.on{background:var(--card); color:var(--fg); font-weight:600; box-shadow:var(--shadow)}
-.paysec .finhead{min-height:0}
+
+/* Плитка «Свободно» — кнопка: остаток правят там же, где на него смотрят. */
+button.fintile{text-align:left; cursor:pointer; border:0; font:inherit; color:inherit; width:100%}
+button.fintile:hover{background:var(--soft)}
+
+/* Пустой блок дня: одна тихая строка вместо подписанной пустоты на пол-экрана.
+   Сетка дня видна целиком — иначе между «Сегодня» и «Потом» зияет дыра, и
+   порядок читается как случайный. */
+.group.empty{margin-bottom:8px}
+.group-h.empty{display:flex; align-items:baseline; gap:10px; padding:6px 2px;
+  cursor:default; opacity:.45}
+.group-h.empty h3{font-size:13px; letter-spacing:.04em}
+.group-h.empty .n{font-size:11.5px}
+.group-h.empty.drop-on{opacity:1; background:var(--soft); border-radius:10px}

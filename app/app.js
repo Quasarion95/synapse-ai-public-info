@@ -193,6 +193,17 @@ function load(){
     // Счета, конверты, регулярные операции и свои категории появились позже
     // первой версии раздела.
     if (!parsed.finance.accounts) parsed.finance.accounts = [];
+    /* Счета были отдельным разделом и оказались перегрузом: ради одного
+       числа — сколько всего есть — приходилось заводить карточку, наличные и
+       накопительный. Раздел убран, а деньги с заведённых счетов сложены
+       обратно в остаток, чтобы «Свободно» не поехало. */
+    if (parsed.finance.accounts.length){
+      for (var ai = 0; ai < parsed.finance.accounts.length; ai++){
+        parsed.finance.opening = (parsed.finance.opening || 0) +
+          (parsed.finance.accounts[ai].opening || 0);
+      }
+      parsed.finance.accounts = [];
+    }
     if (!parsed.finance.budgets) parsed.finance.budgets = {};
     if (!parsed.finance.recurring) parsed.finance.recurring = [];
     if (!parsed.finance.cats) parsed.finance.cats = [];
@@ -210,14 +221,6 @@ function load(){
       if (!sb.ops) sb.ops = {};
     }
     if (typeof parsed.finance.opening !== 'number') parsed.finance.opening = 0;
-    /* Начальный остаток раньше был одним числом без формы, и «Свободно»
-       считалось от нуля. Теперь остаток лежит на счетах; у кого число было
-       записано, оно переезжает на счёт «Основной», чтобы не потеряться. */
-    if (parsed.finance.opening && !parsed.finance.accounts.length){
-      parsed.finance.accounts.push({ id: uid(), title: 'Основной', kind: 'card',
-        opening: parsed.finance.opening });
-      parsed.finance.opening = 0;
-    }
     if (typeof parsed.finTab !== 'string') parsed.finTab = 'sum';
     if (typeof parsed.finKind !== 'string') parsed.finKind = 'spend';
     if (typeof parsed.finMonth !== 'string') parsed.finMonth = '';
@@ -334,7 +337,7 @@ var FREE_LIMITS = {
   // это «обычные задачи» финансов: без ленты трат раздел нечем оценить, а
   // платят здесь за масштаб — за счета, конверты, копилки и долги, которые
   // растут вместе с тем, как человек ведёт деньги.
-  accounts: 2, debts: 2, jars: 2, subs: 2, budgets: 2, recurring: 2, cats: 2
+  debts: 2, jars: 2, subs: 2, budgets: 2, recurring: 2, cats: 2
 };
 
 /// Сколько записей уже заведено — по видам, которые считает freeLeft.
@@ -387,7 +390,6 @@ var LIMIT_WORDS = {
   lists: ['список', 'списка', 'списков'],
   notes: ['заметка', 'заметки', 'заметок'],
   goals: ['цель', 'цели', 'целей'],
-  accounts: ['счёт', 'счёта', 'счетов'],
   debts: ['долг', 'долга', 'долгов'],
   jars: ['копилка', 'копилки', 'копилок'],
   subs: ['подписка', 'подписки', 'подписок'],
@@ -1751,41 +1753,18 @@ function finParse(raw, kind){
 
 function finOpSign(op){ return FIN_KINDS[op.kind] ? FIN_KINDS[op.kind].sign : -1; }
 
-/* Остаток счёта: сколько на нём было плюс всё, что через него прошло.
+/* Сколько денег есть.
 
-   Заводится счёт с реальной суммой на карте, а не с нуля: без этого
-   «Свободно» показывало не деньги, а разницу «доходы минус траты с момента,
-   как начали записывать», и у любого, кто записал две траты до зарплаты, там
-   стоял минус, который нечем объяснить. */
-function finAccountBalance(id){
-  var account = finAccount(id);
-  if (!account) return 0;
-  var kop = account.opening || 0;
-  for (var i = 0; i < S.finance.ops.length; i++){
-    var op = S.finance.ops[i];
-    if ((op.accountId || '') !== id) continue;
-    kop += op.amount * finOpSign(op);
-  }
-  return kop;
-}
+   Раздел счетов оказался перегрузом ради одного числа. Осталось само число —
+   «сколько у вас сейчас», вписанное однажды; дальше к нему прибавляются
+   доходы и вычитаются траты.
 
-function finAccount(id){
-  var box = S.finance.accounts || [];
-  for (var i = 0; i < box.length; i++) if (box[i].id === id) return box[i];
-  return null;
-}
-
-/// Счёт по умолчанию — первый заведённый. Операции без счёта попадают на него.
-function finMainAccount(){
-  var box = S.finance.accounts || [];
-  return box.length ? box[0] : null;
-}
-
+   Без него «Свободно» показывало бы не деньги, а разницу доходов и трат с
+   первой записи, и у любого, кто записал две траты до зарплаты, там стоял бы
+   минус, которому нечем объясниться. */
 function finBalance(){
-  var kop = 0, i;
-  var box = S.finance.accounts || [];
-  for (i = 0; i < box.length; i++) kop += box[i].opening || 0;
-  for (i = 0; i < S.finance.ops.length; i++){
+  var kop = S.finance.opening || 0;
+  for (var i = 0; i < S.finance.ops.length; i++){
     kop += S.finance.ops[i].amount * finOpSign(S.finance.ops[i]);
   }
   return kop;
@@ -2107,7 +2086,6 @@ var FIN_TABS = [
   { id: 'sum',      title: 'Сводка' },
   { id: 'ops',      title: 'Операции' },
   { id: 'budgets',  title: 'Конверты' },
-  { id: 'accounts', title: 'Счета' },
   { id: 'debts',    title: 'Долги' },
   { id: 'jars',     title: 'Копилки' },
   { id: 'subs',     title: 'Подписки и платежи', short: 'Платежи' },
@@ -2125,7 +2103,6 @@ function vFinance(){
 
   if (tab === 'ops') return html + vFinOps();
   if (tab === 'budgets') return html + vFinBudgets();
-  if (tab === 'accounts') return html + vFinAccounts();
   if (tab === 'debts') return html + vFinDebts();
   if (tab === 'jars') return html + vFinJars();
   if (tab === 'subs') return html + vFinSubs();
@@ -2159,17 +2136,19 @@ function vFinSummary(){
 
   // Пока не заведён ни один счёт, «Свободно» считается от нуля и почти всегда
   // уходит в минус. Говорим об этом прямо и сразу даём завести.
-  if (!(S.finance.accounts || []).length){
+  if (!S.finance.opening){
     html += '<section class="card finhint">' +
       '<h3>Сначала — сколько у вас есть</h3>' +
-      '<p class="sub">Заведите счёт и впишите остаток на карте или в кошельке. ' +
+      '<p class="sub">Впишите, сколько сейчас на карте и в кошельке, — одним числом. ' +
         'Без него «Свободно» показывает не деньги, а разницу доходов и трат с первой записи.</p>' +
-      '<div class="acts"><button class="btn sm" data-act="fin-acc-new">Завести счёт</button></div>' +
+      '<div class="acts"><button class="btn sm" data-act="fin-opening">Вписать</button></div>' +
     '</section>';
   }
 
   html += '<div class="fintiles">' +
-    finTile('Свободно', finMoney(free), free < 0 ? 'bad' : '') +
+    // Плитка открывает правку остатка: число меняют там же, где на него смотрят.
+    '<button class="fintile' + (free < 0 ? ' bad' : '') + '" data-act="fin-opening">' +
+      '<span>Свободно</span><b>' + finMoney(free) + '</b></button>' +
     finTile('Отложено', finMoney(finSaved()), '') +
     finTile('Я должен', finMoney(debts.owe), debts.owe ? 'warn' : '') +
     finTile('Мне должны', finMoney(debts.owed), '') +
@@ -2297,10 +2276,7 @@ function vFinOps(){
     '<div class="finwhen">' +
       '<label for="findate">Дата</label>' +
       '<input class="inp" type="date" id="findate" value="' + esc(S.finDate || isoOf(todayDate())) + '">' +
-      (finMainAccount() ? '<label for="finacc">Счёт</label>' +
-        '<select class="inp" id="finacc">' + (S.finance.accounts || []).map(function(acc){
-          return '<option value="' + acc.id + '">' + esc(acc.title) + '</option>';
-        }).join('') + '</select>' : '') +
+
     '</div>' +
     '<p class="hint" style="margin:8px 0 0">Сумму можно писать прямо в строке — «такси 1.5к», «продукты 2 400». ' +
       'Категория подставится сама. Кнопка AI рядом понимает несколько трат за раз и вчерашние даты.</p>' +
@@ -2345,32 +2321,6 @@ function vFinOps(){
     '</div>';
   }).join('');
 
-  return html;
-}
-
-function vFinAccounts(){
-  var html = '<div class="acts center" style="margin:0 0 14px">' +
-    '<button class="btn" data-act="fin-acc-new">+ Новый счёт</button>' + finLeftHint('accounts') + '</div>';
-
-  if (!(S.finance.accounts || []).length){
-    return html + blank(NAV_ICONS.finance, 'Счетов пока нет',
-      'Счёт — это где лежат деньги: карта, наличные, накопительный. ' +
-      'Впишите остаток один раз, дальше он считается сам по операциям.');
-  }
-
-  html += '<div class="sublist">' + S.finance.accounts.map(function(acc){
-    var now = finAccountBalance(acc.id);
-    return '<div class="subrow">' +
-      '<span class="sr-t">' + esc(acc.title) +
-        '<span class="sr-n">' + esc(FIN_ACC_KINDS[acc.kind] || 'Счёт') + '</span></span>' +
-      '<span class="sr-v' + (now < 0 ? ' bad' : '') + '">' + finMoney(now) + '</span>' +
-      '<button class="fr-x" data-act="fin-acc-edit" data-acc="' + acc.id + '" title="Править" aria-label="Править">' + ICON.edit + '</button>' +
-      '<button class="fr-x" data-act="fin-acc-kill" data-acc="' + acc.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
-    '</div>';
-  }).join('') + '</div>';
-
-  html += '<p class="hint" style="margin-top:12px">Остаток счёта — это сумма, которую вы вписали, ' +
-    'плюс всё, что прошло через него в операциях.</p>';
   return html;
 }
 
@@ -2502,8 +2452,6 @@ function finLeftHint(kind){
   if (left < 0) return '';
   return '<span class="freeleft">' + (left ? 'ещё ' + left + ' бесплатно' : 'бесплатные кончились') + '</span>';
 }
-
-var FIN_ACC_KINDS = { card: 'Карта', cash: 'Наличные', save: 'Накопительный', other: 'Счёт' };
 
 function vFinDebts(){
   var sums = finDebtSums();
@@ -2648,15 +2596,15 @@ function finPayTable(rows, key, title, lead){
     perYear += finPerYear(sub);
   });
 
+  // Заголовка и пояснения тут нет: вкладка выше и есть заголовок, а число
+  // штук и суммы стоят в плитках. Повторять то же словами — отодвигать
+  // таблицу вниз ради подписи, которую уже прочитали.
   var html = '<section class="paysec">' +
-    '<div class="finhead"><h3 class="visually-hidden">' + esc(title) + '</h3>' +
-      '<span class="sub">' + rows.filter(function(x){ return !x.off; }).length + ' ' +
-        plural(rows.filter(function(x){ return !x.off; }).length, 'штука', 'штуки', 'штук') + '</span></div>' +
-    '<p class="sub paysec-lead">' + esc(lead) + '</p>' +
 
     '<div class="fintiles">' +
       finTile('В месяц', finMoney(perMonth), '') +
       finTile('В год', finMoney(perYear), '') +
+      finTile('Штук', String(rows.filter(function(x){ return !x.off; }).length), '') +
     '</div>' +
 
     '<div class="paytable">' +
@@ -2733,7 +2681,7 @@ function finApplyBatch(actions){
           cat: finCat(op.category || op.cat || 'other').id,
           date: /^\d{4}-\d{2}-\d{2}$/.test(op.date || '') ? op.date : isoOf(todayDate()),
           at: Date.now() + added,
-          accountId: finMainAccount() ? finMainAccount().id : ''
+          accountId: ''
         });
         added++;
       });
@@ -3162,34 +3110,14 @@ function finCatSelect(id, chosen){
   }).join('') + '</select>';
 }
 
-function finAccSelect(id, chosen){
-  var box = S.finance.accounts || [];
-  if (!box.length) return '';
-  return '<div class="field"><label for="' + id + '">Счёт</label>' +
-    '<select class="inp" id="' + id + '">' +
-      '<option value="">Без счёта</option>' +
-      box.map(function(acc){
-        return '<option value="' + acc.id + '"' + (acc.id === chosen ? ' selected' : '') + '>' +
-          esc(acc.title) + '</option>';
-      }).join('') + '</select></div>';
-}
-
-function modalAccount(acc){
-  var fresh = !acc;
-  return '<h3>' + (fresh ? 'Новый счёт' : 'Счёт') + '</h3>' +
-    '<p class="s">Впишите, сколько сейчас на нём лежит. Дальше остаток считается сам по операциям.</p>' +
-    '<div class="field"><label for="m-title">Название</label>' +
-      '<input class="inp" id="m-title" value="' + esc(fresh ? '' : acc.title) + '" placeholder="Карта"></div>' +
-    '<div class="field"><label for="m-kind">Что это</label>' +
-      '<select class="inp" id="m-kind">' + Object.keys(FIN_ACC_KINDS).map(function(k){
-        return '<option value="' + k + '"' + (!fresh && acc.kind === k ? ' selected' : '') + '>' +
-          esc(FIN_ACC_KINDS[k]) + '</option>';
-      }).join('') + '</select></div>' +
-    '<div class="field"><label for="m-amount">Сколько сейчас</label>' +
-      '<input class="inp" id="m-amount" value="' + (fresh ? '' : Math.round((acc.opening || 0) / 100)) +
-        '" placeholder="35 000"></div>' +
-    '<button class="btn full" data-act="fin-acc-save"' + (fresh ? '' : ' data-acc="' + acc.id + '"') + '>' +
-      (fresh ? 'Завести' : 'Сохранить') + '</button>' +
+function modalOpening(){
+  return '<h3>Сколько у вас сейчас</h3>' +
+    '<p class="s">Одним числом: карта, наличные и всё остальное вместе. ' +
+      'Дальше Synapse считает сам — прибавляет доходы и вычитает траты.</p>' +
+    '<div class="field"><label for="m-amount">Всего сейчас</label>' +
+      '<input class="inp" id="m-amount" inputmode="numeric" value="' +
+        (S.finance.opening ? Math.round(S.finance.opening / 100) : '') + '" placeholder="35 000"></div>' +
+    '<button class="btn full" data-act="fin-opening-save">Записать</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
@@ -3219,7 +3147,6 @@ function modalOp(op){
     '<div class="field"><label for="m-cat">Категория</label>' + finCatSelect('m-cat', op.cat) + '</div>' +
     '<div class="field"><label for="m-due">Дата</label>' +
       '<input class="inp" id="m-due" type="date" value="' + esc(op.date) + '"></div>' +
-    finAccSelect('m-acc', op.accountId || '') +
     '<button class="btn full" data-act="fin-op-save" data-op="' + op.id + '">Сохранить</button>' +
     '<div class="acts">' +
       '<button class="btn sm soft" data-act="fin-op-kill" data-op="' + op.id + '">Удалить</button>' +
@@ -3252,7 +3179,6 @@ function modalRecurring(rule){
     '<div class="field"><label for="m-due">С какого числа</label>' +
       '<input class="inp" id="m-due" type="date" value="' +
         esc(fresh ? isoOf(todayDate()) : rule.since) + '"></div>' +
-    finAccSelect('m-acc', fresh ? '' : rule.accountId) +
     '<button class="btn full" data-act="fin-rec-save"' + (fresh ? '' : ' data-rec="' + rule.id + '"') + '>' +
       (fresh ? 'Записать' : 'Сохранить') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
@@ -3487,19 +3413,31 @@ function vTasks(){
       'Напиши первую в строке внизу. День и время можно сказать прямо там: «купить молоко завтра в 9 утра».');
   }
 
-  /* Пустой блок дня не рисуется вовсе — ни заголовка, ни подсказки «можно
-     перетащить сюда». Пять подписанных пустот подряд читались как список дел,
-     которых нет, и отодвигали настоящие задачи вниз экрана.
+  /* Пустой блок дня виден, но тихо.
 
-     Взамен потерянного: пока задачу тащат, пустые блоки появляются полосой под
-     приём — их добавляет openEmptyDropZones() прямо в дерево, не перерисовывая
-     экран, потому что перерисовка вырвала бы карточку из-под пальца. */
+     Сначала их не рисовали вовсе, и это оказалось хуже: человек видит
+     «Сегодня» и «Потом», между ними ничего, и решает, что у сервиса своя
+     непонятная сортировка. Порядок дней — это и есть устройство экрана, его
+     надо показывать целиком.
+
+     Но и подписанная пустота на полкарточки не годится: пять таких подряд
+     отодвигают настоящие задачи вниз. Поэтому у пустого блока остаётся одна
+     строка заголовка со словом «пусто» — сетка дня видна, места почти не
+     занимает, и перетащить туда задачу по-прежнему можно. */
   for (var i = 0; i < BUCKETS.length; i++){
     var b = BUCKETS[i];
     var mine = liveTasks().filter(function(t){ return t.bucket === b.id; });
     var closed = !!S.closed[b.id];
 
-    if (!mine.length) continue;
+    if (!mine.length){
+      html += '<section class="group empty" data-bucket="' + b.id + '">' +
+        '<div class="group-h empty" data-drop="' + b.id + '">' +
+          '<h3>' + esc(b.title) + '</h3>' +
+          '<span class="n">пусто</span>' +
+        '</div>' +
+      '</section>';
+      continue;
+    }
 
     html += '<section class="group' + (closed ? ' closed' : '') + '" data-bucket="' + b.id + '">' +
       '<button class="group-h' + (closed ? ' closed' : '') + '" data-act="fold" data-bucket="' + b.id + '"' +
@@ -5918,9 +5856,6 @@ function finContext(){
   if (S.finance.subs.length){
     lines.push('ПОДПИСКИ: ' + S.finance.subs.map(function(x){ return x.title; }).join(', '));
   }
-  if ((S.finance.accounts || []).length){
-    lines.push('СЧЕТА: ' + S.finance.accounts.map(function(a){ return a.title; }).join(', '));
-  }
 
   var month = finMonthTotals(finMonthKey());
   lines.push('ЭТОТ МЕСЯЦ: потрачено ' + Math.round(month.spent / 100) +
@@ -7931,31 +7866,15 @@ var ACTS = {
     commit();
   },
 
-  /* --- счета --- */
-  'fin-acc-new': function(){
-    if (!canAdd('accounts')) return openModal(modalPaywall('accounts'));
-    openModal(modalAccount(null));
-  },
-  'fin-acc-edit': function(d){ openModal(modalAccount(finAccount(d.acc))); },
-  'fin-acc-save': function(d){
-    var title = mval('m-title');
-    var parsed = finParse(mval('m-amount') || '0', 'spend');
-    if (!title) return fieldError('m-title', 'Как называется счёт?');
-    var kind = $('m-kind') ? $('m-kind').value : 'card';
-    var opening = parsed ? parsed.amount : 0;
-    // Остаток может быть и отрицательным — кредитка живёт в минусе.
-    if (/^\s*[-−]/.test(mval('m-amount'))) opening = -opening;
-    var acc = finAccount(d.acc);
-    if (acc){ acc.title = title; acc.kind = kind; acc.opening = opening; }
-    else S.finance.accounts.push({ id: uid(), title: title, kind: kind, opening: opening });
+  'fin-opening': function(){ openModal(modalOpening()); },
+  'fin-opening-save': function(){
+    var raw = mval('m-amount');
+    var parsed = finParse(raw, 'spend');
+    if (!parsed) return fieldError('m-amount', 'Сколько у вас сейчас? Одним числом.');
+    // Минус тоже бывает: на кредитке остаток отрицательный.
+    S.finance.opening = /^\s*[-−]/.test(raw) ? -parsed.amount : parsed.amount;
     closeModal();
-    commit(acc ? 'Счёт изменён' : 'Счёт заведён');
-  },
-  'fin-acc-kill': function(d){
-    S.finance.accounts = S.finance.accounts.filter(function(a){ return a.id !== d.acc; });
-    // Операции остаются: они факт, а счёт — только место, где деньги лежали.
-    S.finance.ops.forEach(function(op){ if (op.accountId === d.acc) op.accountId = ''; });
-    commit('Счёт удалён, операции остались');
+    commit('Записано');
   },
 
   /* --- конверты --- */
@@ -8012,12 +7931,11 @@ var ACTS = {
         : 'Напишите, что и на сколько: «кофе 350»');
     }
     var when = $('findate') ? $('findate').value : '';
-    var acc = $('finacc') ? $('finacc').value : '';
     S.finance.ops.push({
       id: uid(), kind: S.finKind || 'spend', title: parsed.title,
       amount: parsed.amount, cat: parsed.cat,
       date: when || isoOf(todayDate()), at: Date.now(),
-      accountId: acc || (finMainAccount() ? finMainAccount().id : '')
+      accountId: ''
     });
     field.value = '';
     // Дата держится между записями: пачку за прошлую неделю иначе пришлось
@@ -8064,7 +7982,6 @@ var ACTS = {
     op.cat = $('m-cat') ? $('m-cat').value : op.cat;
     op.kind = $('m-opkind') ? $('m-opkind').value : op.kind;
     op.date = mval('m-due') || op.date;
-    if ($('m-acc')) op.accountId = $('m-acc').value;
     closeModal();
     commit('Запись изменена');
   },
@@ -8265,7 +8182,7 @@ var ACTS = {
       cat: $('m-cat') ? $('m-cat').value : 'other',
       every: $('m-every') ? $('m-every').value : 'month',
       since: mval('m-due') || isoOf(todayDate()),
-      accountId: $('m-acc') ? $('m-acc').value : ''
+      accountId: ''
     };
     if (rule){ for (var k in patch) if (patch.hasOwnProperty(k)) rule[k] = patch[k]; }
     else {
@@ -8318,7 +8235,7 @@ var ACTS = {
       id: uid(), kind: 'spend', title: sub.title, amount: parsed.amount,
       cat: finCat(sub.cat || 'subs').id,
       date: isoOf(todayDate()), at: Date.now(),
-      accountId: finMainAccount() ? finMainAccount().id : '',
+      accountId: '',
       fromSub: sub.id
     };
     S.finance.ops.push(op);
