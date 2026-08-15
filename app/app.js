@@ -7230,9 +7230,43 @@ function importBackup(text){
 
 /* ============ МОДАЛКА ============ */
 
+/* Страница под окном стоит на месте.
+
+   Прокрутка «протекала» сквозь затемнение: докрутив список до низа внутри
+   окна, палец продолжал двигать страницу за ним, и после закрытия человек
+   оказывался не там, где был. На айфоне это же выглядит как рывок экрана.
+
+   Фиксируем страницу на её текущем сдвиге и возвращаем всё обратно при
+   закрытии — position:fixed вместо overflow:hidden, потому что второй
+   способ на iOS Safari не держит. */
+var scrollLock = -1;
+
+function lockScroll(){
+  if (scrollLock >= 0) return;
+  scrollLock = window.pageYOffset || document.documentElement.scrollTop || 0;
+  document.body.style.position = 'fixed';
+  document.body.style.top = -scrollLock + 'px';
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+}
+
+function unlockScroll(){
+  if (scrollLock < 0) return;
+  var back = scrollLock;
+  scrollLock = -1;
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo(0, back);
+}
+
 function openModal(html, toInput){
   $('modalIn').innerHTML = html;
   $('modal').classList.add('on');
+  lockScroll();
 
   // Окно ассистента перерисовывается на каждую реплику, и курсор должен
   // остаться в строке ввода: иначе после ответа нельзя дописать следующее
@@ -7257,6 +7291,7 @@ function openModal(html, toInput){
 function closeModal(){
   $('modal').classList.remove('on');
   $('modalIn').innerHTML = '';
+  unlockScroll();
 }
 
 var HORIZONS = ['Месяц', 'Квартал', 'Полгода', 'Год', 'Три года'];
