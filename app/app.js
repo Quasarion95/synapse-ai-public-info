@@ -5362,8 +5362,8 @@ function fontSizeOf(id){
    Объяснения короткие и по делу: не «выберите тему», а что именно поменяется.
    Шрифт и размер собраны в одну карточку «Текст»: их выбирают вместе и смотрят
    на один и тот же результат. */
-function settingsBlock(title, note, body){
-  return '<section class="card setblock">' +
+function settingsBlock(title, note, body, wide){
+  return '<section class="card setblock' + (wide ? ' wide' : '') + '">' +
     '<div class="setblock-h">' +
       '<h3>' + esc(title) + '</h3>' +
       (note ? '<p class="sub">' + esc(note) + '</p>' : '') +
@@ -5386,24 +5386,37 @@ function vSettingsView(){
      Внизу его не было видно: меняешь палитру наверху — а результат за краем
      экрана, и приходится листать туда-обратно после каждого нажатия. Теперь
      карточка прямо под шапкой: любое изменение видно, не сходя с места. */
-  html += '<p class="lbl">Как это выглядит</p>' +
+  html += '<div class="preview-dock">' +
+    '<p class="lbl">Как это выглядит</p>' +
     '<section class="card preview">' +
       '<div class="preview-task">' +
         '<span class="box on" data-shape="' + (S.box || 'square') + '">✓</span>' +
         '<div>' +
           '<h3>Собрать материалы</h3>' +
-          '<p class="sub">Так выглядит задача при выбранном шрифте, размере и отметке.</p>' +
-          '<div class="chips" style="margin-top:10px">' +
+          '<div class="chips" style="margin-top:8px">' +
             '<span class="chip">Сегодня</span><span class="chip">09:00</span>' +
             '<span class="chip goal">Выучить английский</span></div>' +
         '</div>' +
       '</div>' +
-    '</section>';
+    '</section>' +
+  '</div>';
+
+  html += '<div class="setgrid">';
 
 
   html += settingsBlock('Тема', isDarkNow() ? 'Сейчас тёмная.' : 'Сейчас светлая.',
     settingsRow('', [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
       return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
+    }).join('')));
+
+  // Начертание выбирают глазами, поэтому каждая кнопка набрана своим шрифтом.
+  html += settingsBlock('Текст', 'Начертание и размер — во всём сервисе сразу.',
+    settingsRow('Начертание', FONTS.map(function(f){
+      return '<button class="radio" data-act="set-font" data-font="' + f.id + '" aria-pressed="' + (S.font === f.id) + '" ' +
+        'style="font-family:' + f.css + '">' + f.title + '</button>';
+    }).join('')) +
+    settingsRow('Размер', FONT_SIZES.map(function(z){
+      return '<button class="radio" data-act="set-fontsize" data-size="' + z.id + '" aria-pressed="' + (S.fontSize === z.id) + '">' + z.title + '</button>';
     }).join('')));
 
   // Те же десять палитр, что в приложении, — из AppTheme.swift. Кружок — фон
@@ -5418,17 +5431,7 @@ function vSettingsView(){
       return '<button class="radio pal" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
         '<span class="sw" style="background:' + rgb(bg) + '"><i style="background:' + rgb(ac) + '"></i></span>' +
         p.title + '</button>';
-    }).join('')));
-
-  // Начертание выбирают глазами, поэтому каждая кнопка набрана своим шрифтом.
-  html += settingsBlock('Текст', 'Начертание и размер — во всём сервисе сразу.',
-    settingsRow('Начертание', FONTS.map(function(f){
-      return '<button class="radio" data-act="set-font" data-font="' + f.id + '" aria-pressed="' + (S.font === f.id) + '" ' +
-        'style="font-family:' + f.css + '">' + f.title + '</button>';
-    }).join('')) +
-    settingsRow('Размер', FONT_SIZES.map(function(z){
-      return '<button class="radio" data-act="set-fontsize" data-size="' + z.id + '" aria-pressed="' + (S.fontSize === z.id) + '">' + z.title + '</button>';
-    }).join('')));
+    }).join('')), true);
 
   // Отметку показываем прямо на кнопке выбора — заполненной, чтобы было
   // видно, как она будет выглядеть у закрытой задачи.
@@ -5436,7 +5439,9 @@ function vSettingsView(){
     settingsRow('', BOXES.map(function(b){
       return '<button class="radio boxpick" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '">' +
         '<span class="box on" data-shape="' + b.id + '">✓</span>' + b.title + '</button>';
-    }).join('')));
+    }).join('')), true);
+
+  html += '</div>';
 
   return html;
 }
