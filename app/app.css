@@ -1430,16 +1430,9 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   .debtrow:hover .fr-x, .debtrow:focus-within .fr-x{opacity:1}
 }
 
-/* Значок сервиса в шаблоне: узнают по картинке быстрее, чем читают. */
-.tplchip{display:inline-flex; align-items:center; gap:6px}
-.tplic{font-size:14px; line-height:1}
 
 /* «Или своё» под шаблонами: два поля в строку и кнопка — всё, что нужно,
    чтобы завести платёж, которого нет в списке. */
-.ownadd{border-top:1px solid var(--line); padding-top:14px; margin-top:4px}
-.ownadd-t{margin:0 0 8px; font-size:10.5px; text-transform:uppercase;
-  letter-spacing:.06em; color:var(--fg-3); font-weight:600}
-.inp-sum{max-width:96px; flex:none}
 
 /* Плитки на телефоне: три штуки в ряд вместо двух и пустой клетки. */
 @media (max-width:560px){
@@ -1448,3 +1441,37 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   .fintile b{font-size:16px}
   .fintile span{font-size:10px}
 }
+
+/* ---- поля ввода на телефоне ---- */
+
+/* Safari на айфоне сам приближает страницу, когда фокус встаёт в поле мельче
+   16 пикселей, — и обратно не отдаляет. Снаружи это выглядит так, будто
+   экран прыгнул, а окно уехало за край: именно это и происходило при каждом
+   открытии окна с полем.
+
+   Лечится единственным способом — шрифт в полях не мельче 16. Запрещать
+   масштаб через maximum-scale нельзя: тогда человек не сможет приблизить
+   страницу сам, когда ему нужно. */
+@media (max-width:759px){
+  .inp, input, select, textarea,
+  .rowadd .inp, .finwhen .inp, .say input, .inp-sum{
+    font-size:16px;
+  }
+  .finwhen .inp{padding:8px 11px}
+  .rowadd .inp{padding:9px 12px}
+}
+
+/* Знак сервиса: фирменный цвет и буква. Не эмодзи и не чужой логотип —
+   узнаётся так же быстро, а принадлежит нам. */
+.tplmark{width:20px; height:20px; border-radius:6px; flex:none;
+  display:inline-grid; place-items:center; color:#fff;
+  font-size:9px; font-weight:800; letter-spacing:-.02em; line-height:1}
+
+/* Два поля в ряд: сумма и период — короткие, и разводить их на две строки
+   значит растить окно вдвое ради воздуха. */
+.pairfields{display:flex; gap:10px}
+.pairfields .field{flex:1; min-width:0}
+
+.ownadd{border-top:1px solid var(--line); padding-top:14px; margin-top:6px}
+
+.tplchip{display:inline-flex; align-items:center; gap:7px}

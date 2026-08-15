@@ -1954,46 +1954,46 @@ var FIN_SUB_TEMPLATES = [
      в платёжке они всё равно приходят вместе, а шесть строк с суммой «своя
      каждый месяц» — это шесть напоминаний вместо одного. Кому нужно врозь,
      заведёт своё. */
-  { g: 'home', duty: true, ic: '🏠', title: 'Квартплата',    amount: 0, every: 'month', cat: 'home', vary: true },
-  { g: 'home', duty: true, ic: '🔑', title: 'Аренда жилья',  amount: 0, every: 'month', cat: 'home' },
-  { g: 'home', duty: true, ic: '📶', title: 'Интернет дома', amount: 70000, every: 'month', cat: 'home' },
-  { g: 'home', duty: true, ic: '🛡', title: 'Охрана',        amount: 0, every: 'month', cat: 'home' },
-  { g: 'home', duty: true, ic: '🅿️', title: 'Парковка',      amount: 0, every: 'month', cat: 'transport' },
+  { g: 'home', duty: true, title: 'Квартплата',    amount: 0, every: 'month', cat: 'home', vary: true },
+  { g: 'home', duty: true, title: 'Аренда жилья',  amount: 0, every: 'month', cat: 'home' },
+  { g: 'home', duty: true, title: 'Интернет дома', amount: 70000, every: 'month', cat: 'home' },
+  { g: 'home', duty: true, title: 'Охрана',        amount: 0, every: 'month', cat: 'home' },
+  { g: 'home', duty: true, title: 'Парковка',      amount: 0, every: 'month', cat: 'transport' },
 
-  { g: 'loans', duty: true, ic: '🏦', title: 'Ипотека',      amount: 0, every: 'month', cat: 'loans' },
-  { g: 'loans', duty: true, ic: '💳', title: 'Кредит',       amount: 0, every: 'month', cat: 'loans' },
-  { g: 'loans', duty: true, ic: '🚗', title: 'Автокредит',   amount: 0, every: 'month', cat: 'loans' },
-  { g: 'loans', duty: true, ic: '🧾', title: 'Рассрочка',    amount: 0, every: 'month', cat: 'loans' },
-  { g: 'loans', duty: true, ic: '💳', title: 'Кредитная карта', amount: 0, every: 'month', cat: 'loans', vary: true },
-  { g: 'loans', duty: true, ic: '👨‍👧', title: 'Алименты',     amount: 0, every: 'month', cat: 'loans' },
-  { g: 'loans', duty: true, ic: '🚙', title: 'ОСАГО',        amount: 0, every: 'year',  cat: 'loans' },
-  { g: 'loans', duty: true, ic: '🚙', title: 'КАСКО',        amount: 0, every: 'year',  cat: 'loans' },
-  { g: 'loans', duty: true, ic: '🏛', title: 'Налог на имущество', amount: 0, every: 'year', cat: 'loans' },
-  { g: 'loans', duty: true, ic: '🏛', title: 'Транспортный налог', amount: 0, every: 'year', cat: 'loans' },
+  { g: 'loans', duty: true, title: 'Ипотека',      amount: 0, every: 'month', cat: 'loans' },
+  { g: 'loans', duty: true, title: 'Кредит',       amount: 0, every: 'month', cat: 'loans' },
+  { g: 'loans', duty: true, title: 'Автокредит',   amount: 0, every: 'month', cat: 'loans' },
+  { g: 'loans', duty: true, title: 'Рассрочка',    amount: 0, every: 'month', cat: 'loans' },
+  { g: 'loans', duty: true, title: 'Кредитная карта', amount: 0, every: 'month', cat: 'loans', vary: true },
+  { g: 'loans', duty: true, title: 'Алименты',     amount: 0, every: 'month', cat: 'loans' },
+  { g: 'loans', duty: true, title: 'ОСАГО',        amount: 0, every: 'year',  cat: 'loans' },
+  { g: 'loans', duty: true, title: 'КАСКО',        amount: 0, every: 'year',  cat: 'loans' },
+  { g: 'loans', duty: true, title: 'Налог на имущество', amount: 0, every: 'year', cat: 'loans' },
+  { g: 'loans', duty: true, title: 'Транспортный налог', amount: 0, every: 'year', cat: 'loans' },
 
-  { g: 'kids', duty: true, ic: '🧸', title: 'Детский сад',   amount: 0, every: 'month', cat: 'learn' },
-  { g: 'kids', duty: true, ic: '🎒', title: 'Школа',         amount: 0, every: 'month', cat: 'learn' },
-  { g: 'kids', duty: true, ic: '🕔', title: 'Продлёнка',     amount: 0, every: 'month', cat: 'learn' },
-  { g: 'kids', duty: true, ic: '🎨', title: 'Кружок',        amount: 0, every: 'month', cat: 'learn' },
-  { g: 'kids', duty: true, ic: '📚', title: 'Репетитор',     amount: 0, every: 'month', cat: 'learn' },
-  { g: 'kids', duty: true, ic: '🍼', title: 'Няня',          amount: 0, every: 'month', cat: 'learn' },
+  { g: 'kids', duty: true, title: 'Детский сад',   amount: 0, every: 'month', cat: 'learn' },
+  { g: 'kids', duty: true, title: 'Школа',         amount: 0, every: 'month', cat: 'learn' },
+  { g: 'kids', duty: true, title: 'Продлёнка',     amount: 0, every: 'month', cat: 'learn' },
+  { g: 'kids', duty: true, title: 'Кружок',        amount: 0, every: 'month', cat: 'learn' },
+  { g: 'kids', duty: true, title: 'Репетитор',     amount: 0, every: 'month', cat: 'learn' },
+  { g: 'kids', duty: true, title: 'Няня',          amount: 0, every: 'month', cat: 'learn' },
 
-  { g: 'subs', ic: '📱', title: 'Мобильная связь', amount: 60000,  every: 'month', cat: 'subs' },
-  { g: 'subs', ic: '🟡', title: 'Яндекс Плюс',     amount: 39900,  every: 'month' },
-  { g: 'subs', ic: '🔵', title: 'VK Музыка',       amount: 26900,  every: 'month' },
-  { g: 'subs', ic: '✈️', title: 'Telegram Premium',amount: 34900,  every: 'month' },
-  { g: 'subs', ic: '🟢', title: 'СберПрайм',       amount: 39900,  every: 'month' },
-  { g: 'subs', ic: '🔴', title: 'МТС Premium',     amount: 34900,  every: 'month' },
-  { g: 'subs', ic: '🎬', title: 'Иви',             amount: 39900,  every: 'month' },
-  { g: 'subs', ic: '🎬', title: 'Okko',            amount: 39900,  every: 'month' },
-  { g: 'subs', ic: '📺', title: 'Wink',            amount: 29900,  every: 'month' },
-  { g: 'subs', ic: '📖', title: 'Литрес',          amount: 49900,  every: 'month' },
-  { g: 'subs', ic: '☁️', title: 'Яндекс 360',      amount: 19900,  every: 'month' },
-  { g: 'subs', ic: '☁️', title: 'iCloud+',         amount: 5900,   every: 'month' },
-  { g: 'subs', ic: '🤖', title: 'ChatGPT Plus',    amount: 200000, every: 'month' },
-  { g: 'subs', ic: '🏋️', title: 'Абонемент в зал', amount: 250000, every: 'month', cat: 'health' },
-  { g: 'subs', ic: '🌐', title: 'Домен',           amount: 90000,  every: 'year' },
-  { g: 'subs', ic: '🖥', title: 'Хостинг',         amount: 600000, every: 'year' }
+  { g: 'subs', mark: ['#5B6770','СВ'], title: 'Мобильная связь', amount: 60000,  every: 'month', cat: 'subs' },
+  { g: 'subs', mark: ['#FC3F1D','Я'], title: 'Яндекс Плюс',     amount: 39900,  every: 'month' },
+  { g: 'subs', mark: ['#0077FF','VK'], title: 'VK Музыка',       amount: 26900,  every: 'month' },
+  { g: 'subs', mark: ['#2AABEE','T'], title: 'Telegram Premium',amount: 34900,  every: 'month' },
+  { g: 'subs', mark: ['#21A038','С'], title: 'СберПрайм',       amount: 39900,  every: 'month' },
+  { g: 'subs', mark: ['#E30611','М'], title: 'МТС Premium',     amount: 34900,  every: 'month' },
+  { g: 'subs', mark: ['#FF0055','И'], title: 'Иви',             amount: 39900,  every: 'month' },
+  { g: 'subs', mark: ['#7B2BFF','O'], title: 'Okko',            amount: 39900,  every: 'month' },
+  { g: 'subs', mark: ['#A100FF','W'], title: 'Wink',            amount: 29900,  every: 'month' },
+  { g: 'subs', mark: ['#FF6D00','Л'], title: 'Литрес',          amount: 49900,  every: 'month' },
+  { g: 'subs', mark: ['#FC3F1D','360'], title: 'Яндекс 360',      amount: 19900,  every: 'month' },
+  { g: 'subs', mark: ['#3693F3','iC'], title: 'iCloud+',         amount: 5900,   every: 'month' },
+  { g: 'subs', mark: ['#10A37F','AI'], title: 'ChatGPT Plus',    amount: 200000, every: 'month' },
+  { g: 'subs', mark: ['#3E6B4F','ЗАЛ'], title: 'Абонемент в зал', amount: 250000, every: 'month', cat: 'health' },
+  { g: 'subs', mark: ['#4A6FA5','www'], title: 'Домен',           amount: 90000,  every: 'year' },
+  { g: 'subs', mark: ['#3B4A5A','srv'], title: 'Хостинг',         amount: 600000, every: 'year' }
 ];
 
 var FIN_EVERY = {
@@ -2946,6 +2946,21 @@ function finSyncJarStages(){
   }
 }
 
+/* Знак сервиса.
+
+   Настоящие логотипы сюда не поставить: чужие товарные знаки нельзя носить
+   в своей сборке, а тянуть их с сайтов сервисов значит на каждом открытии
+   окна ходить в сеть за картинкой — мимо офлайна и мимо приватности.
+
+   Поэтому фирменный цвет и буква: Яндекс красным, ВК синим, Сбер зелёным,
+   Telegram голубым. Узнаётся с той же скоростью, а принадлежит нам.
+   У обязательных платежей знака нет вовсе — квартплата и детсад не бренды. */
+function finTplMark(tpl){
+  if (!tpl.mark) return '';
+  return '<span class="tplmark" style="background:' + tpl.mark[0] + '" aria-hidden="true">' +
+    esc(tpl.mark[1]) + '</span>';
+}
+
 function finTemplateChips(duty){
   // Заводят обязательный платёж — незачем листать двадцать подписок, и
   // наоборот. Показываем ту половину списка, за которой пришли.
@@ -2958,8 +2973,7 @@ function finTemplateChips(duty){
       if ((FIN_SUB_TEMPLATES[i].g || 'subs') !== group) continue;
       var tpl = FIN_SUB_TEMPLATES[i];
       rows += '<button class="chip tplchip" type="button" data-act="fin-sub-tpl" data-tpl="' + i + '">' +
-        (tpl.ic ? '<span class="tplic" aria-hidden="true">' + tpl.ic + '</span>' : '') +
-        esc(tpl.title) + '</button>';
+        finTplMark(tpl) + esc(tpl.title) + '</button>';
     }
     if (!rows) continue;
     html += '<p class="tpl-group">' + esc(FIN_TPL_GROUPS[group]) + '</p>' +
@@ -2969,29 +2983,31 @@ function finTemplateChips(duty){
 }
 
 function modalSubEdit(sub){
-  return '<h3>Платёж</h3>' +
-    '<div class="field"><label for="m-title">За что</label>' +
+  return '<h3>' + esc(sub.title) + '</h3>' +
+    '<div class="field"><label for="m-title">Название</label>' +
       '<input class="inp" id="m-title" value="' + esc(sub.title) + '"></div>' +
-    '<div class="field"><label for="m-amount">Сумма</label>' +
-      '<input class="inp" id="m-amount" value="' + (sub.amount ? Math.round(sub.amount / 100) : '') + '"></div>' +
-
-    '<div class="field"><label for="m-duty">Что это</label>' +
-      '<select class="inp" id="m-duty">' +
-        '<option value="1"' + (finIsDuty(sub) ? ' selected' : '') + '>Обязательный платёж</option>' +
-        '<option value=""' + (finIsDuty(sub) ? '' : ' selected') + '>Подписка</option>' +
-      '</select></div>' +
-    '<div class="field"><label for="m-cat">Категория</label>' +
-      finCatSelect('m-cat', sub.cat || 'subs') + '</div>' +
-    '<div class="field"><label for="m-every">Как часто</label>' +
-      '<select class="inp" id="m-every">' +
-        '<option value="month"' + (sub.every === 'month' ? ' selected' : '') + '>Раз в месяц</option>' +
-        '<option value="year"' + (sub.every === 'year' ? ' selected' : '') + '>Раз в год</option>' +
-        '<option value="week"' + (sub.every === 'week' ? ' selected' : '') + '>Раз в неделю</option>' +
-      '</select></div>' +
-    '<div class="field"><label for="m-due">С какого числа списывают</label>' +
+    '<div class="pairfields">' +
+      '<div class="field"><label for="m-amount">Сумма</label>' +
+        '<input class="inp" id="m-amount" inputmode="numeric" value="' +
+          (sub.amount ? Math.round(sub.amount / 100) : '') + '" placeholder="необязательно"></div>' +
+      '<div class="field"><label for="m-every">Раз в</label>' +
+        '<select class="inp" id="m-every">' +
+          '<option value="week"' + (sub.every === 'week' ? ' selected' : '') + '>неделю</option>' +
+          '<option value="month"' + (sub.every === 'month' ? ' selected' : '') + '>месяц</option>' +
+          '<option value="year"' + (sub.every === 'year' ? ' selected' : '') + '>год</option>' +
+        '</select></div>' +
+    '</div>' +
+    '<div class="field"><label for="m-due">Дата списания</label>' +
       '<input class="inp" id="m-due" type="date" value="' + esc(sub.since || '') + '"></div>' +
+    // Вид оставлен только в правке: он решает, в какой таблице строка стоит,
+    // и нужен, чтобы поправить промах. При заведении его задаёт кнопка.
+    '<div class="field"><label for="m-duty">Куда относится</label>' +
+      '<select class="inp" id="m-duty">' +
+        '<option value=""' + (finIsDuty(sub) ? '' : ' selected') + '>Подписки</option>' +
+        '<option value="1"' + (finIsDuty(sub) ? ' selected' : '') + '>Обязательные платежи</option>' +
+      '</select></div>' +
     '<label class="check"><input type="checkbox" id="m-remind"' + (sub.taskId ? ' checked' : '') + '>' +
-      '<span>Напоминать о списании — повторяющейся задачей в этот день</span></label>' +
+      '<span>Напоминать о списании задачей в этот день</span></label>' +
     '<button class="btn full" data-act="fin-sub-save" data-sub="' + sub.id + '">Сохранить</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
@@ -3230,25 +3246,32 @@ function modalSub(sub){
   var fresh = !sub;
   if (!fresh) return modalSubEdit(sub);
 
-  /* Заполнять шесть полей ради «Яндекс Плюс, 399, раз в месяц» никто не
-     станет — за это время десять раз передумаешь. Здесь два шага, и первый
-     обычно единственный: нажал на сервис — он заведён.
+  /* Четыре поля и ни одним больше: название, сумма, как часто, с какого
+     числа. Категорию и вид берём из того, какую кнопку нажали и какой
+     шаблон выбрали, — спрашивать о них нечего.
 
-     Период и категория берутся из шаблона, дата — сегодняшняя, сумма
-     подставится при первой оплате, если её не написали. Всё остальное
-     правится потом, когда понадобится, — и почти никогда не понадобится. */
+     Нажатие на готовый сервис по-прежнему заводит его сразу: там и эти
+     четыре уже известны. */
   return '<h3>' + (S.finDraftDuty ? 'Обязательный платёж' : 'Подписка') + '</h3>' +
-    '<p class="s">Нажмите на нужное — запишется сразу.</p>' +
+    '<p class="s">Нажмите на готовое — запишется сразу. Или впишите своё.</p>' +
     finTemplateChips(S.finDraftDuty) +
     '<div class="ownadd">' +
-      '<p class="ownadd-t">Или своё</p>' +
-      '<div class="rowadd">' +
-        '<input class="inp" id="m-title" placeholder="Название" autocomplete="off">' +
-        '<input class="inp inp-sum" id="m-amount" inputmode="numeric" placeholder="сумма">' +
-        '<button class="btn sm" data-act="fin-sub-save">Записать</button>' +
+      '<div class="field"><label for="m-title">Название</label>' +
+        '<input class="inp" id="m-title" placeholder="' +
+          (S.finDraftDuty ? 'Квартплата' : 'Название сервиса') + '" autocomplete="off"></div>' +
+      '<div class="pairfields">' +
+        '<div class="field"><label for="m-amount">Сумма</label>' +
+          '<input class="inp" id="m-amount" inputmode="numeric" placeholder="необязательно"></div>' +
+        '<div class="field"><label for="m-every">Раз в</label>' +
+          '<select class="inp" id="m-every">' +
+            '<option value="week">неделю</option>' +
+            '<option value="month" selected>месяц</option>' +
+            '<option value="year">год</option>' +
+          '</select></div>' +
       '</div>' +
-      '<p class="hint" style="margin:8px 0 0">Сумму можно не писать — она встанет сама после первой оплаты. ' +
-        'Так удобнее с квартплатой и всем, что считают по счётчику.</p>' +
+      '<div class="field"><label for="m-due">Дата списания</label>' +
+        '<input class="inp" id="m-due" type="date" value="' + esc(isoOf(todayDate())) + '"></div>' +
+      '<button class="btn full" data-act="fin-sub-save">Записать</button>' +
     '</div>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Закрыть</button></div>';
 }
