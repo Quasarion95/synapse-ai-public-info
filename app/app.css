@@ -1557,9 +1557,8 @@ input[type="date"]::-webkit-datetime-edit{
 button.fintile{text-align:left; cursor:pointer; border:0; font:inherit; color:inherit; width:100%}
 button.fintile:hover{background:var(--soft)}
 
-/* Пустой блок дня выглядит ровно как остальные — тот же заголовок, тот же
-   размер. Отличается одним: вместо числа задач написано «пусто», и он чуть
-   тише соседей, чтобы взгляд шёл к дням, где что-то есть. */
-.group.empty .group-h{opacity:.5}
-.group.empty:hover .group-h, .group.empty .group-h:focus-visible{opacity:1}
+/* Пустой блок дня ничем не отличается от остальных: тот же заголовок, тот же
+   размер, тот же цвет. Приглушать его — значит снова делать из одного и того
+   же дня две разные вещи. Единственное отличие — слово «пусто» вместо числа
+   задач, и этого достаточно. */
 .group.empty{margin-bottom:10px}
