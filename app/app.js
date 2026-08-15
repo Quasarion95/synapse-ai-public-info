@@ -1726,6 +1726,33 @@ function finJarPace(jar){
 /* Подписки: следующее списание и во что обходится год. Люди платят за
    двенадцать сервисов и помнят про пять — годовая сумма и есть тот довод,
    ради которого раздел заведён отдельно от обычных трат. */
+/* Готовые карточки популярных сервисов.
+
+   Суммы — ориентир на середину 2026 года, а не справочник: тарифы меняются
+   чаще, чем выходит наша сборка, поэтому цена подставляется в поле и её
+   правят. Смысл шаблона не в точной цене, а в том, чтобы не набирать
+   «Яндекс Плюс» руками и не вспоминать, помесячно там или раз в год. */
+var FIN_SUB_TEMPLATES = [
+  { title: 'Яндекс Плюс',     amount: 39900,  every: 'month' },
+  { title: 'VK Музыка',       amount: 26900,  every: 'month' },
+  { title: 'Telegram Premium',amount: 34900,  every: 'month' },
+  { title: 'СберПрайм',       amount: 39900,  every: 'month' },
+  { title: 'МТС Premium',     amount: 34900,  every: 'month' },
+  { title: 'Иви',             amount: 39900,  every: 'month' },
+  { title: 'Okko',            amount: 39900,  every: 'month' },
+  { title: 'Wink',            amount: 29900,  every: 'month' },
+  { title: 'Литрес',          amount: 49900,  every: 'month' },
+  { title: 'Яндекс 360',      amount: 19900,  every: 'month' },
+  { title: 'iCloud+',         amount: 5900,   every: 'month' },
+  { title: 'Мобильная связь', amount: 60000,  every: 'month' },
+  { title: 'Интернет дома',   amount: 70000,  every: 'month' },
+  { title: 'Спортзал',        amount: 250000, every: 'month' },
+  { title: 'ChatGPT Plus',    amount: 200000, every: 'month' },
+  { title: 'Домен',           amount: 90000,  every: 'year' },
+  { title: 'Хостинг',         amount: 600000, every: 'year' },
+  { title: 'Страховка',       amount: 1500000,every: 'year' }
+];
+
 var FIN_EVERY = {
   month: { title: 'в месяц', perYear: 12 },
   year:  { title: 'в год',   perYear: 1 },
@@ -1904,9 +1931,19 @@ function vFinOps(){
 }
 
 function vFinDebts(){
-  var html = '<div class="acts" style="margin:0 0 14px">' +
-    '<button class="btn sm" data-act="fin-debt-new" data-mine="1">Я занял</button>' +
-    '<button class="btn sm soft" data-act="fin-debt-new" data-mine="">Мне должны</button>' +
+  var sums = finDebtSums();
+  var html = '';
+
+  if (S.finance.debts.length){
+    html += '<div class="fintiles">' +
+      finTile('Я должен', finMoney(sums.owe), sums.owe ? 'warn' : '') +
+      finTile('Мне должны', finMoney(sums.owed), '') +
+      finTile('Итого', finMoney(sums.net, { plus: sums.net > 0 }), sums.net < 0 ? 'bad' : '') +
+    '</div>';
+  }
+
+  html += '<div class="acts center" style="margin:0 0 14px">' +
+    '<button class="btn" data-act="fin-debt-new">+ Новый долг</button>' +
   '</div>';
 
   var open = S.finance.debts.filter(function(d){ return !d.closed; });
@@ -1944,8 +1981,8 @@ function vFinDebts(){
 }
 
 function vFinJars(){
-  var html = '<div class="acts" style="margin:0 0 14px">' +
-    '<button class="btn sm" data-act="fin-jar-new">Новая копилка</button></div>';
+  var html = '<div class="acts center" style="margin:0 0 14px">' +
+    '<button class="btn" data-act="fin-jar-new">+ Новая копилка</button></div>';
 
   if (!S.finance.jars.length){
     return html + blank(NAV_ICONS.finance, 'Копилок пока нет',
@@ -1983,8 +2020,8 @@ function vFinJars(){
 
 function vFinSubs(){
   var year = finSubsYear();
-  var html = '<div class="acts" style="margin:0 0 14px">' +
-    '<button class="btn sm" data-act="fin-sub-new">Новая подписка</button></div>';
+  var html = '<div class="acts center" style="margin:0 0 14px">' +
+    '<button class="btn" data-act="fin-sub-new">+ Новая подписка</button></div>';
 
   if (!S.finance.subs.length){
     return html + blank(NAV_ICONS.finance, 'Подписок пока нет',
@@ -2026,6 +2063,33 @@ function finDebt(id){
   for (var i = 0; i < S.finance.debts.length; i++) if (S.finance.debts[i].id === id) return S.finance.debts[i];
   return null;
 }
+/* Напоминание о списании — обычная повторяющаяся задача, а не отдельная
+   сущность внутри финансов. Так оно попадает в план дня, в аналитику и в
+   брифинг сразу, ничего для этого не дописывая; и человек закрывает его той
+   же галочкой, что и всё остальное.
+
+   Ставится на первую дату списания в будущем, а не на дату начала подписки:
+   напоминание о том, что списали в марте, в августе бесполезно. */
+function finSubRemind(sub){
+  var every = FIN_EVERY[sub.every] || FIN_EVERY.month;
+  var repeat = sub.every === 'week' ? 'weekly' : (sub.every === 'year' ? '' : 'monthly');
+  var when = finSubNext(sub) || sub.since || isoOf(todayDate());
+  var task = {
+    id: uid(),
+    title: 'Списание: ' + sub.title + ' — ' + finMoney(sub.amount),
+    bucket: bucketForDate(when),
+    date: when,
+    done: false,
+    note: 'Подписка ' + every.title + '. Напоминание создано из раздела «Мои финансы».',
+    time: '', repeat: repeat, rule: repeatPreset(repeat).rule, series: null,
+    hasExplicitDate: true, hasExplicitTime: false,
+    goalId: null, stageId: null, subtasks: []
+  };
+  S.tasks.push(task);
+  sub.taskId = task.id;
+  return task;
+}
+
 function finSub(id){
   for (var i = 0; i < S.finance.subs.length; i++) if (S.finance.subs[i].id === id) return S.finance.subs[i];
   return null;
@@ -2051,9 +2115,15 @@ function finJarMove(id, sign){
 
 /* ---- окна ввода ---- */
 
-function modalDebt(mine){
-  return '<h3>' + (mine ? 'Я занял' : 'Мне должны') + '</h3>' +
-    '<div class="field"><label for="m-who">' + (mine ? 'У кого' : 'Кто') + '</label>' +
+function modalDebt(){
+  var mine = S.finDraftMine !== false;
+  return '<h3>Новый долг</h3>' +
+    '<div class="sidepick">' +
+      '<button type="button" class="' + (mine ? 'on' : '') + '" data-act="fin-debt-side" data-mine="1">Я занял</button>' +
+      '<button type="button" class="' + (mine ? '' : 'on') + '" data-act="fin-debt-side" data-mine="0">Мне должны</button>' +
+    '</div>' +
+    '<div class="field"><label for="m-who" id="m-who-label">' +
+      (mine ? 'У кого взял' : 'Кто взял у меня') + '</label>' +
       '<input class="inp" id="m-who" placeholder="Имя"></div>' +
     '<div class="field"><label for="m-amount">Сумма</label>' +
       '<input class="inp" id="m-amount" placeholder="15 000"></div>' +
@@ -2080,6 +2150,11 @@ function modalJar(){
 
 function modalSub(){
   return '<h3>Новая подписка</h3>' +
+    '<p class="s">Выбери из готовых или впиши своё. Суммы в шаблонах — ориентир, поправь под свой тариф.</p>' +
+    '<div class="chips tpl">' + FIN_SUB_TEMPLATES.map(function(tpl, i){
+      return '<button class="chip" type="button" data-act="fin-sub-tpl" data-tpl="' + i + '">' +
+        esc(tpl.title) + '</button>';
+    }).join('') + '</div>' +
     '<div class="field"><label for="m-title">За что</label>' +
       '<input class="inp" id="m-title" placeholder="Яндекс Плюс"></div>' +
     '<div class="field"><label for="m-amount">Сумма списания</label>' +
@@ -2091,7 +2166,12 @@ function modalSub(){
         '<option value="week">Раз в неделю</option>' +
       '</select></div>' +
     '<div class="field"><label for="m-due">С какого числа списывают</label>' +
-      '<input class="inp" id="m-due" type="date"></div>' +
+      '<input class="inp" id="m-due" type="date" value="' + esc(isoOf(todayDate())) + '"></div>' +
+    // Напоминание — не отдельная кнопка где-то потом, а галочка сразу под
+    // датой: решение «хочу знать заранее» принимается ровно в тот момент,
+    // когда дату и вписали.
+    '<label class="check"><input type="checkbox" id="m-remind">' +
+      '<span>Напоминать о списании — повторяющейся задачей в этот день</span></label>' +
     '<button class="btn full" data-act="fin-sub-save">Записать</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
@@ -6511,16 +6591,29 @@ var ACTS = {
     commit('Запись удалена');
   },
 
-  'fin-debt-new': function(d){
-    S.finDraftMine = !!d.mine;
-    openModal(modalDebt(d.mine));
+  'fin-debt-new': function(){
+    S.finDraftMine = true;
+    openModal(modalDebt());
+  },
+  'fin-debt-side': function(d){
+    // Переключатель внутри окна: перерисовываем только его, чтобы уже
+    // набранные имя и сумма никуда не делись.
+    S.finDraftMine = d.mine === '1';
+    var box = document.querySelector('.sidepick');
+    if (!box) return;
+    var buttons = box.querySelectorAll('button');
+    for (var i = 0; i < buttons.length; i++){
+      buttons[i].classList.toggle('on', (buttons[i].getAttribute('data-mine') === '1') === S.finDraftMine);
+    }
+    var who = $('m-who-label');
+    if (who) who.textContent = S.finDraftMine ? 'У кого взял' : 'Кто взял у меня';
   },
   'fin-debt-save': function(){
     var who = mval('m-who');
     var parsed = finParse(mval('m-amount'), 'spend');
     if (!who || !parsed) return;
     S.finance.debts.push({
-      id: uid(), who: who, mine: !!S.finDraftMine, amount: parsed.amount, paid: 0,
+      id: uid(), who: who, mine: S.finDraftMine !== false, amount: parsed.amount, paid: 0,
       due: mval('m-due'), note: mval('m-note'), closed: false, at: Date.now()
     });
     closeModal();
@@ -6574,17 +6667,34 @@ var ACTS = {
   },
 
   'fin-sub-new': function(){ openModal(modalSub()); },
+  'fin-sub-tpl': function(d){
+    var tpl = FIN_SUB_TEMPLATES[Number(d.tpl)];
+    if (!tpl) return;
+    // Заполняем поля, а не создаём подписку сразу: цена в шаблоне —
+    // ориентир, и человек почти всегда правит её под свой тариф.
+    if ($('m-title')) $('m-title').value = tpl.title;
+    if ($('m-amount')) $('m-amount').value = String(Math.round(tpl.amount / 100));
+    if ($('m-every')) $('m-every').value = tpl.every;
+    var amount = $('m-amount');
+    if (amount){ amount.focus(); amount.select(); }
+  },
   'fin-sub-save': function(){
     var title = mval('m-title');
     var parsed = finParse(mval('m-amount'), 'spend');
     if (!title || !parsed) return;
     var every = $('m-every') ? $('m-every').value : 'month';
-    S.finance.subs.push({
+    var since = mval('m-due') || isoOf(todayDate());
+    var sub = {
       id: uid(), title: title, amount: parsed.amount, every: every,
-      since: mval('m-due') || isoOf(todayDate()), off: false
-    });
+      since: since, off: false, taskId: ''
+    };
+    S.finance.subs.push(sub);
+
+    var remind = $('m-remind');
+    if (remind && remind.checked) finSubRemind(sub);
+
     closeModal();
-    commit('Подписка записана');
+    commit(remind && remind.checked ? 'Подписка записана, напоминание поставлено' : 'Подписка записана');
   },
   'fin-sub-toggle': function(d){
     var sub = finSub(d.sub);
@@ -6593,6 +6703,10 @@ var ACTS = {
     commit();
   },
   'fin-sub-kill': function(d){
+    var sub = finSub(d.sub);
+    // Напоминание уходит вместе с подпиской: иначе оно продолжит напоминать
+    // про списание, которого больше нет.
+    if (sub && sub.taskId) S.tasks = S.tasks.filter(function(t){ return t.id !== sub.taskId; });
     S.finance.subs = S.finance.subs.filter(function(x){ return x.id !== d.sub; });
     commit('Удалено');
   },

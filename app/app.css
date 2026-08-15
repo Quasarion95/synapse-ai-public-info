@@ -1082,6 +1082,15 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 
 /* ============ МОИ ФИНАНСЫ ============ */
 
+/* Горизонтальная мерка раздела. Совпадает с padding карточки: плитки, строки
+   операций, заголовки дней и подписки выстраиваются по одной вертикали, а не
+   каждый по своей. */
+.fintabs, .finadd, .finrows, .sublist, .finday, .fintiles{--fin-pad:18px}
+
+/* Ряд кнопок по центру: один вход в раздел, и он не должен прижиматься к
+   левому краю, будто продолжает список. */
+.acts.center{justify-content:center}
+
 /* Вкладки внутри раздела — та же форма, что у активной вкладки в панели:
    текущая залита, остальные молчат. Полоска прокручивается вбок на телефоне,
    а не переносится в два ряда: пять слов в два этажа читаются как список. */
@@ -1098,7 +1107,10 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .fintiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
   gap:1px; background:var(--line); border:1px solid var(--line);
   border-radius:var(--r-lg); overflow:hidden; margin-bottom:var(--gap)}
-.fintile{background:var(--card); padding:14px 16px}
+/* Отступ тот же, что у карточки: раньше плитки были на 16, карточки на 18, и
+   на стыке двух блоков подписи стояли ступенькой. Весь раздел живёт на одной
+   мерке --fin-pad, и любая строка в нём начинается на одной вертикали. */
+.fintile{background:var(--card); padding:14px var(--fin-pad)}
 .fintile span{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em;
   color:var(--fg-3); font-weight:500}
 .fintile b{display:block; margin-top:5px; font-size:20px; letter-spacing:-.02em;
@@ -1129,7 +1141,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 /* Ввод операции. Переключатель «трата/доход» стоит над строкой, а не рядом:
    он меняет смысл всего, что напишут, и должен читаться первым. */
 .finadd{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
-  box-shadow:var(--shadow); padding:14px 16px; margin-bottom:var(--gap)}
+  box-shadow:var(--shadow); padding:14px var(--fin-pad); margin-bottom:var(--gap)}
 .finswitch{display:inline-flex; gap:2px; padding:3px; margin-bottom:10px;
   background:var(--soft); border-radius:999px}
 .finswitch button{border:0; background:none; border-radius:999px; padding:6px 14px;
@@ -1140,12 +1152,12 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    сверху вниз, поэтому день отбит, а строки внутри максимально тихие. */
 .finday{margin-bottom:16px}
 .finday-h{display:flex; align-items:baseline; justify-content:space-between; gap:10px;
-  padding:0 2px 7px}
+  padding:0 var(--fin-pad) 7px}
 .finday-h b{font-size:12.5px; font-weight:600; color:var(--fg-2)}
 .finday-h span{font-size:12.5px; color:var(--fg-3); font-variant-numeric:tabular-nums}
 .finrows{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
   box-shadow:var(--shadow); overflow:hidden}
-.finrow{display:flex; align-items:center; gap:10px; padding:9px 14px;
+.finrow{display:flex; align-items:center; gap:10px; padding:9px var(--fin-pad);
   border-top:1px solid var(--line)}
 .finrows .finrow:first-child{border-top:0}
 .fr-dot{width:8px; height:8px; border-radius:999px; flex:none}
@@ -1175,7 +1187,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 
 .sublist{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
   box-shadow:var(--shadow); overflow:hidden}
-.subrow{display:flex; align-items:center; gap:10px; padding:11px 14px;
+.subrow{display:flex; align-items:center; gap:10px; padding:11px var(--fin-pad);
   border-top:1px solid var(--line)}
 .sublist .subrow:first-child{border-top:0}
 .subrow.off{opacity:.5}
@@ -1183,3 +1195,33 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .sr-n{font-size:11.5px; color:var(--fg-3)}
 .sr-v{font-size:14px; font-variant-numeric:tabular-nums; flex:none}
 .sr-v i{font-style:normal; font-size:11.5px; color:var(--fg-3)}
+
+/* Переключатель стороны в окне долга: та же форма, что у «трата/доход», —
+   в разделе не должно быть двух разных способов выбрать одно из двух. */
+.sidepick{display:flex; gap:2px; padding:3px; margin:0 0 16px;
+  background:var(--soft); border-radius:999px}
+.sidepick button{flex:1; border:0; background:none; border-radius:999px; padding:9px 12px;
+  font-size:13.5px; color:var(--fg-2); cursor:pointer}
+.sidepick button.on{background:var(--card); color:var(--fg); font-weight:600; box-shadow:var(--shadow)}
+
+/* Галочка с подписью в строку: квадратик и текст выровнены по первой строке
+   текста, а не по центру блока — иначе при переносе на две строки квадратик
+   уезжает в середину. */
+.check{display:flex; align-items:flex-start; gap:10px; margin:0 0 16px; cursor:pointer}
+.check input{width:18px; height:18px; margin:1px 0 0; flex:none; accent-color:var(--ok)}
+.check span{font-size:13.5px; line-height:1.45; color:var(--fg-2)}
+
+/* Шаблоны подписок — одна строка с прокруткой вбок, а не полотно на
+   восемнадцать кнопок: в два ряда они поднимали окно выше экрана, и оно
+   открывалось уже прокрученным — с обрезанным заголовком. */
+.chips.tpl{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+  margin:0 0 16px; padding:2px 0 8px; scrollbar-width:thin}
+.chips.tpl .chip{flex:none}
+.chip[data-act="fin-sub-tpl"]{border:1px solid var(--line); cursor:pointer; padding:6px 11px}
+.chip[data-act="fin-sub-tpl"]:hover{background:var(--soft-2); color:var(--fg)}
+
+/* Всё в окне — по одной оси. Кнопка действия во всю ширину, «Отмена» под ней
+   по центру: прижатая влево, она выглядела остатком другой вёрстки. */
+#modal .acts{justify-content:center; margin-top:12px}
+#modal h3{text-align:center}
+#modal .s{text-align:center}
