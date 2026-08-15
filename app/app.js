@@ -1244,6 +1244,19 @@ var ICON = {
   // а строк там бывает сотня.
   back: '<svg viewBox="0 0 16 16" aria-hidden="true">' +
     '<path d="M6.4 3.2 2.8 6.8l3.6 3.6"/><path d="M2.8 6.8h6.4a3.6 3.6 0 0 1 0 7.2H7.6"/></svg>',
+
+  /* Значки вместо знаков шрифта.
+
+     Здесь стояли ✓, ⏻, ↺, ‹ и › — символы Юникода. На части андроидов их
+     попросту нет в шрифте, и человек видел пустой квадрат вместо кнопки
+     «закрыть долг». Рисунок свой не зависит ни от шрифта, ни от системы. */
+  check: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8.4 6.4 11.6 12.8 4.8"/></svg>',
+  power: '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+    '<path d="M8 2.4v5.2"/><path d="M11.7 4.6a5 5 0 1 1-7.4 0"/></svg>',
+  undo: '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+    '<path d="M3.2 6.4h4.4V2"/><path d="M3.6 6.2a5.4 5.4 0 1 1-.7 4.6"/></svg>',
+  left: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.2 5.2 8l4.8 4.8"/></svg>',
+  right: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.2 10.8 8 6 12.8"/></svg>',
   /* Кнопка ассистента подписана буквами, а не звёздочками.
 
      Звёздочки стали общим местом и ничего не сообщают: их ставят и на
@@ -2159,10 +2172,10 @@ function finMonthBar(){
   var key = finShownMonth();
   var now = finMonthKey();
   return '<div class="finmonth">' +
-    '<button data-act="fin-month" data-step="-1" aria-label="Прошлый месяц">‹</button>' +
+    '<button data-act="fin-month" data-step="-1" aria-label="Прошлый месяц">' + ICON.left + '</button>' +
     '<b>' + esc(monthName(key)) + '</b>' +
     '<button data-act="fin-month" data-step="1"' + (key >= now ? ' disabled' : '') +
-      ' aria-label="Следующий месяц">›</button>' +
+      ' aria-label="Следующий месяц">' + ICON.right + '</button>' +
     (key !== now ? '<button class="now" data-act="fin-month" data-step="0">Сегодня</button>' : '') +
   '</div>';
 }
@@ -2222,7 +2235,7 @@ function vFinSummary(){
         (blind ? '<span class="frl-n">' + blind + ' по счётчику, сумма пока не известна</span>' : '') +
       '</span>' +
       '<b>' + (left ? finMoney(left) : 'всё оплачено') + '</b>' +
-      '<span class="frl-go">›</span>' +
+      '<span class="frl-go">' + ICON.right + '</span>' +
     '</button>';
   }
 
@@ -2235,7 +2248,7 @@ function vFinSummary(){
       '<span class="frl-t">Осталось в конвертах' +
         '<span class="frl-n">из ' + finMoney(plan) + ' на месяц</span></span>' +
       '<b class="' + (plan - spent < 0 ? 'bad' : '') + '">' + finMoney(plan - spent) + '</b>' +
-      '<span class="frl-go">›</span>' +
+      '<span class="frl-go">' + ICON.right + '</span>' +
     '</button>';
   }
 
@@ -2527,7 +2540,7 @@ function vFinDebts(){
             ? '<button class="fr-x" data-act="fin-debt-open" data-debt="' + d.id + '" title="Вернуть в открытые" aria-label="Вернуть в открытые">' + ICON.back + '</button>'
             : '<button class="fr-pay" data-act="fin-debt-pay" data-debt="' + d.id + '">' +
                 (d.mine ? 'Платёж' : 'Возврат') + '</button>' +
-              '<button class="fr-x" data-act="fin-debt-close" data-debt="' + d.id + '" title="Закрыть долг" aria-label="Закрыть долг">✓</button>') +
+              '<button class="fr-x" data-act="fin-debt-close" data-debt="' + d.id + '" title="Закрыть долг" aria-label="Закрыть долг">' + ICON.check + '</button>') +
           '<button class="fr-x" data-act="fin-debt-kill" data-debt="' + d.id + '" title="Удалить" aria-label="Удалить">' + ICON.kill + '</button>' +
         '</span>' +
       '</div>' +
@@ -2660,11 +2673,11 @@ function finPayTable(rows, key, title, lead){
             (sub.off ? '' :
               '<button class="fr-pay' + (paid ? ' on' : '') + '" data-act="fin-sub-pay" data-sub="' + sub.id + '" ' +
                 'title="' + (paid ? 'Отменить отметку' : 'Отметить оплату') + '">' +
-                (paid ? '✓' : 'Оплатить') + '</button>') +
+                (paid ? ICON.check : 'Оплатить') + '</button>') +
             '<button class="fr-x" data-act="fin-sub-edit" data-sub="' + sub.id + '" title="Править" aria-label="Править">' + ICON.edit + '</button>' +
             '<button class="fr-x" data-act="fin-sub-toggle" data-sub="' + sub.id + '" ' +
               'title="' + (sub.off ? 'Включить' : 'Отключить') + '" aria-label="Включить или отключить">' +
-              (sub.off ? '↺' : '⏻') + '</button>' +
+              (sub.off ? ICON.undo : ICON.power) + '</button>' +
             '<button class="fr-x" data-act="fin-sub-kill" data-sub="' + sub.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
           '</span>' +
         '</div>';
@@ -5480,7 +5493,7 @@ function vSettingsView(){
       var ac = paletteColor(p, dark ? 'accentDark' : 'accent');
       return '<button class="radio pal" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
         '<span class="sw" style="background:' + rgb(bg) + '"><i style="background:' + rgb(ac) + '"></i></span>' +
-        p.title + '</button>';
+        '<span class="rl">' + esc(p.title) + '</span></button>';
     }).join(''), 2));
 
   // Отметку показываем прямо на кнопке выбора — заполненной, чтобы было
@@ -5488,7 +5501,8 @@ function vSettingsView(){
   html += settingsBlock('Отметка выполнения', 'Форма галочки у закрытой задачи.',
     settingsRow('', BOXES.map(function(b){
       return '<button class="radio boxpick" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '">' +
-        '<span class="box on" data-shape="' + b.id + '">✓</span>' + b.title + '</button>';
+        '<span class="box on" data-shape="' + b.id + '">✓</span>' +
+        '<span class="rl">' + esc(b.title) + '</span></button>';
     }).join(''), 6), true);
 
   html += '</div>';

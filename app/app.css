@@ -1654,10 +1654,23 @@ button.fintile:hover{background:var(--soft)}
   text-align:center;
   min-width:0;
 }
-/* У палитры и отметки внутри кнопки значок. Пара «значок + название» стоит
-   по центру кнопки, а не прижимается влево: кнопки одной ширины, и прижатое
-   содержимое выдаёт их за разные. */
-.setgrid .radio.pal, .setgrid .radio.boxpick{justify-content:center; padding-left:8px}
+/* Кружок слева, название по центру оставшегося места.
+
+   Центрировать пару «кружок + название» целиком было мало: названия разной
+   длины, и кружки в колонке вставали на разной высоте от края — ряд выглядел
+   пляшущим. Теперь кружки на одной вертикали, а подписи по центру своих
+   кнопок. */
+.setgrid .radio.pal, .setgrid .radio.boxpick{justify-content:flex-start; padding-left:8px}
+.setgrid .radio .rl{flex:1; min-width:0; text-align:center;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+/* Пустышка справа шириной со значок: без неё «центр оставшегося места» и
+   «центр кнопки» — разные точки, и подпись стоит правее середины ровно на
+   половину кружка. */
+.setgrid .radio.pal::after, .setgrid .radio.boxpick::after{
+  content:''; flex:none;
+}
+.setgrid .radio.pal::after{width:14px}
+.setgrid .radio.boxpick::after{width:18px}
 .setgrid .radio .sw, .setgrid .radio .box{flex:none}
 .setgrid .radio span:not(.sw):not(.box){overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 
@@ -1683,3 +1696,16 @@ button.fintile:hover{background:var(--soft)}
 .finrow-link b{font-size:16px; font-variant-numeric:tabular-nums; flex:none}
 .finrow-link b.bad{color:var(--crit)}
 .frl-go{color:var(--fg-3); font-size:19px; line-height:1; flex:none}
+
+/* Значки в кнопках финансов рисуются, а не набираются шрифтом: ✓, ⏻, ↺, ‹ и ›
+   есть не в каждом системном шрифте, и на части андроидов вместо кнопки был
+   пустой квадрат. */
+.finmonth button svg, .frl-go svg, .fr-pay svg{
+  width:15px; height:15px; display:block;
+  fill:none; stroke:currentColor; stroke-width:1.8;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+.fr-pay.on svg{width:14px; height:14px}
+.frl-go{display:grid; place-items:center}
+.frl-go svg{width:17px; height:17px; stroke-width:1.7}
+.finmonth button{display:grid; place-items:center}
