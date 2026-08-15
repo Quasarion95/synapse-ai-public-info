@@ -7560,8 +7560,36 @@ function unlockScroll(){
    само снимает запись обратно, чтобы в истории не копились призраки. */
 var modalDepth = 0;
 
+/* Кнопки окна собираются в подвал, который не уезжает за край.
+
+   Форма долга набирает 638 пикселей содержимого при 548 видимых: кнопка
+   «Записать» обрезалась краем окна, а «Отмена» оказывалась ниже сгиба вовсе.
+   Человек видел белую полосу снизу и не понимал, что это обрезанная кнопка и
+   что до неё надо долистать.
+
+   Собираем в подвал здесь, а не в каждом из семнадцати окон: разметку они
+   возвращают строкой, и вставить обёртку в каждую — семнадцать мест, которые
+   разойдутся при первой же правке. */
+function foldModalActions(){
+  var box = $('modalIn');
+  var footer = document.createElement('div');
+  footer.className = 'modal-foot';
+
+  // Берём с конца: подвал — это то, что идёт после полей, а не любая кнопка
+  // действия, встреченная в середине формы.
+  while (box.lastElementChild){
+    var last = box.lastElementChild;
+    var подвальный = last.classList.contains('acts') ||
+      (last.tagName === 'BUTTON' && last.classList.contains('full'));
+    if (!подвальный) break;
+    footer.insertBefore(last, footer.firstChild);
+  }
+  if (footer.childElementCount) box.appendChild(footer);
+}
+
 function openModal(html, toInput){
   $('modalIn').innerHTML = html;
+  foldModalActions();
   $('modal').classList.add('on');
   lockScroll();
 
