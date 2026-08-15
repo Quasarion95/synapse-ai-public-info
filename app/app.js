@@ -1446,7 +1446,7 @@ function vTop(){
     // того, как найдёт «Задачи» в меню.
     '<button class="brand" data-act="go" data-view="tasks" title="К задачам" aria-label="К задачам">' +
       '<img class="mark" src="icons/icon-192.png" alt="" width="28" height="28">' +
-      '<span class="nm">Synapse</span></button>' +
+      '<span class="nm">Synapse AI</span></button>' +
     '<div class="top-acts">' +
       '<button class="iconbtn" data-act="theme" title="' + (isDarkNow() ? 'Светлая тема' : 'Тёмная тема') +
         '" aria-label="' + (isDarkNow() ? 'Включить светлую тему' : 'Включить тёмную тему') + '">' +
@@ -2026,7 +2026,6 @@ var FIN_SUB_TEMPLATES = [
   { g: 'subs', dom: 'playstation.com',   title: 'PS Plus',         amount: 69900,  every: 'month', cat: 'fun' },
   { g: 'subs', dom: 'xbox.com',          title: 'Game Pass',       amount: 69900,  every: 'month', cat: 'fun' },
   { g: 'subs', dom: 'kaspersky.ru',      title: 'Kaspersky',       amount: 180000, every: 'year' },
-  { g: 'subs', dom: 'vseinstrumenti.ru', title: 'Абонемент в зал', amount: 250000, every: 'month', cat: 'health' },
   { g: 'subs', dom: 'reg.ru',            title: 'Домен',           amount: 90000,  every: 'year' },
   { g: 'subs', dom: 'timeweb.com',       title: 'Хостинг',         amount: 600000, every: 'year' }
 ];
@@ -5180,10 +5179,20 @@ function vMeditation(){
   '</section>';
 
   if (!running){
-    html += '<p class="lbl">Сколько</p><div class="radios">' +
-      [3, 5, 10, 15, 20, 30].map(function(min){
+    // Шесть готовых длительностей и своя рядом: сорок минут или семь никто
+    // не подберёт из списка, а сеанс у каждого свой.
+    var preset = [3, 5, 10, 15, 20, 30];
+    var own = preset.indexOf(m.minutes) === -1;
+    html += '<p class="lbl">Сколько</p><div class="radios med-mins">' +
+      preset.map(function(min){
         return '<button class="radio" data-act="med-min" data-min="' + min + '" aria-pressed="' + (m.minutes === min) + '">' + min + ' мин</button>';
-      }).join('') + '</div>';
+      }).join('') +
+      '<span class="medown' + (own ? ' on' : '') + '">' +
+        '<input class="inp" type="number" id="medown" min="1" max="180" inputmode="numeric" ' +
+          'placeholder="своё" value="' + (own ? m.minutes : '') + '" aria-label="Своя длительность в минутах">' +
+        '<span class="mu">мин</span>' +
+      '</span>' +
+    '</div>';
 
     // Нажатие на среду включает её тут же: звук выбирают ушами, а сравнивать
     // их, уходя куда-то и возвращаясь, невозможно.
@@ -5358,7 +5367,15 @@ function foldGroup(group, wrap, open){
 function avatarHTML(size){
   var cls = 'avatar' + (size === 'lg' ? ' lg' : '');
   if (S.profile.avatar){
-    return '<span class="' + cls + '" style="background-image:url(' + S.profile.avatar + ')"></span>';
+    /* Кавычки и проверка вида — на случай, если в поле окажется не наша
+       картинка. Сегодня туда пишет только shrinkImage, но состояние лежит в
+       localStorage, а его правит кто угодно с доступом к устройству: строка
+       вида `)" onload=...` без этой проверки вырвалась бы из атрибута. */
+    var src = String(S.profile.avatar);
+    if (!/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(src)){
+      return '<span class="' + cls + '">' + esc(initials()) + '</span>';
+    }
+    return '<span class="' + cls + '" style="background-image:url(&quot;' + src + '&quot;)"></span>';
   }
   return '<span class="' + cls + '">' + esc(initials()) + '</span>';
 }
@@ -8830,6 +8847,15 @@ var ACTS = {
 
   /* --- медитация --- */
   'med-min': function(d){ S.meditation.minutes = Number(d.min); commit(); },
+  'med-own': function(){
+    var field = $('medown');
+    if (!field) return;
+    var minutes = Math.max(1, Math.min(180, Math.round(Number(field.value) || 0)));
+    if (!minutes) return;
+    S.meditation.minutes = minutes;
+    keepFocus('#medown');
+    commit();
+  },
   /* Нажатие на среду включает её сразу же, не уводя никуда: звук выбирают
      ушами. Повторное нажатие по уже играющей — выключает. Если идёт сеанс,
      дорожка просто меняется на лету и не останавливается. */
@@ -8907,6 +8933,9 @@ document.addEventListener('submit', function(event){
    блок появился. Через класс, а не перерисовкой: перерисовка стёрла бы уже
    заполненные поля модалки. */
 document.addEventListener('change', function(event){
+  // Своя длительность применяется, когда поле отпустили: пересчитывать на
+  // каждой цифре значит менять круг с «1» на «14» по дороге к «140».
+  if (event.target.id === 'medown'){ ACTS['med-own']({}); return; }
   if (event.target.id !== 'm-repeat') return;
   var block = $('m-ruleblock');
   if (block) block.classList.toggle('on', event.target.value === CUSTOM_REPEAT);
@@ -8982,6 +9011,7 @@ document.addEventListener('keydown', function(event){
   if (t.id === 'authmail'){ event.preventDefault(); ACTS['auth-send']({}); return; }
   if (t.id === 'authcode'){ event.preventDefault(); ACTS['auth-check']({}); return; }
   if (t.id === 'finfield'){ event.preventDefault(); ACTS['fin-add']({}); return; }
+  if (t.id === 'medown'){ event.preventDefault(); ACTS['med-own']({}); return; }
   if (t.getAttribute && t.getAttribute('data-subadd')){
     event.preventDefault(); ACTS.subadd({ task: t.getAttribute('data-subadd') }); return;
   }

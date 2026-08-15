@@ -167,8 +167,13 @@ h1.page{font-size:clamp(28px,7vw,38px); margin:2px 0 20px}
 .grid2{display:grid; grid-template-columns:1fr; gap:var(--gap)}
 @media (min-width:900px){ .grid2{grid-template-columns:1fr 356px; align-items:start} }
 
-.counts{display:grid; grid-template-columns:repeat(2,1fr); gap:var(--gap); margin-bottom:var(--gap)}
-@media (min-width:640px){ .counts{grid-template-columns:repeat(4,1fr)} }
+/* Колонок столько, сколько плиток, а не всегда четыре.
+
+   Жёсткие четыре колонки писались под помодоро, где плиток ровно четыре. В
+   медитации их две — и они занимали первые две клетки из четырёх, оставляя
+   полэкрана пустым слева направо. auto-fit растягивает любое число поровну. */
+.counts{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+  gap:var(--gap); margin-bottom:var(--gap)}
 .cnt{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-md); box-shadow:var(--shadow); padding:15px 16px}
 .cnt .v{font-family:var(--mono); font-size:25px; font-weight:600; letter-spacing:-.03em; line-height:1; display:block}
 .cnt .l{font-size:12.5px; color:var(--fg-2); margin-top:6px; display:block}
@@ -1709,3 +1714,18 @@ button.fintile:hover{background:var(--soft)}
 .frl-go{display:grid; place-items:center}
 .frl-go svg{width:17px; height:17px; stroke-width:1.7}
 .finmonth button{display:grid; place-items:center}
+
+/* Своя длительность рядом с готовыми: сорок минут или семь из списка не
+   выбрать, а сеанс у каждого свой. */
+.med-mins{align-items:center}
+.medown{display:inline-flex; align-items:center; gap:6px; padding:2px 10px 2px 4px;
+  background:var(--soft); border-radius:999px}
+.medown.on{background:var(--fg)}
+.medown input{width:52px; border:0; background:none; text-align:center;
+  font-size:13.5px; color:var(--fg-2); padding:7px 0; -moz-appearance:textfield}
+.medown.on input{color:var(--bg)}
+.medown input::-webkit-outer-spin-button,
+.medown input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+.medown .mu{font-size:13.5px; color:var(--fg-3)}
+.medown.on .mu{color:var(--bg); opacity:.75}
+

@@ -1479,7 +1479,8 @@ a { color: var(--accent-strong); }
 .duo-stage {
   position: relative;
   width: 100%;
-  padding-bottom: 8px;
+  padding: 6px 6px 14px;
+  overflow: visible;
 }
 
 .laptop { width: 100%; }
@@ -1623,13 +1624,18 @@ a { color: var(--accent-strong); }
 
 /* Телефон стоит на ноутбуке углом и свешивается за правый край: так видно,
    что это одно и то же, а не два продукта рядом. */
+/* Рамка телефона видна со всех сторон.
+
+   Корпус рисуется полем .device вокруг снимка, но слева и сверху его срезало:
+   телефон стоял вплотную к краю сцены, а сцена обрезает. Сдвигаем внутрь и
+   даём корпусу поле пошире — рамка должна читаться по всему периметру. */
 .duo-phone {
   position: absolute;
-  right: -4%;
-  bottom: 0;
-  width: 29%;
+  right: -2%;
+  bottom: 2%;
+  width: 28%;
 }
-.duo-phone .device { padding: 5px; border-radius: 26px; }
+.duo-phone .device { padding: 7px; border-radius: 28px; }
 .duo-phone .device-screen, .duo-phone .device-screen img { border-radius: 21px; }
 .duo-phone .device-island { min-height: 8px; }
 
