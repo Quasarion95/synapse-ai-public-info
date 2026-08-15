@@ -2086,7 +2086,7 @@ var FIN_TABS = [
   { id: 'accounts', title: 'Счета' },
   { id: 'debts',    title: 'Долги' },
   { id: 'jars',     title: 'Копилки' },
-  { id: 'subs',     title: 'Платежи' },
+  { id: 'subs',     title: 'Подписки и платежи', short: 'Платежи' },
   // Аналитика денег живёт здесь, а не в общей: там разбирают день и цели, и
   // рубли среди задач читаются как чужая колонка.
   { id: 'chart',    title: 'Аналитика' }
@@ -4777,6 +4777,19 @@ var POMO = [
   { id: 'longBreak', title: 'Длинный', key: 'longBreak' }
 ];
 
+/* Режимы на экране идут от короткого к длинному.
+
+   Сортируем по фактической длительности, а не порядком в массиве: минуты
+   настраиваются, и порядок, верный для 5–15–25 по умолчанию, перестал бы
+   быть верным, как только человек поставит фокус на 20, а длинный перерыв
+   на 30. Порядок в самом массиве оставлен как есть — на него завязан modeOf
+   и сохранённое состояние. */
+function pomoOrdered(){
+  return POMO.slice().sort(function(a, b){
+    return (S.pomodoro[a.key] || 0) - (S.pomodoro[b.key] || 0);
+  });
+}
+
 var ticker = null;
 var remaining = null;
 
@@ -4793,7 +4806,7 @@ function vPomodoro(){
   html += '<section class="card">' +
     '<div class="clock" id="clockface">' + mmss(remaining) + '</div>' +
     '<p class="phase">' + m.title + ' · ' + S.pomodoro[m.key] + ' мин</p>' +
-    '<div class="modes">' + POMO.map(function(p){
+    '<div class="modes">' + pomoOrdered().map(function(p){
       // Минуты прямо на карточке режима — ровно то, что чинили в приложении.
       return '<button class="mode" data-act="pomo-mode" data-mode="' + p.id + '" aria-pressed="' + (p.id === S.pomodoro.mode) + '">' +
         '<b>' + p.title + '</b><span>' + S.pomodoro[p.key] + ' мин</span></button>';
