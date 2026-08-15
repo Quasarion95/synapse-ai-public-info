@@ -19,7 +19,7 @@
   что выкладка не сработала. Обработчик — в app.js, registerServiceWorker.
 */
 
-var CACHE = 'synapse-shell-v43';
+var CACHE = 'synapse-shell-v44';
 
 var SHELL = [
   './',

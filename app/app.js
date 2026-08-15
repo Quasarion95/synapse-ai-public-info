@@ -5379,7 +5379,10 @@ function settingsRow(label, body){
 }
 
 function vSettingsView(){
-  var html = head('Настройки', 'Вид', 'settings');
+  // Ни «Настройки», ни «Вид» тут не нужны: человек пришёл нажатием на
+  // «Вид», кнопка «Назад» говорит откуда, а два заголовка съедали верх
+  // экрана ради того, что и так известно.
+  var html = head('', '', 'settings');
 
   /* Превью стоит первым, а не последним.
 
@@ -5431,7 +5434,7 @@ function vSettingsView(){
       return '<button class="radio pal" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
         '<span class="sw" style="background:' + rgb(bg) + '"><i style="background:' + rgb(ac) + '"></i></span>' +
         p.title + '</button>';
-    }).join('')), true);
+    }).join('')));
 
   // Отметку показываем прямо на кнопке выбора — заполненной, чтобы было
   // видно, как она будет выглядеть у закрытой задачи.
@@ -5449,7 +5452,7 @@ function vSettingsView(){
 /* ---- данные ---- */
 
 function vSettingsData(){
-  var html = head('Настройки', 'Данные', 'settings');
+  var html = head('', '', 'settings');
 
   html += '<section class="card">' +
     '<h3>Копия файлом</h3>' +

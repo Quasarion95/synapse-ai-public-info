@@ -1582,17 +1582,38 @@ button.fintile:hover{background:var(--soft)}
    У «Темы» две кнопки, а карточка занимала ту же строку, что и палитра из
    десяти: справа оставалось пустое поле в пол-экрана, а экран рос вниз.
    Теперь короткие блоки стоят парами, длинные занимают всю ширину. */
-/* Блоки не растягиваются под самый высокий в ряду: у «Темы» две кнопки, и
-   тянуть её до высоты «Текста» — снова полкарточки пустоты, только теперь
-   внутри. Каждый ровно своей высоты. */
-.setgrid{display:grid; grid-template-columns:repeat(auto-fit, minmax(272px, 1fr));
-  gap:var(--gap); align-items:start}
+/* Три квадрата в ряд и выбор отметки полосой под ними.
+
+   Колонки разной ширины намеренно: у «Темы» две кнопки, у «Палитры» —
+   десять. Равные колонки означали бы либо пустое поле слева, либо палитру
+   в пять рядов. Ширина по содержимому — и ряд получается ровным. */
+.setgrid{display:grid; gap:var(--gap); align-items:stretch;
+  grid-template-columns:repeat(auto-fit, minmax(240px, 1fr))}
 .setgrid .setblock{margin-bottom:0}
 .setgrid .setblock.wide{grid-column:1 / -1}
 
+@media (min-width:880px){
+  /* Доли подобраны по содержимому: «Светлая» и «Тёмная» должны встать в одну
+     строку, три начертания — тоже, а палитре нужно место на десять кружков. */
+  .setgrid{grid-template-columns:minmax(0,.95fr) minmax(0,1.12fr) minmax(0,1.43fr)}
+}
+
+/* Кнопки прижаты к верху карточки, а не размазаны по её высоте: карточки в
+   ряду одной высоты, и без этого содержимое каждой висело бы посередине. */
+.setgrid .setblock{display:flex; flex-direction:column}
+.setgrid .setblock .subrow:last-child{margin-bottom:auto}
+
 @media (max-width:600px){
-  .setgrid{grid-template-columns:1fr}
+  .setgrid{grid-template-columns:1fr; align-items:start}
   /* На телефоне прибитая карточка съедала бы треть экрана: оставляем её
      наверху, но без прилипания — там и листать меньше. */
   .preview-dock{position:static}
 }
+
+/* Кнопки внутри квадратов настроек компактнее: в колонке 200 пикселей
+   «Светлая» и «Тёмная» с обычными отступами не встают в строку, а перенос
+   одной кнопки под другую превращает квадрат в столбик. */
+.setgrid .radio{padding:8px 12px; font-size:13px; gap:7px}
+.setgrid .radio.pal{padding:6px 11px 6px 6px}
+.setgrid .radios{gap:6px}
+.setgrid .setblock-h .sub{font-size:12.5px}

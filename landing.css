@@ -1468,3 +1468,162 @@ a { color: var(--accent-strong); }
 @media (min-width: 861px) {
   .nav .theme-toggle { position: static; margin-left: 4px; box-shadow: none; }
 }
+
+/* ============ БРАУЗЕР И ТЕЛЕФОН РЯДОМ ============ */
+
+/* Ноутбук нарисован вёрсткой, а не вставлен снимком.
+
+   Снимок интерфейса стареет со следующей же правкой — а правок в веб-версии
+   по десятку в неделю, — и мылится на плотных экранах. Свёрстанный макет
+   всегда чёткий, весит ноль и сам меняет цвета вместе с темой страницы. */
+
+/* Сцена шириной ровно с ноутбук: телефон позиционируется процентами, и если
+   сцена шире, «правый край» оказывается правым краем страницы — телефон
+   уезжает вбок и висит рядом, а не стоит на ноутбуке. */
+.duo-stage {
+  position: relative;
+  width: min(760px, 100%);
+  margin: 34px auto 0;
+  padding-bottom: 26px;
+}
+
+.laptop { width: 100%; }
+
+.laptop-screen {
+  border-radius: 16px 16px 4px 4px;
+  padding: 12px 12px 14px;
+  background: linear-gradient(160deg, #cfcabc 0%, #efece4 22%, #c4bfb1 60%, #e8e5db 100%);
+  box-shadow:
+    0 26px 60px rgba(40, 36, 28, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+/* Подставка: широкая планка с сужением, а не прямоугольник — иначе ноутбук
+   читается как телевизор. */
+.laptop-base {
+  height: 13px;
+  margin: 0 auto;
+  width: 116%;
+  max-width: none;
+  transform: translateX(-7%);
+  border-radius: 0 0 12px 12px;
+  background: linear-gradient(180deg, #d8d3c6 0%, #b6b1a4 100%);
+  box-shadow: 0 14px 26px rgba(40, 36, 28, 0.22);
+}
+
+.webshot {
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.ws-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--stroke);
+}
+.ws-top b { font-size: 14px; letter-spacing: -0.03em; }
+.ws-mark { width: 17px; height: 17px; border-radius: 5px; background: var(--forest); flex: none; }
+.ws-acts { margin-left: auto; display: flex; gap: 6px; }
+.ws-acts i { width: 17px; height: 17px; border-radius: 999px; background: var(--surface); border: 1px solid var(--stroke); }
+.ws-acts i.wide { width: 42px; border-radius: 999px; }
+
+.ws-body { display: flex; gap: 12px; padding: 12px; }
+
+.ws-rail {
+  flex: 0 0 118px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+}
+.ws-rail span { padding: 5px 8px; border-radius: 7px; color: var(--muted); }
+.ws-rail span.on { background: var(--surface-2); color: var(--text); font-weight: 600; }
+
+.ws-main { flex: 1; min-width: 0; }
+.ws-day {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 6px;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+.ws-day + .ws-day { margin-top: 12px; }
+.ws-day i { font-style: normal; font-size: 10px; font-weight: 400; color: var(--muted); text-transform: none; }
+
+.ws-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 5px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+}
+.ws-task b { flex: 1; min-width: 0; font-weight: 500; }
+.ws-task i { font-style: normal; color: var(--muted); font-size: 10px; }
+.ws-box { width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid var(--stroke-strong); flex: none; }
+.ws-box.on { background: var(--forest); border-color: var(--forest); }
+.ws-task .ws-box.on + b { text-decoration: line-through; color: var(--muted); }
+
+.ws-say {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  color: var(--muted);
+}
+.ws-say span { flex: 1; }
+.ws-say i {
+  font-style: normal; font-size: 9px; font-weight: 800;
+  width: 22px; height: 22px; border-radius: 999px;
+  display: grid; place-items: center;
+  background: var(--forest); color: #fff;
+}
+
+/* Телефон стоит углом на ноутбуке: так видно, что это одно и то же, а не два
+   разных продукта рядом. */
+/* Телефон стоит на ноутбуке углом и слегка свешивается за край: так видно,
+   что это одно и то же, а не два продукта рядом. */
+.duo-phone {
+  position: absolute;
+  right: 3%;
+  bottom: -6px;
+  width: min(178px, 25%);
+}
+.duo-phone .device { padding: 6px; border-radius: 30px; }
+.duo-phone .device-screen, .duo-phone .device-screen img { border-radius: 24px; }
+
+.duo-note {
+  margin: 26px auto 0;
+  max-width: 560px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* На узком экране телефон уходит из угла вниз: наложенный, он закрывал бы
+   половину и без того мелкого ноутбука. */
+@media (max-width: 720px) {
+  .duo-stage { flex-direction: column; align-items: center; gap: 18px; padding-bottom: 0; }
+  .duo-phone { position: static; width: min(190px, 52%); }
+  .webshot { font-size: 9px; }
+  .ws-rail { flex-basis: 92px; }
+  .ws-day { font-size: 11px; }
+}
