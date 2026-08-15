@@ -3221,7 +3221,7 @@ function modalSub(sub){
      Нажатие на готовый сервис по-прежнему заводит его сразу: там и эти
      четыре уже известны. */
   return '<h3>' + (S.finDraftDuty ? 'Обязательный платёж' : 'Подписка') + '</h3>' +
-    '<p class="s">Нажмите на готовое — запишется сразу. Или впишите своё.</p>' +
+    '<p class="s">Выберите готовое — поля заполнятся, останется проверить и записать.</p>' +
     finTemplateChips(S.finDraftDuty) +
     '<div class="ownadd">' +
       '<div class="field"><label for="m-title">Название</label>' +
@@ -8107,23 +8107,33 @@ var ACTS = {
   'fin-sub-new': function(d){
     if (!canAdd('subs')) return openModal(modalPaywall('subs'));
     S.finDraftDuty = d.duty === '1';
+    S.finDraftCat = '';
     openModal(modalSub(null));
   },
   'fin-sub-edit': function(d){ openModal(modalSub(finSub(d.sub))); },
   'fin-sub-tpl': function(d){
     var tpl = FIN_SUB_TEMPLATES[Number(d.tpl)];
     if (!tpl) return;
-    if (!canAdd('subs')) return openModal(modalPaywall('subs'));
-    // Нажатие заводит платёж сразу. Сумма из шаблона — ориентир и правится
-    // потом; у ЖКХ её нет вовсе, и она встанет с первой оплаты.
-    S.finance.subs.push({
-      id: uid(), title: tpl.title, amount: tpl.amount || 0, every: tpl.every,
-      since: isoOf(todayDate()), off: false, taskId: '',
-      cat: finCat(tpl.cat || (tpl.duty ? 'home' : 'subs')).id,
-      duty: !!tpl.duty, paid: {}, ops: {}
-    });
-    closeModal();
-    commit(tpl.title + ' — записано');
+
+    /* Шаблон заполняет поля, а не заводит платёж.
+
+       Сразу заводить быстрее ровно один раз — когда всё совпало. А сумма в
+       шаблоне ориентировочная, дата списания у каждого своя, и человек почти
+       всегда что-то правит. Записывать за него и предлагать поправить потом —
+       значит делать лишний шаг обязательным. */
+    if ($('m-title')) $('m-title').value = tpl.title;
+    if ($('m-amount')) $('m-amount').value = tpl.amount ? String(Math.round(tpl.amount / 100)) : '';
+    if ($('m-every')) $('m-every').value = tpl.every;
+    // Категорию шаблон приносит с собой, но спрашивать о ней незачем: её
+    // видно только в аналитике, и угадана она верно.
+    S.finDraftCat = finCat(tpl.cat || (tpl.duty ? 'home' : 'subs')).id;
+
+    // Список закрывается: под ним поля, ради которых его и открывали.
+    var pick = document.querySelector('.tplpick');
+    if (pick) pick.open = false;
+
+    var amount = $('m-amount');
+    if (amount){ amount.focus(); amount.select(); }
   },
   'fin-sub-save': function(d){
     var title = mval('m-title');
@@ -8135,7 +8145,8 @@ var ACTS = {
     if (!title) return fieldError('m-title', 'За что платите?');
     var every = $('m-every') ? $('m-every').value : 'month';
     var since = mval('m-due') || isoOf(todayDate());
-    var cat = $('m-cat') ? $('m-cat').value : (S.finDraftDuty ? 'home' : 'subs');
+    var cat = $('m-cat') ? $('m-cat').value
+      : (S.finDraftCat || (S.finDraftDuty ? 'home' : 'subs'));
     var duty = $('m-duty') ? $('m-duty').value === '1' : !!S.finDraftDuty;
     var sub = finSub(d.sub);
     if (sub){
