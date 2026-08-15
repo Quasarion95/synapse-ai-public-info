@@ -1363,11 +1363,8 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 /* Шаблоны платежей по группам. Каждая — своя строка с прокруткой вбок; весь
    блок прокручивается вниз. Тридцать кнопок в одну ленту не просматриваются,
    а в четыре подписанные — да. */
-.tpl-box{max-height:150px; overflow-y:auto; margin:0 0 16px; padding-right:2px}
 .tpl-group{margin:10px 0 6px; font-size:10.5px; text-transform:uppercase;
   letter-spacing:.06em; color:var(--fg-3); font-weight:600}
-.tpl-box .tpl-group:first-child{margin-top:0}
-.tpl-box .chips.tpl{margin:0}
 
 /* ---- две таблицы платежей в одной вкладке ---- */
 
@@ -1484,7 +1481,6 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 
 .ownadd{border-top:1px solid var(--line); padding-top:14px; margin-top:6px}
 
-.tplchip{display:inline-flex; align-items:center; gap:7px}
 
 /* ---- поле даты ---- */
 
@@ -1511,3 +1507,48 @@ input[type="date"]::-webkit-calendar-picker-indicator{
 input[type="date"]::-webkit-datetime-edit{
   padding:0;
 }
+
+/* ---- выбор сервиса списком ---- */
+
+/* <details> вместо своего раскрывающегося блока: браузер сам держит
+   состояние, ничего не ломается при перерисовке окна и работает без скрипта. */
+.tplpick{margin:0 0 16px; border:1px solid var(--stroke); border-radius:var(--r-md);
+  background:var(--soft); overflow:hidden}
+.tplpick > summary{list-style:none; cursor:pointer; padding:12px 15px; font-size:14px;
+  display:flex; align-items:center; justify-content:space-between; gap:10px}
+.tplpick > summary::-webkit-details-marker{display:none}
+.tplpick > summary::after{content:'⌄'; font-size:15px; color:var(--fg-3); line-height:1;
+  transition:transform .16s ease}
+.tplpick[open] > summary::after{transform:rotate(180deg)}
+.tplpick[open] > summary{border-bottom:1px solid var(--line)}
+
+.tpllist{max-height:236px; overflow-y:auto; overscroll-behavior:contain;
+  background:var(--card)}
+.tplrow{display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+  padding:9px 15px; border-top:1px solid var(--line); font-size:14px; cursor:pointer}
+.tpllist .tplrow:first-child{border-top:0}
+.tplrow:hover{background:var(--soft)}
+.tplname{flex:1; min-width:0}
+.tplsum{font-size:12.5px; color:var(--fg-3); font-variant-numeric:tabular-nums; flex:none}
+.tpllist .tpl-group{margin:0; padding:9px 15px 5px; background:var(--soft);
+  border-top:1px solid var(--line)}
+.tpllist .tpl-group:first-child{border-top:0}
+
+/* Логотип и плашка лежат друг на друге: не загрузился первый — видно вторую.
+   Ни таймеров, ни подмены скриптом. */
+.tpllogo{position:relative; width:20px; height:20px; flex:none; display:block}
+.tpllogo img{position:absolute; inset:0; width:20px; height:20px; border-radius:5px;
+  object-fit:contain; background:var(--card); z-index:1; opacity:0; transition:opacity .15s ease}
+.tpllogo img.ok{opacity:1}
+.tpllogo .tplmark{position:absolute; inset:0}
+.tplmark.none{background:var(--soft-2)}
+
+/* Подписки и платежи — двумя равными вкладками. Не главное и второстепенное,
+   а выбор из двух: и ширина у кнопок поэтому одна. */
+.paytabs{display:grid; grid-template-columns:1fr 1fr; gap:3px; padding:3px;
+  margin:0 0 16px; background:var(--soft); border:1px solid var(--line); border-radius:14px}
+.paytab{border:0; background:none; border-radius:11px; padding:10px 12px;
+  font-size:14px; color:var(--fg-2); cursor:pointer; white-space:nowrap}
+.paytab:hover{color:var(--fg)}
+.paytab.on{background:var(--card); color:var(--fg); font-weight:600; box-shadow:var(--shadow)}
+.paysec .finhead{min-height:0}

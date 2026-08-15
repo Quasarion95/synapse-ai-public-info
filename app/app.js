@@ -90,6 +90,7 @@ function seed(){
     finTab: 'sum',
     finKind: 'spend',
     finMonth: '',
+    finPayTab: 'subs',
     finPending: null,
     finDate: ''
   };
@@ -220,6 +221,7 @@ function load(){
     if (typeof parsed.finTab !== 'string') parsed.finTab = 'sum';
     if (typeof parsed.finKind !== 'string') parsed.finKind = 'spend';
     if (typeof parsed.finMonth !== 'string') parsed.finMonth = '';
+    if (typeof parsed.finPayTab !== 'string') parsed.finPayTab = 'subs';
     // Неподтверждённая пачка живёт только в этой сессии: подтверждать вчера
     // предложенное сегодня — верный способ записать не то.
     parsed.finPending = null;
@@ -1979,17 +1981,17 @@ var FIN_SUB_TEMPLATES = [
   { g: 'kids', duty: true, title: 'Няня',          amount: 0, every: 'month', cat: 'learn' },
 
   { g: 'subs', mark: ['#5B6770','СВ'], title: 'Мобильная связь', amount: 60000,  every: 'month', cat: 'subs' },
-  { g: 'subs', mark: ['#FC3F1D','Я'], title: 'Яндекс Плюс',     amount: 39900,  every: 'month' },
-  { g: 'subs', mark: ['#0077FF','VK'], title: 'VK Музыка',       amount: 26900,  every: 'month' },
-  { g: 'subs', mark: ['#2AABEE','T'], title: 'Telegram Premium',amount: 34900,  every: 'month' },
+  { g: 'subs', mark: ['#FC3F1D','Я'], dom: 'yandex.ru', title: 'Яндекс Плюс',     amount: 39900,  every: 'month' },
+  { g: 'subs', mark: ['#0077FF','VK'], dom: 'vk.com', title: 'VK Музыка',       amount: 26900,  every: 'month' },
+  { g: 'subs', mark: ['#2AABEE','T'], dom: 'telegram.org', title: 'Telegram Premium',amount: 34900,  every: 'month' },
   { g: 'subs', mark: ['#21A038','С'], title: 'СберПрайм',       amount: 39900,  every: 'month' },
   { g: 'subs', mark: ['#E30611','М'], title: 'МТС Premium',     amount: 34900,  every: 'month' },
-  { g: 'subs', mark: ['#FF0055','И'], title: 'Иви',             amount: 39900,  every: 'month' },
-  { g: 'subs', mark: ['#7B2BFF','O'], title: 'Okko',            amount: 39900,  every: 'month' },
+  { g: 'subs', mark: ['#FF0055','И'], dom: 'ivi.ru', title: 'Иви',             amount: 39900,  every: 'month' },
+  { g: 'subs', mark: ['#7B2BFF','O'], dom: 'okko.tv', title: 'Okko',            amount: 39900,  every: 'month' },
   { g: 'subs', mark: ['#A100FF','W'], title: 'Wink',            amount: 29900,  every: 'month' },
-  { g: 'subs', mark: ['#FF6D00','Л'], title: 'Литрес',          amount: 49900,  every: 'month' },
-  { g: 'subs', mark: ['#FC3F1D','360'], title: 'Яндекс 360',      amount: 19900,  every: 'month' },
-  { g: 'subs', mark: ['#3693F3','iC'], title: 'iCloud+',         amount: 5900,   every: 'month' },
+  { g: 'subs', mark: ['#FF6D00','Л'], dom: 'litres.ru', title: 'Литрес',          amount: 49900,  every: 'month' },
+  { g: 'subs', mark: ['#FC3F1D','360'], dom: 'yandex.ru', title: 'Яндекс 360',      amount: 19900,  every: 'month' },
+  { g: 'subs', mark: ['#3693F3','iC'], dom: 'icloud.com', title: 'iCloud+',         amount: 5900,   every: 'month' },
   { g: 'subs', mark: ['#10A37F','AI'], title: 'ChatGPT Plus',    amount: 200000, every: 'month' },
   { g: 'subs', mark: ['#3E6B4F','ЗАЛ'], title: 'Абонемент в зал', amount: 250000, every: 'month', cat: 'health' },
   { g: 'subs', mark: ['#4A6FA5','www'], title: 'Домен',           amount: 90000,  every: 'year' },
@@ -2600,35 +2602,41 @@ function vFinJars(){
 
 function vFinSubs(){
   var key = finShownMonth();
+  var duty = S.finPayTab === 'duty';
   var html = finMonthBar();
 
+  /* Две вкладки вместо двух таблиц подряд.
+
+     Стопкой они читались как один длинный список, в котором надо ещё найти,
+     где кончилось одно и началось другое. Разделены — и сразу видно, сколько
+     уходит на то, от чего можно отказаться, отдельно от того, от чего нельзя.
+     Кнопки одной ширины: это выбор из двух равных, а не главное и второстепенное. */
+  html += '<div class="paytabs">' +
+    '<button class="paytab' + (duty ? '' : ' on') + '" data-act="fin-pay-tab" data-kind="subs">Подписки</button>' +
+    '<button class="paytab' + (duty ? ' on' : '') + '" data-act="fin-pay-tab" data-kind="duty">Платежи</button>' +
+  '</div>';
+
   html += '<div class="acts center" style="margin:0 0 16px">' +
-    // Коротко: длинное «+ Обязательный платёж» на телефоне занимало строку
-    // целиком и сталкивало вторую кнопку вниз. Что есть что, объясняют
-    // заголовки секций прямо под ними.
-    '<button class="btn" data-act="fin-sub-new" data-duty="1">+ Платёж</button>' +
-    '<button class="btn soft" data-act="fin-sub-new" data-duty="">+ Подписка</button>' +
+    '<button class="btn" data-act="fin-sub-new" data-duty="' + (duty ? '1' : '') + '">' +
+      (duty ? '+ Новый платёж' : '+ Новая подписка') + '</button>' +
     finLeftHint('subs') + '</div>';
 
-  if (!S.finance.subs.length){
-    return html + blank(NAV_ICONS.finance, 'Пока пусто',
-      'Обязательные платежи — квартплата, ипотека, детсад: их не отменишь. ' +
-      'Подписки — то, от чего можно отказаться. Отсюда и две таблицы.');
+  var rows = finSubsOf(duty);
+  if (!rows.length){
+    return html + blank(NAV_ICONS.finance,
+      duty ? 'Платежей пока нет' : 'Подписок пока нет',
+      duty
+        ? 'Квартплата, кредиты, детский сад — то, что уйдёт в любом случае.'
+        : 'То, от чего можно отказаться. Годовая сумма — главный довод.');
   }
 
-  html += finPayTable(finSubsOf(false), key, 'Подписки',
-    'То, от чего можно отказаться. Годовая сумма — главный довод.');
-  html += finPayTable(finSubsOf(true), key, 'Обязательные платежи',
-    'Квартплата, кредиты, дети — то, что уйдёт в любом случае.');
-
-  return html;
+  return html + finPayTable(rows, key,
+    duty ? 'Обязательные платежи' : 'Подписки',
+    duty
+      ? 'Квартплата, кредиты, дети — то, что уйдёт в любом случае.'
+      : 'То, от чего можно отказаться. Годовая сумма — главный довод.');
 }
 
-/* Таблица платежей: название, в месяц, в год.
-
-   Две колонки сумм, а не одна: «399 в месяц» и «4 788 в год» — разные доводы.
-   Первая нужна, чтобы свести месяц, вторая — чтобы увидеть, во что обошёлся
-   сервис, которым пользовались дважды. */
 function finPayTable(rows, key, title, lead){
   if (!rows.length) return '';
 
@@ -2641,7 +2649,7 @@ function finPayTable(rows, key, title, lead){
   });
 
   var html = '<section class="paysec">' +
-    '<div class="finhead"><h3>' + esc(title) + '</h3>' +
+    '<div class="finhead"><h3 class="visually-hidden">' + esc(title) + '</h3>' +
       '<span class="sub">' + rows.filter(function(x){ return !x.off; }).length + ' ' +
         plural(rows.filter(function(x){ return !x.off; }).length, 'штука', 'штуки', 'штук') + '</span></div>' +
     '<p class="sub paysec-lead">' + esc(lead) + '</p>' +
@@ -2955,31 +2963,65 @@ function finSyncJarStages(){
    Поэтому фирменный цвет и буква: Яндекс красным, ВК синим, Сбер зелёным,
    Telegram голубым. Узнаётся с той же скоростью, а принадлежит нам.
    У обязательных платежей знака нет вовсе — квартплата и детсад не бренды. */
+/* Знак сервиса: настоящий логотип, если сервис его отдаёт.
+
+   Картинка берётся с сайта самого сервиса, а не через посредника вроде
+   сборщиков фавиконок: посредник видел бы, кто и что открывает. Запрос
+   уходит только когда список раскрыли, и только за иконкой.
+
+   Если логотипа нет (Сбер и МТС свою фавиконку закрыли), сети нет или
+   картинка не загрузилась — на её месте остаётся плашка с фирменным цветом
+   и буквой. Поэтому список читается и офлайн. */
 function finTplMark(tpl){
-  if (!tpl.mark) return '';
-  return '<span class="tplmark" style="background:' + tpl.mark[0] + '" aria-hidden="true">' +
-    esc(tpl.mark[1]) + '</span>';
+  var fallback = tpl.mark
+    ? '<span class="tplmark" style="background:' + tpl.mark[0] + '">' + esc(tpl.mark[1]) + '</span>'
+    : '<span class="tplmark none"></span>';
+  if (!tpl.dom) return fallback;
+
+  /* Картинка проявляется только когда действительно загрузилась.
+
+     Наоборот — показать её сразу и прятать по ошибке — не работает: пока
+     запрос висит, на месте логотипа пустой квадрат, а если сеть его молча
+     отбросила, ошибки может и не быть вовсе, и квадрат останется навсегда.
+     Плашка лежит под картинкой и видна всё это время. */
+  return '<span class="tpllogo">' +
+    fallback +
+    '<img src="https://' + tpl.dom + '/favicon.ico" alt="" width="20" height="20" loading="lazy" ' +
+      'onload="this.classList.add(&quot;ok&quot;)">' +
+  '</span>';
 }
 
 function finTemplateChips(duty){
-  // Заводят обязательный платёж — незачем листать двадцать подписок, и
-  // наоборот. Показываем ту половину списка, за которой пришли.
+  /* Выпадающий список вместо ленты чипов.
+
+     Лента прокручивалась вбок, и в ней помещалось три сервиса из шестнадцати:
+     остальные приходилось искать пальцем вслепую. Список показывает все
+     разом, с логотипами, и закрывается сам после выбора.
+
+     Сделан на <details>: он открывается и закрывается без единой строки
+     скрипта и переживает перерисовку окна. */
   var order = duty ? ['home', 'loans', 'kids'] : ['subs'];
-  var html = '';
+  var rows = '';
   for (var g = 0; g < order.length; g++){
     var group = order[g];
-    var rows = '';
+    var inner = '';
     for (var i = 0; i < FIN_SUB_TEMPLATES.length; i++){
-      if ((FIN_SUB_TEMPLATES[i].g || 'subs') !== group) continue;
       var tpl = FIN_SUB_TEMPLATES[i];
-      rows += '<button class="chip tplchip" type="button" data-act="fin-sub-tpl" data-tpl="' + i + '">' +
-        finTplMark(tpl) + esc(tpl.title) + '</button>';
+      if ((tpl.g || 'subs') !== group) continue;
+      inner += '<button class="tplrow" type="button" data-act="fin-sub-tpl" data-tpl="' + i + '">' +
+        finTplMark(tpl) + '<span class="tplname">' + esc(tpl.title) + '</span>' +
+        (tpl.amount ? '<span class="tplsum">' + finMoney(tpl.amount) + '</span>' : '') +
+      '</button>';
     }
-    if (!rows) continue;
-    html += '<p class="tpl-group">' + esc(FIN_TPL_GROUPS[group]) + '</p>' +
-      '<div class="chips tpl">' + rows + '</div>';
+    if (!inner) continue;
+    if (order.length > 1) rows += '<p class="tpl-group">' + esc(FIN_TPL_GROUPS[group]) + '</p>';
+    rows += inner;
   }
-  return '<div class="tpl-box">' + html + '</div>';
+
+  return '<details class="tplpick">' +
+    '<summary>' + (duty ? 'Выбрать из готовых платежей' : 'Выбрать сервис') + '</summary>' +
+    '<div class="tpllist">' + rows + '</div>' +
+  '</details>';
 }
 
 function modalSubEdit(sub){
@@ -7881,6 +7923,7 @@ var ACTS = {
   'hint-off': function(){ S.hintSeen = true; commit(); },
   /* --- финансы --- */
   'fin-tab': function(d){ S.finTab = d.tab; commit(); },
+  'fin-pay-tab': function(d){ S.finPayTab = d.kind; commit(); },
   'fin-month': function(d){
     var step = Number(d.step);
     S.finMonth = step === 0 ? '' : finMonthShift(finShownMonth(), step);
