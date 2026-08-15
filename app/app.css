@@ -1225,3 +1225,60 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 #modal .acts{justify-content:center; margin-top:12px}
 #modal h3{text-align:center}
 #modal .s{text-align:center}
+
+/* ---- новое в финансах ---- */
+
+/* Полоса выбора месяца. Стрелки по краям, название посередине — так же
+   листают месяц в любом календаре, и объяснять это не нужно. */
+.finmonth{display:flex; align-items:center; justify-content:center; gap:8px;
+  margin:0 0 14px}
+.finmonth b{font-size:14px; min-width:132px; text-align:center}
+.finmonth button{width:30px; height:30px; border-radius:999px; display:grid; place-items:center;
+  color:var(--fg-2); font-size:17px; line-height:1}
+.finmonth button:hover:not(:disabled){background:var(--soft); color:var(--fg)}
+.finmonth button:disabled{opacity:.3; cursor:default}
+.finmonth .now{width:auto; padding:0 12px; font-size:12.5px; background:var(--soft)}
+
+/* Дата и счёт под строкой ввода: подписи мелкие, поля узкие — это уточнение
+   к строке, а не вторая форма. */
+.finwhen{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px}
+.finwhen label{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--fg-3)}
+.finwhen .inp{width:auto; flex:0 1 auto; padding:7px 10px; font-size:13px}
+
+/* Конверт: заголовок, полоса, остаток. Перерасход красным по всей строке —
+   это то место, ради которого раздел и заведён. */
+.envrow{padding:12px var(--fin-pad); border-top:1px solid var(--line)}
+.sublist .envrow:first-child{border-top:0}
+.env-h{display:flex; align-items:baseline; gap:8px; margin-bottom:8px}
+.env-h b{font-size:14px; flex:1; min-width:0}
+.env-h span{font-size:12px; color:var(--fg-3); font-variant-numeric:tabular-nums}
+.env-f{margin-top:7px; font-size:12.5px; color:var(--fg-2)}
+.envrow.over .env-f{color:var(--crit)}
+.fb-r.over{background:color-mix(in srgb, var(--crit) 18%, transparent)}
+.fb-v.bad{color:var(--crit)}
+.sr-v.bad{color:var(--crit)}
+
+/* Столбики полугодия. Высота — доля от самого дорогого месяца, подпись суммы
+   сверху: колонка чисел под графиком читается хуже, чем над ним. */
+.fincols{display:flex; align-items:flex-end; gap:6px; height:150px}
+.fincol{flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; height:100%}
+.fc-v{font-size:10.5px; color:var(--fg-3); font-variant-numeric:tabular-nums; white-space:nowrap}
+.fc-b{flex:1; width:100%; display:flex; align-items:flex-end}
+.fc-b i{display:block; width:100%; border-radius:6px 6px 0 0; background:var(--soft-2)}
+.fincol.on .fc-b i{background:var(--accent)}
+.fc-t{font-size:11px; color:var(--fg-3)}
+.finline b.up-bad{color:var(--crit)}
+.finline b.down-ok{color:var(--ok)}
+
+/* «Ещё N бесплатно» рядом с кнопкой создания: предел называется до того, как
+   в него упрутся, а не окном после нажатия. */
+.freeleft{font-size:12px; color:var(--fg-3); align-self:center}
+
+.card.finhint{border-color:var(--accent)}
+
+/* Карточка подтверждения в разговоре: что именно запишется и на сколько. */
+.syn-fin{margin-top:10px; padding:12px 14px; border:1px solid var(--stroke);
+  border-radius:14px; background:var(--soft)}
+.syn-fin b{display:block; font-size:13.5px; margin-bottom:8px}
+.syn-fin ul{margin:0 0 10px; padding-left:18px}
+.syn-fin li{font-size:13px; line-height:1.5; color:var(--fg-2); font-variant-numeric:tabular-nums}

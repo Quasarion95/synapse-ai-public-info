@@ -85,9 +85,13 @@ function seed(){
     meditation: { minutes: 10, sound: 'Дождь', doneTotal: 0, totalMinutes: 0, volume: 0.7 },
     // Финансы стартуют пустыми, как и всё остальное: чужие траты в примере
     // читаются как свои и портят первую же сводку.
-    finance: { ops: [], debts: [], jars: [], subs: [], opening: 0 },
+    finance: { ops: [], debts: [], jars: [], subs: [], accounts: [],
+               budgets: {}, recurring: [], cats: [], opening: 0 },
     finTab: 'sum',
-    finKind: 'spend'
+    finKind: 'spend',
+    finMonth: '',
+    finPending: null,
+    finDate: ''
   };
 }
 
@@ -180,14 +184,33 @@ function load(){
     if (!parsed.openGoal) parsed.openGoal = {};
     // Финансы завелись позже остальных разделов: у всех, кто открывал прошлые
     // версии, их в сохранённом состоянии нет.
-    if (!parsed.finance) parsed.finance = { ops: [], debts: [], jars: [], subs: [], opening: 0 };
+    if (!parsed.finance) parsed.finance = {};
     if (!parsed.finance.ops) parsed.finance.ops = [];
     if (!parsed.finance.debts) parsed.finance.debts = [];
     if (!parsed.finance.jars) parsed.finance.jars = [];
     if (!parsed.finance.subs) parsed.finance.subs = [];
+    // Счета, конверты, регулярные операции и свои категории появились позже
+    // первой версии раздела.
+    if (!parsed.finance.accounts) parsed.finance.accounts = [];
+    if (!parsed.finance.budgets) parsed.finance.budgets = {};
+    if (!parsed.finance.recurring) parsed.finance.recurring = [];
+    if (!parsed.finance.cats) parsed.finance.cats = [];
     if (typeof parsed.finance.opening !== 'number') parsed.finance.opening = 0;
+    /* Начальный остаток раньше был одним числом без формы, и «Свободно»
+       считалось от нуля. Теперь остаток лежит на счетах; у кого число было
+       записано, оно переезжает на счёт «Основной», чтобы не потеряться. */
+    if (parsed.finance.opening && !parsed.finance.accounts.length){
+      parsed.finance.accounts.push({ id: uid(), title: 'Основной', kind: 'card',
+        opening: parsed.finance.opening });
+      parsed.finance.opening = 0;
+    }
     if (typeof parsed.finTab !== 'string') parsed.finTab = 'sum';
     if (typeof parsed.finKind !== 'string') parsed.finKind = 'spend';
+    if (typeof parsed.finMonth !== 'string') parsed.finMonth = '';
+    // Неподтверждённая пачка живёт только в этой сессии: подтверждать вчера
+    // предложенное сегодня — верный способ записать не то.
+    parsed.finPending = null;
+    parsed.finDate = '';
     if (typeof parsed.installID !== 'string') parsed.installID = '';
     if (typeof parsed.meditation.volume !== 'number') parsed.meditation.volume = 0.7;
     if (typeof parsed.meditation.totalMinutes !== 'number') parsed.meditation.totalMinutes = 0;
@@ -290,7 +313,25 @@ function liveTasks(){
    Гейт на стороне браузера честно называется тем, что он есть: витриной, а не
    замком. Всё, что стоит денег по-настоящему, — запросы к Syn — считает
    сервер, и обойти это, почистив localStorage, нельзя. */
-var FREE_LIMITS = { lists: 2, notes: 2, goals: 2 };
+var FREE_LIMITS = {
+  lists: 2, notes: 2, goals: 2,
+  // Финансы: по две записи на каждый вид. Операции намеренно не ограничены —
+  // это «обычные задачи» финансов: без ленты трат раздел нечем оценить, а
+  // платят здесь за масштаб — за счета, конверты, копилки и долги, которые
+  // растут вместе с тем, как человек ведёт деньги.
+  accounts: 2, debts: 2, jars: 2, subs: 2, budgets: 2, recurring: 2, cats: 2
+};
+
+/// Сколько записей уже заведено — по видам, которые считает freeLeft.
+function haveOf(kind){
+  if (kind === 'lists') return S.lists.length;
+  if (kind === 'notes') return S.notes.length;
+  if (kind === 'goals') return S.goals.length;
+  if (kind === 'budgets') return Object.keys(S.finance.budgets || {}).length;
+  if (kind === 'cats') return (S.finance.cats || []).length;
+  var box = S.finance && S.finance[kind];
+  return box ? box.length : 0;
+}
 
 /* Платных разделов больше нет.
 
@@ -302,7 +343,10 @@ var FREE_LIMITS = { lists: 2, notes: 2, goals: 2 };
    Объект остаётся пустым, а не удаляется: сама развилка «платный раздел»
    рабочая, и когда такой раздел появится, его хватит вписать сюда одной
    строкой. */
-var PRO_ONLY = { finance: 'Мои финансы' };
+/* Платных разделов нет. Финансы открыты всем: закрытый раздел нечем
+   оценить, а платят здесь за объём — по две записи каждого вида бесплатно,
+   дальше подписка. Так же, как с целями, списками и заметками. */
+var PRO_ONLY = {};
 
 function isPro(){
   if (!S.pro || !S.pro.active) return false;
@@ -318,8 +362,8 @@ function isPro(){
 /// Сколько ещё можно завести бесплатно. -1 значит «сколько угодно».
 function freeLeft(kind){
   if (isPro()) return -1;
-  var have = kind === 'lists' ? S.lists.length : kind === 'notes' ? S.notes.length : S.goals.length;
-  return Math.max(0, FREE_LIMITS[kind] - have);
+  if (FREE_LIMITS[kind] === undefined) return -1;
+  return Math.max(0, FREE_LIMITS[kind] - haveOf(kind));
 }
 
 function canAdd(kind){ return freeLeft(kind) !== 0; }
@@ -327,13 +371,21 @@ function canAdd(kind){ return freeLeft(kind) !== 0; }
 var LIMIT_WORDS = {
   lists: ['список', 'списка', 'списков'],
   notes: ['заметка', 'заметки', 'заметок'],
-  goals: ['цель', 'цели', 'целей']
+  goals: ['цель', 'цели', 'целей'],
+  accounts: ['счёт', 'счёта', 'счетов'],
+  debts: ['долг', 'долга', 'долгов'],
+  jars: ['копилка', 'копилки', 'копилок'],
+  subs: ['подписка', 'подписки', 'подписок'],
+  budgets: ['конверт', 'конверта', 'конвертов'],
+  recurring: ['регулярная операция', 'регулярные операции', 'регулярных операций'],
+  cats: ['своя категория', 'свои категории', 'своих категорий']
 };
 
 function limitReason(kind){
   var n = FREE_LIMITS[kind];
+  var w = LIMIT_WORDS[kind] || ['запись', 'записи', 'записей'];
   return 'Без подписки ' + (kind === 'goals' ? 'можно вести ' : 'можно держать ') +
-    n + ' ' + plural(n, LIMIT_WORDS[kind][0], LIMIT_WORDS[kind][1], LIMIT_WORDS[kind][2]) + '.';
+    n + ' ' + plural(n, w[0], w[1], w[2]) + '.';
 }
 
 /* ============ МЕЛОЧИ ============ */
@@ -1583,8 +1635,17 @@ var FIN_CATS = [
   { id: 'other',     title: 'Прочее',       hue: 0,   words: [] }
 ];
 
+/// Встроенные плюс заведённые человеком. «Прочее» всегда последним: оно
+/// принимает всё, что не узналось, и в списке выбора должно быть в конце.
+function finAllCats(){
+  var own = (S.finance && S.finance.cats) || [];
+  var base = FIN_CATS.slice(0, FIN_CATS.length - 1);
+  return base.concat(own, [FIN_CATS[FIN_CATS.length - 1]]);
+}
+
 function finCat(id){
-  for (var i = 0; i < FIN_CATS.length; i++) if (FIN_CATS[i].id === id) return FIN_CATS[i];
+  var all = finAllCats();
+  for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
   return FIN_CATS[FIN_CATS.length - 1];
 }
 
@@ -1640,8 +1701,10 @@ function finParse(raw, kind){
 
   var low = title.toLowerCase();
   var cat = 'other';
-  for (var i = 0; i < FIN_CATS.length && cat === 'other'; i++){
-    var c = FIN_CATS[i];
+  var cats = (typeof S !== 'undefined' && S.finance) ? finAllCats() : FIN_CATS;
+  for (var i = 0; i < cats.length && cat === 'other'; i++){
+    var c = cats[i];
+    if (!c.words) continue;
     for (var j = 0; j < c.words.length; j++){
       if (low.indexOf(c.words[j]) !== -1){ cat = c.id; break; }
     }
@@ -1654,13 +1717,46 @@ function finParse(raw, kind){
 
 /* ---- счёт ---- */
 
-function finBalance(){
-  var kop = 0;
+function finOpSign(op){ return FIN_KINDS[op.kind] ? FIN_KINDS[op.kind].sign : -1; }
+
+/* Остаток счёта: сколько на нём было плюс всё, что через него прошло.
+
+   Заводится счёт с реальной суммой на карте, а не с нуля: без этого
+   «Свободно» показывало не деньги, а разницу «доходы минус траты с момента,
+   как начали записывать», и у любого, кто записал две траты до зарплаты, там
+   стоял минус, который нечем объяснить. */
+function finAccountBalance(id){
+  var account = finAccount(id);
+  if (!account) return 0;
+  var kop = account.opening || 0;
   for (var i = 0; i < S.finance.ops.length; i++){
     var op = S.finance.ops[i];
-    kop += op.amount * (FIN_KINDS[op.kind] ? FIN_KINDS[op.kind].sign : -1);
+    if ((op.accountId || '') !== id) continue;
+    kop += op.amount * finOpSign(op);
   }
-  return kop + (S.finance.opening || 0);
+  return kop;
+}
+
+function finAccount(id){
+  var box = S.finance.accounts || [];
+  for (var i = 0; i < box.length; i++) if (box[i].id === id) return box[i];
+  return null;
+}
+
+/// Счёт по умолчанию — первый заведённый. Операции без счёта попадают на него.
+function finMainAccount(){
+  var box = S.finance.accounts || [];
+  return box.length ? box[0] : null;
+}
+
+function finBalance(){
+  var kop = 0, i;
+  var box = S.finance.accounts || [];
+  for (i = 0; i < box.length; i++) kop += box[i].opening || 0;
+  for (i = 0; i < S.finance.ops.length; i++){
+    kop += S.finance.ops[i].amount * finOpSign(S.finance.ops[i]);
+  }
+  return kop;
 }
 
 function finDebtSums(){
@@ -1682,13 +1778,25 @@ function finSaved(){
 
 function finMonthKey(iso){ return String(iso || isoOf(todayDate())).slice(0, 7); }
 
+/// Месяц, который смотрят. Пусто значит «текущий» — так он сам съезжает
+/// первого числа, вместо того чтобы застрять на августе до перезагрузки.
+function finShownMonth(){ return S.finMonth || finMonthKey(); }
+
+/// Сдвиг на месяц назад или вперёд, но не в будущее дальше текущего.
+function finMonthShift(key, step){
+  var parts = String(key).split('-');
+  var date = new Date(Number(parts[0]), Number(parts[1]) - 1 + step, 1);
+  var next = date.getFullYear() + '-' + ('0' + (date.getMonth() + 1)).slice(-2);
+  return next > finMonthKey() ? finMonthKey() : next;
+}
+
 function finMonthOps(key){
-  key = key || finMonthKey();
+  key = key || finShownMonth();
   return S.finance.ops.filter(function(op){ return finMonthKey(op.date) === key; });
 }
 
 function finMonthTotals(key){
-  var ops = finMonthOps(key), spent = 0, earned = 0;
+  var ops = finMonthOps(key || finShownMonth()), spent = 0, earned = 0;
   for (var i = 0; i < ops.length; i++){
     if (ops[i].kind === 'income') earned += ops[i].amount; else spent += ops[i].amount;
   }
@@ -1698,7 +1806,7 @@ function finMonthTotals(key){
 /* По категориям за месяц, от большего к меньшему: вопрос «куда уходит»
    отвечается одной колонкой, а не таблицей из тридцати строк. */
 function finByCat(key){
-  var totals = {}, ops = finMonthOps(key);
+  var totals = {}, ops = finMonthOps(key || finShownMonth());
   for (var i = 0; i < ops.length; i++){
     if (ops[i].kind === 'income') continue;
     totals[ops[i].cat] = (totals[ops[i].cat] || 0) + ops[i].amount;
@@ -1708,6 +1816,78 @@ function finByCat(key){
   });
   rows.sort(function(a, b){ return b.sum - a.sum; });
   return rows;
+}
+
+/* ---- конверты ----
+
+   Единственная часть раздела, которая меняет поведение, а не описывает
+   прошлое. Отчёт объясняет, куда ушли деньги; конверт говорит, сколько
+   осталось до конца месяца, — и говорит это сейчас, когда решение ещё
+   принимается. Поэтому полоса «осталось» важнее всех цифр в сводке. */
+function finBudget(cat){ return (S.finance.budgets || {})[cat] || 0; }
+
+function finBudgetSpent(cat, key){
+  var ops = finMonthOps(key || finShownMonth()), kop = 0;
+  for (var i = 0; i < ops.length; i++){
+    if (ops[i].kind === 'income' || ops[i].cat !== cat) continue;
+    kop += ops[i].amount;
+  }
+  return kop;
+}
+
+function finBudgetRows(key){
+  var box = S.finance.budgets || {};
+  return Object.keys(box).map(function(cat){
+    var plan = box[cat], spent = finBudgetSpent(cat, key);
+    return { cat: cat, title: finCat(cat).title, plan: plan, spent: spent,
+             left: plan - spent, share: plan ? Math.min(100, Math.round(spent * 100 / plan)) : 0 };
+  }).sort(function(a, b){ return b.plan - a.plan; });
+}
+
+/* ---- регулярные операции ----
+
+   Аренда, зарплата, платёж по кредиту. Половина месячного оборота — это
+   десяток одних и тех же строк, и вносить их руками каждый месяц никто не
+   станет: раздел бросят на второй месяц, а не на второй неделе.
+
+   Догоняются при открытии приложения, а не по таймеру: вкладка может быть
+   закрыта неделями, и пропущенные списания всё равно должны появиться —
+   каждое своим днём, а не все одним. */
+function finRunRecurring(){
+  var box = S.finance.recurring || [];
+  var today = isoOf(todayDate());
+  var made = 0;
+
+  for (var i = 0; i < box.length; i++){
+    var rule = box[i];
+    if (rule.off) continue;
+    var every = FIN_EVERY[rule.every] || FIN_EVERY.month;
+    var cursor = rule.lastRun || rule.since;
+    if (!cursor) continue;
+
+    // Первый раз — сама дата начала, дальше шагаем от неё.
+    var when = rule.lastRun ? finStepDate(cursor, every) : cursor;
+    var guard = 0;
+    while (when <= today && guard++ < 400){
+      S.finance.ops.push({
+        id: uid(), kind: rule.kind, title: rule.title, amount: rule.amount,
+        cat: rule.cat, date: when, at: Date.now() + guard,
+        accountId: rule.accountId || '', fromRule: rule.id
+      });
+      rule.lastRun = when;
+      made++;
+      when = finStepDate(when, every);
+    }
+  }
+  return made;
+}
+
+function finStepDate(iso, every){
+  var date = new Date(iso + 'T00:00:00');
+  if (every === FIN_EVERY.week) date.setDate(date.getDate() + 7);
+  else if (every === FIN_EVERY.year) date.setFullYear(date.getFullYear() + 1);
+  else date.setMonth(date.getMonth() + 1);
+  return isoOf(date);
 }
 
 /* Сколько откладывать в месяц, чтобы успеть к сроку копилки. Считается по
@@ -1787,11 +1967,16 @@ function finSubNext(sub){
 /* ---- экраны ---- */
 
 var FIN_TABS = [
-  { id: 'sum',   title: 'Сводка' },
-  { id: 'ops',   title: 'Операции' },
-  { id: 'debts', title: 'Долги' },
-  { id: 'jars',  title: 'Копилки' },
-  { id: 'subs',  title: 'Подписки' }
+  { id: 'sum',      title: 'Сводка' },
+  { id: 'ops',      title: 'Операции' },
+  { id: 'budgets',  title: 'Конверты' },
+  { id: 'accounts', title: 'Счета' },
+  { id: 'debts',    title: 'Долги' },
+  { id: 'jars',     title: 'Копилки' },
+  { id: 'subs',     title: 'Подписки' },
+  // Аналитика денег живёт здесь, а не в общей: там разбирают день и цели, и
+  // рубли среди задач читаются как чужая колонка.
+  { id: 'chart',    title: 'Аналитика' }
 ];
 
 function vFinance(){
@@ -1802,10 +1987,28 @@ function vFinance(){
   }).join('') + '</div>';
 
   if (tab === 'ops') return html + vFinOps();
+  if (tab === 'budgets') return html + vFinBudgets();
+  if (tab === 'accounts') return html + vFinAccounts();
   if (tab === 'debts') return html + vFinDebts();
   if (tab === 'jars') return html + vFinJars();
   if (tab === 'subs') return html + vFinSubs();
+  if (tab === 'chart') return html + vFinChart();
   return html + vFinSummary();
+}
+
+/* Полоса выбора месяца. Одна на все вкладки, где месяц вообще имеет смысл:
+   сводка, операции, конверты и аналитика. Вперёд за текущий месяц не пускает —
+   смотреть там нечего. */
+function finMonthBar(){
+  var key = finShownMonth();
+  var now = finMonthKey();
+  return '<div class="finmonth">' +
+    '<button data-act="fin-month" data-step="-1" aria-label="Прошлый месяц">‹</button>' +
+    '<b>' + esc(monthName(key)) + '</b>' +
+    '<button data-act="fin-month" data-step="1"' + (key >= now ? ' disabled' : '') +
+      ' aria-label="Следующий месяц">›</button>' +
+    (key !== now ? '<button class="now" data-act="fin-month" data-step="0">Сегодня</button>' : '') +
+  '</div>';
 }
 
 /* Сводка отвечает на четыре вопроса подряд, каждый своей строкой: сколько
@@ -1815,7 +2018,18 @@ function vFinSummary(){
   var month = finMonthTotals();
   var debts = finDebtSums();
   var free = finBalance() - finSaved();
-  var html = '';
+  var html = finMonthBar();
+
+  // Пока не заведён ни один счёт, «Свободно» считается от нуля и почти всегда
+  // уходит в минус. Говорим об этом прямо и сразу даём завести.
+  if (!(S.finance.accounts || []).length){
+    html += '<section class="card finhint">' +
+      '<h3>Сначала — сколько у вас есть</h3>' +
+      '<p class="sub">Заведите счёт и впишите остаток на карте или в кошельке. ' +
+        'Без него «Свободно» показывает не деньги, а разницу доходов и трат с первой записи.</p>' +
+      '<div class="acts"><button class="btn sm" data-act="fin-acc-new">Завести счёт</button></div>' +
+    '</section>';
+  }
 
   html += '<div class="fintiles">' +
     finTile('Свободно', finMoney(free), free < 0 ? 'bad' : '') +
@@ -1839,6 +2053,24 @@ function vFinSummary(){
         }).join('') + '</div>'
       : '<p class="sub" style="margin:0">В этом месяце ещё ничего не записано. Первая строка — во вкладке «Операции».</p>') +
   '</section>';
+
+  var envelopes = finBudgetRows();
+  if (envelopes.length){
+    html += '<section class="card">' +
+      '<div class="finhead"><h3>Конверты</h3>' +
+        '<span class="sub">осталось до конца месяца</span></div>' +
+      '<div class="finbars">' + envelopes.map(function(row){
+        return '<div class="finbar">' +
+          '<span class="fb-t">' + esc(row.title) + '</span>' +
+          '<span class="fb-r' + (row.left < 0 ? ' over' : '') + '">' +
+            '<i style="width:' + row.share + '%;background:' +
+              (row.left < 0 ? 'var(--crit)' : finTint(row.cat, .9)) + '"></i></span>' +
+          '<span class="fb-v' + (row.left < 0 ? ' bad' : '') + '">' +
+            finMoney(row.left, { plus: false }) + '</span>' +
+        '</div>';
+      }).join('') + '</div>' +
+    '</section>';
+  }
 
   var pacing = S.finance.jars.filter(function(j){ return j.due && (j.saved || 0) < j.target; });
   if (pacing.length){
@@ -1873,7 +2105,7 @@ function finTile(caption, value, tone){
 
 function vFinOps(){
   var kind = S.finKind || 'spend';
-  var html = '';
+  var html = finMonthBar();
 
   html += '<div class="finadd">' +
     '<div class="finswitch">' +
@@ -1883,10 +2115,23 @@ function vFinOps(){
     '<div class="rowadd">' +
       '<input class="inp" type="text" id="finfield" autocomplete="off" ' +
         'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
+      // Искра уходит к Syn: пачка за раз, прошедшие даты, возвраты по долгам.
+      '<button class="ai" type="button" data-act="fin-ai" aria-label="Записать через Syn" title="Записать через Syn">' +
+        ICON.ai + '</button>' +
       '<button class="btn sm" data-act="fin-add">Записать</button>' +
     '</div>' +
+    // Дата отдельным полем: пачку за неделю иначе не записать — всё падало
+    // на сегодня. По умолчанию сегодняшняя, менять нужно редко.
+    '<div class="finwhen">' +
+      '<label for="findate">Дата</label>' +
+      '<input class="inp" type="date" id="findate" value="' + esc(S.finDate || isoOf(todayDate())) + '">' +
+      (finMainAccount() ? '<label for="finacc">Счёт</label>' +
+        '<select class="inp" id="finacc">' + (S.finance.accounts || []).map(function(acc){
+          return '<option value="' + acc.id + '">' + esc(acc.title) + '</option>';
+        }).join('') + '</select>' : '') +
+    '</div>' +
     '<p class="hint" style="margin:8px 0 0">Сумму можно писать прямо в строке — «такси 1.5к», «продукты 2 400». ' +
-      'Категория подставится сама.</p>' +
+      'Категория подставится сама. Искра рядом понимает несколько трат за раз и вчерашние даты.</p>' +
   '</div>';
 
   if (!S.finance.ops.length){
@@ -1917,10 +2162,11 @@ function vFinOps(){
       '<div class="finrows">' + rows.map(function(op){
         return '<div class="finrow">' +
           '<span class="fr-dot" style="background:' + finTint(op.cat, .95) + '"></span>' +
-          '<span class="fr-t">' + esc(op.title) +
-            '<span class="fr-c">' + esc(finCat(op.cat).title) + '</span></span>' +
+          '<button class="fr-t" data-act="fin-op-edit" data-op="' + op.id + '">' + esc(op.title) +
+            '<span class="fr-c">' + esc(finCat(op.cat).title) + '</span></button>' +
           '<span class="fr-v' + (op.kind === 'income' ? ' up' : '') + '">' +
             finMoney(op.amount * (op.kind === 'income' ? 1 : -1), { plus: op.kind === 'income' }) + '</span>' +
+          '<button class="fr-x" data-act="fin-op-edit" data-op="' + op.id + '" title="Править" aria-label="Править">' + ICON.edit + '</button>' +
           '<button class="fr-x" data-act="fin-op-kill" data-op="' + op.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
         '</div>';
       }).join('') + '</div>' +
@@ -1929,6 +2175,163 @@ function vFinOps(){
 
   return html;
 }
+
+function vFinAccounts(){
+  var html = '<div class="acts center" style="margin:0 0 14px">' +
+    '<button class="btn" data-act="fin-acc-new">+ Новый счёт</button>' + finLeftHint('accounts') + '</div>';
+
+  if (!(S.finance.accounts || []).length){
+    return html + blank(NAV_ICONS.finance, 'Счетов пока нет',
+      'Счёт — это где лежат деньги: карта, наличные, накопительный. ' +
+      'Впишите остаток один раз, дальше он считается сам по операциям.');
+  }
+
+  html += '<div class="sublist">' + S.finance.accounts.map(function(acc){
+    var now = finAccountBalance(acc.id);
+    return '<div class="subrow">' +
+      '<span class="sr-t">' + esc(acc.title) +
+        '<span class="sr-n">' + esc(FIN_ACC_KINDS[acc.kind] || 'Счёт') + '</span></span>' +
+      '<span class="sr-v' + (now < 0 ? ' bad' : '') + '">' + finMoney(now) + '</span>' +
+      '<button class="fr-x" data-act="fin-acc-edit" data-acc="' + acc.id + '" title="Править" aria-label="Править">' + ICON.edit + '</button>' +
+      '<button class="fr-x" data-act="fin-acc-kill" data-acc="' + acc.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+    '</div>';
+  }).join('') + '</div>';
+
+  html += '<p class="hint" style="margin-top:12px">Остаток счёта — это сумма, которую вы вписали, ' +
+    'плюс всё, что прошло через него в операциях.</p>';
+  return html;
+}
+
+function vFinBudgets(){
+  var rows = finBudgetRows();
+  var html = finMonthBar();
+
+  html += '<div class="acts center" style="margin:0 0 14px">' +
+    '<button class="btn" data-act="fin-budget-new">+ Новый конверт</button>' + finLeftHint('budgets') + '</div>';
+
+  if (!rows.length){
+    return html + blank(NAV_ICONS.finance, 'Конвертов пока нет',
+      'Конверт — это сколько вы кладёте на категорию в месяц. ' +
+      'Он один во всём разделе говорит, сколько ещё можно потратить, а не куда ушло.');
+  }
+
+  var plan = 0, spent = 0;
+  rows.forEach(function(r){ plan += r.plan; spent += r.spent; });
+  html += '<div class="fintiles">' +
+    finTile('Разложено', finMoney(plan), '') +
+    finTile('Потрачено', finMoney(spent), '') +
+    finTile('Осталось', finMoney(plan - spent), plan - spent < 0 ? 'bad' : '') +
+  '</div>';
+
+  html += '<div class="sublist">' + rows.map(function(row){
+    return '<div class="envrow' + (row.left < 0 ? ' over' : '') + '">' +
+      '<div class="env-h">' +
+        '<b>' + esc(row.title) + '</b>' +
+        '<span>' + finMoney(row.spent) + ' из ' + finMoney(row.plan) + '</span>' +
+        '<button class="fr-x" data-act="fin-budget-edit" data-cat="' + row.cat + '" title="Править" aria-label="Править">' + ICON.edit + '</button>' +
+        '<button class="fr-x" data-act="fin-budget-kill" data-cat="' + row.cat + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+      '</div>' +
+      '<div class="bar slim"><i style="width:' + row.share + '%' +
+        (row.left < 0 ? ';background:var(--crit)' : '') + '"></i></div>' +
+      '<div class="env-f">' + (row.left < 0
+        ? 'перерасход ' + finMoney(-row.left)
+        : 'осталось ' + finMoney(row.left)) + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+
+  return html;
+}
+
+/* Аналитика денег — здесь, а не в общей.
+
+   Три вопроса подряд: как месяц идёт против прошлого, что выросло сильнее
+   всего, и на что уходит из месяца в месяц. Всё считается по тем же
+   операциям, никаких отдельных счётчиков. */
+function vFinChart(){
+  var key = finShownMonth();
+  var prevKey = finMonthShift(key, -1);
+  var now = finMonthTotals(key), prev = finMonthTotals(prevKey);
+  var html = finMonthBar();
+
+  if (!S.finance.ops.length){
+    return html + blank(NAV_ICONS.analytics, 'Считать пока нечего',
+      'Аналитика появится, как только наберётся первый месяц записей.');
+  }
+
+  var diff = now.spent - prev.spent;
+  var pctText = prev.spent ? Math.round(Math.abs(diff) * 100 / prev.spent) + '%' : '—';
+
+  html += '<div class="fintiles">' +
+    finTile('Потрачено', finMoney(now.spent), '') +
+    finTile('Заработано', finMoney(now.earned), '') +
+    finTile('Разница', finMoney(now.earned - now.spent, { plus: now.earned > now.spent }),
+      now.earned < now.spent ? 'bad' : '') +
+    finTile('К прошлому', (diff > 0 ? '+' : diff < 0 ? '−' : '') + pctText, diff > 0 ? 'warn' : '') +
+  '</div>';
+
+  // Полугодие столбиками: тренд виден формой, а не колонкой чисел.
+  var months = [], k = key;
+  for (var i = 0; i < 6; i++){ months.unshift(k); k = finMonthShift(k, -1); }
+  var peak = 1;
+  var bars = months.map(function(mk){
+    var t = finMonthTotals(mk);
+    if (t.spent > peak) peak = t.spent;
+    return { key: mk, spent: t.spent, earned: t.earned };
+  });
+
+  html += '<section class="card">' +
+    '<div class="finhead"><h3>Полгода</h3><span class="sub">траты по месяцам</span></div>' +
+    '<div class="fincols">' + bars.map(function(b){
+      var height = Math.max(2, Math.round(b.spent * 100 / peak));
+      return '<div class="fincol' + (b.key === key ? ' on' : '') + '">' +
+        '<span class="fc-v">' + (b.spent ? finMoney(b.spent) : '') + '</span>' +
+        '<span class="fc-b"><i style="height:' + height + '%"></i></span>' +
+        '<span class="fc-t">' + esc(monthShort(b.key)) + '</span>' +
+      '</div>';
+    }).join('') + '</div>' +
+  '</section>';
+
+  // Что выросло и что упало — по категориям, к прошлому месяцу.
+  var moved = finByCat(key).map(function(row){
+    var was = finBudgetSpent(row.cat, prevKey);
+    return { title: row.title, cat: row.cat, sum: row.sum, was: was, diff: row.sum - was };
+  }).filter(function(r){ return r.was || r.sum; });
+  moved.sort(function(a, b){ return Math.abs(b.diff) - Math.abs(a.diff); });
+
+  if (moved.length){
+    html += '<section class="card">' +
+      '<div class="finhead"><h3>Что изменилось</h3>' +
+        '<span class="sub">к ' + esc(monthName(prevKey).toLowerCase()) + '</span></div>' +
+      moved.slice(0, 8).map(function(r){
+        var share = r.was ? Math.round(Math.abs(r.diff) * 100 / r.was) : 0;
+        return '<div class="finline">' +
+          '<span>' + esc(r.title) + '</span>' +
+          '<b class="' + (r.diff > 0 ? 'up-bad' : r.diff < 0 ? 'down-ok' : '') + '">' +
+            (r.diff > 0 ? '+' : r.diff < 0 ? '−' : '') + finMoney(Math.abs(r.diff)) +
+            (r.was ? ' · ' + share + '%' : ' · впервые') +
+          '</b>' +
+        '</div>';
+      }).join('') +
+    '</section>';
+  }
+
+  return html;
+}
+
+function monthShort(key){
+  var names = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  var parts = String(key).split('-');
+  return names[Number(parts[1]) - 1];
+}
+
+/// Подсказка «осталось N бесплатно» рядом с кнопкой создания.
+function finLeftHint(kind){
+  var left = freeLeft(kind);
+  if (left < 0) return '';
+  return '<span class="freeleft">' + (left ? 'ещё ' + left + ' бесплатно' : 'бесплатные кончились') + '</span>';
+}
+
+var FIN_ACC_KINDS = { card: 'Карта', cash: 'Наличные', save: 'Накопительный', other: 'Счёт' };
 
 function vFinDebts(){
   var sums = finDebtSums();
@@ -2010,6 +2413,7 @@ function vFinJars(){
       '<div class="acts">' +
         '<button class="btn sm" data-act="fin-jar-put" data-jar="' + jar.id + '">Отложить</button>' +
         '<button class="btn sm soft" data-act="fin-jar-take" data-jar="' + jar.id + '">Снять</button>' +
+        '<button class="btn sm soft" data-act="fin-jar-edit" data-jar="' + jar.id + '">Править</button>' +
         '<button class="btn sm soft" data-act="fin-jar-kill" data-jar="' + jar.id + '">Удалить</button>' +
       '</div>' +
     '</article>';
@@ -2042,6 +2446,7 @@ function vFinSubs(){
         '<span class="sr-n">' + (sub.off ? 'отключена' : (next ? 'следующее ' + esc(humanDate(next)) : every.title)) + '</span>' +
       '</span>' +
       '<span class="sr-v">' + finMoney(sub.amount) + ' <i>' + esc(every.title) + '</i></span>' +
+      '<button class="fr-x" data-act="fin-sub-edit" data-sub="' + sub.id + '" title="Править" aria-label="Править">' + ICON.edit + '</button>' +
       '<button class="fr-x" data-act="fin-sub-toggle" data-sub="' + sub.id + '" ' +
         'title="' + (sub.off ? 'Включить' : 'Отключить') + '" aria-label="Включить или отключить">' +
         (sub.off ? '↺' : '⏻') + '</button>' +
@@ -2057,6 +2462,270 @@ function monthName(key){
                 'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   var parts = String(key).split('-');
   return months[Number(parts[1]) - 1] + ' ' + parts[0];
+}
+
+/* Применение финансовых действий модели.
+
+   Всё считает клиент: суммы приходят в рублях целыми, здесь они переводятся
+   в копейки и складываются по нашим правилам. Модель ни разу не участвует в
+   арифметике — её дело вынуть числа из фразы, а не сложить их. */
+function finApplyBatch(actions){
+  var said = [];
+
+  actions.forEach(function(a){
+    var kind = String(a.kind || '').toLowerCase();
+
+    if (kind === 'fin_add_ops'){
+      var ops = Array.isArray(a.ops) ? a.ops : [a];
+      var added = 0;
+      ops.forEach(function(op){
+        var kop = Math.round(Number(op.amount) * 100);
+        if (!kop || !isFinite(kop)) return;
+        S.finance.ops.push({
+          id: uid(), kind: op.kind === 'income' ? 'income' : 'spend',
+          title: String(op.title || 'Запись'), amount: Math.abs(kop),
+          cat: finCat(op.category || op.cat || 'other').id,
+          date: /^\d{4}-\d{2}-\d{2}$/.test(op.date || '') ? op.date : isoOf(todayDate()),
+          at: Date.now() + added,
+          accountId: finMainAccount() ? finMainAccount().id : ''
+        });
+        added++;
+      });
+      if (added) said.push('записано ' + added + ' ' + plural(added, 'операция', 'операции', 'операций'));
+      return;
+    }
+
+    if (kind === 'fin_add_debt'){
+      if (!canAdd('debts')) { said.push('долг не записан: ' + limitReason('debts')); return; }
+      var amount = Math.round(Number(a.amount) * 100);
+      if (!a.who || !amount) return;
+      var debt = {
+        id: uid(), who: String(a.who), mine: a.mine !== false,
+        amount: Math.abs(amount), paid: 0, due: a.due || '', note: String(a.note || ''),
+        closed: false, at: Date.now(), taskId: ''
+      };
+      S.finance.debts.push(debt);
+      if (debt.due) finDebtTask(debt);
+      said.push('долг «' + debt.who + '»');
+      return;
+    }
+
+    if (kind === 'fin_pay_debt'){
+      // Ищем по имени среди открытых: модель получила этот список и должна
+      // была взять имя оттуда. Не нашли — говорим, а не заводим новый долг.
+      var target = null;
+      var needle = String(a.who || '').toLowerCase();
+      for (var i = 0; i < S.finance.debts.length; i++){
+        var d = S.finance.debts[i];
+        if (d.closed) continue;
+        if (d.who.toLowerCase().indexOf(needle) !== -1 || needle.indexOf(d.who.toLowerCase()) !== -1){
+          target = d; break;
+        }
+      }
+      if (!target){ said.push('долг «' + (a.who || '?') + '» не найден'); return; }
+      var back = Math.round(Number(a.amount) * 100);
+      if (!back) return;
+      target.paid = Math.min(target.amount, (target.paid || 0) + Math.abs(back));
+      if (target.paid >= target.amount){
+        target.closed = true;
+        if (target.taskId) S.tasks = S.tasks.filter(function(t){ return t.id !== target.taskId; });
+        target.taskId = '';
+        said.push('долг «' + target.who + '» закрыт');
+      } else {
+        said.push('возврат от «' + target.who + '»');
+      }
+      return;
+    }
+
+    if (kind === 'fin_add_jar'){
+      if (!canAdd('jars')) { said.push('копилка не заведена: ' + limitReason('jars')); return; }
+      var goal = Math.round(Number(a.amount) * 100);
+      if (!a.title || !goal) return;
+      S.finance.jars.push({
+        id: uid(), title: String(a.title), target: Math.abs(goal), saved: 0,
+        due: a.due || '', at: Date.now(), goalId: '', stageId: ''
+      });
+      said.push('копилка «' + a.title + '»');
+      return;
+    }
+
+    if (kind === 'fin_add_sub'){
+      if (!canAdd('subs')) { said.push('подписка не записана: ' + limitReason('subs')); return; }
+      var price = Math.round(Number(a.amount) * 100);
+      if (!a.title || !price) return;
+      S.finance.subs.push({
+        id: uid(), title: String(a.title), amount: Math.abs(price),
+        every: FIN_EVERY[a.every] ? a.every : 'month',
+        since: a.since || isoOf(todayDate()), off: false, taskId: ''
+      });
+      said.push('подписка «' + a.title + '»');
+      return;
+    }
+
+    if (kind === 'fin_set_budget'){
+      var cat = finCat(a.category || a.cat || 'other').id;
+      var plan = Math.round(Number(a.amount) * 100);
+      if (!plan) return;
+      var fresh = !(S.finance.budgets || {})[cat];
+      if (fresh && !canAdd('budgets')) { said.push('конверт не разложен: ' + limitReason('budgets')); return; }
+      S.finance.budgets[cat] = Math.abs(plan);
+      said.push('конверт «' + finCat(cat).title + '»');
+      return;
+    }
+  });
+
+  return said;
+}
+
+/* Что именно запишется — словами и с итоговой суммой.
+
+   Человек должен увидеть цифру до того, как она попадёт в сводку, а не
+   после. Поэтому итог считается здесь же, теми же правилами, что и запись. */
+function finPreview(actions){
+  var rows = [], total = 0;
+
+  actions.forEach(function(a){
+    var kind = String(a.kind || '').toLowerCase();
+    if (kind === 'fin_add_ops'){
+      var ops = Array.isArray(a.ops) ? a.ops : [a];
+      ops.forEach(function(op){
+        var kop = Math.round(Math.abs(Number(op.amount)) * 100);
+        if (!kop) return;
+        var income = op.kind === 'income';
+        total += income ? kop : -kop;
+        rows.push((income ? '+ ' : '− ') + finMoney(kop) + ' · ' + (op.title || 'запись') +
+          ' · ' + finCat(op.category || op.cat || 'other').title +
+          ' · ' + humanDate(op.date || isoOf(todayDate())));
+      });
+    } else if (kind === 'fin_add_debt'){
+      rows.push((a.mine !== false ? 'Я должен ' : 'Мне должен ') + (a.who || '?') + ' — ' +
+        finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) +
+        (a.due ? ', до ' + humanDate(a.due) : ''));
+    } else if (kind === 'fin_pay_debt'){
+      rows.push('Возврат от ' + (a.who || '?') + ' — ' +
+        finMoney(Math.round(Math.abs(Number(a.amount)) * 100)));
+    } else if (kind === 'fin_add_jar'){
+      rows.push('Копилка «' + (a.title || '?') + '» на ' +
+        finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) +
+        (a.due ? ', к ' + humanDate(a.due) : ''));
+    } else if (kind === 'fin_add_sub'){
+      rows.push('Подписка «' + (a.title || '?') + '» — ' +
+        finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) + ' ' +
+        (FIN_EVERY[a.every] || FIN_EVERY.month).title);
+    } else if (kind === 'fin_set_budget'){
+      rows.push('Конверт «' + finCat(a.category || a.cat || 'other').title + '» — ' +
+        finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) + ' в месяц');
+    }
+  });
+
+  var head = rows.length === 1 ? 'Записать?'
+    : 'Записать ' + rows.length + ' ' + plural(rows.length, 'запись', 'записи', 'записей') +
+      (total ? ' на ' + finMoney(Math.abs(total)) : '') + '?';
+  return { head: head, rows: rows };
+}
+
+/// Финансовые действия из ответа — узнаём их по приставке.
+function finIsFinanceAction(a){
+  return String(a && a.kind || '').toLowerCase().indexOf('fin_') === 0;
+}
+
+function finOp(id){
+  for (var i = 0; i < S.finance.ops.length; i++) if (S.finance.ops[i].id === id) return S.finance.ops[i];
+  return null;
+}
+function finRec(id){
+  var box = S.finance.recurring || [];
+  for (var i = 0; i < box.length; i++) if (box[i].id === id) return box[i];
+  return null;
+}
+
+/* Задача на возврат долга. Та же механика, что у напоминания о списании:
+   обычная задача в плане дня, а не отметка внутри финансов. */
+function finDebtTask(debt){
+  if (!debt || !debt.due) return null;
+  if (debt.taskId && findTask(debt.taskId)) return findTask(debt.taskId);
+  var task = {
+    id: uid(),
+    // Через двоеточие, а не «вернуть Марату»: склонять имена надёжно нельзя,
+    // и «Вернуть Марат» читается как опечатка в собственном приложении.
+    title: (debt.mine ? 'Вернуть долг: ' : 'Забрать долг: ') + debt.who + ' — ' +
+      finMoney(Math.max(0, debt.amount - (debt.paid || 0))),
+    bucket: bucketForDate(debt.due), date: debt.due, done: false,
+    note: 'Долг из раздела «Мои финансы».',
+    time: '', repeat: '', rule: null, series: null,
+    hasExplicitDate: true, hasExplicitTime: false,
+    goalId: null, stageId: null, subtasks: []
+  };
+  S.tasks.push(task);
+  debt.taskId = task.id;
+  return task;
+}
+
+/* Копилка внутри цели.
+
+   Цель разбита на этапы, и «накопить 120 000» — такой же этап, как «сдать
+   пробный экзамен»: у него есть готовность, и она считается сама, по тому,
+   сколько отложено. Связь держится в обе стороны — этап знает про копилку,
+   копилка про этап, — чтобы удаление одного не оставляло второе висеть. */
+function finLinkJarToGoal(jar, goalId){
+  // Отвязка от прежней цели, если её сменили.
+  if (jar.goalId && jar.goalId !== goalId){
+    var was = findGoal(jar.goalId);
+    if (was) was.stages = was.stages.filter(function(st){ return st.id !== jar.stageId; });
+  }
+  if (!goalId){ jar.goalId = ''; jar.stageId = ''; return; }
+
+  var goal = findGoal(goalId);
+  if (!goal) { jar.goalId = ''; jar.stageId = ''; return; }
+
+  var stage = jar.stageId ? findStage(goal, jar.stageId) : null;
+  if (!stage){
+    stage = { id: uid(), title: jar.title, detail: 'Копилка: ' + finMoney(jar.target),
+              targetDate: jar.due || '', status: 'planned', jarId: jar.id };
+    goal.stages.push(stage);
+  } else {
+    stage.title = jar.title;
+    stage.detail = 'Копилка: ' + finMoney(jar.target);
+    stage.targetDate = jar.due || '';
+  }
+  jar.goalId = goal.id;
+  jar.stageId = stage.id;
+  finSyncJarStages();
+}
+
+/// Этап-копилка закрывается, когда собрана вся сумма. Считается там же, где
+/// остальная готовность, — снизу вверх, одним проходом.
+function finSyncJarStages(){
+  var jars = (S.finance && S.finance.jars) || [];
+  for (var i = 0; i < jars.length; i++){
+    var jar = jars[i];
+    if (!jar.goalId || !jar.stageId) continue;
+    var goal = findGoal(jar.goalId);
+    var stage = goal ? findStage(goal, jar.stageId) : null;
+    if (!stage){ jar.goalId = ''; jar.stageId = ''; continue; }
+    stage.status = (jar.saved || 0) >= jar.target ? 'done'
+      : ((jar.saved || 0) > 0 ? 'active' : 'planned');
+  }
+}
+
+function modalSubEdit(sub){
+  return '<h3>Подписка</h3>' +
+    '<div class="field"><label for="m-title">За что</label>' +
+      '<input class="inp" id="m-title" value="' + esc(sub.title) + '"></div>' +
+    '<div class="field"><label for="m-amount">Сумма списания</label>' +
+      '<input class="inp" id="m-amount" value="' + Math.round(sub.amount / 100) + '"></div>' +
+    '<div class="field"><label for="m-every">Как часто</label>' +
+      '<select class="inp" id="m-every">' +
+        '<option value="month"' + (sub.every === 'month' ? ' selected' : '') + '>Раз в месяц</option>' +
+        '<option value="year"' + (sub.every === 'year' ? ' selected' : '') + '>Раз в год</option>' +
+        '<option value="week"' + (sub.every === 'week' ? ' selected' : '') + '>Раз в неделю</option>' +
+      '</select></div>' +
+    '<div class="field"><label for="m-due">С какого числа списывают</label>' +
+      '<input class="inp" id="m-due" type="date" value="' + esc(sub.since || '') + '"></div>' +
+    '<label class="check"><input type="checkbox" id="m-remind"' + (sub.taskId ? ' checked' : '') + '>' +
+      '<span>Напоминать о списании — повторяющейся задачей в этот день</span></label>' +
+    '<button class="btn full" data-act="fin-sub-save" data-sub="' + sub.id + '">Сохранить</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
 function finDebt(id){
@@ -2110,6 +2779,7 @@ function finJarMove(id, sign){
   var parsed = finParse(answer, 'spend');
   if (!parsed) return;
   jar.saved = Math.max(0, (jar.saved || 0) + parsed.amount * sign);
+  finSyncJarStages();
   commit(sign > 0 ? 'Отложено ' + finMoney(parsed.amount) : 'Снято ' + finMoney(parsed.amount));
 }
 
@@ -2131,24 +2801,144 @@ function modalDebt(){
       '<input class="inp" id="m-due" type="date"></div>' +
     '<div class="field"><label for="m-note">Заметка</label>' +
       '<input class="inp" id="m-note" placeholder="Необязательно"></div>' +
+    '<label class="check"><input type="checkbox" id="m-remind">' +
+      '<span>Поставить задачу на день возврата</span></label>' +
     '<button class="btn full" data-act="fin-debt-save">Записать</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
-function modalJar(){
-  return '<h3>Новая копилка</h3>' +
-    '<p class="s">Копилка — это цель в рублях. Со сроком Synapse посчитает, сколько откладывать в месяц.</p>' +
-    '<div class="field"><label for="m-title">На что</label>' +
-      '<input class="inp" id="m-title" placeholder="Отпуск"></div>' +
-    '<div class="field"><label for="m-amount">Сколько нужно</label>' +
-      '<input class="inp" id="m-amount" placeholder="120 000"></div>' +
-    '<div class="field"><label for="m-due">К какому числу</label>' +
-      '<input class="inp" id="m-due" type="date"></div>' +
-    '<button class="btn full" data-act="fin-jar-save">Завести</button>' +
+function finCatSelect(id, chosen){
+  return '<select class="inp" id="' + id + '">' + finAllCats().map(function(c){
+    return '<option value="' + c.id + '"' + (c.id === chosen ? ' selected' : '') + '>' +
+      esc(c.title) + '</option>';
+  }).join('') + '</select>';
+}
+
+function finAccSelect(id, chosen){
+  var box = S.finance.accounts || [];
+  if (!box.length) return '';
+  return '<div class="field"><label for="' + id + '">Счёт</label>' +
+    '<select class="inp" id="' + id + '">' +
+      '<option value="">Без счёта</option>' +
+      box.map(function(acc){
+        return '<option value="' + acc.id + '"' + (acc.id === chosen ? ' selected' : '') + '>' +
+          esc(acc.title) + '</option>';
+      }).join('') + '</select></div>';
+}
+
+function modalAccount(acc){
+  var fresh = !acc;
+  return '<h3>' + (fresh ? 'Новый счёт' : 'Счёт') + '</h3>' +
+    '<p class="s">Впишите, сколько сейчас на нём лежит. Дальше остаток считается сам по операциям.</p>' +
+    '<div class="field"><label for="m-title">Название</label>' +
+      '<input class="inp" id="m-title" value="' + esc(fresh ? '' : acc.title) + '" placeholder="Карта"></div>' +
+    '<div class="field"><label for="m-kind">Что это</label>' +
+      '<select class="inp" id="m-kind">' + Object.keys(FIN_ACC_KINDS).map(function(k){
+        return '<option value="' + k + '"' + (!fresh && acc.kind === k ? ' selected' : '') + '>' +
+          esc(FIN_ACC_KINDS[k]) + '</option>';
+      }).join('') + '</select></div>' +
+    '<div class="field"><label for="m-amount">Сколько сейчас</label>' +
+      '<input class="inp" id="m-amount" value="' + (fresh ? '' : Math.round((acc.opening || 0) / 100)) +
+        '" placeholder="35 000"></div>' +
+    '<button class="btn full" data-act="fin-acc-save"' + (fresh ? '' : ' data-acc="' + acc.id + '"') + '>' +
+      (fresh ? 'Завести' : 'Сохранить') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
-function modalSub(){
+function modalBudget(cat){
+  var fresh = !cat;
+  return '<h3>' + (fresh ? 'Новый конверт' : 'Конверт') + '</h3>' +
+    '<p class="s">Сколько кладём на категорию в месяц. Полоса покажет, сколько ещё можно потратить.</p>' +
+    '<div class="field"><label for="m-cat">Категория</label>' + finCatSelect('m-cat', cat) + '</div>' +
+    '<div class="field"><label for="m-amount">Сколько в месяц</label>' +
+      '<input class="inp" id="m-amount" value="' +
+        (fresh ? '' : Math.round(finBudget(cat) / 100)) + '" placeholder="25 000"></div>' +
+    '<button class="btn full" data-act="fin-budget-save">' + (fresh ? 'Разложить' : 'Сохранить') + '</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
+function modalOp(op){
+  return '<h3>Запись</h3>' +
+    '<div class="field"><label for="m-opkind">Что это</label>' +
+      '<select class="inp" id="m-opkind">' +
+        '<option value="spend"' + (op.kind === 'spend' ? ' selected' : '') + '>Трата</option>' +
+        '<option value="income"' + (op.kind === 'income' ? ' selected' : '') + '>Доход</option>' +
+      '</select></div>' +
+    '<div class="field"><label for="m-title">Название</label>' +
+      '<input class="inp" id="m-title" value="' + esc(op.title) + '"></div>' +
+    '<div class="field"><label for="m-amount">Сумма</label>' +
+      '<input class="inp" id="m-amount" value="' + Math.round(op.amount / 100) + '"></div>' +
+    '<div class="field"><label for="m-cat">Категория</label>' + finCatSelect('m-cat', op.cat) + '</div>' +
+    '<div class="field"><label for="m-due">Дата</label>' +
+      '<input class="inp" id="m-due" type="date" value="' + esc(op.date) + '"></div>' +
+    finAccSelect('m-acc', op.accountId || '') +
+    '<button class="btn full" data-act="fin-op-save" data-op="' + op.id + '">Сохранить</button>' +
+    '<div class="acts">' +
+      '<button class="btn sm soft" data-act="fin-op-kill" data-op="' + op.id + '">Удалить</button>' +
+      '<button class="btn sm soft" data-act="close-modal">Отмена</button>' +
+    '</div>';
+}
+
+function modalRecurring(rule){
+  var fresh = !rule;
+  return '<h3>' + (fresh ? 'Регулярная операция' : 'Правило') + '</h3>' +
+    '<p class="s">Аренда, зарплата, платёж по кредиту. Появляется в ленте сама, в свой день.</p>' +
+    '<div class="field"><label for="m-opkind">Что это</label>' +
+      '<select class="inp" id="m-opkind">' +
+        '<option value="spend"' + (!fresh && rule.kind === 'spend' ? ' selected' : '') + '>Трата</option>' +
+        '<option value="income"' + (!fresh && rule.kind === 'income' ? ' selected' : '') + '>Доход</option>' +
+      '</select></div>' +
+    '<div class="field"><label for="m-title">Название</label>' +
+      '<input class="inp" id="m-title" value="' + esc(fresh ? '' : rule.title) + '" placeholder="Аренда"></div>' +
+    '<div class="field"><label for="m-amount">Сумма</label>' +
+      '<input class="inp" id="m-amount" value="' + (fresh ? '' : Math.round(rule.amount / 100)) +
+        '" placeholder="45 000"></div>' +
+    '<div class="field"><label for="m-cat">Категория</label>' +
+      finCatSelect('m-cat', fresh ? 'home' : rule.cat) + '</div>' +
+    '<div class="field"><label for="m-every">Как часто</label>' +
+      '<select class="inp" id="m-every">' +
+        '<option value="month"' + (!fresh && rule.every === 'month' ? ' selected' : '') + '>Раз в месяц</option>' +
+        '<option value="week"' + (!fresh && rule.every === 'week' ? ' selected' : '') + '>Раз в неделю</option>' +
+        '<option value="year"' + (!fresh && rule.every === 'year' ? ' selected' : '') + '>Раз в год</option>' +
+      '</select></div>' +
+    '<div class="field"><label for="m-due">С какого числа</label>' +
+      '<input class="inp" id="m-due" type="date" value="' +
+        esc(fresh ? isoOf(todayDate()) : rule.since) + '"></div>' +
+    finAccSelect('m-acc', fresh ? '' : rule.accountId) +
+    '<button class="btn full" data-act="fin-rec-save"' + (fresh ? '' : ' data-rec="' + rule.id + '"') + '>' +
+      (fresh ? 'Записать' : 'Сохранить') + '</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
+function modalJar(jar){
+  var fresh = !jar;
+  var goals = S.goals || [];
+  return '<h3>' + (fresh ? 'Новая копилка' : 'Копилка') + '</h3>' +
+    '<p class="s">Копилка — это цель в рублях. Со сроком Synapse посчитает, сколько откладывать в месяц.</p>' +
+    '<div class="field"><label for="m-title">На что</label>' +
+      '<input class="inp" id="m-title" value="' + esc(fresh ? '' : jar.title) + '" placeholder="Отпуск"></div>' +
+    '<div class="field"><label for="m-amount">Сколько нужно</label>' +
+      '<input class="inp" id="m-amount" value="' + (fresh ? '' : Math.round(jar.target / 100)) +
+        '" placeholder="120 000"></div>' +
+    '<div class="field"><label for="m-due">К какому числу</label>' +
+      '<input class="inp" id="m-due" type="date" value="' + esc(fresh ? '' : (jar.due || '')) + '"></div>' +
+    // Привязка к цели: копилка становится её этапом и закрывается сама, когда
+    // сумма собрана.
+    (goals.length ? '<div class="field"><label for="m-goal">Этап какой цели</label>' +
+      '<select class="inp" id="m-goal">' +
+        '<option value="">Сама по себе</option>' +
+        goals.map(function(g){
+          return '<option value="' + g.id + '"' +
+            (!fresh && jar.goalId === g.id ? ' selected' : '') + '>' + esc(g.title) + '</option>';
+        }).join('') + '</select></div>' : '') +
+    '<button class="btn full" data-act="fin-jar-save"' + (fresh ? '' : ' data-jar="' + jar.id + '"') + '>' +
+      (fresh ? 'Завести' : 'Сохранить') + '</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
+function modalSub(sub){
+  var fresh = !sub;
+  if (!fresh) return modalSubEdit(sub);
   return '<h3>Новая подписка</h3>' +
     '<p class="s">Выбери из готовых или впиши своё. Суммы в шаблонах — ориентир, поправь под свой тариф.</p>' +
     '<div class="chips tpl">' + FIN_SUB_TEMPLATES.map(function(tpl, i){
@@ -4709,7 +5499,54 @@ function synWorkspace(){
 }
 
 /// Человекочитаемый контекст: тем же текстом его собирает приложение.
+/* Срез финансов для модели — именно срез, а не история.
+
+   Триста операций — это и деньги на токенах, и лишний вынос личных трат
+   наружу. Модели нужны только имена, чтобы связать «Марат вернул пять» с
+   существующим долгом, и список категорий, чтобы не выдумывать свои. Суммы
+   отдельных трат ей не нужны вовсе. */
+function finContext(){
+  var lines = ['РАЗДЕЛ «МОИ ФИНАНСЫ»'];
+  lines.push('СЕГОДНЯ: ' + isoOf(todayDate()));
+  lines.push('КАТЕГОРИИ: ' + finAllCats().map(function(c){
+    return c.id + ' (' + c.title + ')';
+  }).join(', '));
+
+  var open = S.finance.debts.filter(function(d){ return !d.closed; });
+  if (open.length){
+    lines.push('ОТКРЫТЫЕ ДОЛГИ:');
+    open.forEach(function(d){
+      lines.push('  - ' + d.who + ': ' + (d.mine ? 'должен я' : 'должны мне') +
+        ', осталось ' + Math.round(Math.max(0, d.amount - (d.paid || 0)) / 100) + ' руб.');
+    });
+  } else {
+    lines.push('ОТКРЫТЫХ ДОЛГОВ НЕТ');
+  }
+
+  if (S.finance.jars.length){
+    lines.push('КОПИЛКИ: ' + S.finance.jars.map(function(j){ return j.title; }).join(', '));
+  }
+  if (S.finance.subs.length){
+    lines.push('ПОДПИСКИ: ' + S.finance.subs.map(function(x){ return x.title; }).join(', '));
+  }
+  if ((S.finance.accounts || []).length){
+    lines.push('СЧЕТА: ' + S.finance.accounts.map(function(a){ return a.title; }).join(', '));
+  }
+
+  var month = finMonthTotals(finMonthKey());
+  lines.push('ЭТОТ МЕСЯЦ: потрачено ' + Math.round(month.spent / 100) +
+    ' руб., получено ' + Math.round(month.earned / 100) + ' руб.');
+  var top = finByCat(finMonthKey()).slice(0, 5);
+  if (top.length){
+    lines.push('ТРАТЫ ПО КАТЕГОРИЯМ ЗА МЕСЯЦ: ' + top.map(function(r){
+      return r.title + ' ' + Math.round(r.sum / 100);
+    }).join(', '));
+  }
+  return lines.join('\n');
+}
+
 function synContext(){
+  if (S.synIntent === 'finance') return finContext();
   var lines = ['СЕГОДНЯ: ' + isoOf(todayDate())];
   var byBucket = {};
   liveTasks().forEach(function(t){
@@ -4851,6 +5688,20 @@ function synLogHTML(){
       '</div>';
     }
 
+    // Карточка подтверждения: что именно запишется и на какую сумму.
+    if (item.finance && item.finance.rows.length){
+      html += '<div class="syn-fin">' +
+        '<b>' + esc(item.finance.head) + '</b>' +
+        '<ul>' + item.finance.rows.map(function(row){
+          return '<li>' + esc(row) + '</li>';
+        }).join('') + '</ul>' +
+        '<div class="syn-none-acts">' +
+          '<button class="btn sm" data-act="fin-apply">Записать</button>' +
+          '<button class="btn sm soft" data-act="fin-drop">Не надо</button>' +
+        '</div>' +
+      '</div>';
+    }
+
     if (item.done && item.done.length){
       html += '<ul class="syn-did">' + item.done.map(function(line){
         return '<li>' + esc(line) + '</li>';
@@ -4942,7 +5793,17 @@ function synSend(text){
 
   synAsk().then(function(data){
     if (data.quota) SYN.quota = data.quota;
-    var result = synApplyActions(data.actions);
+    /* Финансовые действия не применяются сразу.
+
+       Задачу Syn создаёт молча — ошибку видно и её легко убрать. С деньгами
+       так нельзя: неверная сумма разъедет и сводку, и конверт, и остаток на
+       счёте, а заметит человек это через месяц. Поэтому пачка сначала
+       показывается карточкой, и пишется только по нажатию. */
+    var finance = (data.actions || []).filter(finIsFinanceAction);
+    var rest = (data.actions || []).filter(function(a){ return !finIsFinanceAction(a); });
+    S.finPending = finance.length ? finance : null;
+
+    var result = synApplyActions(rest);
     SYN.busy = false;
     synChatPush('assistant', data.reply || 'Готово.', result);
     // Разговор с Syn — четвёртый шаг обучения, и записать это надо здесь:
@@ -4954,6 +5815,11 @@ function synSend(text){
       var last = S.synChat[S.synChat.length - 1];
       last.none = true;
       last.said = text;
+    }
+    if (finance.length){
+      var card = S.synChat[S.synChat.length - 1];
+      card.none = false;
+      card.finance = finPreview(finance);
     }
     save();
     synRender('', '');
@@ -6291,6 +7157,9 @@ function syncCompletion(){
     if (!g.stages || !g.stages.length){ g.done = false; continue; }
     for (j = 0; j < g.stages.length; j++){
       var st = g.stages[j];
+      // Этап-копилка меряется рублями, а не задачами: её готовность считает
+      // finSyncJarStages, и перебивать её числом задач нельзя.
+      if (st.jarId) continue;
       var own = S.tasks.filter(function(task){ return task.stageId === st.id; });
       if (!own.length) continue;              // этап без задач закрывают руками
       var all = own.every(function(task){ return task.done; });
@@ -6302,6 +7171,7 @@ function syncCompletion(){
 }
 
 function commit(message){
+  finSyncJarStages();
   syncCompletion();
   if (tourCheck() && !message) message = 'Первые шаги пройдены';
   // Сообщение держим в переменной, а не в S: попав в localStorage, оно
@@ -6570,6 +7440,81 @@ var ACTS = {
   'hint-off': function(){ S.hintSeen = true; commit(); },
   /* --- финансы --- */
   'fin-tab': function(d){ S.finTab = d.tab; commit(); },
+  'fin-month': function(d){
+    var step = Number(d.step);
+    S.finMonth = step === 0 ? '' : finMonthShift(finShownMonth(), step);
+    if (S.finMonth === finMonthKey()) S.finMonth = '';
+    commit();
+  },
+
+  /* --- счета --- */
+  'fin-acc-new': function(){
+    if (!canAdd('accounts')) return openModal(modalPaywall('accounts'));
+    openModal(modalAccount(null));
+  },
+  'fin-acc-edit': function(d){ openModal(modalAccount(finAccount(d.acc))); },
+  'fin-acc-save': function(d){
+    var title = mval('m-title');
+    var parsed = finParse(mval('m-amount') || '0', 'spend');
+    if (!title) return;
+    var kind = $('m-kind') ? $('m-kind').value : 'card';
+    var opening = parsed ? parsed.amount : 0;
+    // Остаток может быть и отрицательным — кредитка живёт в минусе.
+    if (/^\s*[-−]/.test(mval('m-amount'))) opening = -opening;
+    var acc = finAccount(d.acc);
+    if (acc){ acc.title = title; acc.kind = kind; acc.opening = opening; }
+    else S.finance.accounts.push({ id: uid(), title: title, kind: kind, opening: opening });
+    closeModal();
+    commit(acc ? 'Счёт изменён' : 'Счёт заведён');
+  },
+  'fin-acc-kill': function(d){
+    S.finance.accounts = S.finance.accounts.filter(function(a){ return a.id !== d.acc; });
+    // Операции остаются: они факт, а счёт — только место, где деньги лежали.
+    S.finance.ops.forEach(function(op){ if (op.accountId === d.acc) op.accountId = ''; });
+    commit('Счёт удалён, операции остались');
+  },
+
+  /* --- конверты --- */
+  'fin-budget-new': function(){
+    if (!canAdd('budgets')) return openModal(modalPaywall('budgets'));
+    openModal(modalBudget(''));
+  },
+  'fin-budget-edit': function(d){ openModal(modalBudget(d.cat)); },
+  'fin-budget-save': function(){
+    var cat = $('m-cat') ? $('m-cat').value : '';
+    var parsed = finParse(mval('m-amount'), 'spend');
+    if (!cat || !parsed) return;
+    var fresh = !(S.finance.budgets || {})[cat];
+    if (fresh && !canAdd('budgets')) return openModal(modalPaywall('budgets'));
+    S.finance.budgets[cat] = parsed.amount;
+    closeModal();
+    commit('Конверт «' + finCat(cat).title + '» — ' + finMoney(parsed.amount));
+  },
+  'fin-budget-kill': function(d){
+    delete S.finance.budgets[d.cat];
+    commit('Конверт убран');
+  },
+
+  /* --- свои категории --- */
+  'fin-cat-new': function(){
+    if (!canAdd('cats')) return openModal(modalPaywall('cats'));
+    openModal(modalText('Своя категория', 'Название пойдёт в списки и в подсказки разбора.',
+      'Название', 'fin-cat-save', 'Например, Дети'));
+  },
+  'fin-cat-save': function(){
+    var title = mval('m-title');
+    if (!title) return;
+    if (!canAdd('cats')) return openModal(modalPaywall('cats'));
+    S.finance.cats.push({
+      id: 'own' + uid(), title: title,
+      // Оттенок по названию: одно и то же слово всегда даёт один цвет, и
+      // список не перекрашивается при каждой перезагрузке.
+      hue: (title.split('').reduce(function(a, c){ return a + c.charCodeAt(0); }, 0) * 37) % 360,
+      words: [title.toLowerCase()]
+    });
+    closeModal();
+    commit('Категория добавлена');
+  },
   'fin-kind': function(d){ S.finKind = d.kind; commit(); },
 
   'fin-add': function(){
@@ -6577,21 +7522,70 @@ var ACTS = {
     if (!field) return;
     var parsed = finParse(field.value, S.finKind || 'spend');
     if (!parsed) return toast('Нужна сумма: «кофе 350»');
+    var when = $('findate') ? $('findate').value : '';
+    var acc = $('finacc') ? $('finacc').value : '';
     S.finance.ops.push({
       id: uid(), kind: S.finKind || 'spend', title: parsed.title,
-      amount: parsed.amount, cat: parsed.cat, date: isoOf(todayDate()), at: Date.now()
+      amount: parsed.amount, cat: parsed.cat,
+      date: when || isoOf(todayDate()), at: Date.now(),
+      accountId: acc || (finMainAccount() ? finMainAccount().id : '')
     });
     field.value = '';
-    // Траты записывают пачками — за неделю сразу. Курсор остаётся в строке.
+    // Дата держится между записями: пачку за прошлую неделю иначе пришлось
+    // бы выставлять заново на каждой строке.
+    S.finDate = when || '';
     keepFocus('#finfield');
     commit();
   },
+  'fin-ai': function(){
+    var field = $('finfield');
+    var draft = field ? field.value.trim() : '';
+    if (!draft) return toast('Напишите, что записать: «вчера кофе 350 и такси 450»');
+    S.synIntent = 'finance';
+    S.synGoalCreate = false;
+    if (field) field.value = '';
+    synRender(draft, '');
+    synSend(draft);
+  },
+  'fin-apply': function(){
+    // Деньги пишутся только после подтверждения: ошибка в сумме портит и
+    // сводку, и конверты, и остаток на счёте — в отличие от задачи, где
+    // промах видно сразу и он ничего не ломает.
+    var batch = S.finPending;
+    if (!batch || !batch.length) return;
+    S.finPending = null;
+    var made = finApplyBatch(batch);
+    commit(made.length ? made.join(', ') : 'Ничего не записалось');
+  },
+  'fin-drop': function(){
+    S.finPending = null;
+    commit('Не записано');
+  },
+  'fin-op-edit': function(d){
+    var op = finOp(d.op);
+    if (op) openModal(modalOp(op));
+  },
+  'fin-op-save': function(d){
+    var op = finOp(d.op);
+    var parsed = finParse(mval('m-amount'), 'spend');
+    if (!op || !parsed) return;
+    op.title = mval('m-title') || op.title;
+    op.amount = parsed.amount;
+    op.cat = $('m-cat') ? $('m-cat').value : op.cat;
+    op.kind = $('m-opkind') ? $('m-opkind').value : op.kind;
+    op.date = mval('m-due') || op.date;
+    if ($('m-acc')) op.accountId = $('m-acc').value;
+    closeModal();
+    commit('Запись изменена');
+  },
   'fin-op-kill': function(d){
     S.finance.ops = S.finance.ops.filter(function(op){ return op.id !== d.op; });
+    closeModal();
     commit('Запись удалена');
   },
 
   'fin-debt-new': function(){
+    if (!canAdd('debts')) return openModal(modalPaywall('debts'));
     S.finDraftMine = true;
     openModal(modalDebt());
   },
@@ -6608,6 +7602,12 @@ var ACTS = {
     var who = $('m-who-label');
     if (who) who.textContent = S.finDraftMine ? 'У кого взял' : 'Кто взял у меня';
   },
+  'fin-debt-remind': function(d){
+    var debt = finDebt(d.debt);
+    if (!debt || !debt.due) return toast('Сначала поставьте срок возврата');
+    finDebtTask(debt);
+    commit('Задача на возврат поставлена');
+  },
   'fin-debt-save': function(){
     var who = mval('m-who');
     var parsed = finParse(mval('m-amount'), 'spend');
@@ -6616,6 +7616,8 @@ var ACTS = {
       id: uid(), who: who, mine: S.finDraftMine !== false, amount: parsed.amount, paid: 0,
       due: mval('m-due'), note: mval('m-note'), closed: false, at: Date.now()
     });
+    var mind = $('m-remind');
+    if (mind && mind.checked) finDebtTask(S.finance.debts[S.finance.debts.length - 1]);
     closeModal();
     commit(S.finDraftMine ? 'Долг записан' : 'Записано, кто должен');
   },
@@ -6628,7 +7630,11 @@ var ACTS = {
     var parsed = finParse(answer, 'spend');
     if (!parsed) return;
     debt.paid = Math.min(debt.amount, (debt.paid || 0) + parsed.amount);
-    if (debt.paid >= debt.amount) debt.closed = true;
+    if (debt.paid >= debt.amount){
+      debt.closed = true;
+      if (debt.taskId) S.tasks = S.tasks.filter(function(t){ return t.id !== debt.taskId; });
+      debt.taskId = '';
+    }
     commit(debt.closed ? 'Долг закрыт' : 'Возврат записан');
   },
   'fin-debt-close': function(d){
@@ -6644,20 +7650,37 @@ var ACTS = {
     commit();
   },
   'fin-debt-kill': function(d){
+    var debt = finDebt(d.debt);
+    if (debt && debt.taskId) S.tasks = S.tasks.filter(function(t){ return t.id !== debt.taskId; });
     S.finance.debts = S.finance.debts.filter(function(x){ return x.id !== d.debt; });
     commit('Удалено');
   },
 
-  'fin-jar-new': function(){ openModal(modalJar()); },
-  'fin-jar-save': function(){
+  'fin-jar-new': function(){
+    if (!canAdd('jars')) return openModal(modalPaywall('jars'));
+    openModal(modalJar(null));
+  },
+  'fin-jar-edit': function(d){ openModal(modalJar(finJar(d.jar))); },
+  'fin-jar-save': function(d){
     var title = mval('m-title');
     var parsed = finParse(mval('m-amount'), 'spend');
     if (!title || !parsed) return;
-    S.finance.jars.push({
-      id: uid(), title: title, target: parsed.amount, saved: 0, due: mval('m-due'), at: Date.now()
-    });
+    var jar = finJar(d.jar);
+    if (jar){
+      jar.title = title; jar.target = parsed.amount; jar.due = mval('m-due');
+    } else {
+      if (!canAdd('jars')) return openModal(modalPaywall('jars'));
+      jar = { id: uid(), title: title, target: parsed.amount, saved: 0,
+              due: mval('m-due'), at: Date.now(), goalId: '', stageId: '' };
+      S.finance.jars.push(jar);
+    }
+    // Копилка как этап цели: деньги перестают жить отдельно от жизни. Ни один
+    // трекер расходов так не умеет — там сумма сама по себе, а зачем она
+    // нужна, человек держит в голове.
+    var goalId = $('m-goal') ? $('m-goal').value : '';
+    finLinkJarToGoal(jar, goalId);
     closeModal();
-    commit('Копилка заведена');
+    commit(goalId ? 'Копилка в цели' : 'Копилка сохранена');
   },
   'fin-jar-put': function(d){ finJarMove(d.jar, 1); },
   'fin-jar-take': function(d){ finJarMove(d.jar, -1); },
@@ -6666,7 +7689,11 @@ var ACTS = {
     commit('Копилка удалена');
   },
 
-  'fin-sub-new': function(){ openModal(modalSub()); },
+  'fin-sub-new': function(){
+    if (!canAdd('subs')) return openModal(modalPaywall('subs'));
+    openModal(modalSub(null));
+  },
+  'fin-sub-edit': function(d){ openModal(modalSub(finSub(d.sub))); },
   'fin-sub-tpl': function(d){
     var tpl = FIN_SUB_TEMPLATES[Number(d.tpl)];
     if (!tpl) return;
@@ -6678,24 +7705,73 @@ var ACTS = {
     var amount = $('m-amount');
     if (amount){ amount.focus(); amount.select(); }
   },
-  'fin-sub-save': function(){
+  'fin-sub-save': function(d){
     var title = mval('m-title');
     var parsed = finParse(mval('m-amount'), 'spend');
     if (!title || !parsed) return;
     var every = $('m-every') ? $('m-every').value : 'month';
     var since = mval('m-due') || isoOf(todayDate());
-    var sub = {
-      id: uid(), title: title, amount: parsed.amount, every: every,
-      since: since, off: false, taskId: ''
-    };
-    S.finance.subs.push(sub);
+    var sub = finSub(d.sub);
+    if (sub){
+      sub.title = title; sub.amount = parsed.amount; sub.every = every; sub.since = since;
+    } else {
+      if (!canAdd('subs')) return openModal(modalPaywall('subs'));
+      sub = { id: uid(), title: title, amount: parsed.amount, every: every,
+              since: since, off: false, taskId: '' };
+      S.finance.subs.push(sub);
+    }
 
     var remind = $('m-remind');
-    if (remind && remind.checked) finSubRemind(sub);
+    var want = !!(remind && remind.checked);
+    if (want && !sub.taskId) finSubRemind(sub);
+    if (!want && sub.taskId){
+      // Галочку сняли — напоминание уходит вместе с ней.
+      S.tasks = S.tasks.filter(function(t){ return t.id !== sub.taskId; });
+      sub.taskId = '';
+    }
 
     closeModal();
-    commit(remind && remind.checked ? 'Подписка записана, напоминание поставлено' : 'Подписка записана');
+    commit(want ? 'Записано, напоминание стоит' : 'Записано');
   },
+  /* --- регулярные операции --- */
+  'fin-rec-new': function(){
+    if (!canAdd('recurring')) return openModal(modalPaywall('recurring'));
+    openModal(modalRecurring(null));
+  },
+  'fin-rec-edit': function(d){ openModal(modalRecurring(finRec(d.rec))); },
+  'fin-rec-save': function(d){
+    var title = mval('m-title');
+    var parsed = finParse(mval('m-amount'), 'spend');
+    if (!title || !parsed) return;
+    var rule = finRec(d.rec);
+    var patch = {
+      title: title, amount: parsed.amount,
+      kind: $('m-opkind') ? $('m-opkind').value : 'spend',
+      cat: $('m-cat') ? $('m-cat').value : 'other',
+      every: $('m-every') ? $('m-every').value : 'month',
+      since: mval('m-due') || isoOf(todayDate()),
+      accountId: $('m-acc') ? $('m-acc').value : ''
+    };
+    if (rule){ for (var k in patch) if (patch.hasOwnProperty(k)) rule[k] = patch[k]; }
+    else {
+      patch.id = uid(); patch.off = false; patch.lastRun = '';
+      S.finance.recurring.push(patch);
+    }
+    closeModal();
+    var made = finRunRecurring();
+    commit(made ? 'Правило записано, добавлено операций: ' + made : 'Правило записано');
+  },
+  'fin-rec-toggle': function(d){
+    var rule = finRec(d.rec);
+    if (!rule) return;
+    rule.off = !rule.off;
+    commit();
+  },
+  'fin-rec-kill': function(d){
+    S.finance.recurring = S.finance.recurring.filter(function(x){ return x.id !== d.rec; });
+    commit('Правило убрано');
+  },
+
   'fin-sub-toggle': function(d){
     var sub = finSub(d.sub);
     if (!sub) return;
@@ -7785,5 +8861,10 @@ function registerServiceWorker(){
 if (S.mm) { S.mm.full = false; }
 
 rolloverIfNeeded();
+/* Регулярные операции догоняются при открытии, а не по таймеру: вкладку могли
+   не открывать неделю, и пропущенные списания всё равно должны появиться —
+   каждое своим днём. Сохраняем сразу, иначе следующий заход добавит их снова. */
+if (finRunRecurring()) save();
+finSyncJarStages();
 render();
 registerServiceWorker();
