@@ -19,7 +19,7 @@
   что выкладка не сработала. Обработчик — в app.js, registerServiceWorker.
 */
 
-var CACHE = 'synapse-shell-v53';
+var CACHE = 'synapse-shell-v54';
 
 var SHELL = [
   './',
@@ -28,7 +28,15 @@ var SHELL = [
   'app.js',
   'manifest.webmanifest',
   'icons/icon-192.png',
-  'icons/icon-512.png'
+  'icons/icon-512.png',
+  /* Начертания «Rounded» и «Clean» держатся на этих файлах там, где нет
+     системных шрифтов Apple. Без них офлайн выбор снова перестал бы
+     что-либо менять — ровно та поломка, которую мы чиним. */
+  '../fonts/fonts.css',
+  '../fonts/Manrope-cyrillic.woff2',
+  '../fonts/Manrope-latin.woff2',
+  '../fonts/Inter-cyrillic.woff2',
+  '../fonts/Inter-latin.woff2'
 ];
 
 self.addEventListener('install', function(event){

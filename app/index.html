@@ -6,6 +6,12 @@
     <meta name="robots" content="noindex, nofollow">
     <title>Synapse — планировщик</title>
     <meta name="description" content="Цели, этапы и задачи дня. Записи хранятся в этом браузере.">
+    <!-- Начертания «Rounded» и «Clean» опирались только на системные шрифты
+         Apple. На айфоне они разные, на андроиде оба падали в Roboto —
+         человек жал кнопки, и ничего не менялось. Manrope и Inter лежат
+         в репозитории с кириллицей и работают везде одинаково. -->
+    <link rel="preload" as="font" type="font/woff2" href="../fonts/Manrope-cyrillic.woff2" crossorigin>
+    <link rel="stylesheet" href="../fonts/fonts.css">
     <link rel="stylesheet" href="app.css">
 
     <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и

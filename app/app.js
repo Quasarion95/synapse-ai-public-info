@@ -65,6 +65,7 @@ function seed(){
     font: 'rounded',
     fontSize: 'standard',
     box: 'square',
+    markColor: 'default',
     hintSeen: false,
     // Обучение показывается, пока не пройдено или пока его не закрыли руками.
     tourDone: false,
@@ -1206,6 +1207,33 @@ function render(){
    строка v: восемнадцать чисел по три на цвет, в порядке PALETTE_KEYS.
    Внешний вид у веба и у приложения общий сознательно, поэтому цвета не
    выдуманы заново, а взяты оттуда. */
+/* Цвет отметки — единственное место, где человеку можно дать чистый цвет
+   без оглядки на палитру.
+
+   Везде остальное красится темой, и правильно: разнобой в интерфейсе утомляет.
+   Но галочка у сделанной задачи — это награда, её видят по сто раз в день, и
+   пусть она будет такой, какую человек себе выбрал. Оттенки взяты одной
+   насыщенности и светлоты, чтобы белая галочка читалась на любом из них: цвет
+   выбирают на глаз, а не проверяя контраст. */
+var MARK_COLORS = [
+  { id: 'default', title: 'Как в теме', css: '' },
+  { id: 'grass',   title: 'Трава',      css: '#4C8A45' },
+  { id: 'pine',    title: 'Хвоя',       css: '#2F6E5A' },
+  { id: 'sky',     title: 'Небо',       css: '#3A76B8' },
+  { id: 'indigo',  title: 'Индиго',     css: '#4A55A8' },
+  { id: 'plum',    title: 'Слива',      css: '#7B4796' },
+  { id: 'berry',   title: 'Ягода',      css: '#A83E6E' },
+  { id: 'brick',   title: 'Кирпич',     css: '#B24A38' },
+  { id: 'amber',   title: 'Янтарь',     css: '#B07A1E' },
+  { id: 'clay',    title: 'Глина',      css: '#8A6A4F' },
+  { id: 'slate',   title: 'Графит',     css: '#55606B' }
+];
+
+function markColorOf(id){
+  for (var i = 0; i < MARK_COLORS.length; i++) if (MARK_COLORS[i].id === id) return MARK_COLORS[i];
+  return MARK_COLORS[0];
+}
+
 var PALETTE_KEYS = ['lightBackground','darkBackground','lightTextPrimary','darkTextPrimary','lightTextSecondary','darkTextSecondary','lightStroke','darkStroke','accent','accentDark','accentWarm','accentWarmDark','focusBlue','focusBlueDark','focusGreen','focusGreenDark','focusOrange','focusOrangeDark'];
 var PALETTES = [
   /* lift — насколько карточка светлее (или темнее) фона, в единицах L*.
@@ -1430,6 +1458,12 @@ function applyTheme(){
   // Начертание и размер — из тех же трёх вариантов, что в приложении.
   // Размер меняется одним множителем на корне, поэтому вся вёрстка, набранная
   // в rem, тянется за ним; значения в px остаются как есть.
+  // Цвет отметки живёт своей переменной: --ok используется ещё в полутора
+  // десятках мест, и красить ими всё подряд человек не просил.
+  var mark = markColorOf(S.markColor);
+  if (mark.css) document.documentElement.style.setProperty('--mark', mark.css);
+  else document.documentElement.style.removeProperty('--mark');
+
   var f = fontOf(S.font);
   root.setProperty('--display', f.css);
   root.setProperty('--body', f.css);
@@ -5403,9 +5437,19 @@ function settingsLink(view, title, sub){
    Serif) и AppFontSizeChoice (0.88, 1.0, 1.16). Названия начертаний в
    приложении не переводятся — здесь тоже. */
 var FONTS = [
-  { id: 'rounded', title: 'Rounded', css: 'ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif' },
-  { id: 'clean',   title: 'Clean',   css: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif' },
-  { id: 'serif',   title: 'Serif',   css: 'ui-serif,Georgia,"Times New Roman",serif' }
+  /* Свой шрифт стоит после системного, а не вместо него.
+
+     Порядок здесь и есть вся правка. Раньше «Rounded» просил ui-rounded и
+     SF Pro Rounded, а «Clean» — -apple-system и Segoe UI: на айфоне это два
+     разных шрифта, на андроиде ни одного из них нет, и оба падали в Roboto.
+     Кнопки жались, шрифт не менялся.
+
+     Теперь после системных имён идёт свой: Manrope у скруглённого, Inter у
+     чистого. Айфон по-прежнему берёт SF и выглядит как выглядел, андроид
+     доходит до нашего файла и получает настоящую разницу. */
+  { id: 'rounded', title: 'Rounded', css: 'ui-rounded,"SF Pro Rounded",Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif' },
+  { id: 'clean',   title: 'Clean',   css: '-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,system-ui,sans-serif' },
+  { id: 'serif',   title: 'Serif',   css: 'ui-serif,Georgia,"Times New Roman","Noto Serif",serif' }
 ];
 
 var FONT_SIZES = [
@@ -5515,11 +5559,27 @@ function vSettingsView(){
 
   // Отметку показываем прямо на кнопке выбора — заполненной, чтобы было
   // видно, как она будет выглядеть у закрытой задачи.
+  // Отметку показываем прямо на кнопке выбора — заполненной и в выбранном
+  // цвете, чтобы было видно, как она будет выглядеть у закрытой задачи.
+  var markNow = markColorOf(S.markColor).css;
+  var markStyle = markNow ? ' style="background:' + markNow + '; border-color:' + markNow + '"' : '';
+
   html += settingsBlock('Отметка выполнения', 'Форма галочки у закрытой задачи.',
     settingsRow('', BOXES.map(function(b){
-      return '<button class="radio boxpick" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '">' +
-        '<span class="box on" data-shape="' + b.id + '">✓</span>' +
+      return '<button class="radio boxpick" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '" ' +
+        'title="' + esc(b.title) + '" aria-label="' + esc(b.title) + '">' +
+        '<span class="box on" data-shape="' + b.id + '"' + markStyle + '>' + ICON.check + '</span>' +
         '<span class="rl">' + esc(b.title) + '</span></button>';
+    }).join(''), 6) +
+    settingsRow('Цвет', MARK_COLORS.map(function(c){
+      // Кружок цвета в кнопке: выбирают глазом, а не по названию.
+      var круг = c.css
+        ? '<span class="msw" style="background:' + c.css + '"></span>'
+        : '<span class="msw" style="background:var(--ok)"></span>';
+      return '<button class="radio markpick" data-act="set-mark-color" data-color="' + c.id + '" ' +
+        'aria-pressed="' + ((S.markColor || 'default') === c.id) + '" ' +
+        'title="' + esc(c.title) + '" aria-label="Цвет отметки: ' + esc(c.title) + '">' +
+        круг + '<span class="rl">' + esc(c.title) + '</span></button>';
     }).join(''), 6), true);
 
   html += '</div>';
@@ -7861,6 +7921,7 @@ var ACTS = {
   'set-palette': function(d){ S.palette = d.palette; commit(); },
   'set-font': function(d){ S.font = d.font; commit(); },
   'set-fontsize': function(d){ S.fontSize = d.size; commit(); },
+  'set-mark-color': function(d){ S.markColor = d.color; commit(); },
   'set-box': function(d){ S.box = d.box; commit(); },
 
   /* Дни недели в своём правиле переключаются на месте, без перерисовки модалки:

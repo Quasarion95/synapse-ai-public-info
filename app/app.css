@@ -52,8 +52,8 @@
   --shadow-lift:0 2px 4px rgba(20,22,26,.05), 0 14px 34px rgba(20,22,26,.09);
   --r-xl:26px; --r-lg:22px; --r-md:16px; --r-sm:12px;
   /* Приложение набрано скруглённым системным шрифтом — тот же и здесь. */
-  --display:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-  --body:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --display:ui-rounded,"SF Pro Rounded",Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --body:ui-rounded,"SF Pro Rounded",Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
 }
 :root[data-dark="1"]{
@@ -272,7 +272,9 @@ select.inp{appearance:none}
    на корне; выбор в настройках рисует ту же кнопку через data-shape, поэтому
    правила ниже написаны один раз для обоих случаев. */
 .box{width:20px; height:20px; border:2px solid var(--soft-2); border-radius:7px; flex:none; display:grid; place-items:center; font-size:10px; color:transparent; background:none; margin-top:1px; transition:background .14s ease, border-color .14s ease}
-.box.on{background:var(--ok); border-color:var(--ok); color:#fff}
+/* --mark задаётся, только когда человек выбрал свой цвет; иначе действует
+   запасное значение и отметка красится темой, как раньше. */
+.box.on{background:var(--mark, var(--ok)); border-color:var(--mark, var(--ok)); color:#fff}
 
 :root[data-box="circle"] .box:not([data-shape]),
 .box[data-shape="circle"]{border-radius:999px}
@@ -305,6 +307,12 @@ select.inp{appearance:none}
 }
 .radio.boxpick{display:inline-flex; align-items:center; gap:9px; padding-left:10px}
 .radio.boxpick .box{margin-top:0}
+.radio.markpick{display:inline-flex; align-items:center; gap:9px; padding-left:9px}
+/* Кружок цвета того же размера, что кружок палитры рядом: два ряда кнопок
+   подряд с разными по величине значками читаются как случайные. */
+.radio.markpick .msw{width:19px; height:19px; border-radius:999px; flex:none;
+  border:1px solid rgba(128,128,128,.35)}
+.radio.markpick, .radio.markpick::after{justify-content:flex-start}
 /* Название — кнопка: карточка раскрывается тапом целиком, но с клавиатуры
    нужна цель для табуляции. Выглядит как текст. */
 .item .t{font-size:15px; font-weight:600; letter-spacing:-.015em; line-height:1.28; display:block; width:100%; overflow-wrap:anywhere; padding:0}
@@ -1684,14 +1692,29 @@ button.fintile:hover{background:var(--soft)}
    длины, и кружки в колонке вставали на разной высоте от края — ряд выглядел
    пляшущим. Теперь кружки на одной вертикали, а подписи по центру своих
    кнопок. */
-.setgrid .radio.pal, .setgrid .radio.boxpick{justify-content:flex-start; padding-left:8px}
-.setgrid .radio .rl{flex:1; min-width:0; text-align:center;
+.radio.pal, .radio.boxpick, .radio.markpick{justify-content:flex-start; padding-left:8px}
+.radio .rl{flex:1; min-width:0; text-align:center;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 /* Пустышка справа шириной со значок: без неё «центр оставшегося места» и
    «центр кнопки» — разные точки, и подпись стоит правее середины ровно на
    половину кружка. */
-.setgrid .radio.pal::after, .setgrid .radio.boxpick::after{
+.radio.pal::after, .radio.boxpick::after, .radio.markpick::after{
   content:''; flex:none;
+}
+
+/* Узкий экран: подписи не помещаются — значит их и не должно быть.
+
+   Шесть кнопок в ряд на телефоне дают около сорока пикселей на кнопку, и
+   название схлопывалось в ноль. Схлопнутое название всё равно остаётся
+   растягивающимся блоком, и значок оставался прижатым влево — из-за этого
+   галочки и стояли не по центру. Убираем подпись совсем и центрируем то, что
+   осталось: форма и цвет читаются сами, а название повторено в подсказке. */
+@media (max-width:640px){
+  .radio.boxpick, .radio.markpick{
+    justify-content:center; padding-left:10px; padding-right:10px; gap:0;
+  }
+  .radio.boxpick .rl, .radio.markpick .rl{display:none}
+  .radio.boxpick::after, .radio.markpick::after{display:none}
 }
 .setgrid .radio.pal::after{width:14px}
 .setgrid .radio.boxpick::after{width:18px}
