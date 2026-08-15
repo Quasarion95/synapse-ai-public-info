@@ -73,9 +73,12 @@
             <div class="state-text">Подписка оформлена</div>
           </div>
 
-          <p class="panel-note">Вот код, который включает Pro. Он же открывает доступ в другом браузере и в приложении.</p>
+          <p class="panel-note">Вот код доступа. На телефоне нажмите на него — приложение откроется и включится само.</p>
 
-          <code class="code-box" id="code"></code>
+          <!-- Сам код — ссылка, а не текст. С телефона это самый короткий путь:
+               человек тянется пальцем к коду, а не ищет глазами кнопку под ним.
+               Кнопка при этом остаётся: на неё привыкли нажимать. -->
+          <a class="code-box" id="codeLink" href="#"><code id="code"></code></a>
 
           <div class="btn-row">
             <button class="btn btn-primary" id="copyButton" type="button">Скопировать код</button>
@@ -83,8 +86,9 @@
           </div>
 
           <p class="fine">
-            В веб-версии код вводится вручную — скопируйте его. Кнопка
-            «Открыть в Synapse» нужна на телефоне, где стоит приложение.
+            В другом браузере код вводится вручную — скопируйте его. Нажатие на
+            код и кнопка «Открыть в Synapse» работают на телефоне, где стоит
+            приложение.
           </p>
         </section>
 
@@ -166,12 +170,15 @@
       var failCardEl = document.getElementById("failCard");
       var failTextEl = document.getElementById("failText");
       var codeEl = document.getElementById("code");
+      var codeLinkEl = document.getElementById("codeLink");
       var copyEl = document.getElementById("copyButton");
       var openEl = document.getElementById("openButton");
 
       function showCode(code) {
         codeEl.textContent = code;
-        openEl.href = "synapse://activate?code=" + encodeURIComponent(code);
+        var deepLink = "synapse://activate?code=" + encodeURIComponent(code);
+        openEl.href = deepLink;
+        if (codeLinkEl) codeLinkEl.href = deepLink;
         titleEl.textContent = "Готово";
         // Не «введите код»: на телефоне вводить его негде и не нужно — там
         // работает кнопка ниже, а поля для кода в приложении нет вовсе.

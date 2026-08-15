@@ -34,10 +34,13 @@
       <section class="stack">
         <article class="card" id="codeCard" style="display: none;">
           <h2>Ваш код для активации подписки Synapse Pro</h2>
-          <p
+          <!-- Код сам ведёт в приложение: на телефоне палец тянется к нему,
+               а не к кнопке под ним. Кнопка остаётся для тех, кто ищет кнопку. -->
+          <a
             id="code"
-            style="font-size: 30px; letter-spacing: 0.08em; font-weight: 700; margin: 16px 0; user-select: all;">
-          </p>
+            href="#"
+            style="display: block; font-size: 30px; letter-spacing: 0.08em; font-weight: 700; margin: 16px 0; user-select: all; text-decoration: none; color: inherit;">
+          </a>
 
           <p style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button class="button" id="copyButton" style="border: none; cursor: pointer; font: inherit;">
@@ -119,9 +122,11 @@
         var pretty = formatCode(code);
         titleEl.textContent = "Код готов";
         leadEl.textContent = "Приложение должно было открыться само.";
-        document.getElementById("code").textContent = pretty;
-        document.getElementById("openButton").href =
-          "synapse://activate?code=" + encodeURIComponent(pretty);
+        var deepLink = "synapse://activate?code=" + encodeURIComponent(pretty);
+        var codeEl = document.getElementById("code");
+        codeEl.textContent = pretty;
+        codeEl.href = deepLink;
+        document.getElementById("openButton").href = deepLink;
         document.getElementById("codeCard").style.display = "";
 
         var copyEl = document.getElementById("copyButton");

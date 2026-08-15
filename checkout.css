@@ -382,6 +382,21 @@
   color: var(--text);
   user-select: all;
   word-break: break-all;
+  /* Код теперь ссылка: подчёркивание сняли, чтобы рамка осталась главной, а
+     нажатие подтверждаем сдвигом — на телефоне это единственный отклик. */
+  text-decoration: none;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.code-box code {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+.code-box:active {
+  transform: scale(0.99);
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--accent) 30%);
 }
 
 /* ---------- waiting, done, failed ---------- */
