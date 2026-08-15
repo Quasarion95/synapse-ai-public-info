@@ -7393,14 +7393,30 @@ var ACTS = {
     var input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    // Поле кладём в документ, а не оставляем висеть в воздухе: у Сафари на
+    // айфоне не привязанное к дереву поле выбора файла бывает не отдаёт
+    // change вовсе, и выбранное фото просто пропадает.
+    input.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;opacity:0';
+    document.body.appendChild(input);
+
+    var cleanup = function(){ if (input.parentNode) input.parentNode.removeChild(input); };
+
     input.addEventListener('change', function(){
       var file = input.files && input.files[0];
-      if (!file) return;
-      if (!/^image\//.test(file.type)){ toast('Это не изображение'); return; }
+      if (!file){ cleanup(); return; }
+      if (!/^image\//.test(file.type)){ toast('Это не изображение'); cleanup(); return; }
       shrinkImage(file, 256, function(dataUrl){
+        cleanup();
         if (!dataUrl){ toast('Не удалось прочитать файл'); return; }
         S.profile.avatar = dataUrl;
         commit('Фото обновлено');
+        // Кружок в шапке обновляем и напрямую: если страница вернулась
+        // снимком после выбора фото, перерисовка могла не дойти до экрана.
+        var top = document.querySelector('.top .avatar');
+        if (top){
+          top.textContent = '';
+          top.style.backgroundImage = 'url(' + dataUrl + ')';
+        }
       });
     });
     input.click();
@@ -8800,19 +8816,61 @@ syncRail();
 
    На десктопе visualViewport совпадает с окном, и сдвиг всегда нулевой —
    отдельной ветки для него не нужно. */
+/* Сдвиг считается только под клавиатуру — и ни под что другое.
+
+   Первая версия брала разницу «окно минус видимая часть» как есть, и панель
+   поехала скакать при обычной прокрутке. Причина в адресной строке: на
+   телефоне она прячется и появляется по ходу листания, меняя ровно те же
+   числа, что и клавиатура. Браузер при этом двигает position:fixed сам, и
+   наш сдвиг ложился поверх — панель дёргалась вдвое.
+
+   Отличить одно от другого можно по двум признакам сразу: клавиатура
+   поднимается только когда в поле стоит курсор, и она заметно выше адресной
+   строки (та 45–90 пикселей, клавиатура — 250 и больше). Требуем оба. */
+var KEYBOARD_MIN_HEIGHT = 140;
+
+function editableFocused(){
+  var node = document.activeElement;
+  if (!node) return false;
+  var tag = node.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable;
+}
+
 function syncViewportShift(){
   var vv = window.visualViewport;
   if (!vv) return;
-  // Насколько низ видимой части выше низа окна: высота клавиатуры, по сути.
-  var shift = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-  document.documentElement.style.setProperty('--vv-shift', shift + 'px');
+  var raw = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  var shift = (editableFocused() && raw >= KEYBOARD_MIN_HEIGHT) ? raw : 0;
+  var root = document.documentElement;
+  // Пишем, только когда значение поменялось: присвоение переменной каждый
+  // кадр прокрутки заставляет браузер пересчитывать вёрстку зря.
+  if (root.style.getPropertyValue('--vv-shift') !== shift + 'px'){
+    root.style.setProperty('--vv-shift', shift + 'px');
+  }
 }
 
 if (window.visualViewport){
   window.visualViewport.addEventListener('resize', syncViewportShift);
-  window.visualViewport.addEventListener('scroll', syncViewportShift);
+  // На scroll не подписываемся: клавиатура при прокрутке не меняется, а
+  // адресная строка меняется постоянно — именно этот обработчик и заставлял
+  // нижнюю панель прыгать.
+  document.addEventListener('focusin', syncViewportShift);
+  document.addEventListener('focusout', function(){
+    // Клавиатура закрывается не мгновенно; ждём, пока браузер досчитает.
+    setTimeout(syncViewportShift, 60);
+  });
   syncViewportShift();
 }
+
+/* Возврат на страницу перерисовывает её из состояния.
+
+   Сафари на айфоне, открывая выбор фото, может выгрузить страницу и вернуть
+   её снимком: новое фото уже лежит в localStorage, а на экране прежний
+   кружок — до перезагрузки руками. Тот же снимок возвращается кнопкой
+   «назад». Перерисовка из состояния лечит оба случая разом. */
+window.addEventListener('pageshow', function(event){
+  if (event.persisted) render();
+});
 
 /* ============ УСТАНОВКА И РАБОТА БЕЗ СЕТИ ============ */
 
