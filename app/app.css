@@ -108,11 +108,31 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
    чём человек вообще находится, и мельче остального текста ей быть незачем. */
 .brand .mark{width:44px; height:44px; border-radius:13px; flex:none; display:block; object-fit:contain}
 .brand .nm{font-family:var(--display); font-size:27px; font-weight:800; letter-spacing:-.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-/* На узком экране рядом с названием стоят тема и аватарка: там крупный знак
-   вытолкнул бы их за край. */
+/* Шапка на телефоне.
+
+   Знак в 44 пикселя с отступами по 14 съедал 72 пикселя высоты — десятую
+   часть экрана — и на нём не написано ничего, кроме названия, которое человек
+   и так знает. Ужимаем всё разом: знак, шрифт названия, отступы и кнопки.
+   Получается 52 вместо 72, и это ровно одна карточка задачи сверху. */
+@media (max-width:759px){
+  .top-in{padding:9px var(--pad)}
+  .brand .mark{width:30px; height:30px; border-radius:9px}
+  .brand .nm{font-size:20px}
+  .brand{gap:9px}
+  .top-acts{gap:6px}
+  .iconbtn{width:34px; height:34px}
+  .iconbtn .nav-ic{width:17px; height:17px}
+  .whoami{padding:3px 10px 3px 3px; max-width:150px}
+  .whoami .avatar{width:28px; height:28px; font-size:11px}
+  .whoami .nm{font-size:13px}
+}
 @media (max-width:420px){
-  .brand .mark{width:36px; height:36px; border-radius:11px}
-  .brand .nm{font-size:22px}
+  .brand .mark{width:28px; height:28px; border-radius:8px}
+  .brand .nm{font-size:18px}
+  /* Имя рядом с аватаркой уходит: на 375 пикселях оно отжимает название
+     сервиса, а сам кружок и так ведёт в профиль. */
+  .whoami .nm{display:none}
+  .whoami{padding:3px; max-width:none}
 }
 .top-acts{margin-left:auto; display:flex; align-items:center; gap:8px; flex:none; min-width:0}
 /* Аватарка с именем рядом. Имя обрезается многоточием, а не выдавливает
@@ -1306,3 +1326,24 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   line-height:1.45;
   color:var(--crit);
 }
+
+/* Кнопка «Оплатить» в строке платежа: не значок, а слово — это действие
+   месяца, и прятать его в иконку рядом с крестиком нельзя. Оплаченное
+   становится галочкой и гаснет вместе со строкой. */
+.fr-pay{flex:none; padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:600;
+  background:var(--fg); color:var(--bg); white-space:nowrap}
+.fr-pay:hover{opacity:.85}
+.fr-pay.on{width:28px; padding:0; height:28px; display:grid; place-items:center;
+  background:var(--ok); color:#fff; font-size:14px}
+.subrow.paid .sr-t{opacity:.65}
+.subrow.paid .sr-v{color:var(--ok)}
+.sr-none{color:var(--fg-3); font-size:12.5px}
+
+/* Шаблоны платежей по группам. Каждая — своя строка с прокруткой вбок; весь
+   блок прокручивается вниз. Тридцать кнопок в одну ленту не просматриваются,
+   а в четыре подписанные — да. */
+.tpl-box{max-height:150px; overflow-y:auto; margin:0 0 16px; padding-right:2px}
+.tpl-group{margin:10px 0 6px; font-size:10.5px; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--fg-3); font-weight:600}
+.tpl-box .tpl-group:first-child{margin-top:0}
+.tpl-box .chips.tpl{margin:0}
