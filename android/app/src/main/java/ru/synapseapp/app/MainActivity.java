@@ -146,6 +146,16 @@ public class MainActivity extends AppCompatActivity {
                             Integer цвет = разобратьЦвет(value);
                             if (цвет == null) return;
                             getWindow().setBackgroundDrawable(new ColorDrawable(цвет));
+                            /* Тем же цветом красим и саму вьюху.
+
+                               У WebView свой фон, и он белый. Виден он в те
+                               мгновения, когда страница не закрывает всю
+                               площадь: при выезде клавиатуры высота меняется
+                               раньше, чем перерисовывается вёрстка, и снизу
+                               мелькает белая полоса. На светлой теме это
+                               незаметно, на любой другой — белый прямоугольник
+                               посреди окна, о котором и сказал тестировщик. */
+                            view.setBackgroundColor(цвет);
                             new WindowInsetsControllerCompat(getWindow(), view)
                                     .setAppearanceLightStatusBars(светлыйЛи(цвет));
                         });

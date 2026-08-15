@@ -63,7 +63,13 @@ function seed(){
     theme: systemPrefersDark() ? 'dark' : 'light',
     palette: 'paper',
     font: 'rounded',
-    fontSize: 'standard',
+    /* По умолчанию мелкий, а не средний.
+
+       На телефоне средний давал огромные карточки: на экран влезало вдвое
+       меньше, чем помещается. Тот, кому нужно крупнее, найдёт настройку —
+       а вот тот, кому тесно, чаще просто уходит, не догадавшись, что размер
+       вообще меняется. */
+    fontSize: 'compact',
     box: 'square',
     markColor: 'default',
     hintSeen: false,
@@ -1193,6 +1199,14 @@ function pushView(view){
 }
 
 window.addEventListener('popstate', function(event){
+  // Открытое окно перехватывает «назад» первым: пока оно на экране, менять
+  // раздел под ним нельзя — человек не увидит, что что-то произошло.
+  if (modalOpen()){
+    if (modalDepth > 0) modalDepth--;
+    hideModal();
+    return;
+  }
+
   var view = event.state && event.state.view;
   if (!view || !VIEWS[view]) return;
   // Не через go(): она сама пишет в историю, и мы бы зациклились.
@@ -7533,10 +7547,28 @@ function unlockScroll(){
   window.scrollTo(0, back);
 }
 
+/* Открытое окно — запись в истории, и вот зачем.
+
+   На андроиде системная кнопка «назад» — главный способ закрыть что угодно.
+   Пока окно не было записано в историю, нажатие уходило мимо него: окно
+   оставалось на экране, а под ним втихую менялся раздел. Человек жмёт «назад»,
+   видит то же окно и не понимает, что уже ушёл с экрана, на который вернётся,
+   когда окно наконец закроет.
+
+   Теперь окно кладёт свою запись. Кнопка «назад» снимает её, popstate ловит
+   это и закрывает окно — ровно как ожидается. Закрытие крестиком или кнопкой
+   само снимает запись обратно, чтобы в истории не копились призраки. */
+var modalDepth = 0;
+
 function openModal(html, toInput){
   $('modalIn').innerHTML = html;
   $('modal').classList.add('on');
   lockScroll();
+
+  if (window.history && window.history.pushState){
+    modalDepth++;
+    window.history.pushState({ modal: modalDepth }, '', location.href);
+  }
 
   // Окно ассистента перерисовывается на каждую реплику, и курсор должен
   // остаться в строке ввода: иначе после ответа нельзя дописать следующее
@@ -7559,9 +7591,27 @@ function openModal(html, toInput){
 }
 
 function closeModal(){
+  var былоОткрыто = $('modal').classList.contains('on');
+  hideModal();
+  // Закрыли сами — снимаем свою запись из истории, иначе следующее «назад»
+  // будет тратиться впустую на закрытие уже закрытого.
+  if (былоОткрыто && modalDepth > 0 && window.history &&
+      window.history.state && window.history.state.modal){
+    modalDepth--;
+    window.history.back();
+  }
+}
+
+/// Убрать окно с экрана, не трогая историю. Нужно отдельно: когда окно
+/// закрывает сама кнопка «назад», запись уже снята браузером.
+function hideModal(){
   $('modal').classList.remove('on');
   $('modalIn').innerHTML = '';
   unlockScroll();
+}
+
+function modalOpen(){
+  return $('modal') && $('modal').classList.contains('on');
 }
 
 var HORIZONS = ['Месяц', 'Квартал', 'Полгода', 'Год', 'Три года'];

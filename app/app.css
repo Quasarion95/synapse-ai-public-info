@@ -837,7 +837,13 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    несмазанного содержимого — ровно то, что видно на телефоне под окном.
    100dvh следит за настоящей высотой; inset:0 остаётся запасным для старых
    браузеров, где dvh нет. */
-.modal{position:fixed; inset:0; height:100dvh; background:rgba(10,11,13,.5); display:none; align-items:center; justify-content:center; z-index:70; padding:16px; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px)}
+/* Высоту задаёт inset, а не 100dvh.
+
+   Стояло и то и другое сразу, и на андроиде они расходились: при открытой
+   клавиатуре вьюпорт сжимается, inset послушно сжимается с ним, а dvh
+   продолжает считать по старой высоте. Затемнение оказывалось выше видимой
+   области, и снизу оставалась полоса, которую ничем не закрыли. */
+.modal{position:fixed; inset:0; background:rgba(10,11,13,.5); display:none; align-items:center; justify-content:center; z-index:70; padding:16px; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px)}
 .modal.on{display:flex}
 /* Высота окна тоже по живому вьюпорту, иначе на телефоне оно вырастает выше
    экрана и последняя кнопка оказывается под сгибом. */
@@ -1343,6 +1349,13 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 /* Всё в окне — по одной оси. Кнопка действия во всю ширину, «Отмена» под ней
    по центру: прижатая влево, она выглядела остатком другой вёрстки. */
 #modal .acts{justify-content:center; margin-top:12px}
+/* «Отмена» той же ширины, что и действие над ней.
+
+   Действие идёт кнопкой во всю ширину, а отмена оставалась по своему тексту —
+   узкой таблеткой под широкой кнопкой. Пара разноразмерных кнопок читается
+   как незаконченная вёрстка, а не как выбор из двух. */
+#modal .acts:not(.pair){display:grid; grid-template-columns:1fr; gap:10px}
+#modal .acts:not(.pair) .btn{width:100%}
 #modal h3{text-align:center}
 #modal .s{text-align:center}
 
