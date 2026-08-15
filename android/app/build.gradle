@@ -1,0 +1,79 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'ru.synapseapp.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'ru.synapseapp.app'
+        minSdk 24            // Android 7: ниже WebView слишком стар для нашего JS
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    /* Файлы веб-версии не лежат в репозитории дважды.
+
+       Копия внутри android/ рано или поздно отстала бы от app/ — ровно та
+       поломка, из-за которой мы и держим всё в одном репозитории. Поэтому
+       assets не хранятся, а собираются из app/ при каждой сборке. */
+    sourceSets {
+        main { assets.srcDirs = ['build/webapp'] }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false      // Кода на Java здесь на один экран
+            shrinkResources false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+/* Kotlin в сборке ровно одной версии.
+
+   Мы не пишем на Kotlin ни строчки, но androidx тянет его за собой, и разные
+   библиотеки просят разные версии: kotlin-stdlib 1.8.22 и отдельные
+   kotlin-stdlib-jdk7/jdk8 1.6.21. Начиная с 1.8 содержимое jdk7 и jdk8 вошло
+   в основной stdlib — старые артефакты дают ровно те же классы второй раз, и
+   сборка падает на дубликатах. Выкидываем старые, версию основного
+   фиксируем. */
+configurations.configureEach {
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+    resolutionStrategy {
+        force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.webkit:webkit:1.11.0'   // ради WebViewAssetLoader
+    implementation 'androidx.activity:activity:1.9.2'
+}
+
+/* Забираем веб-версию перед сборкой.
+
+   Исключаем sw.js и манифест: внутри apk файлы уже локальные, второй слой
+   кэша service worker только спорил бы с первым и отдавал вчерашнюю версию —
+   тот самый класс ошибок, что мы ловили в вебе весь день. */
+tasks.register('копияВебВерсии', Copy) {
+    from rootProject.file('../app')
+    into layout.buildDirectory.dir('webapp/app')
+    exclude 'sw.js'
+}
+
+tasks.register('копияШрифтов', Copy) {
+    from rootProject.file('../fonts')
+    into layout.buildDirectory.dir('webapp/fonts')
+}
+
+tasks.configureEach { task ->
+    if (task.name.startsWith('generate') && task.name.endsWith('Assets')) {
+        task.dependsOn 'копияВебВерсии', 'копияШрифтов'
+    }
+}
