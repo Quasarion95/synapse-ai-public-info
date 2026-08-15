@@ -411,6 +411,13 @@ select.inp{appearance:none}
   --dock: max(8px, env(safe-area-inset-bottom, 0px));
 }
 .composer{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--dock) + 82px + var(--vv-shift, 0px)); z-index:40; width:min(620px, calc(100% - 32px))}
+
+/* Клавиатура открыта: панель убрана, строка ввода занимает её место.
+
+   Без второй строки строка создания висела бы над пустотой в 82 пикселя —
+   там, где панель была бы, если бы её не убрали. */
+.kbd .tabbar{display:none}
+.kbd .composer{bottom:calc(var(--dock) + var(--vv-shift, 0px))}
 /* Строка ввода плавает над содержимым, а карточки под ней того же цвета —
    на светлых палитрах она в них растворялась. Поэтому фон здесь не card, а
    более плотный panelStrong, обводка в полный контраст текста и тень
@@ -772,11 +779,15 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   .tab[aria-current="page"]{background:var(--soft)}
 
   /* Строка создания задачи прижимается к колонке текста, а не к центру окна. */
-  .composer{
+  .composer,
+  .kbd .composer{
     left:calc(var(--rail) + var(--gutter)); right:0; transform:none;
     width:min(620px, calc(100% - 40px)); margin:0 auto;
     bottom:calc(26px + var(--vv-shift, 0px));
   }
+  /* Здесь панель — боковая колонка навигации, а не нижний таб: прятать её
+     под клавиатуру незачем, да и клавиатуры на таком экране обычно нет. */
+  .kbd .tabbar{display:block}
   main{padding-bottom:170px}
   .toast{left:calc(50% + (var(--rail) + var(--gutter)) / 2)}
 }
