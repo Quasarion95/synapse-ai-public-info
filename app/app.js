@@ -3402,7 +3402,7 @@ function vProfile(){
     (isPro() && S.pro.code
       ? '<div class="sub-code"><span class="lbl">Код</span><b class="mono">' + esc(S.pro.code) + '</b>' +
         '<button class="btn sm soft" data-act="pro-copy">Скопировать</button></div>' +
-        '<p class="hint">Тот же код включает Pro в приложении на iPhone: телефон и браузер держатся отдельно и не гасят друг друга.</p>'
+        '<p class="hint">Тот же код включает Pro и на телефоне: телефон и браузер держатся отдельно и не гасят друг друга.</p>'
       : '') +
     '<div class="acts"><button class="btn sm soft" data-act="go" data-view="subscription">' +
       (isPro() ? 'Моя подписка' : 'Тарифы и подписка') + '</button>' +
@@ -3781,7 +3781,7 @@ function vSubscription(){
           '</a>';
         }).join('') +
       '</div>' +
-      '<p class="hint">Оплата проходит на сайте, после неё придёт код. Он включает Pro и здесь, и в приложении на iPhone.</p>';
+      '<p class="hint">Оплата проходит на сайте, после неё придёт код. Он включает Pro и здесь, и на телефоне.</p>';
   }
 
   html += '<p class="lbl">Что входит</p>' +
@@ -3796,7 +3796,7 @@ function vSubscription(){
     '</div></section>';
 
   html += '<p class="lbl">Как это работает</p><section class="card">' +
-    '<p class="sub">Один код открывает Pro и в браузере, и в приложении на iPhone: здесь его вводят, а на телефоне он подставляется сам — по ссылке активации с сайта. Записи при этом не общие: веб хранит их в браузере, приложение у себя, а перенести можно файлом в разделе «Данные».</p>' +
+    '<p class="sub">Один код открывает Pro и в браузере, и на телефоне. Записи при этом не общие: веб хранит их в браузере, приложение у себя, а перенести можно файлом в разделе «Данные».</p>' +
   '</section>';
 
   return html;
@@ -5510,7 +5510,7 @@ function modalProCode(error, busy){
       '<a class="btn soft" href="../checkout/">Купить на сайте</a>' +
       '<button class="btn soft" data-act="close-modal">Закрыть</button>' +
     '</div>' +
-    '<p class="hint">Один код работает и здесь, и в приложении на iPhone: здесь его вводят, на телефоне он подставляется сам по ссылке с сайта. Записи при этом остаются раздельными.</p>';
+    '<p class="hint">Один код работает и здесь, и на телефоне. Записи при этом остаются раздельными.</p>';
 }
 
 function modalText(title, sub, label, act, placeholder){
