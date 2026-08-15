@@ -79,6 +79,12 @@
           <div class="duo-stage">
             <div class="laptop" aria-label="Веб-версия Synapse в браузере">
               <div class="laptop-screen">
+                <!-- Настоящий снимок веб-версии ложится поверх свёрстанного
+                     макета и проявляется, когда загрузился. Пока файла нет —
+                     виден макет, и страница не показывает битую картинку.
+                     Файл: screens/web-1.png -->
+                <img class="webshot-img" src="./screens/web-1.png" alt="Веб-версия Synapse: экран задач"
+                     loading="eager" onload="this.classList.add('ok')">
                 <div class="webshot">
                   <div class="ws-top">
                     <span class="ws-mark"></span>
@@ -113,7 +119,9 @@
             <div class="duo-phone">
               <div class="device">
                 <div class="device-screen">
-                  <img src="./screens/screen-1.png" alt="Приложение Synapse на iPhone: экран задач" width="552" height="1200" fetchpriority="high">
+                  <img src="./screens/app-1.png" alt="Приложение Synapse на iPhone: экран задач"
+                       width="552" height="1200" fetchpriority="high"
+                       onerror="this.onerror=null; this.src='./screens/screen-1.png'">
                   <span class="device-island" aria-hidden="true"></span>
                 </div>
               </div>

@@ -1616,3 +1616,23 @@ a { color: var(--accent-strong); }
 @media (max-width: 900px) {
   .duo-phone { right: 0; width: 27%; }
 }
+
+/* Настоящий снимок веб-версии поверх свёрстанного макета.
+
+   Проявляется по загрузке, а не прячется по ошибке: пока файла нет или он
+   не доехал, виден макет — и страница ни на секунду не показывает пустой
+   прямоугольник. Кладётся в screens/web-1.png. */
+.laptop-screen { position: relative; }
+.webshot-img {
+  position: absolute;
+  inset: 10px 10px 12px;
+  width: calc(100% - 20px);
+  height: calc(100% - 22px);
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity .2s ease;
+  z-index: 2;
+}
+.webshot-img.ok { opacity: 1; }
