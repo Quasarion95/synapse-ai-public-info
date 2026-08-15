@@ -251,7 +251,12 @@
           <h2 class="panel-title">Ваш код</h2>
           <p class="panel-note">Он же включает Pro в другом браузере и в приложении.</p>
 
-          <code class="code-box" id="code"></code>
+          <a class="code-box" id="codeLink" href="#"><code id="code"></code></a>
+
+          <div class="qr-card" id="qrCard" hidden>
+            <div class="qr-image" id="qrImage"></div>
+            <p class="qr-note">Наведите камеру телефона — приложение откроется и включит Pro.</p>
+          </div>
 
           <div class="btn-row">
             <button class="btn btn-primary" type="button" id="copyButton">Скопировать код</button>
@@ -316,6 +321,7 @@
       </div>
     </div>
 
+    <script src="../qr.js"></script>
     <script>
       var BACKEND = "https://api.synapseapp.ru";
 
@@ -526,8 +532,19 @@
         // всякому, кто знает чужой номер и четыре цифры с чека.
         show(codeCard, !!currentCode);
         if (currentCode) {
-          element("code").textContent = formatCode(currentCode);
-          element("openButton").href = "synapse://activate?code=" + encodeURIComponent(formatCode(currentCode));
+          var pretty = formatCode(currentCode);
+          var deepLink = "synapse://activate?code=" + encodeURIComponent(pretty);
+          element("code").textContent = pretty;
+          element("openButton").href = deepLink;
+          element("codeLink").href = deepLink;
+          // В QR — обычная ссылка: её камера айфона открывает всегда.
+          if (typeof SynapseQR !== "undefined") {
+            try {
+              element("qrImage").innerHTML =
+                SynapseQR.svg("https://synapseapp.ru/activate?code=" + encodeURIComponent(pretty), 180);
+              show(element("qrCard"), true);
+            } catch (error) {}
+          }
         }
       }
 

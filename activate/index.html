@@ -49,11 +49,19 @@
             <a class="button" id="openButton" href="#">Открыть в Synapse</a>
           </p>
 
+          <!-- Если страница открыта на компьютере, единственный мост к
+               телефону — камера. -->
+          <div id="qrCard" hidden style="display: flex; gap: 14px; align-items: center; margin: 18px 0 0;">
+            <div id="qrImage" style="line-height: 0;"></div>
+            <p class="muted" style="margin: 0;">
+              Наведите камеру телефона — приложение откроется и включит Pro.
+            </p>
+          </div>
+
           <p class="muted">
             Если приложение установлено, эта страница обычно даже не успевает
-            показаться — ссылка открывает Synapse сама и подставляет код.
-            Если вы её видите, нажмите кнопку выше: вводить код руками в
-            приложении не нужно и негде.
+            показаться — ссылка открывает Synapse сама. Если вы её видите,
+            нажмите на код или на кнопку выше.
           </p>
           <p class="muted">
             Этот же код включает Pro в <a href="../app/">веб-версии</a>:
@@ -86,6 +94,7 @@
       </section>
     </main>
 
+    <script src="../qr.js"></script>
     <script>
       var ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
       var CODE_LENGTH = 12;
@@ -127,6 +136,14 @@
         codeEl.textContent = pretty;
         codeEl.href = deepLink;
         document.getElementById("openButton").href = deepLink;
+
+        if (typeof SynapseQR !== "undefined" && window.innerWidth > 620) {
+          try {
+            document.getElementById("qrImage").innerHTML =
+              SynapseQR.svg("https://synapseapp.ru/activate?code=" + encodeURIComponent(pretty), 180);
+            document.getElementById("qrCard").hidden = false;
+          } catch (error) {}
+        }
         document.getElementById("codeCard").style.display = "";
 
         var copyEl = document.getElementById("copyButton");

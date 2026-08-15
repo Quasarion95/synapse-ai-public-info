@@ -75,6 +75,15 @@
 
           <p class="panel-note">Вот код доступа. На телефоне нажмите на него — приложение откроется и включится само.</p>
 
+          <!-- Мост с компьютера на телефон. Человек, купивший с ноутбука, иначе
+               остаётся с кодом, которому некуда деться: поля для ввода в
+               приложении нет. На узком экране код не показываем — там под рукой
+               кнопка, а свой же экран не сканируют. -->
+          <div class="qr-card" id="qrCard" hidden>
+            <div class="qr-image" id="qrImage"></div>
+            <p class="qr-note">Наведите камеру телефона — приложение откроется и включит Pro. Если оно ещё не установлено, откроется эта же страница.</p>
+          </div>
+
           <!-- Сам код — ссылка, а не текст. С телефона это самый короткий путь:
                человек тянется пальцем к коду, а не ищет глазами кнопку под ним.
                Кнопка при этом остаётся: на неё привыкли нажимать. -->
@@ -148,6 +157,7 @@
       </div>
     </footer>
 
+    <script src="../../qr.js"></script>
     <script>
       var BACKEND = "https://api.synapseapp.ru";
 
@@ -174,11 +184,28 @@
       var copyEl = document.getElementById("copyButton");
       var openEl = document.getElementById("openButton");
 
+      /// QR рисуем сами: внешних скриптов на странице оплаты быть не должно.
+      function showQR(url) {
+        var card = document.getElementById("qrCard");
+        var box = document.getElementById("qrImage");
+        if (!card || !box || typeof SynapseQR === "undefined") return;
+        try {
+          box.innerHTML = SynapseQR.svg(url, 200);
+          card.hidden = false;
+        } catch (error) {
+          // Без кода не беда: рядом кнопка и сам код ссылкой.
+        }
+      }
+
       function showCode(code) {
         codeEl.textContent = code;
         var deepLink = "synapse://activate?code=" + encodeURIComponent(code);
         openEl.href = deepLink;
         if (codeLinkEl) codeLinkEl.href = deepLink;
+        // В QR кладём обычную ссылку, а не схему synapse://: камера айфона со
+        // своей схемой обходится плохо, а ссылку открывает всегда — с
+        // установленным приложением сразу в нём.
+        showQR("https://synapseapp.ru/activate?code=" + encodeURIComponent(code));
         titleEl.textContent = "Готово";
         // Не «введите код»: на телефоне вводить его негде и не нужно — там
         // работает кнопка ниже, а поля для кода в приложении нет вовсе.
