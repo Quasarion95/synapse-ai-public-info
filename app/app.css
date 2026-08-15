@@ -1557,12 +1557,9 @@ input[type="date"]::-webkit-datetime-edit{
 button.fintile{text-align:left; cursor:pointer; border:0; font:inherit; color:inherit; width:100%}
 button.fintile:hover{background:var(--soft)}
 
-/* Пустой блок дня: одна тихая строка вместо подписанной пустоты на пол-экрана.
-   Сетка дня видна целиком — иначе между «Сегодня» и «Потом» зияет дыра, и
-   порядок читается как случайный. */
-.group.empty{margin-bottom:8px}
-.group-h.empty{display:flex; align-items:baseline; gap:10px; padding:6px 2px;
-  cursor:default; opacity:.45}
-.group-h.empty h3{font-size:13px; letter-spacing:.04em}
-.group-h.empty .n{font-size:11.5px}
-.group-h.empty.drop-on{opacity:1; background:var(--soft); border-radius:10px}
+/* Пустой блок дня выглядит ровно как остальные — тот же заголовок, тот же
+   размер. Отличается одним: вместо числа задач написано «пусто», и он чуть
+   тише соседей, чтобы взгляд шёл к дням, где что-то есть. */
+.group.empty .group-h{opacity:.5}
+.group.empty:hover .group-h, .group.empty .group-h:focus-visible{opacity:1}
+.group.empty{margin-bottom:10px}

@@ -3429,21 +3429,15 @@ function vTasks(){
     var mine = liveTasks().filter(function(t){ return t.bucket === b.id; });
     var closed = !!S.closed[b.id];
 
-    if (!mine.length){
-      html += '<section class="group empty" data-bucket="' + b.id + '">' +
-        '<div class="group-h empty" data-drop="' + b.id + '">' +
-          '<h3>' + esc(b.title) + '</h3>' +
-          '<span class="n">пусто</span>' +
-        '</div>' +
-      '</section>';
-      continue;
-    }
-
-    html += '<section class="group' + (closed ? ' closed' : '') + '" data-bucket="' + b.id + '">' +
+    // Пустой блок — тот же самый блок, только без строк. Отдельной вёрстки у
+    // него нет намеренно: она делала из одного и того же дня две разные
+    // вещи, и экран переставал читаться как один список дней.
+    html += '<section class="group' + (closed ? ' closed' : '') +
+        (mine.length ? '' : ' empty') + '" data-bucket="' + b.id + '">' +
       '<button class="group-h' + (closed ? ' closed' : '') + '" data-act="fold" data-bucket="' + b.id + '"' +
         ' aria-expanded="' + !closed + '">' +
         '<h3>' + esc(b.title) + '</h3><span class="car">⌄</span>' +
-        '<span class="n">' + taskCount(mine.length) + '</span>' +
+        '<span class="n">' + (mine.length ? taskCount(mine.length) : 'пусто') + '</span>' +
       '</button>' +
       // Обёртка нужна для той же плавности, что у карточек: высоту ведёт
       // foldOpen, а список внутри остаётся нетронутым.
