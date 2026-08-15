@@ -1031,15 +1031,36 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 
 /* ============ КОРЗИНА ============ */
 
-.trashlist{display:flex; flex-direction:column; gap:8px}
-.trashrow{display:flex; align-items:center; gap:12px; padding:14px 16px; margin:0}
-.trashrow-t{min-width:0; flex:1}
-.trashrow-t b{display:block; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.trashrow-t .sub{font-size:12px; margin-top:2px}
-.trashrow-a{display:flex; gap:7px; flex:none}
+/* Полоса над списком вместо карточки: срок хранения — одна строка, а под неё
+   уходил целый первый экран. Кнопки — справа, где их и ищут. */
+.trashbar{display:flex; align-items:center; justify-content:space-between; gap:12px;
+  flex-wrap:wrap; margin:0 0 12px}
+.trashbar .sub{font-size:12.5px; margin:0}
+.trashbar-a{display:flex; gap:7px; flex:none}
+
+/* Записи — строками одного списка, а не стопкой карточек: в корзину приходят
+   окинуть взглядом, а карточка на запись тратит три ряда вместо одного. */
+.trashlist{display:flex; flex-direction:column;
+  background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
+  box-shadow:var(--shadow); overflow:hidden}
+.trashrow{display:flex; align-items:center; gap:12px; padding:9px 14px; margin:0;
+  border-top:1px solid var(--line)}
+.trashlist .trashrow:first-child{border-top:0}
+.trashrow-t{min-width:0; flex:1; display:flex; align-items:baseline; gap:9px}
+.trashrow-t b{font-size:13.5px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.trashrow-t .sub{font-size:11.5px; margin:0; flex:none; white-space:nowrap}
+.trashrow-a{display:flex; gap:1px; flex:none}
+.trashrow-a button{width:28px; height:28px; border-radius:999px; display:grid; place-items:center;
+  color:var(--fg-3)}
+.trashrow-a button:hover{background:var(--soft); color:var(--fg)}
+.trashrow-a button svg{width:15px; height:15px; display:block; fill:none; stroke:currentColor;
+  stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+/* На узком экране строка не ломается в столбец: теперь она и так в один ряд,
+   а кнопки стали значками. Ужимается только название. */
 @media (max-width:520px){
-  .trashrow{flex-direction:column; align-items:stretch; gap:10px}
-  .trashrow-a .btn{flex:1}
+  .trashrow-t{flex-direction:column; align-items:flex-start; gap:1px}
+  .trashbar{gap:8px}
+  .trashbar .sub{flex:1 1 100%}
 }
 
 /* Дата цели и этапа: сама дата плюс сколько до неё осталось. Близкая
@@ -1058,3 +1079,107 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    пока его не выбрали в списке — иначе модалка задачи вырастает вдвое у всех. */
 .ruleblock{display:none}
 .ruleblock.on{display:block; margin-top:4px; padding-top:14px; border-top:1px solid var(--line)}
+
+/* ============ МОИ ФИНАНСЫ ============ */
+
+/* Вкладки внутри раздела — та же форма, что у активной вкладки в панели:
+   текущая залита, остальные молчат. Полоска прокручивается вбок на телефоне,
+   а не переносится в два ряда: пять слов в два этажа читаются как список. */
+.fintabs{display:flex; gap:4px; padding:4px; margin:0 0 16px;
+  background:var(--soft); border:1px solid var(--line); border-radius:14px;
+  overflow-x:auto; -webkit-overflow-scrolling:touch}
+.fintab{flex:none; border:0; background:none; border-radius:10px; padding:8px 14px;
+  font-size:13.5px; color:var(--fg-2); cursor:pointer; white-space:nowrap}
+.fintab:hover{color:var(--fg)}
+.fintab.on{background:var(--card); color:var(--fg); font-weight:600; box-shadow:var(--shadow)}
+
+/* Плитки сводки: подпись сверху мелко, число крупно. Колонка чисел читается
+   сверху вниз, а не выискивается в предложении. */
+.fintiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:var(--r-lg); overflow:hidden; margin-bottom:var(--gap)}
+.fintile{background:var(--card); padding:14px 16px}
+.fintile span{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--fg-3); font-weight:500}
+.fintile b{display:block; margin-top:5px; font-size:20px; letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+.fintile.bad b{color:var(--crit)}
+.fintile.warn b{color:var(--warn)}
+
+.finhead{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+  margin-bottom:12px}
+.finhead h3{font-size:17px; margin:0}
+.finhead .sub{margin:0; font-size:12.5px; flex:none}
+
+/* Полосы по категориям: название, полоса, сумма — три колонки одной сетки,
+   чтобы суммы стояли столбиком, а не в конце разной длины строк. */
+.finbars{display:flex; flex-direction:column; gap:9px}
+.finbar{display:grid; grid-template-columns:minmax(64px,1fr) 2.2fr auto; align-items:center; gap:10px}
+.fb-t{font-size:13px; color:var(--fg-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.fb-r{height:7px; border-radius:999px; background:var(--soft-2); overflow:hidden}
+.fb-r i{display:block; height:100%; border-radius:999px}
+.fb-v{font-size:13px; font-variant-numeric:tabular-nums; text-align:right}
+
+.finline{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+  padding:7px 0; border-top:1px solid var(--line)}
+.finline:first-of-type{border-top:0}
+.finline span{font-size:13.5px; color:var(--fg-2)}
+.finline b{font-size:13.5px; font-variant-numeric:tabular-nums; flex:none}
+
+/* Ввод операции. Переключатель «трата/доход» стоит над строкой, а не рядом:
+   он меняет смысл всего, что напишут, и должен читаться первым. */
+.finadd{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
+  box-shadow:var(--shadow); padding:14px 16px; margin-bottom:var(--gap)}
+.finswitch{display:inline-flex; gap:2px; padding:3px; margin-bottom:10px;
+  background:var(--soft); border-radius:999px}
+.finswitch button{border:0; background:none; border-radius:999px; padding:6px 14px;
+  font-size:13px; color:var(--fg-2); cursor:pointer}
+.finswitch button.on{background:var(--card); color:var(--fg); font-weight:600; box-shadow:var(--shadow)}
+
+/* День — заголовок с итогом и список строк под ним. Ленту трат читают
+   сверху вниз, поэтому день отбит, а строки внутри максимально тихие. */
+.finday{margin-bottom:16px}
+.finday-h{display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  padding:0 2px 7px}
+.finday-h b{font-size:12.5px; font-weight:600; color:var(--fg-2)}
+.finday-h span{font-size:12.5px; color:var(--fg-3); font-variant-numeric:tabular-nums}
+.finrows{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
+  box-shadow:var(--shadow); overflow:hidden}
+.finrow{display:flex; align-items:center; gap:10px; padding:9px 14px;
+  border-top:1px solid var(--line)}
+.finrows .finrow:first-child{border-top:0}
+.fr-dot{width:8px; height:8px; border-radius:999px; flex:none}
+.fr-t{flex:1; min-width:0; font-size:13.5px; display:flex; align-items:baseline; gap:8px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.fr-c{font-size:11.5px; color:var(--fg-3); flex:none}
+.fr-v{font-size:13.5px; font-variant-numeric:tabular-nums; flex:none}
+.fr-v.up{color:var(--ok)}
+.fr-x{width:26px; height:26px; border-radius:999px; display:grid; place-items:center;
+  color:var(--fg-3); flex:none; font-size:13px}
+.fr-x:hover{background:var(--soft); color:var(--fg)}
+.fr-x svg{width:14px; height:14px; display:block; fill:none; stroke:currentColor;
+  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+/* Крестик виден по наведению — как в задачах и списках. */
+@media (hover:hover) and (pointer:fine){
+  .finrow .fr-x, .subrow .fr-x{opacity:0; transition:opacity .14s ease}
+  .finrow:hover .fr-x, .finrow:focus-within .fr-x,
+  .subrow:hover .fr-x, .subrow:focus-within .fr-x{opacity:1}
+}
+
+/* Долг и копилка: крупная сумма — это ответ, всё остальное к ней пояснение. */
+.debt-sum{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.debt-sum b{font-size:24px; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.debt-sum .sub{margin:0; font-size:12.5px}
+.card.debt.done, .card.jar.full{opacity:.72}
+.card.jar.full{border-color:var(--ok)}
+
+.sublist{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
+  box-shadow:var(--shadow); overflow:hidden}
+.subrow{display:flex; align-items:center; gap:10px; padding:11px 14px;
+  border-top:1px solid var(--line)}
+.sublist .subrow:first-child{border-top:0}
+.subrow.off{opacity:.5}
+.sr-t{flex:1; min-width:0; font-size:14px; display:flex; flex-direction:column; gap:1px}
+.sr-n{font-size:11.5px; color:var(--fg-3)}
+.sr-v{font-size:14px; font-variant-numeric:tabular-nums; flex:none}
+.sr-v i{font-style:normal; font-size:11.5px; color:var(--fg-3)}

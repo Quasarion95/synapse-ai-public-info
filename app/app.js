@@ -82,7 +82,12 @@ function seed(){
     notes: [],
     trash: [],
     pomodoro: { focus: 25, shortBreak: 5, longBreak: 15, mode: 'focus', doneToday: 0, goal: 0 },
-    meditation: { minutes: 10, sound: 'Дождь', doneTotal: 0, totalMinutes: 0, volume: 0.7 }
+    meditation: { minutes: 10, sound: 'Дождь', doneTotal: 0, totalMinutes: 0, volume: 0.7 },
+    // Финансы стартуют пустыми, как и всё остальное: чужие траты в примере
+    // читаются как свои и портят первую же сводку.
+    finance: { ops: [], debts: [], jars: [], subs: [], opening: 0 },
+    finTab: 'sum',
+    finKind: 'spend'
   };
 }
 
@@ -173,6 +178,16 @@ function load(){
     if (!parsed.open) parsed.open = {};
     if (!parsed.profile) parsed.profile = { name: '', avatar: '' };
     if (!parsed.openGoal) parsed.openGoal = {};
+    // Финансы завелись позже остальных разделов: у всех, кто открывал прошлые
+    // версии, их в сохранённом состоянии нет.
+    if (!parsed.finance) parsed.finance = { ops: [], debts: [], jars: [], subs: [], opening: 0 };
+    if (!parsed.finance.ops) parsed.finance.ops = [];
+    if (!parsed.finance.debts) parsed.finance.debts = [];
+    if (!parsed.finance.jars) parsed.finance.jars = [];
+    if (!parsed.finance.subs) parsed.finance.subs = [];
+    if (typeof parsed.finance.opening !== 'number') parsed.finance.opening = 0;
+    if (typeof parsed.finTab !== 'string') parsed.finTab = 'sum';
+    if (typeof parsed.finKind !== 'string') parsed.finKind = 'spend';
     if (typeof parsed.installID !== 'string') parsed.installID = '';
     if (typeof parsed.meditation.volume !== 'number') parsed.meditation.volume = 0.7;
     if (typeof parsed.meditation.totalMinutes !== 'number') parsed.meditation.totalMinutes = 0;
@@ -287,7 +302,7 @@ var FREE_LIMITS = { lists: 2, notes: 2, goals: 2 };
    Объект остаётся пустым, а не удаляется: сама развилка «платный раздел»
    рабочая, и когда такой раздел появится, его хватит вписать сюда одной
    строкой. */
-var PRO_ONLY = {};
+var PRO_ONLY = { finance: 'Мои финансы' };
 
 function isPro(){
   if (!S.pro || !S.pro.active) return false;
@@ -966,6 +981,9 @@ var NAV_ICONS = {
   // Закрыть «Ещё» — крест.
   close: navIcon('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'),
   // Корзина — ведро с крышкой.
+  // Финансы — не рубль и не мешок с деньгами: столбики, как в аналитике,
+  // потому что раздел про разбор, а не про кассу.
+  finance: navIcon('<path d="M4 20h16"/><path d="M7 20v-6"/><path d="M12 20V6"/><path d="M17 20v-9"/>'),
   trash: navIcon('<path d="M4 7.5h16"/><path d="M9.5 7.5V5.2A1.7 1.7 0 0 1 11.2 3.5h1.6A1.7 1.7 0 0 1 14.5 5.2v2.3"/>' +
     '<path d="M6.5 7.5l.9 11a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9l.9-11"/><path d="M10.5 11.5v5M13.5 11.5v5"/>'),
   // Выход — дверь со стрелкой наружу.
@@ -1005,6 +1023,10 @@ var TABS = [
   // Тарифы стоят в самом меню, а не в углу настроек: два раздела из десяти
   // открываются только по подписке, и человек должен видеть, где про это
   // написано, в ту же секунду, когда упёрся.
+  // «Мои финансы» стоят рядом с аналитикой, а не в конце: это тот же разбор
+  // своей жизни числами, только про деньги. Раздел платный целиком — он
+  // держится на подписке, как ассистент.
+  { id: 'finance',    title: 'Мои финансы', short: 'Финансы' },
   { id: 'trash',      title: 'Корзина' },
   // Черта проходит здесь, а не после «Аналитики»: выше неё то, чем работают,
   // ниже — то, что открывают про сам сервис. Корзина принадлежит работе.
@@ -1036,6 +1058,7 @@ var VIEWS = {
   focus:      { title: 'Мой фокус',  render: vFocus },
   goals:      { title: 'Цели',       render: vGoals },
   goal:       { title: 'Цель',       render: vGoal },
+  finance:    { title: 'Мои финансы', render: vFinance },
   tasks:      { title: 'Задачи',     render: vTasks },
   settings:   { title: 'Настройки',  render: vSettings },
   'settings-view': { title: 'Вид',   render: vSettingsView },
@@ -1091,6 +1114,7 @@ function render(){
   $('app').innerHTML = (PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render();
 
   restoreComposer();
+  restoreAddField();
   growNotes();
   fitMindMap();
   showToast();
@@ -1128,6 +1152,10 @@ var ICON = {
   edit: '<svg viewBox="0 0 16 16" aria-hidden="true">' +
     '<path d="M10.4 2.9 13.1 5.6M11.4 1.9a1.4 1.4 0 0 1 2 2l-8 8-2.7.7.7-2.7z"/></svg>',
   kill: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+  // Стрелка возврата — для корзины: «вернуть» словом занимало полстроки,
+  // а строк там бывает сотня.
+  back: '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+    '<path d="M6.4 3.2 2.8 6.8l3.6 3.6"/><path d="M2.8 6.8h6.4a3.6 3.6 0 0 1 0 7.2H7.6"/></svg>',
   ai: '<svg viewBox="0 0 24 24" aria-hidden="true">' +
     '<path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8z"/>' +
     '<path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>',
@@ -1518,6 +1546,556 @@ function trashRestore(id){
   return item.title;
 }
 
+/* ============ МОИ ФИНАНСЫ ============
+
+   Не бухгалтерия и не банковское приложение: у нас нет и не будет доступа к
+   счетам, а ручной ввод каждой копейки бросают на второй неделе. Поэтому
+   раздел отвечает на четыре вопроса, которые человек задаёт себе сам, и
+   ничего сверх:
+
+     сколько у меня есть · сколько я должен и сколько должны мне ·
+     на что уходит · успею ли накопить
+
+   Устроено так же, как остальной Synapse: строка ввода разбирает написанное
+   («кофе 350», «зарплата 90000»), деньги не уходят на сервер, а копилка —
+   это та же цель, только измеряется в рублях.
+
+   Раздел платный целиком: он держится на подписке, как ассистент. */
+
+var FIN_KINDS = {
+  spend:  { title: 'Трата',  sign: -1 },
+  income: { title: 'Доход',  sign: 1 }
+};
+
+/* Категории с цветом. Не справочник на сто строк: восемь корзин покрывают
+   почти всё, а девятая — «прочее» — принимает остальное без вопросов.
+   Угадываются по словам в строке, чтобы не выбирать из списка каждый раз. */
+var FIN_CATS = [
+  { id: 'food',      title: 'Еда',          hue: 18,  words: ['еда','продукт','магазин','кофе','обед','ужин','завтрак','кафе','ресторан','пятёроч','пятероч','перекрёст','перекрест','доставка','столов'] },
+  { id: 'home',      title: 'Дом',          hue: 152, words: ['аренда','квартир','ипотек','коммунал','жкх','свет','газ','вода','интернет','ремонт','мебель'] },
+  { id: 'transport', title: 'Транспорт',    hue: 205, words: ['такси','метро','автобус','бензин','заправк','парков','каршер','билет','поезд','самолёт','самолет'] },
+  { id: 'health',    title: 'Здоровье',     hue: 340, words: ['аптек','врач','лекарств','стоматолог','анализ','клиник','зал','фитнес','спорт'] },
+  { id: 'fun',       title: 'Развлечения',  hue: 275, words: ['кино','театр','концерт','игр','бар','подар','отдых','поездк','отпуск'] },
+  { id: 'subs',      title: 'Подписки',     hue: 45,  words: ['подписк','яндекс','плюс','музык','облак','хостинг','домен','тариф','связь','мобильн'] },
+  { id: 'clothes',   title: 'Одежда',       hue: 300, words: ['одежд','обув','кроссов','куртк','джинс','футболк','маркетплейс','озон','вайлдберриз','wb'] },
+  { id: 'learn',     title: 'Учёба',        hue: 95,  words: ['курс','книг','учеб','обучен','школ','репетитор','конференц'] },
+  { id: 'salary',    title: 'Доход',        hue: 152, words: ['зарплат','аванс','премия','гонорар','фриланс','возврат','кешбэк','кэшбэк','процент'] },
+  { id: 'other',     title: 'Прочее',       hue: 0,   words: [] }
+];
+
+function finCat(id){
+  for (var i = 0; i < FIN_CATS.length; i++) if (FIN_CATS[i].id === id) return FIN_CATS[i];
+  return FIN_CATS[FIN_CATS.length - 1];
+}
+
+/* Цвет категории — оттенок одной насыщенности, а не десять произвольных
+   красок: так строки списка отличаются, но не превращаются в светофор.
+   «Прочее» без оттенка вовсе — серое. */
+function finTint(cat, alpha){
+  var c = finCat(cat);
+  if (c.id === 'other') return 'var(--soft-2)';
+  return 'hsl(' + c.hue + ' 42% 52% / ' + alpha + ')';
+}
+
+/* ---- деньги ----
+
+   Хранятся в копейках целыми числами. 0.1 + 0.2 в двоичной дроби даёт
+   0.30000000000000004, и на третьей сотне операций итог месяца разъезжается
+   с суммой строк на рубль — ровно то место, где человек перестаёт верить
+   всему разделу. */
+function finMoney(kopecks, opts){
+  opts = opts || {};
+  var negative = kopecks < 0;
+  var whole = Math.round(Math.abs(kopecks) / 100);
+  var text = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  if (opts.kop && Math.abs(kopecks) % 100) text += ',' + ('0' + Math.abs(kopecks) % 100).slice(-2);
+  return (negative ? '−' : (opts.plus ? '+' : '')) + text + ' ₽';
+}
+
+/* Разбор строки: «кофе 350», «350 кофе», «зарплата 90 000», «такси 1.5к».
+   Сумма — последнее или первое число; всё остальное становится названием, а
+   по названию угадывается категория. Человек пишет как говорит, а не
+   заполняет три поля. */
+function finParse(raw, kind){
+  var text = String(raw || '').trim();
+  if (!text) return null;
+
+  // Тысячи словом: «1.5к», «20к», «5 тыс».
+  // Граница слова тут не \b: в JS она считается по латинице, и после
+  // кириллической «к» в конце строки границы попросту нет — «1.5к»
+  // не совпадало и превращалось в полтора рубля.
+  var multiplied = text.replace(/(\d+(?:[.,]\d+)?)\s*(к|k|тыс\.?|тысяч[аи]?)(?![а-яёa-z0-9])/gi, function(_, num){
+    return String(Math.round(parseFloat(num.replace(',', '.')) * 1000));
+  });
+
+  var joined = multiplied.replace(/(\d)[   ](?=\d{3}\b)/g, '$1');
+  var found = joined.match(/-?\d+(?:[.,]\d{1,2})?/);
+  if (!found) return null;
+
+  var amount = Math.round(Math.abs(parseFloat(found[0].replace(',', '.'))) * 100);
+  if (!amount) return null;
+
+  var title = joined.replace(found[0], ' ').replace(/\s+/g, ' ').trim();
+  title = title.replace(/^[-–—:,.]+|[-–—:,.]+$/g, '').trim();
+
+  var low = title.toLowerCase();
+  var cat = 'other';
+  for (var i = 0; i < FIN_CATS.length && cat === 'other'; i++){
+    var c = FIN_CATS[i];
+    for (var j = 0; j < c.words.length; j++){
+      if (low.indexOf(c.words[j]) !== -1){ cat = c.id; break; }
+    }
+  }
+  // Доход без узнанной категории — всё равно доход, а не «прочее».
+  if (kind === 'income' && cat === 'other') cat = 'salary';
+
+  return { title: title || (kind === 'income' ? 'Доход' : 'Трата'), amount: amount, cat: cat };
+}
+
+/* ---- счёт ---- */
+
+function finBalance(){
+  var kop = 0;
+  for (var i = 0; i < S.finance.ops.length; i++){
+    var op = S.finance.ops[i];
+    kop += op.amount * (FIN_KINDS[op.kind] ? FIN_KINDS[op.kind].sign : -1);
+  }
+  return kop + (S.finance.opening || 0);
+}
+
+function finDebtSums(){
+  var owe = 0, owed = 0;
+  for (var i = 0; i < S.finance.debts.length; i++){
+    var d = S.finance.debts[i];
+    if (d.closed) continue;
+    var left = Math.max(0, d.amount - (d.paid || 0));
+    if (d.mine) owe += left; else owed += left;
+  }
+  return { owe: owe, owed: owed, net: owed - owe };
+}
+
+function finSaved(){
+  var kop = 0;
+  for (var i = 0; i < S.finance.jars.length; i++) kop += S.finance.jars[i].saved || 0;
+  return kop;
+}
+
+function finMonthKey(iso){ return String(iso || isoOf(todayDate())).slice(0, 7); }
+
+function finMonthOps(key){
+  key = key || finMonthKey();
+  return S.finance.ops.filter(function(op){ return finMonthKey(op.date) === key; });
+}
+
+function finMonthTotals(key){
+  var ops = finMonthOps(key), spent = 0, earned = 0;
+  for (var i = 0; i < ops.length; i++){
+    if (ops[i].kind === 'income') earned += ops[i].amount; else spent += ops[i].amount;
+  }
+  return { spent: spent, earned: earned, ops: ops };
+}
+
+/* По категориям за месяц, от большего к меньшему: вопрос «куда уходит»
+   отвечается одной колонкой, а не таблицей из тридцати строк. */
+function finByCat(key){
+  var totals = {}, ops = finMonthOps(key);
+  for (var i = 0; i < ops.length; i++){
+    if (ops[i].kind === 'income') continue;
+    totals[ops[i].cat] = (totals[ops[i].cat] || 0) + ops[i].amount;
+  }
+  var rows = Object.keys(totals).map(function(id){
+    return { cat: id, title: finCat(id).title, sum: totals[id] };
+  });
+  rows.sort(function(a, b){ return b.sum - a.sum; });
+  return rows;
+}
+
+/* Сколько откладывать в месяц, чтобы успеть к сроку копилки. Считается по
+   целым месяцам до даты: «ещё 8 400 в месяц» — это ответ, а «осталось
+   67 200» — только половина ответа. */
+function finJarPace(jar){
+  if (!jar.due) return null;
+  var left = Math.max(0, jar.target - (jar.saved || 0));
+  if (!left) return { done: true, perMonth: 0, months: 0 };
+  var now = new Date(), due = new Date(jar.due + 'T00:00:00');
+  var months = (due.getFullYear() - now.getFullYear()) * 12 + (due.getMonth() - now.getMonth());
+  if (months < 1) months = 1;
+  return { done: false, perMonth: Math.ceil(left / months / 100) * 100, months: months };
+}
+
+/* Подписки: следующее списание и во что обходится год. Люди платят за
+   двенадцать сервисов и помнят про пять — годовая сумма и есть тот довод,
+   ради которого раздел заведён отдельно от обычных трат. */
+var FIN_EVERY = {
+  month: { title: 'в месяц', perYear: 12 },
+  year:  { title: 'в год',   perYear: 1 },
+  week:  { title: 'в неделю', perYear: 52 }
+};
+
+function finSubsYear(){
+  var kop = 0;
+  for (var i = 0; i < S.finance.subs.length; i++){
+    var sub = S.finance.subs[i];
+    if (sub.off) continue;
+    kop += sub.amount * (FIN_EVERY[sub.every] || FIN_EVERY.month).perYear;
+  }
+  return kop;
+}
+
+function finSubNext(sub){
+  if (!sub.since) return '';
+  var every = (FIN_EVERY[sub.every] || FIN_EVERY.month);
+  var step = every === FIN_EVERY.week ? 7 : 0;
+  var date = new Date(sub.since + 'T00:00:00');
+  var now = new Date(isoOf(todayDate()) + 'T00:00:00');
+  var guard = 0;
+  while (date < now && guard++ < 400){
+    if (step) date.setDate(date.getDate() + step);
+    else if (every === FIN_EVERY.year) date.setFullYear(date.getFullYear() + 1);
+    else date.setMonth(date.getMonth() + 1);
+  }
+  return isoOf(date);
+}
+
+/* ---- экраны ---- */
+
+var FIN_TABS = [
+  { id: 'sum',   title: 'Сводка' },
+  { id: 'ops',   title: 'Операции' },
+  { id: 'debts', title: 'Долги' },
+  { id: 'jars',  title: 'Копилки' },
+  { id: 'subs',  title: 'Подписки' }
+];
+
+function vFinance(){
+  var tab = S.finTab || 'sum';
+  var html = '<div class="fintabs">' + FIN_TABS.map(function(t){
+    return '<button class="fintab' + (t.id === tab ? ' on' : '') + '" data-act="fin-tab" data-tab="' + t.id + '">' +
+      esc(t.title) + '</button>';
+  }).join('') + '</div>';
+
+  if (tab === 'ops') return html + vFinOps();
+  if (tab === 'debts') return html + vFinDebts();
+  if (tab === 'jars') return html + vFinJars();
+  if (tab === 'subs') return html + vFinSubs();
+  return html + vFinSummary();
+}
+
+/* Сводка отвечает на четыре вопроса подряд, каждый своей строкой: сколько
+   есть, сколько должен и должны мне, на что ушло в этом месяце, успеваю ли
+   копить. Ничего, что нельзя прочесть за десять секунд. */
+function vFinSummary(){
+  var month = finMonthTotals();
+  var debts = finDebtSums();
+  var free = finBalance() - finSaved();
+  var html = '';
+
+  html += '<div class="fintiles">' +
+    finTile('Свободно', finMoney(free), free < 0 ? 'bad' : '') +
+    finTile('Отложено', finMoney(finSaved()), '') +
+    finTile('Я должен', finMoney(debts.owe), debts.owe ? 'warn' : '') +
+    finTile('Мне должны', finMoney(debts.owed), '') +
+  '</div>';
+
+  html += '<section class="card">' +
+    '<div class="finhead"><h3>' + esc(monthName(finMonthKey())) + '</h3>' +
+      '<span class="sub">' + finMoney(month.earned, { plus: true }) + ' · ' +
+        finMoney(-month.spent) + '</span></div>' +
+    (month.ops.length
+      ? '<div class="finbars">' + finByCat().map(function(row){
+          var share = month.spent ? Math.round(row.sum * 100 / month.spent) : 0;
+          return '<div class="finbar">' +
+            '<span class="fb-t">' + esc(row.title) + '</span>' +
+            '<span class="fb-r"><i style="width:' + share + '%;background:' + finTint(row.cat, .9) + '"></i></span>' +
+            '<span class="fb-v">' + finMoney(row.sum) + '</span>' +
+          '</div>';
+        }).join('') + '</div>'
+      : '<p class="sub" style="margin:0">В этом месяце ещё ничего не записано. Первая строка — во вкладке «Операции».</p>') +
+  '</section>';
+
+  var pacing = S.finance.jars.filter(function(j){ return j.due && (j.saved || 0) < j.target; });
+  if (pacing.length){
+    html += '<section class="card">' +
+      '<div class="finhead"><h3>Чтобы успеть</h3></div>' +
+      pacing.map(function(jar){
+        var pace = finJarPace(jar);
+        return '<div class="finline">' +
+          '<span>' + esc(jar.title) + '</span>' +
+          '<b>' + finMoney(pace.perMonth) + ' в месяц</b>' +
+        '</div>';
+      }).join('') +
+    '</section>';
+  }
+
+  var year = finSubsYear();
+  if (year){
+    html += '<section class="card">' +
+      '<div class="finhead"><h3>Подписки</h3><span class="sub">' + finMoney(year) + ' в год</span></div>' +
+      '<p class="sub" style="margin:0">Столько уходит на регулярные списания за двенадцать месяцев. ' +
+        'Список — во вкладке «Подписки».</p>' +
+    '</section>';
+  }
+
+  return html;
+}
+
+function finTile(caption, value, tone){
+  return '<div class="fintile' + (tone ? ' ' + tone : '') + '">' +
+    '<span>' + esc(caption) + '</span><b>' + esc(value) + '</b></div>';
+}
+
+function vFinOps(){
+  var kind = S.finKind || 'spend';
+  var html = '';
+
+  html += '<div class="finadd">' +
+    '<div class="finswitch">' +
+      '<button class="' + (kind === 'spend' ? 'on' : '') + '" data-act="fin-kind" data-kind="spend">Трата</button>' +
+      '<button class="' + (kind === 'income' ? 'on' : '') + '" data-act="fin-kind" data-kind="income">Доход</button>' +
+    '</div>' +
+    '<div class="rowadd">' +
+      '<input class="inp" type="text" id="finfield" autocomplete="off" ' +
+        'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
+      '<button class="btn sm" data-act="fin-add">Записать</button>' +
+    '</div>' +
+    '<p class="hint" style="margin:8px 0 0">Сумму можно писать прямо в строке — «такси 1.5к», «продукты 2 400». ' +
+      'Категория подставится сама.</p>' +
+  '</div>';
+
+  if (!S.finance.ops.length){
+    return html + blank(NAV_ICONS.finance, 'Записей пока нет',
+      'Одна строка на трату — этого достаточно. Через месяц раздел покажет, куда уходят деньги.');
+  }
+
+  // По дням, свежие сверху: список трат читают как ленту, а не как таблицу.
+  var days = {};
+  var order = [];
+  var sorted = S.finance.ops.slice().sort(function(a, b){
+    return a.date === b.date ? b.at - a.at : (a.date < b.date ? 1 : -1);
+  });
+  for (var i = 0; i < sorted.length; i++){
+    var d = sorted[i].date;
+    if (!days[d]){ days[d] = []; order.push(d); }
+    days[d].push(sorted[i]);
+  }
+
+  html += order.map(function(date){
+    var rows = days[date];
+    var sum = rows.reduce(function(acc, op){
+      return acc + op.amount * (FIN_KINDS[op.kind] ? FIN_KINDS[op.kind].sign : -1);
+    }, 0);
+    return '<div class="finday">' +
+      '<div class="finday-h"><b>' + esc(humanDate(date)) + '</b>' +
+        '<span>' + finMoney(sum, { plus: sum > 0 }) + '</span></div>' +
+      '<div class="finrows">' + rows.map(function(op){
+        return '<div class="finrow">' +
+          '<span class="fr-dot" style="background:' + finTint(op.cat, .95) + '"></span>' +
+          '<span class="fr-t">' + esc(op.title) +
+            '<span class="fr-c">' + esc(finCat(op.cat).title) + '</span></span>' +
+          '<span class="fr-v' + (op.kind === 'income' ? ' up' : '') + '">' +
+            finMoney(op.amount * (op.kind === 'income' ? 1 : -1), { plus: op.kind === 'income' }) + '</span>' +
+          '<button class="fr-x" data-act="fin-op-kill" data-op="' + op.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+        '</div>';
+      }).join('') + '</div>' +
+    '</div>';
+  }).join('');
+
+  return html;
+}
+
+function vFinDebts(){
+  var html = '<div class="acts" style="margin:0 0 14px">' +
+    '<button class="btn sm" data-act="fin-debt-new" data-mine="1">Я занял</button>' +
+    '<button class="btn sm soft" data-act="fin-debt-new" data-mine="">Мне должны</button>' +
+  '</div>';
+
+  var open = S.finance.debts.filter(function(d){ return !d.closed; });
+  if (!open.length && !S.finance.debts.length){
+    return html + blank(NAV_ICONS.finance, 'Долгов нет',
+      'Сюда записывают, у кого взяли и кому дали. Видно сумму, срок и сколько уже вернули.');
+  }
+
+  html += S.finance.debts.map(function(d){
+    var left = Math.max(0, d.amount - (d.paid || 0));
+    var share = d.amount ? Math.round((d.paid || 0) * 100 / d.amount) : 0;
+    return '<article class="card debt' + (d.closed ? ' done' : '') + '">' +
+      '<div class="finhead">' +
+        '<h3>' + esc(d.who) + '</h3>' +
+        '<span class="sub">' + (d.mine ? 'я должен' : 'мне должны') +
+          (d.due ? ' · до ' + esc(humanDate(d.due)) : '') + '</span>' +
+      '</div>' +
+      '<div class="debt-sum">' +
+        '<b>' + finMoney(left) + '</b>' +
+        (d.paid ? '<span class="sub">из ' + finMoney(d.amount) + ' · вернули ' + finMoney(d.paid) + '</span>' : '') +
+      '</div>' +
+      (d.paid ? '<div class="bar slim" style="margin-top:10px"><i style="width:' + share + '%"></i></div>' : '') +
+      (d.note ? '<p class="sub" style="margin-top:10px">' + esc(d.note) + '</p>' : '') +
+      '<div class="acts">' +
+        (d.closed
+          ? '<button class="btn sm soft" data-act="fin-debt-open" data-debt="' + d.id + '">Вернуть в открытые</button>'
+          : '<button class="btn sm" data-act="fin-debt-pay" data-debt="' + d.id + '">Отметить возврат</button>' +
+            '<button class="btn sm soft" data-act="fin-debt-close" data-debt="' + d.id + '">Закрыть</button>') +
+        '<button class="btn sm soft" data-act="fin-debt-kill" data-debt="' + d.id + '">Удалить</button>' +
+      '</div>' +
+    '</article>';
+  }).join('');
+
+  return html;
+}
+
+function vFinJars(){
+  var html = '<div class="acts" style="margin:0 0 14px">' +
+    '<button class="btn sm" data-act="fin-jar-new">Новая копилка</button></div>';
+
+  if (!S.finance.jars.length){
+    return html + blank(NAV_ICONS.finance, 'Копилок пока нет',
+      'Копилка — это цель, измеряемая в рублях: «на отпуск 120 000 к июню». ' +
+      'Synapse посчитает, сколько откладывать в месяц, чтобы успеть.');
+  }
+
+  html += S.finance.jars.map(function(jar){
+    var saved = jar.saved || 0;
+    var share = jar.target ? Math.min(100, Math.round(saved * 100 / jar.target)) : 0;
+    var pace = finJarPace(jar);
+    return '<article class="card jar' + (saved >= jar.target ? ' full' : '') + '">' +
+      '<div class="finhead">' +
+        '<h3>' + esc(jar.title) + '</h3>' +
+        '<span class="sub">' + share + '%</span>' +
+      '</div>' +
+      '<div class="debt-sum"><b>' + finMoney(saved) + '</b>' +
+        '<span class="sub">из ' + finMoney(jar.target) +
+          (jar.due ? ' · к ' + esc(humanDate(jar.due)) : '') + '</span></div>' +
+      '<div class="bar slim" style="margin-top:10px"><i style="width:' + share + '%"></i></div>' +
+      (pace && !pace.done
+        ? '<p class="sub" style="margin-top:10px">Чтобы успеть — ' + finMoney(pace.perMonth) +
+          ' в месяц, осталось ' + pace.months + ' ' + plural(pace.months, 'месяц', 'месяца', 'месяцев') + '.</p>'
+        : (saved >= jar.target ? '<p class="sub" style="margin-top:10px">Собрано.</p>' : '')) +
+      '<div class="acts">' +
+        '<button class="btn sm" data-act="fin-jar-put" data-jar="' + jar.id + '">Отложить</button>' +
+        '<button class="btn sm soft" data-act="fin-jar-take" data-jar="' + jar.id + '">Снять</button>' +
+        '<button class="btn sm soft" data-act="fin-jar-kill" data-jar="' + jar.id + '">Удалить</button>' +
+      '</div>' +
+    '</article>';
+  }).join('');
+
+  return html;
+}
+
+function vFinSubs(){
+  var year = finSubsYear();
+  var html = '<div class="acts" style="margin:0 0 14px">' +
+    '<button class="btn sm" data-act="fin-sub-new">Новая подписка</button></div>';
+
+  if (!S.finance.subs.length){
+    return html + blank(NAV_ICONS.finance, 'Подписок пока нет',
+      'Регулярные списания живут отдельно от трат: тут видно дату следующего и во что обходится год.');
+  }
+
+  html += '<div class="fintiles">' +
+    finTile('В год', finMoney(year), '') +
+    finTile('В месяц', finMoney(Math.round(year / 12)), '') +
+    finTile('Штук', String(S.finance.subs.filter(function(x){ return !x.off; }).length), '') +
+  '</div>';
+
+  html += '<div class="sublist">' + S.finance.subs.map(function(sub){
+    var every = FIN_EVERY[sub.every] || FIN_EVERY.month;
+    var next = finSubNext(sub);
+    return '<div class="subrow' + (sub.off ? ' off' : '') + '">' +
+      '<span class="sr-t">' + esc(sub.title) +
+        '<span class="sr-n">' + (sub.off ? 'отключена' : (next ? 'следующее ' + esc(humanDate(next)) : every.title)) + '</span>' +
+      '</span>' +
+      '<span class="sr-v">' + finMoney(sub.amount) + ' <i>' + esc(every.title) + '</i></span>' +
+      '<button class="fr-x" data-act="fin-sub-toggle" data-sub="' + sub.id + '" ' +
+        'title="' + (sub.off ? 'Включить' : 'Отключить') + '" aria-label="Включить или отключить">' +
+        (sub.off ? '↺' : '⏻') + '</button>' +
+      '<button class="fr-x" data-act="fin-sub-kill" data-sub="' + sub.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+    '</div>';
+  }).join('') + '</div>';
+
+  return html;
+}
+
+function monthName(key){
+  var months = ['Январь','Февраль','Март','Апрель','Май','Июнь',
+                'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  var parts = String(key).split('-');
+  return months[Number(parts[1]) - 1] + ' ' + parts[0];
+}
+
+function finDebt(id){
+  for (var i = 0; i < S.finance.debts.length; i++) if (S.finance.debts[i].id === id) return S.finance.debts[i];
+  return null;
+}
+function finSub(id){
+  for (var i = 0; i < S.finance.subs.length; i++) if (S.finance.subs[i].id === id) return S.finance.subs[i];
+  return null;
+}
+function finJar(id){
+  for (var i = 0; i < S.finance.jars.length; i++) if (S.finance.jars[i].id === id) return S.finance.jars[i];
+  return null;
+}
+
+/* Отложить и снять — одним обработчиком: разница только в знаке. Копилка не
+   уходит в минус и не переполняется выше цели молча — лишнее просто не
+   принимается, чтобы «отложено» всегда совпадало с тем, что есть. */
+function finJarMove(id, sign){
+  var jar = finJar(id);
+  if (!jar) return;
+  var answer = prompt(sign > 0 ? 'Сколько отложить?' : 'Сколько снять?', '');
+  if (answer === null) return;
+  var parsed = finParse(answer, 'spend');
+  if (!parsed) return;
+  jar.saved = Math.max(0, (jar.saved || 0) + parsed.amount * sign);
+  commit(sign > 0 ? 'Отложено ' + finMoney(parsed.amount) : 'Снято ' + finMoney(parsed.amount));
+}
+
+/* ---- окна ввода ---- */
+
+function modalDebt(mine){
+  return '<h3>' + (mine ? 'Я занял' : 'Мне должны') + '</h3>' +
+    '<div class="field"><label for="m-who">' + (mine ? 'У кого' : 'Кто') + '</label>' +
+      '<input class="inp" id="m-who" placeholder="Имя"></div>' +
+    '<div class="field"><label for="m-amount">Сумма</label>' +
+      '<input class="inp" id="m-amount" placeholder="15 000"></div>' +
+    '<div class="field"><label for="m-due">Когда вернуть</label>' +
+      '<input class="inp" id="m-due" type="date"></div>' +
+    '<div class="field"><label for="m-note">Заметка</label>' +
+      '<input class="inp" id="m-note" placeholder="Необязательно"></div>' +
+    '<button class="btn full" data-act="fin-debt-save">Записать</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
+function modalJar(){
+  return '<h3>Новая копилка</h3>' +
+    '<p class="s">Копилка — это цель в рублях. Со сроком Synapse посчитает, сколько откладывать в месяц.</p>' +
+    '<div class="field"><label for="m-title">На что</label>' +
+      '<input class="inp" id="m-title" placeholder="Отпуск"></div>' +
+    '<div class="field"><label for="m-amount">Сколько нужно</label>' +
+      '<input class="inp" id="m-amount" placeholder="120 000"></div>' +
+    '<div class="field"><label for="m-due">К какому числу</label>' +
+      '<input class="inp" id="m-due" type="date"></div>' +
+    '<button class="btn full" data-act="fin-jar-save">Завести</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
+function modalSub(){
+  return '<h3>Новая подписка</h3>' +
+    '<div class="field"><label for="m-title">За что</label>' +
+      '<input class="inp" id="m-title" placeholder="Яндекс Плюс"></div>' +
+    '<div class="field"><label for="m-amount">Сумма списания</label>' +
+      '<input class="inp" id="m-amount" placeholder="399"></div>' +
+    '<div class="field"><label for="m-every">Как часто</label>' +
+      '<select class="inp" id="m-every">' +
+        '<option value="month">Раз в месяц</option>' +
+        '<option value="year">Раз в год</option>' +
+        '<option value="week">Раз в неделю</option>' +
+      '</select></div>' +
+    '<div class="field"><label for="m-due">С какого числа списывают</label>' +
+      '<input class="inp" id="m-due" type="date"></div>' +
+    '<button class="btn full" data-act="fin-sub-save">Записать</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
 function vTrash(){
   var html = head('', 'Корзина');
 
@@ -1527,26 +2105,34 @@ function vTrash(){
       ' дней, и всё это время их можно вернуть.');
   }
 
-  html += '<section class="card">' +
-    '<p class="sub" style="margin:0">Удалённое хранится ' + TRASH_DAYS +
-      ' дней, потом уходит само. Восстановленная задача с прошедшей датой возвращается в «Сегодня».</p>' +
-    '<div class="acts"><button class="btn sm soft" data-act="trash-empty">Очистить корзину</button></div>' +
-  '</section>';
+  /* Полоса вместо карточки: срок хранения — одна строка, и целый блок под
+     неё занимал первый экран, оставляя самим записям половину. Кнопки уехали
+     туда же, вправо, где их и ищут. */
+  html += '<div class="trashbar">' +
+    '<span class="sub">Хранится ' + TRASH_DAYS + ' дней, потом уходит само</span>' +
+    '<span class="trashbar-a">' +
+      '<button class="btn sm soft" data-act="trash-restore-all">Восстановить все</button>' +
+      '<button class="btn sm soft" data-act="trash-empty">Удалить все</button>' +
+    '</span>' +
+  '</div>';
 
   html += '<div class="trashlist">' +
     S.trash.map(function(item){
       var kind = TRASH_KINDS[item.kind] || { title: 'Запись' };
       var left = trashDaysLeft(item);
-      return '<article class="card trashrow">' +
+      /* Тип и срок — в одну строку с названием, а не под ним: так запись
+         занимает один ряд вместо трёх, и на экран их влезает вдесятеро
+         больше. Именно за этим в корзину и приходят — окинуть взглядом. */
+      return '<article class="trashrow">' +
         '<div class="trashrow-t">' +
           '<b>' + esc(item.title) + '</b>' +
           '<span class="sub">' + esc(kind.title) + ' · ' +
-            (left ? 'удалится через ' + left + ' ' + plural(left, 'день', 'дня', 'дней') : 'удалится сегодня') +
+            (left ? left + ' ' + plural(left, 'день', 'дня', 'дней') : 'сегодня') +
           '</span>' +
         '</div>' +
         '<div class="trashrow-a">' +
-          '<button class="btn sm" data-act="trash-restore" data-item="' + item.id + '">Вернуть</button>' +
-          '<button class="btn sm soft" data-act="trash-kill" data-item="' + item.id + '">Стереть</button>' +
+          '<button data-act="trash-restore" data-item="' + item.id + '" title="Вернуть" aria-label="Вернуть">' + ICON.back + '</button>' +
+          '<button data-act="trash-kill" data-item="' + item.id + '" title="Стереть навсегда" aria-label="Стереть навсегда">' + ICON.kill + '</button>' +
         '</div>' +
       '</article>';
     }).join('') +
@@ -1846,6 +2432,26 @@ function restoreComposer(){
     field.focus();
     field.setSelectionRange(field.value.length, field.value.length);
   }
+}
+
+/* Курсор остаётся в поле после добавления.
+
+   Подпункты и пункты списка заводят пачками — пять покупок подряд, семь
+   шагов подряд. Перерисовка после каждого добавления уносила фокус, и за
+   каждым пунктом приходилось возвращаться в строку мышкой. Запоминаем, куда
+   вернуть курсор, и возвращаем после отрисовки — поле к тому времени уже
+   новое, поэтому храним не узел, а как его найти. */
+var refocusSelector = '';
+
+function keepFocus(selector){ refocusSelector = selector; }
+
+function restoreAddField(){
+  if (!refocusSelector) return;
+  var node = document.querySelector(refocusSelector);
+  refocusSelector = '';
+  if (!node) return;
+  node.focus();
+  if (node.setSelectionRange) node.setSelectionRange(node.value.length, node.value.length);
 }
 
 function addTask(){
@@ -3881,9 +4487,15 @@ function humanDateTime(iso){
    лежит: человек должен понимать, что покупает, ещё не купив. */
 function vLocked(view){
   var html = head('Synapse', PRO_ONLY[view]);
-  var about = view === 'pomodoro'
-    ? 'Таймер на 25 минут работы и 5 минут перерыва, счёт пройденных кругов за день и свои длительности, если стандартные не подходят.'
-    : 'Двенадцать полевых записей — дождь, прибой, лес, гроза, — круг, который заполняется по ходу сеанса, и счёт минут за всё время.';
+  // Текст под замком — про то, что человек получит, а не про то, чего он
+  // лишён: экран открывается ровно в ту секунду, когда упёрлись, и должен
+  // отвечать «вот что там», а не «заплати».
+  var ABOUT = {
+    pomodoro: 'Таймер на 25 минут работы и 5 минут перерыва, счёт пройденных кругов за день и свои длительности, если стандартные не подходят.',
+    meditation: 'Двенадцать полевых записей — дождь, прибой, лес, гроза, — круг, который заполняется по ходу сеанса, и счёт минут за всё время.',
+    finance: 'Траты одной строкой — «кофе 350», категория подставится сама. Долги в обе стороны с возвратом по частям. Копилки со сроком и расчётом, сколько откладывать в месяц. Подписки с датой следующего списания и годовой суммой.'
+  };
+  var about = ABOUT[view] || ABOUT.meditation;
 
   html += '<section class="card locked-card">' +
     '<span class="locked-mark" aria-hidden="true">' + ICON.lock + '</span>' +
@@ -5574,7 +6186,43 @@ var toastTimer = null;
 var pendingToast = '';
 var pendingImport = '';
 
+/* Готовность считается снизу вверх, а не отмечается на каждом уровне руками.
+
+   Подпункты закрывают задачу, задачи закрывают этап, этапы закрывают цель.
+   Иначе человек, отметивший последний подпункт, видит выполненный список
+   внутри невыполненной задачи — и должен ставить ещё одну галочку о том, что
+   и так уже видно. Считается тут, в одном месте перед сохранением, а не в
+   каждом обработчике: обработчиков, меняющих подпункты и задачи, восемь, и
+   забыть один из них — вопрос времени.
+
+   Уровни, где считать нечего, не трогаем: задача без подпунктов и этап без
+   задач остаются полностью ручными. */
+function syncCompletion(){
+  var i, j;
+
+  for (i = 0; i < S.tasks.length; i++){
+    var t = S.tasks[i];
+    if (!t.subtasks || !t.subtasks.length) continue;
+    t.done = t.subtasks.every(function(sub){ return sub.done; });
+  }
+
+  for (i = 0; i < S.goals.length; i++){
+    var g = S.goals[i];
+    if (!g.stages || !g.stages.length){ g.done = false; continue; }
+    for (j = 0; j < g.stages.length; j++){
+      var st = g.stages[j];
+      var own = S.tasks.filter(function(task){ return task.stageId === st.id; });
+      if (!own.length) continue;              // этап без задач закрывают руками
+      var all = own.every(function(task){ return task.done; });
+      if (all) st.status = 'done';
+      else if (st.status === 'done') st.status = 'active';
+    }
+    g.done = g.stages.every(function(stage){ return stage.status === 'done'; });
+  }
+}
+
 function commit(message){
+  syncCompletion();
   if (tourCheck() && !message) message = 'Первые шаги пройдены';
   // Сообщение держим в переменной, а не в S: попав в localStorage, оно
   // всплывало бы снова при каждом открытии страницы.
@@ -5840,6 +6488,114 @@ var ACTS = {
   /* --- задачи --- */
   add: function(){ S.hintSeen = true; addTask(); },
   'hint-off': function(){ S.hintSeen = true; commit(); },
+  /* --- финансы --- */
+  'fin-tab': function(d){ S.finTab = d.tab; commit(); },
+  'fin-kind': function(d){ S.finKind = d.kind; commit(); },
+
+  'fin-add': function(){
+    var field = $('finfield');
+    if (!field) return;
+    var parsed = finParse(field.value, S.finKind || 'spend');
+    if (!parsed) return toast('Нужна сумма: «кофе 350»');
+    S.finance.ops.push({
+      id: uid(), kind: S.finKind || 'spend', title: parsed.title,
+      amount: parsed.amount, cat: parsed.cat, date: isoOf(todayDate()), at: Date.now()
+    });
+    field.value = '';
+    // Траты записывают пачками — за неделю сразу. Курсор остаётся в строке.
+    keepFocus('#finfield');
+    commit();
+  },
+  'fin-op-kill': function(d){
+    S.finance.ops = S.finance.ops.filter(function(op){ return op.id !== d.op; });
+    commit('Запись удалена');
+  },
+
+  'fin-debt-new': function(d){
+    S.finDraftMine = !!d.mine;
+    openModal(modalDebt(d.mine));
+  },
+  'fin-debt-save': function(){
+    var who = mval('m-who');
+    var parsed = finParse(mval('m-amount'), 'spend');
+    if (!who || !parsed) return;
+    S.finance.debts.push({
+      id: uid(), who: who, mine: !!S.finDraftMine, amount: parsed.amount, paid: 0,
+      due: mval('m-due'), note: mval('m-note'), closed: false, at: Date.now()
+    });
+    closeModal();
+    commit(S.finDraftMine ? 'Долг записан' : 'Записано, кто должен');
+  },
+  'fin-debt-pay': function(d){
+    var debt = finDebt(d.debt);
+    if (!debt) return;
+    var left = Math.max(0, debt.amount - (debt.paid || 0));
+    var answer = prompt('Сколько вернули? Осталось ' + finMoney(left), String(Math.round(left / 100)));
+    if (answer === null) return;
+    var parsed = finParse(answer, 'spend');
+    if (!parsed) return;
+    debt.paid = Math.min(debt.amount, (debt.paid || 0) + parsed.amount);
+    if (debt.paid >= debt.amount) debt.closed = true;
+    commit(debt.closed ? 'Долг закрыт' : 'Возврат записан');
+  },
+  'fin-debt-close': function(d){
+    var debt = finDebt(d.debt);
+    if (!debt) return;
+    debt.closed = true;
+    commit('Долг закрыт');
+  },
+  'fin-debt-open': function(d){
+    var debt = finDebt(d.debt);
+    if (!debt) return;
+    debt.closed = false;
+    commit();
+  },
+  'fin-debt-kill': function(d){
+    S.finance.debts = S.finance.debts.filter(function(x){ return x.id !== d.debt; });
+    commit('Удалено');
+  },
+
+  'fin-jar-new': function(){ openModal(modalJar()); },
+  'fin-jar-save': function(){
+    var title = mval('m-title');
+    var parsed = finParse(mval('m-amount'), 'spend');
+    if (!title || !parsed) return;
+    S.finance.jars.push({
+      id: uid(), title: title, target: parsed.amount, saved: 0, due: mval('m-due'), at: Date.now()
+    });
+    closeModal();
+    commit('Копилка заведена');
+  },
+  'fin-jar-put': function(d){ finJarMove(d.jar, 1); },
+  'fin-jar-take': function(d){ finJarMove(d.jar, -1); },
+  'fin-jar-kill': function(d){
+    S.finance.jars = S.finance.jars.filter(function(x){ return x.id !== d.jar; });
+    commit('Копилка удалена');
+  },
+
+  'fin-sub-new': function(){ openModal(modalSub()); },
+  'fin-sub-save': function(){
+    var title = mval('m-title');
+    var parsed = finParse(mval('m-amount'), 'spend');
+    if (!title || !parsed) return;
+    var every = $('m-every') ? $('m-every').value : 'month';
+    S.finance.subs.push({
+      id: uid(), title: title, amount: parsed.amount, every: every,
+      since: mval('m-due') || isoOf(todayDate()), off: false
+    });
+    closeModal();
+    commit('Подписка записана');
+  },
+  'fin-sub-toggle': function(d){
+    var sub = finSub(d.sub);
+    if (!sub) return;
+    sub.off = !sub.off;
+    commit();
+  },
+  'fin-sub-kill': function(d){
+    S.finance.subs = S.finance.subs.filter(function(x){ return x.id !== d.sub; });
+    commit('Удалено');
+  },
   'trash-restore': function(d){
     var title = trashRestore(d.item);
     if (!title) return;
@@ -5854,14 +6610,33 @@ var ACTS = {
   'trash-empty': function(){
     if (!S.trash.length) return;
     var count = S.trash.length;
+    // Стирание насовсем — единственное действие во всём сервисе, которое
+    // нечем отменить: спрашиваем, и с числом, чтобы человек видел объём.
+    if (!confirm('Стереть навсегда ' + count + ' ' +
+        plural(count, 'запись', 'записи', 'записей') + '? Вернуть их будет нельзя.')) return;
     S.trash = [];
     commit('Корзина пуста: стёрто ' + count);
+  },
+  'trash-restore-all': function(){
+    if (!S.trash.length) return;
+    // Идём по копии списка: trashRestore вынимает записи из S.trash по ходу.
+    var ids = S.trash.map(function(entry){ return entry.id; });
+    var back = 0;
+    for (var i = 0; i < ids.length; i++) if (trashRestore(ids[i])) back++;
+    commit(back ? 'Вернули ' + back + ' ' + plural(back, 'запись', 'записи', 'записей')
+                : 'Вернуть не удалось');
   },
   'tour-hide': function(){ S.tourDone = true; commit('Первые шаги скрыты'); },
   toggle: function(d){
     var t = findTask(d.task);
     if (!t) return;
     t.done = !t.done;
+    // Родитель ведёт за собой подпункты. Без этого syncCompletion пересчитал
+    // бы задачу обратно по незакрытым подпунктам — нажатие выглядело бы
+    // как не сработавшее.
+    if (t.subtasks && t.subtasks.length){
+      for (var si = 0; si < t.subtasks.length; si++) t.subtasks[si].done = t.done;
+    }
     // createNextRecurringTaskIfNeeded(afterCompleting:) из WorkspaceStore:
     // закрытая повторяющаяся задача не исчезает, а ставит следующую в серии.
     if (t.done && t.repeat){
@@ -5977,6 +6752,8 @@ var ACTS = {
     if (!value) return;
     t.subtasks.push({ id: uid(), title: value, done: false });
     S.open[t.id] = true;
+    input.value = '';
+    keepFocus('[data-subadd="' + d.task + '"]');
     commit();
   },
 
@@ -6171,6 +6948,8 @@ var ACTS = {
       id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
       time: parsed.time, repeat: '', series: null, goalId: d.goal, stageId: d.stage, subtasks: []
     });
+    input.value = '';
+    keepFocus('[data-goaltask="' + d.stage + '"]');
     commit('Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
   },
 
@@ -6232,6 +7011,8 @@ var ACTS = {
     var value = input.value.trim();
     if (!value) return;
     l.items.push({ id: uid(), title: value, done: false });
+    input.value = '';
+    keepFocus('[data-itemadd="' + d.list + '"]');
     commit();
   },
 
