@@ -1230,9 +1230,12 @@ var ICON = {
   // а строк там бывает сотня.
   back: '<svg viewBox="0 0 16 16" aria-hidden="true">' +
     '<path d="M6.4 3.2 2.8 6.8l3.6 3.6"/><path d="M2.8 6.8h6.4a3.6 3.6 0 0 1 0 7.2H7.6"/></svg>',
-  ai: '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-    '<path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8z"/>' +
-    '<path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>',
+  /* Кнопка ассистента подписана буквами, а не звёздочками.
+
+     Звёздочки стали общим местом и ничего не сообщают: их ставят и на
+     «улучшить текст», и на «показать рекомендации», и на анимацию загрузки.
+     Две буквы говорят, что за кнопкой, без догадок. */
+  ai: '<span class="ai-mark" aria-hidden="true">AI</span>',
   full: '<svg viewBox="0 0 16 16" aria-hidden="true" style="width:14px;height:14px;fill:none;' +
     'stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-2px">' +
     '<path d="M6 2H2v4M10 2h4v4M10 14h4v-4M6 14H2v-4"/></svg>',
@@ -2280,7 +2283,7 @@ function vFinOps(){
     '<div class="rowadd">' +
       '<input class="inp" type="text" id="finfield" autocomplete="off" ' +
         'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
-      // Искра уходит к Syn: пачка за раз, прошедшие даты, возвраты по долгам.
+      // Кнопка AI уходит к Syn: пачка за раз, прошедшие даты, возвраты по долгам.
       '<button class="ai" type="button" data-act="fin-ai" aria-label="Записать через Syn" title="Записать через Syn">' +
         ICON.ai + '</button>' +
       '<button class="btn sm" data-act="fin-add">Записать</button>' +
@@ -2296,7 +2299,7 @@ function vFinOps(){
         }).join('') + '</select>' : '') +
     '</div>' +
     '<p class="hint" style="margin:8px 0 0">Сумму можно писать прямо в строке — «такси 1.5к», «продукты 2 400». ' +
-      'Категория подставится сама. Искра рядом понимает несколько трат за раз и вчерашние даты.</p>' +
+      'Категория подставится сама. Кнопка AI рядом понимает несколько трат за раз и вчерашние даты.</p>' +
   '</div>';
 
   if (!S.finance.ops.length){
@@ -4237,9 +4240,9 @@ function vGoalComposer(){
       '<label class="visually-hidden" for="gfield">Новая цель</label>' +
       '<input id="gfield" type="text" autocomplete="off" enterkeyhint="done" ' +
         'placeholder="Выучить английский за год" value="' + esc(S.goalDraft || '') + '">' +
-      /* Та же искра, что в задачах, но с другим намерением. Стрелка заводит
+      /* Та же кнопка, что в задачах, но с другим намерением. Стрелка заводит
          цель с одним названием и пустой серединой — это правильно, когда
-         человек уже знает, чего хочет. Искра нужна, когда не знает: Syn
+         человек уже знает, чего хочет. AI нужен, когда не знает: Syn
          сам придумает этапы, сроки и первые задачи. */
       '<button class="ai" type="button" data-act="ai-goal" aria-label="Придумать цель с Syn" title="Придумать цель с Syn">' + ICON.ai + '</button>' +
       '<button class="send" type="submit" aria-label="Создать цель">' + NAV_ICONS.send + '</button>' +

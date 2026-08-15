@@ -379,7 +379,18 @@ select.inp{appearance:none}
 .pct{font-family:var(--mono); font-size:12px; color:var(--fg-2)}
 
 /* строка создания задачи */
-.composer{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(100px + var(--vv-shift, 0px)); z-index:40; width:min(620px, calc(100% - 32px))}
+/* Отступ снизу.
+
+   Было 18 пикселей от края окна — и под панелью оставалась пустая полоса
+   поверх системной панели телефона: два поля подряд, ни одно из которых
+   ничего не показывает. Ужимаем до 8, но не меньше безопасной зоны: на
+   айфонах там живёт полоска «домой», и панель под неё нельзя загонять.
+
+   Строка создания стоит ровно на высоту панели выше: 73 плюс 9 зазора. */
+:root{
+  --dock: max(8px, env(safe-area-inset-bottom, 0px));
+}
+.composer{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--dock) + 82px + var(--vv-shift, 0px)); z-index:40; width:min(620px, calc(100% - 32px))}
 /* Строка ввода плавает над содержимым, а карточки под ней того же цвета —
    на светлых палитрах она в них растворялась. Поэтому фон здесь не card, а
    более плотный panelStrong, обводка в полный контраст текста и тень
@@ -666,7 +677,7 @@ body.mm-open{overflow:hidden}
 /* Низ отсчитывается от видимой части окна, а не от окна целиком: при открытой
    клавиатуре это разные вещи, и без --vv-shift панель уезжает вверх и там
    остаётся. Переменную ставит скрипт по visualViewport, по умолчанию она 0. */
-.tabbar{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(18px + var(--vv-shift, 0px)); z-index:50; background:var(--card); border:1px solid var(--stroke); border-radius:24px; padding:8px; box-shadow:var(--shadow-lift); width:min(560px, calc(100% - 24px))}
+.tabbar{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--dock) + var(--vv-shift, 0px)); z-index:50; background:var(--card); border:1px solid var(--stroke); border-radius:24px; padding:8px; box-shadow:var(--shadow-lift); width:min(560px, calc(100% - 24px))}
 .tabs-main{display:grid; grid-template-columns:repeat(5,1fr); align-items:center}
 .tab{display:grid; justify-items:center; gap:4px; font-size:10.5px; color:var(--fg-3); padding:6px 2px; border-radius:16px; text-align:center; line-height:1.2}
 /* Пункт «Поддержка» — настоящая ссылка, а не кнопка: подчёркивание и
@@ -1390,3 +1401,9 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   .pr-t{font-size:13.5px}
   .payhead, .payrow{padding-left:12px; padding-right:12px}
 }
+
+/* Буквы вместо звёздочек на кнопке ассистента. Кегль мелкий, разрядка
+   заметная — так две буквы читаются знаком, а не обрывком слова. */
+.ai-mark{font-size:12px; font-weight:800; letter-spacing:.04em; line-height:1;
+  font-family:var(--display, inherit)}
+.say .ai, .rowadd .ai{font-weight:800}
