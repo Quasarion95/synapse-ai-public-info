@@ -355,9 +355,32 @@ select.inp{appearance:none}
    Сдвиг ставит скрипт (markDropSpot), здесь только его плавность — она уже
    задана на .item выше. */
 .item .body{flex:1; min-width:0}
-.item .side{display:flex; gap:1px; flex:none; margin:-2px -3px 0 0}
-.item .side button{width:27px; height:27px; border-radius:999px; display:grid; place-items:center; color:var(--fg-3); font-size:13px}
-.item .side button:hover{background:var(--soft); color:var(--fg)}
+/* ---- свайп по карточке ----
+
+   Кнопки лежат под карточкой справа, карточка съезжает влево и открывает их.
+   Значки в каждой строке отъедали место у названия всегда, а нужны изредка. */
+.swipe{position:relative; overflow:hidden}
+.swipe > .side{position:absolute; right:0; top:0; bottom:0; z-index:0;
+  display:flex; align-items:stretch; gap:0; margin:0}
+.swipe > .side button{width:46px; height:auto; border-radius:0; display:grid;
+  place-items:center; color:var(--fg-2); background:var(--soft-2)}
+.swipe > .side button.kill{background:var(--danger); color:#fff}
+.swipe > .side button svg{width:18px; height:18px; fill:none; stroke:currentColor;
+  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+
+/* Лицо карточки едет поверх кнопок и обязано быть непрозрачным, иначе они
+   просвечивают сквозь него в закрытом состоянии. */
+/* Едем смещением, а не преобразованием.
+
+   translateX на этом блоке молча не срабатывал — даже заданный вручную с
+   !important. Разбираться, чем именно движок его глушит, дольше, чем обойти:
+   у позиционированного блока left делает ровно то же и вопросов не вызывает. */
+.swipe > .swipe-face{position:relative; left:0; z-index:1; background:var(--card)}
+.swipe:not(.swiping) > .swipe-face{transition:left .2s cubic-bezier(.2,.8,.3,1)}
+.swipe.swiped > .swipe-face{left:-92px}
+
+/* Пока карточку ведут пальцем, браузер не должен листать страницу вбок. */
+.swipe{touch-action:pan-y}
 /* Значки были символами шрифта (⇅ ✎ ✕): в разных браузерах разной толщины,
    а «перенести в блок» из стрелок не читалось вовсе. Теперь рисунок свой. */
 .item .side button svg{width:16px; height:16px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
@@ -368,9 +391,7 @@ select.inp{appearance:none}
    обычный article, а «открыть» осталось кнопкой на всю ширину. */
 .row-card{display:flex; align-items:flex-start; gap:8px}
 .row-card .main{flex:1; min-width:0; display:block; width:100%; text-align:left}
-.row-card .side{display:flex; gap:1px; flex:none; margin:-4px -6px 0 0}
-.row-card .side button{width:30px; height:30px; border-radius:999px; display:grid; place-items:center; color:var(--fg-3)}
-.row-card .side button:hover{background:var(--soft); color:var(--fg)}
+
 .row-card .side button svg{width:16px; height:16px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
 
 /* Правка и удаление — по наведению.

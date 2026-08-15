@@ -3677,8 +3677,8 @@ function itemRow(t){
   // карточки незачем. data-act висит на .item-main, чтобы нажатия внутри
   // раскрытой части не сворачивали её обратно.
 
-  return '<article class="item' + (t.done ? ' done' : '') + (open ? ' open' : '') + '" draggable="true" data-task="' + t.id + '">' +
-    '<div class="item-main" data-act="expand" data-task="' + t.id + '">' +
+  return '<article class="item swipe' + (t.done ? ' done' : '') + (open ? ' open' : '') + '" draggable="true" data-task="' + t.id + '">' +
+    '<div class="item-main swipe-face" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
         '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
@@ -3695,13 +3695,15 @@ function itemRow(t){
            подпунктов остаётся одно название. */
         (meta.length ? '<div class="chips">' + meta.join('') + '</div>' : '') +
       '</div>' +
-      '<div class="side">' +
-        // Надёжный путь переноса: жест на сенсоре может не получиться, а с
-        // клавиатуры его нет вовсе.
-        '<button data-act="move-open" data-task="' + t.id + '" aria-label="Перенести в другой блок" title="Перенести в блок">' + ICON.move + '</button>' +
-        '<button data-act="edit-task" data-task="' + t.id + '" aria-label="Редактировать задачу" title="Редактировать">' + ICON.edit + '</button>' +
-        '<button data-act="kill-task" data-task="' + t.id + '" aria-label="Удалить задачу" title="Удалить">' + ICON.kill + '</button>' +
-      '</div>' +
+    '</div>' +
+    /* Кнопки лежат под карточкой и открываются свайпом влево.
+
+       Раньше три значка стояли в каждой строке справа и отъедали место у
+       названия — на телефоне длинное название переносилось из-за них на вторую
+       строку. Действия эти нужны изредка, а место занимают всегда. */
+    '<div class="side">' +
+      '<button data-act="edit-task" data-task="' + t.id + '" aria-label="Редактировать задачу">' + ICON.edit + '</button>' +
+      '<button class="kill" data-act="kill-task" data-task="' + t.id + '" aria-label="Удалить задачу">' + ICON.kill + '</button>' +
     '</div>' + detail +
   '</article>';
 }
@@ -4322,8 +4324,17 @@ function vGoals(){
     var p = goalProgress(g);
     var open = !!S.openGoal[g.id];
 
-    html += '<section class="goalcard' + (open ? ' open' : '') + '" data-goal="' + g.id + '">' +
-      '<button class="goalcard-h" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
+    html += '<section class="goalcard swipe' + (open ? ' open' : '') + '" data-goal="' + g.id + '">' +
+      /* Править и удалить — свайпом по карточке, как у задач.
+
+         Две текстовые кнопки внизу раскрытой цели занимали целую строку и
+         повторялись у каждой цели: на экране с пятью целями это пять строк
+         ради действий, которыми пользуются раз в месяц. */
+      '<div class="side">' +
+        '<button data-act="edit-goal" data-goal="' + g.id + '" aria-label="Править цель">' + ICON.edit + '</button>' +
+        '<button class="kill" data-act="kill-goal" data-goal="' + g.id + '" aria-label="Удалить цель">' + ICON.kill + '</button>' +
+      '</div>' +
+      '<button class="goalcard-h swipe-face" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
         '<span class="gt">' + esc(g.title) + '</span>' +
         '<span class="gp mono">' + pct(p.done, p.total) + '%</span>' +
         '<span class="car">⌄</span>' +
@@ -4393,8 +4404,7 @@ function goalBody(g){
 
   html += '<div class="acts">' +
       '<button class="btn sm" data-act="new-stage" data-goal="' + g.id + '">+ Этап</button>' +
-      '<button class="btn sm soft" data-act="edit-goal" data-goal="' + g.id + '">Править</button>' +
-      '<button class="btn sm soft" data-act="kill-goal" data-goal="' + g.id + '">Удалить цель</button>' +
+
     '</div>';
 
   return html + '</div>';
@@ -4431,8 +4441,7 @@ function vGoal(){
     bar(p.done, p.total, p.done + ' из ' + p.total + ' ' + p.unit) +
     '<div class="acts">' +
       '<button class="btn sm" data-act="new-stage" data-goal="' + g.id + '">+ Создать этап</button>' +
-      '<button class="btn sm soft" data-act="edit-goal" data-goal="' + g.id + '">Править</button>' +
-      '<button class="btn sm soft" data-act="kill-goal" data-goal="' + g.id + '">Удалить цель</button>' +
+
     '</div>' +
   '</section>';
 
@@ -4912,14 +4921,14 @@ function vLists(){
     // удалить теперь можно прямо отсюда, не заходя внутрь. Кнопку в кнопку
     // браузер не пускает, поэтому обёртка — обычный article.
     html += '<article class="card row-card" data-list="' + l.id + '">' +
-      '<button class="main" data-act="open-list" data-list="' + l.id + '">' +
+      '<button class="main swipe-face" data-act="open-list" data-list="' + l.id + '">' +
         '<h3>' + esc(l.title) + '</h3>' +
         '<p class="sub">Готово ' + d + ' из ' + l.items.length + '</p>' +
         '<div style="margin-top:12px"><div class="bar slim"><i style="width:' + pct(d, l.items.length) + '%"></i></div></div>' +
       '</button>' +
       '<div class="side">' +
         '<button data-act="rename-list" data-list="' + l.id + '" aria-label="Переименовать список" title="Переименовать">' + ICON.edit + '</button>' +
-        '<button data-act="kill-list" data-list="' + l.id + '" aria-label="Удалить список" title="Удалить">' + ICON.kill + '</button>' +
+        '<button class="kill" data-act="kill-list" data-list="' + l.id + '" aria-label="Удалить список">' + ICON.kill + '</button>' +
       '</div>' +
     '</article>';
   }
@@ -4965,13 +4974,13 @@ function vNotes(){
   for (var i = 0; i < S.notes.length; i++){
     var n = S.notes[i];
     html += '<article class="card row-card" data-note="' + n.id + '">' +
-      '<button class="main" data-act="open-note" data-note="' + n.id + '">' +
+      '<button class="main swipe-face" data-act="open-note" data-note="' + n.id + '">' +
         '<h3>' + esc(n.title) + '</h3>' +
         '<p class="sub">' + esc(n.body ? n.body.slice(0, 120) : 'Пустая запись') + '</p>' +
       '</button>' +
       '<div class="side">' +
         '<button data-act="rename-note" data-note="' + n.id + '" aria-label="Переименовать запись" title="Переименовать">' + ICON.edit + '</button>' +
-        '<button data-act="kill-note" data-note="' + n.id + '" aria-label="Удалить запись" title="Удалить">' + ICON.kill + '</button>' +
+        '<button class="kill" data-act="kill-note" data-note="' + n.id + '" aria-label="Удалить запись">' + ICON.kill + '</button>' +
       '</div>' +
     '</article>';
   }
@@ -9794,6 +9803,96 @@ if (window.visualViewport){
   });
   syncViewportShift();
 }
+
+/* ============ СВАЙП ПО КАРТОЧКЕ ============
+
+   Правка и удаление уходят под карточку и открываются сдвигом влево. Значки в
+   каждой строке отъедали место у названия постоянно, а нужны были изредка.
+
+   Один обработчик на весь документ, а не по одному на карточку: карточки
+   перерисовываются на каждое изменение, и обработчики пришлось бы вешать
+   заново после каждой перерисовки — их бы копились сотни.
+
+   Слушаем pointer, а не touch: тот же код работает и мышью в браузере, и
+   пальцем в приложении. */
+
+var SWIPE_OPEN = 92;      // на сколько уезжает карточка, в пикселях
+var SWIPE_START = 10;     // с какого сдвига считаем, что это свайп, а не тап
+var swipe = null;
+
+/// Закрыть все открытые карточки, кроме указанной.
+function swipeCloseAll(кроме){
+  var открытые = document.querySelectorAll('.swipe.swiped');
+  for (var i = 0; i < открытые.length; i++){
+    if (открытые[i] !== кроме) открытые[i].classList.remove('swiped');
+  }
+}
+
+document.addEventListener('pointerdown', function(event){
+  // Нажали по самим кнопкам под карточкой — это не свайп, а выбор действия.
+  if (event.target.closest('.side')) return;
+  var карточка = event.target.closest('.swipe');
+  if (!карточка) { swipeCloseAll(null); return; }
+
+  swipe = {
+    карточка: карточка,
+    лицо: карточка.querySelector('.swipe-face') || карточка,
+    x: event.clientX, y: event.clientY,
+    сдвиг: карточка.classList.contains('swiped') ? -SWIPE_OPEN : 0,
+    решено: false, это_свайп: false
+  };
+});
+
+document.addEventListener('pointermove', function(event){
+  if (!swipe) return;
+  var dx = event.clientX - swipe.x;
+  var dy = event.clientY - swipe.y;
+
+  /* Решаем один раз, что это за жест, и больше не передумываем.
+
+     Без этого карточка дёргалась на обычной прокрутке: палец идёт вниз с
+     небольшим боковым уводом, и каждый кадр менял решение. Смотрим, какая ось
+     обогнала: вертикаль — уходим совсем, горизонталь — забираем жест себе. */
+  if (!swipe.решено){
+    if (Math.abs(dx) < SWIPE_START && Math.abs(dy) < SWIPE_START) return;
+    swipe.решено = true;
+    swipe.это_свайп = Math.abs(dx) > Math.abs(dy);
+    if (!swipe.это_свайп){ swipe = null; return; }
+    swipeCloseAll(swipe.карточка);
+    swipe.карточка.classList.add('swiping');
+  }
+
+  // Вправо дальше нуля и влево дальше кнопок не пускаем: резинка в списке
+  // выглядит поломкой, а не жестом.
+  var сдвиг = Math.max(-SWIPE_OPEN, Math.min(0, swipe.сдвиг + dx));
+  swipe.лицо.style.left = сдвиг + 'px';
+  swipe.последний = сдвиг;
+}, { passive: true });
+
+function swipeEnd(){
+  if (!swipe) return;
+  var s = swipe;
+  swipe = null;
+  if (!s.это_свайп) return;
+
+  s.карточка.classList.remove('swiping');
+  s.лицо.style.left = '';
+  // За половину — открыто. Так жест прощает недоведённое движение, а
+  // случайный сдвиг на десяток пикселей карточку не открывает.
+  var открыть = (s.последний || 0) < -SWIPE_OPEN / 2;
+  s.карточка.classList.toggle('swiped', открыть);
+}
+
+document.addEventListener('pointerup', swipeEnd);
+document.addEventListener('pointercancel', swipeEnd);
+
+/* Нажатие по действию закрывает карточку.
+
+   Иначе после «править» окно открывается, а под ним остаётся сдвинутая
+   карточка — и, закрыв окно, человек видит её раскрытой без причины. */
+document.addEventListener('click', function(event){
+  if (event.target.closest('.side')) swipeCloseAll(null);
+}, true);
 
 /* Возврат на страницу перерисовывает её из состояния.
 
