@@ -93,7 +93,7 @@
           <ol class="steps" style="margin-top: 14px;">
             <li><span><b>В браузере:</b> откройте <a href="/app/">веб-версию</a>, «Моя подписка»&nbsp;→&nbsp;«У меня есть код», вставьте код.</span></li>
             <li><span><b>На телефоне:</b> нажмите «Открыть в Synapse» на этой странице — приложение подхватит код само, вводить ничего не нужно.</span></li>
-            <li><span><b>Введите код.</b> Pro включится сразу, перезапускать ничего не нужно.</span></li>
+            <li><span><b>Pro включится сразу</b> — и в браузере, и на телефоне. Перезапускать ничего не нужно.</span></li>
             <li><span><b>Сохраните эту страницу.</b> Ссылка рабочая, по ней код открывается снова.</span></li>
           </ol>
 
@@ -173,7 +173,9 @@
         codeEl.textContent = code;
         openEl.href = "synapse://activate?code=" + encodeURIComponent(code);
         titleEl.textContent = "Готово";
-        leadEl.textContent = "Осталось ввести код — это занимает полминуты.";
+        // Не «введите код»: на телефоне вводить его негде и не нужно — там
+        // работает кнопка ниже, а поля для кода в приложении нет вовсе.
+        leadEl.textContent = "На телефоне — одна кнопка, в браузере — вставить код.";
         waitCardEl.hidden = true;
         failCardEl.hidden = true;
         codeCardEl.hidden = false;
