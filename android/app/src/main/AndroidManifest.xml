@@ -5,6 +5,20 @@
          записи лежат на устройстве, файлы приложения — внутри apk. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Микрофон нужен только голосовым командам ассистента и спрашивается в
+         момент нажатия, а не на запуске. Приложение остаётся полностью
+         работоспособным при отказе. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!-- Без этого система не покажет нам установленный распознаватель речи, и
+         isRecognitionAvailable вернёт false на ровном месте. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:name=".SynapseApp"
         android:label="@string/app_name"

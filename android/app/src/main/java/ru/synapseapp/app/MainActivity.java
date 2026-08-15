@@ -48,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String APP_HOST = "synapseapp.ru";
 
     private WebView web;
+    private VoiceBridge голос;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -115,6 +116,14 @@ public class MainActivity extends AppCompatActivity {
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
         s.setMediaPlaybackRequiresUserGesture(false);
+        /* Своего кэша WebView здесь не нужно.
+
+           Файлы лежат внутри приложения — кэшировать локальное значит только
+           хранить его дважды. Зато вред настоящий: кэш живёт в данных
+           приложения и переживает переустановку, и после обновления WebView
+           продолжал отдавать прежний app.js. Я на это уже попался, проверяя
+           микрофон: код в apk новый, а страница показывала старый. */
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -167,6 +176,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        /* Мост к системному распознаванию речи.
+
+           Веб-версия зовёт браузерный SpeechRecognition, которого в WebView
+           нет: объект объявлен, но отвечает «not-allowed» при любых
+           разрешениях. Страница проверяет наличие AndroidVoice и, если он
+           есть, слушает через систему. */
+        голос = new VoiceBridge(this, web);
+        web.addJavascriptInterface(голос, "AndroidVoice");
+
         setContentView(web);
 
         /* Кнопка «назад» ходит по разделам, а не закрывает приложение.
@@ -211,6 +229,27 @@ public class MainActivity extends AppCompatActivity {
     /** Тёмные значки часов и батареи нужны на светлом фоне, и наоборот. */
     private static boolean светлыйЛи(int цвет) {
         return (0.299 * Color.red(цвет) + 0.587 * Color.green(цвет) + 0.114 * Color.blue(цвет)) > 150;
+    }
+
+    /* Разрешение спрашиваем по нажатию микрофона, а не на запуске.
+
+       Человек, которого на первом же экране спрашивают про микрофон, обычно
+       отказывает — непонятно зачем. Нажавший микрофон понимает, о чём его
+       спрашивают, и после согласия слушание начинается сразу, без второго
+       нажатия. */
+    @Override
+    public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(code, permissions, results);
+        if (code != VoiceBridge.ЗАПРОС_МИКРОФОНА) return;
+        boolean дали = results.length > 0
+                && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        if (дали && голос != null) голос.start();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (голос != null) голос.освободить();
+        super.onDestroy();
     }
 
     /* Сворачивание — повод дописать записи на диск.

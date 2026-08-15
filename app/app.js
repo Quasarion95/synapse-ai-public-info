@@ -6350,7 +6350,42 @@ function synSend(text){
     S.synChat.pop();
     save();
     synRender(text, synErrorText(error));
+    /* Кончились запросы — предлагаем подписку, а не просто сообщаем.
+
+       Раньше человек упирался в серую строчку «бесплатные запросы на сегодня
+       закончились» и маленькое слово «Подписка» под полем. Это сообщение о
+       факте, а не предложение: в момент, когда человек как раз хотел
+       воспользоваться ассистентом и не смог, ему надо показать, чем это
+       лечится. Показываем один раз за сутки — окно, которое выскакивает на
+       каждую попытку, из предложения превращается в помеху. */
+    if (error && error.status === 402) synOfferPro();
   });
+}
+
+/* Окно с подпиской после исчерпания дневной нормы.
+
+   Раз в сутки, а не на каждую попытку: человек, который уже отказался, знает
+   про подписку — второе окно в тот же день только злит. */
+function synOfferPro(){
+  if (isPro()) return;
+  var сегодня = isoOf(todayDate());
+  if (S.proOfferShown === сегодня) return;
+  S.proOfferShown = сегодня;
+  save();
+  // Даём дочитать ответ Syn, а не накрываем его окном в ту же миллисекунду.
+  setTimeout(function(){ openModal(modalSynPaywall()); }, 700);
+}
+
+function modalSynPaywall(){
+  var limit = (SYN.quota && SYN.quota.limit) || FREE_SYN_LIMIT;
+  return '<h3>На сегодня всё</h3>' +
+    '<p class="s">Бесплатно Syn отвечает ' + limit + ' раз в сутки — счётчик обнулится завтра. ' +
+      'В подписке обращений столько, сколько нужно, плюс утренний план, вечерний отчёт и память между разговорами.</p>' +
+    '<button class="btn full" data-act="go" data-view="subscription">Смотреть тарифы</button>' +
+    '<div class="acts pair">' +
+      '<button class="btn soft" data-act="pro-code">У меня есть код</button>' +
+      '<button class="btn soft" data-act="close-modal">Подожду до завтра</button>' +
+    '</div>';
 }
 
 function synErrorText(error){
@@ -6393,13 +6428,66 @@ function voiceCancelPending(){
   voice.pending = null;
 }
 
-function voiceSupported(){
-  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+/* Приложение на андроиде слушает через систему, а не через браузер.
+
+   В WebView браузерного распознавания нет: объект SpeechRecognition объявлен,
+   но при запуске отдаёт «not-allowed» при любых выданных разрешениях — и
+   человек читает «браузер не дал доступ к микрофону», хотя доступ ни при чём.
+   Оболочка приложения подкладывает AndroidVoice, который слушает системным
+   движком и присылает распознанное обычным событием. */
+function voiceNative(){
+  return (window.AndroidVoice && window.AndroidVoice.available && window.AndroidVoice.available())
+    ? window.AndroidVoice : null;
 }
+
+function voiceSupported(){
+  return !!(voiceNative() || window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+/* Ответы системного распознавания приходят сюда.
+
+   Обработчик один на всё время жизни страницы, а не заводится на каждое
+   слушание: два обработчика на одно событие означали бы два отправленных
+   запроса на одну фразу. */
+window.addEventListener('android-voice', function(event){
+  var d = (event && event.detail) || {};
+  if (d.kind === 'start'){
+    voice.on = true;
+    synRender('', '');
+    return;
+  }
+  if (d.kind === 'partial'){
+    if (voice.on) synRender(d.text || '', '');
+    return;
+  }
+  if (d.kind === 'error'){
+    voice.on = false;
+    synRender($('syn-input') ? $('syn-input').value : '', d.text || 'Распознавание не сработало.');
+    return;
+  }
+  if (d.kind === 'final'){
+    voice.on = false;
+    var said = (d.text || '').trim();
+    if (!said){ synRender($('syn-input') ? $('syn-input').value : '', ''); return; }
+    // Та же секунда на раздумье, что и у браузерного распознавания: человек
+    // должен успеть нажать «стоп», если сказанное вышло не так.
+    voiceCancelPending();
+    voice.pending = setTimeout(function(){ voice.pending = null; synSend(said); }, VOICE_SEND_DELAY);
+    synRender(said, '');
+  }
+});
 
 function voiceStart(){
   if (voice.on || !voiceSupported()) return;
   voiceCancelPending();
+
+  var родной = voiceNative();
+  if (родной){
+    // Разрешение на микрофон спросит сама оболочка, и после согласия слушание
+    // начнётся без второго нажатия.
+    родной.start();
+    return;
+  }
 
   var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   var rec = new Recognition();
@@ -6476,6 +6564,14 @@ function voiceStart(){
 
 function voiceStop(){
   voiceCancelPending();
+
+  var родной = voiceNative();
+  if (родной && voice.on && !voice.rec){
+    voice.on = false;
+    родной.stop();
+    return;
+  }
+
   if (!voice.on || !voice.rec) return;
   voice.on = false;
   var rec = voice.rec;
