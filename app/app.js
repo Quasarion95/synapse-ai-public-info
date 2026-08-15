@@ -2084,14 +2084,16 @@ function finSubNext(sub){
 
 var FIN_TABS = [
   { id: 'sum',      title: 'Сводка' },
-  { id: 'ops',      title: 'Операции' },
+  // «Операции» звучало как выписка из банка. Человек ведёт не операции, а
+  // свои траты — и аналитика теперь живёт здесь же, под лентой: разбирать
+  // траты в отдельной вкладке значит смотреть на те же числа дважды.
+  { id: 'ops',      title: 'Мои траты' },
   { id: 'budgets',  title: 'Конверты' },
   { id: 'debts',    title: 'Долги' },
   { id: 'jars',     title: 'Копилки' },
-  { id: 'subs',     title: 'Подписки и платежи', short: 'Платежи' },
+  { id: 'subs',     title: 'Подписки и платежи', short: 'Платежи' }
   // Аналитика денег живёт здесь, а не в общей: там разбирают день и цели, и
   // рубли среди задач читаются как чужая колонка.
-  { id: 'chart',    title: 'Аналитика' }
 ];
 
 function vFinance(){
@@ -2106,7 +2108,6 @@ function vFinance(){
   if (tab === 'debts') return html + vFinDebts();
   if (tab === 'jars') return html + vFinJars();
   if (tab === 'subs') return html + vFinSubs();
-  if (tab === 'chart') return html + vFinChart();
   return html + vFinSummary();
 }
 
@@ -2134,8 +2135,17 @@ function vFinSummary(){
   var free = finBalance() - finSaved();
   var html = finMonthBar();
 
-  // Пока не заведён ни один счёт, «Свободно» считается от нуля и почти всегда
-  // уходит в минус. Говорим об этом прямо и сразу даём завести.
+  /* Сводка отвечает на три вопроса и молчит обо всём остальном.
+
+     Раньше она показывала сразу всё: плитки, полосы по категориям, конверты,
+     список обязательных платежей, темп копилок и годовую сумму подписок —
+     пять карточек с линиями подряд. Каждая по отдельности осмысленная, вместе
+     — стена, в которой не за что зацепиться глазу.
+
+     Осталось: сколько есть (плитки, которые и так читаются лучше всего),
+     сколько уйдёт в этом месяце и куда уходит. Подробности живут в своих
+     вкладках, и туда ведут короткие строки, а не пересказ. */
+
   if (!S.finance.opening){
     html += '<section class="card finhint">' +
       '<h3>Сначала — сколько у вас есть</h3>' +
@@ -2154,12 +2164,49 @@ function vFinSummary(){
     finTile('Мне должны', finMoney(debts.owed), '') +
   '</div>';
 
+  /* Обязательные платежи — одной строкой с суммой, а не списком.
+
+     Список из восьми строк повторял вкладку «Подписки и платежи» слово в
+     слово. Здесь важно одно число: сколько ещё уйдёт в этом месяце. */
+  var due = finDueThisMonth(finShownMonth());
+  var left = 0, blind = 0;
+  due.forEach(function(row){
+    if (row.paid) return;
+    if (row.known) left += row.expect; else blind++;
+  });
+
+  if (due.length){
+    html += '<button class="finrow-link" data-act="fin-tab" data-tab="subs">' +
+      '<span class="frl-t">Обязательные платежи' +
+        (blind ? '<span class="frl-n">' + blind + ' по счётчику, сумма пока не известна</span>' : '') +
+      '</span>' +
+      '<b>' + (left ? finMoney(left) : 'всё оплачено') + '</b>' +
+      '<span class="frl-go">›</span>' +
+    '</button>';
+  }
+
+  // Конверты — тоже одной строкой: сколько всего осталось до конца месяца.
+  var env = finBudgetRows();
+  if (env.length){
+    var plan = 0, spent = 0;
+    env.forEach(function(r){ plan += r.plan; spent += r.spent; });
+    html += '<button class="finrow-link" data-act="fin-tab" data-tab="budgets">' +
+      '<span class="frl-t">Осталось в конвертах' +
+        '<span class="frl-n">из ' + finMoney(plan) + ' на месяц</span></span>' +
+      '<b class="' + (plan - spent < 0 ? 'bad' : '') + '">' + finMoney(plan - spent) + '</b>' +
+      '<span class="frl-go">›</span>' +
+    '</button>';
+  }
+
+  /* Куда уходит — единственная картинка в сводке, и та короткая: три самые
+     дорогие категории. Полный разбор живёт в «Моих тратах». */
+  var top = finByCat().slice(0, 3);
   html += '<section class="card">' +
-    '<div class="finhead"><h3>' + esc(monthName(finMonthKey())) + '</h3>' +
+    '<div class="finhead"><h3>' + esc(monthName(finShownMonth())) + '</h3>' +
       '<span class="sub">' + finMoney(month.earned, { plus: true }) + ' · ' +
         finMoney(-month.spent) + '</span></div>' +
-    (month.ops.length
-      ? '<div class="finbars">' + finByCat().map(function(row){
+    (top.length
+      ? '<div class="finbars">' + top.map(function(row){
           var share = month.spent ? Math.round(row.sum * 100 / month.spent) : 0;
           return '<div class="finbar">' +
             '<span class="fb-t">' + esc(row.title) + '</span>' +
@@ -2167,84 +2214,9 @@ function vFinSummary(){
             '<span class="fb-v">' + finMoney(row.sum) + '</span>' +
           '</div>';
         }).join('') + '</div>'
-      : '<p class="sub" style="margin:0">В этом месяце ещё ничего не записано. Первая строка — во вкладке «Операции».</p>') +
+      : '<p class="sub" style="margin:0">В этом месяце ещё ничего не записано. ' +
+        'Первая строка — во вкладке «Мои траты».</p>') +
   '</section>';
-
-  var envelopes = finBudgetRows();
-  if (envelopes.length){
-    html += '<section class="card">' +
-      '<div class="finhead"><h3>Конверты</h3>' +
-        '<span class="sub">осталось до конца месяца</span></div>' +
-      '<div class="finbars">' + envelopes.map(function(row){
-        return '<div class="finbar">' +
-          '<span class="fb-t">' + esc(row.title) + '</span>' +
-          '<span class="fb-r' + (row.left < 0 ? ' over' : '') + '">' +
-            '<i style="width:' + row.share + '%;background:' +
-              (row.left < 0 ? 'var(--crit)' : finTint(row.cat, .9)) + '"></i></span>' +
-          '<span class="fb-v' + (row.left < 0 ? ' bad' : '') + '">' +
-            finMoney(row.left, { plus: false }) + '</span>' +
-        '</div>';
-      }).join('') + '</div>' +
-    '</section>';
-  }
-
-  var pacing = S.finance.jars.filter(function(j){ return j.due && (j.saved || 0) < j.target; });
-  if (pacing.length){
-    html += '<section class="card">' +
-      '<div class="finhead"><h3>Чтобы успеть</h3></div>' +
-      pacing.map(function(jar){
-        var pace = finJarPace(jar);
-        return '<div class="finline">' +
-          '<span>' + esc(jar.title) + '</span>' +
-          '<b>' + finMoney(pace.perMonth) + ' в месяц</b>' +
-        '</div>';
-      }).join('') +
-    '</section>';
-  }
-
-  /* Обязательные платежи — первое, что нужно знать о месяце.
-
-     Это деньги, которые уйдут в любом случае: квартплата, свет, связь,
-     подписки. Пока они не названы, «свободно» в плитке сверху — цифра,
-     которой нельзя распоряжаться: половина её уже занята. */
-  var due = finDueThisMonth(finShownMonth());
-  if (due.length){
-    var left = 0, done = 0, blind = 0;
-    due.forEach(function(row){
-      if (row.paid){ done += row.paid; }
-      else if (row.known){ left += row.expect; }
-      else blind++;
-    });
-
-    html += '<section class="card">' +
-      '<div class="finhead"><h3>Обязательные платежи</h3>' +
-        '<span class="sub">' + (left ? 'осталось ' + finMoney(left) : 'всё оплачено') + '</span></div>' +
-      due.map(function(row){
-        var sub = row.sub;
-        return '<div class="finline">' +
-          '<span>' + esc(sub.title) + (row.paid ? ' · оплачено' : '') + '</span>' +
-          '<b class="' + (row.paid ? 'down-ok' : '') + '">' +
-            (row.paid ? finMoney(row.paid)
-              : (row.known ? (finSubVaries(sub) ? '≈ ' : '') + finMoney(row.expect) : 'сумма своя')) +
-          '</b>' +
-        '</div>';
-      }).join('') +
-      (blind ? '<p class="sub" style="margin-top:10px">' + blind + ' ' +
-        plural(blind, 'платёж считается', 'платежа считаются', 'платежей считаются') +
-        ' по счётчику — сумма станет известна после первой оплаты.</p>' : '') +
-      '<div class="acts"><button class="btn sm soft" data-act="fin-tab" data-tab="subs">' +
-        'Отметить оплату</button></div>' +
-    '</section>';
-  }
-
-  var year = finSubsYear();
-  if (year){
-    html += '<section class="card">' +
-      '<div class="finhead"><h3>За год</h3><span class="sub">' + finMoney(year) + '</span></div>' +
-      '<p class="sub" style="margin:0">Столько уходит на регулярные платежи за двенадцать месяцев — ' +
-        'квартплату, связь и подписки вместе. У счётчиков берётся среднее по вашим оплатам.</p>' +
-    '</section>';
-  }
 
   return html;
 }
@@ -2321,7 +2293,9 @@ function vFinOps(){
     '</div>';
   }).join('');
 
-  return html;
+  // Аналитика под лентой: те же числа, только собранные. Отдельной вкладкой
+  // она заставляла смотреть на одно и то же дважды.
+  return html + vFinChart(true);
 }
 
 function vFinBudgets(){
@@ -2369,16 +2343,19 @@ function vFinBudgets(){
    Три вопроса подряд: как месяц идёт против прошлого, что выросло сильнее
    всего, и на что уходит из месяца в месяц. Всё считается по тем же
    операциям, никаких отдельных счётчиков. */
-function vFinChart(){
+function vFinChart(inline){
   var key = finShownMonth();
   var prevKey = finMonthShift(key, -1);
   var now = finMonthTotals(key), prev = finMonthTotals(prevKey);
-  var html = finMonthBar();
+  var html = inline ? '' : finMonthBar();
 
+  // Внутри ленты пустая аналитика молчит: там уже сказано, что записей нет.
   if (!S.finance.ops.length){
-    return html + blank(NAV_ICONS.analytics, 'Считать пока нечего',
+    return inline ? '' : html + blank(NAV_ICONS.analytics, 'Считать пока нечего',
       'Аналитика появится, как только наберётся первый месяц записей.');
   }
+
+  if (inline) html += '<p class="lbl">Разбор месяца</p>';
 
   var diff = now.spent - prev.spent;
   var pctText = prev.spent ? Math.round(Math.abs(diff) * 100 / prev.spent) + '%' : '—';
@@ -2388,7 +2365,8 @@ function vFinChart(){
     finTile('Заработано', finMoney(now.earned), '') +
     finTile('Разница', finMoney(now.earned - now.spent, { plus: now.earned > now.spent }),
       now.earned < now.spent ? 'bad' : '') +
-    finTile('К прошлому', (diff > 0 ? '+' : diff < 0 ? '−' : '') + pctText, diff > 0 ? 'warn' : '') +
+    finTile('К прошлому', prev.spent ? (diff > 0 ? '+' : diff < 0 ? '−' : '') + pctText : '—',
+      prev.spent && diff > 0 ? 'warn' : '') +
   '</div>';
 
   // Полугодие столбиками: тренд виден формой, а не колонкой чисел.
@@ -2423,7 +2401,7 @@ function vFinChart(){
   if (moved.length){
     html += '<section class="card">' +
       '<div class="finhead"><h3>Что изменилось</h3>' +
-        '<span class="sub">к ' + esc(monthName(prevKey).toLowerCase()) + '</span></div>' +
+        '<span class="sub">к ' + esc(monthDative(prevKey)) + '</span></div>' +
       moved.slice(0, 8).map(function(r){
         var share = r.was ? Math.round(Math.abs(r.diff) * 100 / r.was) : 0;
         return '<div class="finline">' +
@@ -2438,6 +2416,15 @@ function vFinChart(){
   }
 
   return html;
+}
+
+/// «к июлю», а не «к июль». Списком, а не правилом: русские месяцы склоняются
+/// без исключений, но выводить это из именительного всё равно негде.
+function monthDative(key){
+  var names = ['январю','февралю','марту','апрелю','маю','июню',
+               'июлю','августу','сентябрю','октябрю','ноябрю','декабрю'];
+  var parts = String(key).split('-');
+  return names[Number(parts[1]) - 1] + ' ' + parts[0];
 }
 
 function monthShort(key){
