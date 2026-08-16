@@ -360,7 +360,10 @@ select.inp{appearance:none}
   background:var(--accent-soft);
   box-shadow:inset 0 0 0 2px var(--accent);
   opacity:.9;
-  transition:top .16s cubic-bezier(.2,.8,.3,1), height .16s ease;
+  /* Тот же переход, что у соседей (.dragging-now .item:not(.dragging)). Был
+     короче — плашка приезжала на новое место раньше, чем расступались
+     карточки, и казалось, что она едет сама по себе. */
+  transition:top .18s cubic-bezier(.2,.8,.3,1), height .18s cubic-bezier(.2,.8,.3,1);
 }
 @media (prefers-reduced-motion:reduce){ .drop-slot{transition:none} }
 .dragging-now .item:not(.dragging){transition:transform .18s cubic-bezier(.2,.8,.3,1)}
@@ -501,11 +504,21 @@ select.inp{appearance:none}
    поломка вёрстки. Куда упадёт карточка, и так видно по раскрывшейся щели —
    подсветки хватает мягкой заливки. */
 .dragging-now .tasklist.over{background:var(--soft); outline:2px dashed var(--stroke); outline-offset:-2px}
-/* В приложении рамки нет: она обводила список поверх карточек и читалась как
-   поломка вёрстки. В вебе оставлена прежней — там её не просили трогать. */
-.in-app .dragging-now .tasklist.over{outline:none}
-/* Свёрнутый день: список нулевой высоты подсветить нечем, метим сам блок. */
-.in-app .dragging-now .group.over > .group-h{background:var(--soft); border-radius:var(--r-sm)}
+
+/* В приложении вокруг списка не рисуется ничего.
+
+   Пунктирная рамка с заливкой обводила весь блок дня и читалась как «сюда
+   нельзя», хотя значила ровно обратное. Куда упадёт карточка, говорит плашка
+   на месте посадки — второй указатель на том же экране только спорит с ней.
+
+   Селектор составной, без пробела: и in-app, и dragging-now висят на одном и
+   том же элементе — на корне страницы. С пробелом это читается как «потомок»,
+   и правило не совпадало ни разу; рамку владелец так и видел. */
+.in-app.dragging-now .tasklist.over{background:none; outline:none}
+.in-app.dragging-now .tasklist{min-height:0}
+/* Свёрнутый день подсвечиваем шапкой: списка там нет, а понимать, куда
+   целишься, надо. */
+.in-app.dragging-now .group.over > .group-h{background:var(--soft); border-radius:var(--r-sm)}
 
 /* Финансовые строки — те же правила, но своё поле у лица.
 

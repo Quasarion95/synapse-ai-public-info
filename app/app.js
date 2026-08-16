@@ -10195,6 +10195,12 @@ document.addEventListener('pointerup', function(event){
 
   if (before === id) { render(); return; }
   var changed = dropTask(id, bucket, before);
+  /* Свёрнутый день раскрываем, раз в него положили.
+
+     Задачу можно донести до свёрнутого дня, не разворачивая его, — но если
+     отпустили, она должна быть видна. Иначе жест кончается тем, что карточка
+     исчезла, а куда — знает только счётчик в шапке. */
+  if (inApp() && bucket) S.closed[bucket] = false;
   commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
 });
 
