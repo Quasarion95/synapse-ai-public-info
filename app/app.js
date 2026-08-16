@@ -9564,7 +9564,14 @@ var ACTS = {
 
 /* Один делегированный обработчик на весь документ: экраны перерисовываются
    строками, вешать слушателей на узлы бессмысленно. */
+/* После переноса браузер шлёт click по тому, что было под пальцем, — а под
+   ним название задачи, то есть «раскрыть карточку». Гасим по времени, а не
+   флагом: click после жеста приходит не всегда, и одноразовый флаг съел бы
+   следующее честное нажатие. */
+var перенёсВ = 0;
+
 document.addEventListener('click', function(event){
+  if (перенёсВ && Date.now() - перенёсВ < 350){ event.preventDefault(); event.stopPropagation(); return; }
   var node = event.target.closest ? event.target.closest('[data-act]') : null;
   if (!node) {
     if (event.target === $('modal')) closeModal();
@@ -9993,7 +10000,21 @@ document.addEventListener('pointerdown', function(event){
   if (event.pointerType === 'mouse') return;          // мышь идёт обычным путём
   var item = event.target.closest ? event.target.closest('.item[data-task]') : null;
   if (!item) return;
-  if (event.target.closest('button')) return;         // галочка и кнопки — не перенос
+  /* Отказываемся только от настоящих органов управления.
+
+     Стояло «нажали на любую кнопку — это не перенос». Но название задачи —
+     тоже <button>: по нему карточку раскрывают. Оно занимает почти всю её
+     ширину, и получалось, что зажать карточку можно лишь в узкой полоске
+     полей вокруг текста, а на самом названии перенос молча не начинался —
+     хотя за название её и берут.
+
+     Снаружи это выглядело как «вибрация есть, а карточка не двигается»: на
+     телефоне долгое нажатие по тексту отзывалось системным откликом, наш же
+     обработчик к тому моменту уже вышел.
+
+     Перечисляем то, что переносом быть не должно: отметка выполнения, кнопки
+     под свайпом и обычные кнопки вроде «подпункта». */
+  if (event.target.closest('.box, .side, .btn')) return;
 
   touchDrag = {
     id: item.getAttribute('data-task'),
@@ -10079,6 +10100,7 @@ document.addEventListener('pointerup', function(event){
                                                : местоВставки(zone, event.clientY, { before: undefined, y: event.clientY })) : null;
   var bucket = zone ? zone.getAttribute('data-drop') : null;
   cancelTouchDrag();
+  if (wasActive) перенёсВ = Date.now();
   if (!wasActive || !zone) return;
 
   if (before === id) { render(); return; }
