@@ -46,7 +46,7 @@
             <button class="button" id="copyButton" style="border: none; cursor: pointer; font: inherit;">
               Скопировать код
             </button>
-            <a class="button" id="openButton" href="#">Открыть в Synapse</a>
+            <a class="button" id="openButton" href="#">Активировать в приложении</a>
           </p>
 
           <!-- Если страница открыта на компьютере, единственный мост к
@@ -136,7 +136,12 @@
       } else {
         var pretty = formatCode(code);
         titleEl.textContent = "Код готов";
-        leadEl.textContent = "Приложение должно было открыться само.";
+        /* Раньше здесь стояло «приложение должно было открыться само» — а
+           автоматического перехода в коде нет и быть не может: браузеры не
+           пускают на чужую схему без нажатия. Человек читал, что что-то
+           случилось, ничего не происходило, и он решал, что сломалось.
+           Говорим ровно то, что от него требуется. */
+        leadEl.textContent = "Нажмите кнопку — приложение откроется и включит Pro.";
         var deepLink = "synapse://activate?code=" + encodeURIComponent(pretty);
         var codeEl = document.getElementById("code");
         codeEl.textContent = pretty;
