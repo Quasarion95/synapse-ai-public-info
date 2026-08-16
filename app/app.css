@@ -267,13 +267,18 @@ select.inp{appearance:none}
    Пока поле было на карточке, лицо оказывалось уже её на ширину поля — и
    кнопки, прижатые к правому краю карточки, выглядывали из-под него даже у
    закрытой строки. Теперь лицо ровно во всю ширину и закрывает их целиком. */
-.item > .swipe-face{padding:8px 10px 8px 11px}
+.item.swipe > .swipe-face{padding:8px 10px 8px 11px}
+/* Без свайпа поле держит сама карточка, как держало всегда.
+
+   Сняв его ради подвижного лица, я оставил без отступов десктоп, где лица
+   нет вовсе: текст лёг вплотную к рамке, а значки налезли на край. */
+.item:not(.swipe){padding:8px 10px 8px 11px}
 /* Свёрнутая часть не должна занимать высоту.
 
    Дал ей поле заодно с лицом — и свёрнутая карточка стала на восемь пикселей
    выше своего лица, из-под которого снизу выглянули кнопки. Поле только
    раскрытой. */
-.item.open > .detail-wrap{padding:0 10px 8px 11px}
+.item.swipe.open > .detail-wrap{padding:0 10px 8px 11px}
 /* Карточка в руке едет за пальцем сама и без задержки: переход на ней
    превратил бы жест в вязкое перетягивание. */
 .item.dragging{transition:none; z-index:4; opacity:.92; box-shadow:var(--shadow-lift); cursor:grabbing}
@@ -380,6 +385,12 @@ select.inp{appearance:none}
 .swipe > .side button svg{width:18px; height:18px; fill:none; stroke:currentColor;
   stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 
+/* Значки в строке задачи на десктопе — как были до свайпов. */
+.item:not(.swipe) .side{display:flex; gap:1px; flex:none; margin:-2px -3px 0 0}
+.item:not(.swipe) .side button{width:27px; height:27px; border-radius:999px;
+  display:grid; place-items:center; color:var(--fg-3); font-size:13px}
+.item:not(.swipe) .side button:hover{background:var(--soft); color:var(--fg)}
+
 /* Лицо карточки едет поверх кнопок и обязано быть непрозрачным, иначе они
    просвечивают сквозь него в закрытом состоянии. */
 /* Едем смещением, а не преобразованием.
@@ -411,8 +422,16 @@ select.inp{appearance:none}
 /* Была одна большая кнопка на всю карточку. Теперь внутри неё живут ещё две —
    правка и удаление, — а кнопку в кнопку класть нельзя, поэтому снаружи
    обычный article, а «открыть» осталось кнопкой на всю ширину. */
-.row-card{display:block; padding:0}
-.row-card > .main{display:block; width:100%; text-align:left; padding:14px 16px}
+.row-card.swipe{display:block; padding:0}
+.row-card.swipe > .main{display:block; width:100%; text-align:left; padding:14px 16px}
+/* На десктопе карточка осталась такой, какой была: текст слева, кнопки
+   справа в одном ряду. */
+.row-card:not(.swipe){display:flex; align-items:flex-start; gap:8px}
+.row-card:not(.swipe) > .main{flex:1; min-width:0; display:block; width:100%; text-align:left}
+.row-card:not(.swipe) .side{display:flex; gap:1px; flex:none; margin:-4px -6px 0 0}
+.row-card:not(.swipe) .side button{width:30px; height:30px; border-radius:999px;
+  display:grid; place-items:center; color:var(--fg-3)}
+.row-card:not(.swipe) .side button:hover{background:var(--soft); color:var(--fg)}
 
 .row-card .side button svg{width:16px; height:16px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
 
@@ -551,7 +570,8 @@ select.inp{appearance:none}
    по нажатию прямо здесь, отдельной страницы у цели больше нет. */
 .goalcard{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); margin-bottom:var(--gap)}
 /* Поле теперь на обёртке: она и есть вся карточка. */
-.goalcard > .gc-face{padding:14px 16px}
+.goalcard.swipe > .gc-face{padding:14px 16px}
+.goalcard:not(.swipe){padding:14px 16px}
 .goalcard-h{display:flex; align-items:center; gap:10px; width:100%; padding:0}
 .goalcard-h .gt{font-family:var(--display); font-size:16px; font-weight:700; letter-spacing:-.02em; flex:1; min-width:0; overflow-wrap:anywhere; line-height:1.25}
 .goalcard-h .gp{font-size:13px; font-weight:600; color:var(--fg-2); flex:none}
@@ -597,6 +617,17 @@ select.inp{appearance:none}
   background:none; border:0; border-radius:0; box-shadow:none;
   padding:7px 0; border-top:1px solid var(--line);
 }
+/* Задача внутри этапа: поле опять на лице, иначе кусками торчат кнопки.
+
+   Здесь у карточки своё поле — семь пикселей сверху и снизу, — и с ним она
+   выше своего лица ровно на четырнадцать: под свайпом из-под лица выглядывали
+   полоски кнопок сверху и снизу. Ровно та же ошибка, что у обычной задачи,
+   только вылезла в другом месте, потому что правило здесь своё.
+
+   Лицу нужен непрозрачный фон: внутри цели он тот же, что у карточки цели, —
+   значит его не видно, а кнопки под ним не просвечивают. */
+.stage .tasks .item.swipe{padding:0}
+.stage .tasks .item.swipe > .swipe-face{padding:7px 0; background:var(--card)}
 .stage .tasks .item:first-child{border-top:0}
 .stage .tasks .item.drop-before::before{top:-1px}
 .stage .none{font-size:12.5px; color:var(--fg-3); padding-left:30px; margin-top:6px}
