@@ -9911,9 +9911,15 @@ function сброситьВидПереноса(){
   clearShifts();
   var следы = document.querySelectorAll('.item[style], .item.dragging');
   for (var i = 0; i < следы.length; i++){
-    следы[i].style.transform = '';
-    следы[i].style.touchAction = '';
-    следы[i].classList.remove('dragging');
+    var э = следы[i];
+    э.style.transform = '';
+    э.style.touchAction = '';
+    э.style.position = '';
+    э.style.left = '';
+    э.style.top = '';
+    э.style.width = '';
+    э.style.margin = '';
+    э.classList.remove('dragging');
   }
   var метки = document.querySelectorAll('.over');
   for (var j = 0; j < метки.length; j++) метки[j].classList.remove('over');
@@ -10131,45 +10137,21 @@ function markDropSpot(zone, beforeId){
   clearShifts();
   if (!zone || !dragged) return;
 
-  var cards = [].slice.call(zone.querySelectorAll('.item'));
+  /* Несомая карточка вне потока, поэтому случай ровно один: открыть щель там,
+     куда она сядет. Раньше их было два — «свой блок» и «чужой», — и в своём
+     соседи менялись с ней местами. Теперь её места в списке нет вовсе:
+     остальные уже сомкнулись сами, и остаётся раздвинуть тех, кто ниже. */
+  var cards = [].slice.call(zone.querySelectorAll('.item:not(.dragging)'));
   var gap = parseFloat(getComputedStyle(zone).rowGap) || 8;
   var step = dragged.offsetHeight + gap;
 
-  var from = cards.indexOf(dragged);
   var to = cards.length;
   if (beforeId){
     for (var i = 0; i < cards.length; i++){
       if (cards[i].getAttribute('data-task') === beforeId){ to = i; break; }
     }
   }
-
-  if (from < 0){
-    /* Карточку унесли в другой день — её собственное место должно закрыться.
-
-       Раньше не закрывалось: в родном списке оставалась дыра высотой в
-       карточку, и на экране было сразу две щели — старая и новая. В образце
-       список смыкается, как только карточку подняли. */
-    var родной = dragged.parentElement;
-    if (родной && родной !== zone){
-      var свои = [].slice.call(родной.querySelectorAll('.item'));
-      var мой = свои.indexOf(dragged);
-      var шагРодного = dragged.offsetHeight + (parseFloat(getComputedStyle(родной).rowGap) || 8);
-      for (var n = мой + 1; n < свои.length; n++) setShift(свои[n], -шагРодного);
-    }
-    // Чужой блок: открываем щель перед той карточкой, на место которой встаём.
-    for (var j = to; j < cards.length; j++) setShift(cards[j], step);
-    return;
-  }
-
-  // Свой блок: сдвигаются только те, через кого карточку пронесли.
-  /* Куда сядет карточка. Пронесли вниз — она встаёт на место последнего, через
-     кого прошли; вверх — на место того, перед кем встаём; никуда не двигали —
-     остаётся на своём. */
-  if (to > from){
-    for (var k = from + 1; k < to; k++) setShift(cards[k], -step);
-  } else if (to < from){
-    for (var m = to; m < from; m++) setShift(cards[m], step);
-  }
+  for (var j = to; j < cards.length; j++) setShift(cards[j], step);
 }
 
 /* Пустые блоки на время жеста. Их нет в разметке — пустой день не показывается
@@ -10352,6 +10334,31 @@ document.addEventListener('pointerdown', function(event){
       // touch-action выключаем только на время жеста, иначе список перестанет
       // прокручиваться пальцем вообще.
       item.style.touchAction = 'none';
+
+      /* Карточку вынимаем из потока и кладём поверх страницы.
+
+         Пока она оставалась внутри своего дня, её резала обёртка списка — у
+         той overflow:hidden, им схлопывается высота при сворачивании. Я снял
+         обрезку на время жеста, и стало хуже: наружу полезли не только
+         несомая, но и расступающиеся соседи — они накрывали заголовки
+         следующих дней.
+
+         position:fixed решает обе беды разом. Карточку не режет ничто, потому
+         что она больше не внутри списка; соседи остаются в своём дне, потому
+         что обрезку возвращать не пришлось. И как побочное следствие место
+         под ней смыкается само: элемент вне потока не занимает высоты, и
+         открывать щель вручную больше не нужно. */
+      /* Ширину задаём с тем же вылетом за поля списка, что и раньше давали
+         отрицательные поля: с margin:0 карточка сжималась до своей прежней
+         ширины минус вылет, и чипы под названием переносились на вторую
+         строку — в руке она выглядела не той, что лежала в списке. */
+      var к = item.getBoundingClientRect();
+      var вылет = 6;
+      item.style.position = 'fixed';
+      item.style.left = (к.left - вылет) + 'px';
+      item.style.top = к.top + 'px';
+      item.style.width = (к.width + вылет * 2) + 'px';
+      item.style.margin = '0';
       item.classList.add('dragging');
       openEmptyDropZones();
       /* Отклик в руку — 18 миллисекунд, а не восемь.
