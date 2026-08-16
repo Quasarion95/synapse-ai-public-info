@@ -9907,184 +9907,20 @@ function clearShifts(){
    поймал это, утащив задачу ниже всех дней и отпустив там.
 
    Теперь чистим всё, что могло остаться, по разметке, а не по памяти. */
-function сброситьВидПереноса(){
-  clearShifts();
-  var следы = document.querySelectorAll('.item[style], .item.dragging');
-  for (var i = 0; i < следы.length; i++){
-    var э = следы[i];
-    э.style.transform = '';
-    э.style.touchAction = '';
-    э.style.position = '';
-    э.style.left = '';
-    э.style.top = '';
-    э.style.width = '';
-    э.style.margin = '';
-    э.classList.remove('dragging');
-  }
-  var метки = document.querySelectorAll('.over');
-  for (var j = 0; j < метки.length; j++) метки[j].classList.remove('over');
-}
-
-/* Положение карточки в раскладке — без наших сдвигов и без оглядки на то,
-   доехала ли анимация.
-
-   Считалось как «прямоугольник минус записанный сдвиг». Пока соседи стоят,
-   это верно, но они разъезжаются с переходом в 180 мс: значение сдвига уже
-   новое, а прямоугольник ещё старый, и разница промахивается ровно на шаг.
-   Плашка места посадки из-за этого рисовалась на соседней карточке.
-
-   offsetTop transform не меняет вовсе — это позиция в раскладке, а не на
-   экране. Переводим её в экранные координаты через сам список; общий
-   offsetParent у них один, поэтому разность точна. */
+/// Положение карточки без нашего сдвига — для мышиного пути этого довольно:
+/// там раскладка под курсором не едет, потому что карточку несёт браузер.
 function baseTop(node){
-  var список = node.parentElement;
-  if (!список) return node.getBoundingClientRect().top - shiftOf(node);
-
-  /* offsetTop отсчитывается от offsetParent, и у карточки с её списком он
-     может быть РАЗНЫМ. Пока список не позиционирован, обоим предком служит
-     один и тот же узел выше, и разность offsetTop даёт смещение внутри
-     списка. Но ради плашки места посадки список стал position:relative — и
-     сам сделался предком для карточек. Разность после этого вычитала лишние
-     сто двадцать пикселей: позиции соседей уезжали вверх, пороги срабатывали
-     пачкой, и место посадки перескакивало через двух-трёх соседей разом.
-
-     Поэтому спрашиваем прямо: если точка отсчёта карточки — сам список, её
-     offsetTop уже и есть смещение внутри него. */
-  var смещение = (node.offsetParent === список)
-    ? node.offsetTop
-    : node.offsetTop - список.offsetTop;
-  return список.getBoundingClientRect().top + смещение;
+  return node.getBoundingClientRect().top - shiftOf(node);
 }
 
-/* Насколько внутрь от грани стоит порог и сколько надо отыграть назад.
-
-   КРАЙ — небольшой заход внутрь карточки, чтобы порог срабатывал от касания
-   грани, а не от математически точного совпадения координат.
-
-   ОТКАТ — сколько пикселей палец должен пройти в обратную сторону, чтобы
-   перестановка отменилась. Это и есть защита от дрожи, и она не геометрическая:
-   пороги стоят там, где просил владелец, а от тремора спасает то, что
-   отыгрывать назад надо осознанным движением, а не колебанием в пиксель. */
-var КРАЙ_ПЕРЕСТАНОВКИ = 0;   // соприкосновение рамок, без захода внутрь
-var ОТКАТ_ПЕРЕСТАНОВКИ = 6;
-
-/// Перед какой карточкой встанет перетаскиваемая, если отпустить здесь.
-/// Возвращает id или null — значит в конец блока.
+/// Перед какой карточкой встанет перетаскиваемая мышью. По середине соседа:
+/// у курсора нет дрожания пальца, и усложнять здесь нечего.
 function dropTargetIn(zone, clientY){
   var cards = zone.querySelectorAll('.item:not(.dragging)');
   for (var i = 0; i < cards.length; i++){
-    var top = baseTop(cards[i]);
-    if (clientY < top + cards[i].offsetHeight / 2) return cards[i].getAttribute('data-task');
+    if (clientY < baseTop(cards[i]) + cards[i].offsetHeight / 2) return cards[i].getAttribute('data-task');
   }
   return null;
-}
-
-/* Куда встанет карточка — по ближним граням соседей и с оглядкой на ход руки.
-
-   Раньше место считалось каждый раз заново по средней линии соседа: выше
-   середины — встаём перед ним, ниже — после. Одна линия, и решение
-   переворачивалось от дрожания пальца в один пиксель.
-
-   Теперь так, как и должно быть на ощупь: ведём карточку вниз, дошли до
-   ВЕРХНЕЙ грани соседа снизу — он уехал наверх, мы встали на его место. Ведём
-   вверх, дошли до НИЖНЕЙ грани соседа сверху — тот уехал вниз.
-
-   Сами по себе эти два порога противоречивы: между верхней и нижней гранью
-   одной карточки выполняются оба сразу, и решение зациклилось бы. Поэтому
-   учитывается ход руки: перестановка отменяется, только если палец прошёл в
-   обратную сторону ОТКАТ пикселей. Дрожание в пиксель этого не набирает, а
-   настоящее движение назад набирает мгновенно.
-
-   Считаем по baseTop — положению без наших сдвигов: раскладка соседей стоит
-   неподвижно, сколько бы раз они ни съезжали на экране. */
-function местоВставки(zone, clientY, ход){
-  /* Меряем не палец, а рамку несомой карточки.
-
-     По пальцу выходило странно: палец держит карточку где-то посередине, и
-     сосед уезжал, когда до него доходил палец, — то есть когда несомая уже
-     наполовину его перекрыла. Теперь считаем по её краю: пошла вниз — работает
-     нижняя грань, пошла вверх — верхняя. Сосед трогается ровно в тот момент,
-     когда рамки соприкоснулись, а не когда одна дошла до середины другой. */
-  /* Только когда карточку действительно несут пальцем. При перетаскивании
-     мышью браузер рисует свой призрак, а сама карточка остаётся на месте — её
-     рамка стояла бы неподвижно, и место вставки перестало бы меняться вовсе.
-     Там считаем по курсору, как и раньше. */
-  var несомая = (inApp() && typeof touchDrag !== 'undefined' && touchDrag && touchDrag.active)
-    ? document.querySelector('.item.dragging') : null;
-
-  /* Две грани сразу, а не одна на выбор.
-
-     Раньше измеряемая точка переключалась между низом и верхом карточки по
-     направлению последнего шага. В момент переключения координата прыгала
-     разом на высоту карточки — больше любого порога, — и место посадки
-     перескакивало через одного-двух соседей. Снаружи это и выглядело как
-     «тень скачет куда захочет».
-
-     Теперь у каждого направления своя грань и обе меряются в одном проходе:
-     вниз работает нижняя, вверх верхняя, переключать нечего. А откат считаем
-     по середине карточки — она движется вместе с пальцем непрерывно. */
-  var низНесомой = clientY, верхНесомой = clientY, опора = clientY;
-  if (несомая){
-    var р = несомая.getBoundingClientRect();
-    низНесомой = р.bottom;
-    верхНесомой = р.top;
-    опора = (р.top + р.bottom) / 2;
-  }
-
-  var cards = [].slice.call(zone.querySelectorAll('.item:not(.dragging)'));
-  if (!cards.length){ ход.before = null; return null; }
-
-  // Первое касание в этом блоке: хода ещё нет, берём ближайшую середину.
-  if (ход.before === undefined){
-    ход.before = dropTargetIn(zone, clientY);
-    ход.y = clientY;
-    return ход.before;
-  }
-
-  var idx = cards.length;
-  for (var i = 0; i < cards.length; i++){
-    if (cards[i].getAttribute('data-task') === ход.before){ idx = i; break; }
-  }
-
-  /* Шаг в ту же сторону, что и прошлый, — сразу. Шаг в обратную — только
-     когда палец отыграл ОТКАТ пикселей от места, где случилась перестановка.
-
-     Отсчёт именно от точки перестановки, а не от прошлого кадра: за кадр
-     палец проходит два-три пикселя, и сравнение с кадром не накопило бы
-     обратный ход никогда — рука шла бы вверх, а список стоял. */
-  /* Крайняя точка, до которой палец дошёл в нынешнюю сторону.
-
-     Отсчитывать откат от места перестановки нельзя: пока рука продолжает
-     идти вниз, расстояние до него растёт само собой, порог «отыграл шесть
-     пикселей» выполняется без всякого движения назад — и список начинает
-     скакать сильнее прежнего. Считаем от самой дальней достигнутой точки:
-     она догоняет палец, пока он идёт вперёд, и застывает, как только он
-     повернул. Тогда разница — это ровно пройденное назад. */
-  if (ход.пик === undefined) ход.пик = опора;
-  if (ход.низ === true)  ход.пик = Math.max(ход.пик, опора);
-  if (ход.низ === false) ход.пик = Math.min(ход.пик, опора);
-
-  function можно(внизСейчас){
-    if (ход.низ === undefined) return true;
-    if (ход.низ === внизСейчас) return true;
-    return Math.abs(ход.пик - опора) >= ОТКАТ_ПЕРЕСТАНОВКИ;
-  }
-
-  // Вниз: нижняя грань несомой достала верхнюю грань соседа снизу.
-  while (idx < cards.length &&
-         низНесомой >= baseTop(cards[idx]) + КРАЙ_ПЕРЕСТАНОВКИ && можно(true)){
-    idx++; ход.низ = true; ход.пик = опора;
-  }
-
-  // Вверх: верхняя грань несомой достала нижнюю грань соседа сверху.
-  while (idx > 0 &&
-         верхНесомой <= baseTop(cards[idx - 1]) + cards[idx - 1].offsetHeight - КРАЙ_ПЕРЕСТАНОВКИ &&
-         можно(false)){
-    idx--; ход.низ = false; ход.пик = опора;
-  }
-
-  ход.before = idx < cards.length ? cards[idx].getAttribute('data-task') : null;
-  return ход.before;
 }
 
 /* Раздвинуть карточки так, чтобы щель оказалась там, куда сядет перенесённая.
@@ -10137,21 +9973,27 @@ function markDropSpot(zone, beforeId){
   clearShifts();
   if (!zone || !dragged) return;
 
-  /* Несомая карточка вне потока, поэтому случай ровно один: открыть щель там,
-     куда она сядет. Раньше их было два — «свой блок» и «чужой», — и в своём
-     соседи менялись с ней местами. Теперь её места в списке нет вовсе:
-     остальные уже сомкнулись сами, и остаётся раздвинуть тех, кто ниже. */
-  var cards = [].slice.call(zone.querySelectorAll('.item:not(.dragging)'));
+  var cards = [].slice.call(zone.querySelectorAll('.item'));
   var gap = parseFloat(getComputedStyle(zone).rowGap) || 8;
   var step = dragged.offsetHeight + gap;
 
+  var from = cards.indexOf(dragged);
   var to = cards.length;
   if (beforeId){
     for (var i = 0; i < cards.length; i++){
       if (cards[i].getAttribute('data-task') === beforeId){ to = i; break; }
     }
   }
-  for (var j = to; j < cards.length; j++) setShift(cards[j], step);
+
+  if (from < 0){
+    for (var j = to; j < cards.length; j++) setShift(cards[j], step);
+    return;
+  }
+  if (to > from){
+    for (var k = from + 1; k < to; k++) setShift(cards[k], -step);
+  } else if (to < from){
+    for (var m = to; m < from; m++) setShift(cards[m], step);
+  }
 }
 
 /* Пустые блоки на время жеста. Их нет в разметке — пустой день не показывается
@@ -10247,23 +10089,15 @@ document.addEventListener('dragend', function(event){
   if (item) item.classList.remove('dragging');
   document.documentElement.classList.remove('dragging-now');
   S.drag = null;
-  // Брошенный жест не должен оставлять решение следующему: вернувшись в тот
-  // же блок, он начал бы с чужого места.
-  мышьЗона = null; мышьХод = null;
   endDragVisuals();
 });
-
-/// Место вставки для перетаскивания мышью — то же состояние, что у пальца,
-/// только жест здесь ведёт браузер, и хранить его негде, кроме модуля.
-var мышьХод, мышьЗона;
 
 document.addEventListener('dragover', function(event){
   var zone = event.target.closest ? event.target.closest('[data-drop]') : null;
   if (!zone || !S.drag) return;
   event.preventDefault();
   zone.classList.add('over');
-  if (zone !== мышьЗона){ мышьЗона = zone; мышьХод = { before: undefined, y: event.clientY }; }
-  markDropSpot(zone, местоВставки(zone, event.clientY, мышьХод));
+  markDropSpot(zone, dropTargetIn(zone, event.clientY));
 });
 
 document.addEventListener('dragleave', function(event){
@@ -10273,256 +10107,288 @@ document.addEventListener('dragleave', function(event){
 
 /* --- перетаскивание пальцем --- */
 
-/* HTML5 Drag and Drop сенсорные экраны не поддерживают: ни Safari на iOS, ни
-   мобильный Chrome не пришлют ни dragstart, ни drop. На десктопе всё работало,
-   поэтому дырку легко не заметить — на телефоне ключевого жеста просто нет.
+/* Написано заново, после того как правки поверх правок перестали держаться.
 
-   Здесь второй путь на Pointer Events: долгое нажатие берёт карточку, палец
-   ведёт её за собой, отпускание кладёт в блок под пальцем. Третий путь —
-   кнопка «Перенести в блок» в карточке, для клавиатуры и для случаев, когда
-   жест не вышел. */
+   Прежняя версия считала место вставки заново на каждом кадре, по живой
+   раскладке. А раскладка во время жеста как раз и меняется: карточку подняли —
+   список сомкнулся, соседи разъехались, всё, что ниже, уехало вверх. Расчёт
+   опирался на то, что сам же и сдвигал, и получалась обратная связь: решение
+   меняло картинку, картинка меняла решение. Отсюда и прыжки через две секции,
+   и пропущенные дни, и карточки, уезжающие за пределы.
+
+   Здесь принцип другой и он один: РАСКЛАДКА СНИМАЕТСЯ ОДИН РАЗ при подъёме и
+   дальше не пересчитывается. Дальше это просто числа — где какой день, где
+   какая карточка. Палец сравнивается с этими числами, и никакая анимация на
+   них не влияет, потому что они уже сняты.
+
+   Пять решений, без которых снова развалится:
+
+   1. Карточка вынимается из потока (position:fixed). Её не режет обёртка
+      списка, и место под ней смыкается само.
+   2. pointer-events:none на ней же — иначе «что под пальцем» находит её саму,
+      а через неё её родной день, и остальные дни для жеста не существуют.
+   3. Координаты снимка — страничные (плюс прокрутка). Автопрокрутка у края
+      тогда ничего не ломает.
+   4. Прокрутку у браузера отбираем через touchmove: touch-action читается в
+      начале жеста, менять её посреди поздно.
+   5. Зона — весь блок дня вместе с шапкой, а не только список. У свёрнутого
+      дня список нулевой высоты, попасть в него нельзя. */
+
 var HOLD_MS = 320;
-var touchDrag = null;
+var НЕСУ = null;
+
+/* --- снимок раскладки --- */
+
+/// Верх элемента в координатах страницы: прокрутка на них не влияет.
+function верхНаСтранице(el){
+  return el.getBoundingClientRect().top + window.scrollY;
+}
+
+/**
+ * Раскладка на момент подъёма: дни и лежащие в них карточки.
+ *
+ * Снимается после того, как несомая карточка вынута из потока, — тогда в
+ * снимке уже сомкнувшийся список, и открывать её прежнее место не нужно.
+ */
+function снятьРаскладку(кроме){
+  var дни = [];
+  var блоки = document.querySelectorAll('.group[data-bucket]');
+  for (var i = 0; i < блоки.length; i++){
+    var блок = блоки[i];
+    var список = блок.querySelector('[data-drop]');
+    if (!список) continue;
+
+    var карточки = [];
+    var узлы = список.querySelectorAll('.item[data-task]');
+    for (var j = 0; j < узлы.length; j++){
+      if (узлы[j] === кроме) continue;
+      карточки.push({
+        id: узлы[j].getAttribute('data-task'),
+        узел: узлы[j],
+        верх: верхНаСтранице(узлы[j]),
+        высота: узлы[j].offsetHeight
+      });
+    }
+
+    дни.push({
+      bucket: список.getAttribute('data-drop'),
+      список: список,
+      блок: блок,
+      // Границы берём по всему блоку: шапка тоже принимает карточку, иначе в
+      // свёрнутый день не попасть — его список нулевой высоты.
+      верх: верхНаСтранице(блок),
+      низ: верхНаСтранице(блок) + блок.offsetHeight,
+      зазор: parseFloat(getComputedStyle(список).rowGap) || 8,
+      карточки: карточки
+    });
+  }
+  return дни;
+}
+
+/// В каком дне палец. Ниже последнего — последний, выше первого — первый:
+/// промахнуться мимо всех и потерять жест нельзя.
+function деньПод(дни, y){
+  for (var i = 0; i < дни.length; i++){
+    if (y >= дни[i].верх && y < дни[i].низ) return дни[i];
+  }
+  if (!дни.length) return null;
+  return y < дни[0].верх ? дни[0] : дни[дни.length - 1];
+}
+
+/**
+ * Перед какой карточкой встанем — по снимку, а не по экрану.
+ *
+ * Сравниваем с серединами карточек: они посчитаны один раз и стоят намертво,
+ * поэтому решение меняется, только когда палец действительно их пересёк.
+ * Небольшой запас гасит дрожание руки на самой границе.
+ */
+var ЗАПАС = 6;
+
+function местоВДне(день, y, прежнее){
+  var к = день.карточки;
+  var номер = к.length;
+  for (var i = 0; i < к.length; i++){
+    if (y < к[i].верх + к[i].высота / 2){ номер = i; break; }
+  }
+  // Прежнее решение отдаём обратно, пока палец не ушёл от границы дальше
+  // запаса: без этого дрожание в пиксель у самой середины переключало бы его.
+  if (прежнее && прежнее.день === день && Math.abs(прежнее.номер - номер) === 1){
+    var граница = номер > прежнее.номер
+      ? к[прежнее.номер].верх + к[прежнее.номер].высота / 2
+      : к[номер].верх + к[номер].высота / 2;
+    if (Math.abs(y - граница) < ЗАПАС) номер = прежнее.номер;
+  }
+  return номер;
+}
+
+/// Раздвинуть карточки в дне так, чтобы освободилось место под номером.
+function показатьМесто(дни, день, номер, высота){
+  for (var i = 0; i < дни.length; i++){
+    var к = дни[i].карточки;
+    for (var j = 0; j < к.length; j++){
+      var сдвиг = (дни[i] === день && j >= номер) ? высота + дни[i].зазор : 0;
+      if (к[j].сдвиг !== сдвиг){
+        к[j].сдвиг = сдвиг;
+        к[j].узел.style.transform = сдвиг ? 'translateY(' + сдвиг + 'px)' : '';
+      }
+    }
+  }
+}
+
+/* --- сам жест --- */
 
 document.addEventListener('pointerdown', function(event){
-  if (event.pointerType === 'mouse') return;          // мышь идёт обычным путём
-  var item = event.target.closest ? event.target.closest('.item[data-task]') : null;
-  if (!item) return;
-  /* Отказываемся только от настоящих органов управления.
+  if (!inApp() || event.pointerType === 'mouse') return;
+  var карточка = event.target.closest ? event.target.closest('.item[data-task]') : null;
+  if (!карточка) return;
+  // Отказываемся только от настоящих органов управления: название задачи —
+  // тоже кнопка, и именно за него карточку берут.
+  if (event.target.closest('.box, .side, .btn')) return;
 
-     Стояло «нажали на любую кнопку — это не перенос». Но название задачи —
-     тоже <button>: по нему карточку раскрывают. Оно занимает почти всю её
-     ширину, и получалось, что зажать карточку можно лишь в узкой полоске
-     полей вокруг текста, а на самом названии перенос молча не начинался —
-     хотя за название её и берут.
-
-     Снаружи это выглядело как «вибрация есть, а карточка не двигается»: на
-     телефоне долгое нажатие по тексту отзывалось системным откликом, наш же
-     обработчик к тому моменту уже вышел.
-
-     Перечисляем то, что переносом быть не должно: отметка выполнения, кнопки
-     под свайпом и обычные кнопки вроде «подпункта». */
-  if (event.target.closest(inApp() ? '.box, .side, .btn' : 'button')) return;
-
-  touchDrag = {
-    id: item.getAttribute('data-task'),
-    node: item,
-    startX: event.clientX,
-    startY: event.clientY,
-    active: false,
-    timer: setTimeout(function(){
-      if (!touchDrag) return;
-      touchDrag.active = true;
-      document.documentElement.classList.add('dragging-now');
-
-      /* Два жеста на одном касании — так не бывает.
-
-         Свайп и перетаскивание начинаются одинаково: палец лёг на карточку.
-         Пока они оба считали себя начатыми, карточка одновременно ехала вбок
-         от свайпа и вниз от переноса, и оба выглядели сломанными. Кто первым
-         себя опознал, тот и ведёт жест: удержание сработало — свайп забыт. */
-      if (swipe){
-        if (swipe.лицо) swipe.лицо.style.left = '';
-        swipe.карточка.classList.remove('swiping');
-        swipe = null;
-      }
-      /* И закрываем всё, что было раскрыто свайпом раньше. Открытая панель
-         правки на чужой карточке оставалась висеть весь перенос, налезая на
-         содержимое раскрытой задачи. */
-      swipeCloseAll(null);
-
-      // touch-action выключаем только на время жеста, иначе список перестанет
-      // прокручиваться пальцем вообще.
-      item.style.touchAction = 'none';
-
-      /* Карточку вынимаем из потока и кладём поверх страницы.
-
-         Пока она оставалась внутри своего дня, её резала обёртка списка — у
-         той overflow:hidden, им схлопывается высота при сворачивании. Я снял
-         обрезку на время жеста, и стало хуже: наружу полезли не только
-         несомая, но и расступающиеся соседи — они накрывали заголовки
-         следующих дней.
-
-         position:fixed решает обе беды разом. Карточку не режет ничто, потому
-         что она больше не внутри списка; соседи остаются в своём дне, потому
-         что обрезку возвращать не пришлось. И как побочное следствие место
-         под ней смыкается само: элемент вне потока не занимает высоты, и
-         открывать щель вручную больше не нужно. */
-      /* Ширину задаём с тем же вылетом за поля списка, что и раньше давали
-         отрицательные поля: с margin:0 карточка сжималась до своей прежней
-         ширины минус вылет, и чипы под названием переносились на вторую
-         строку — в руке она выглядела не той, что лежала в списке. */
-      var к = item.getBoundingClientRect();
-      var вылет = 6;
-      item.style.position = 'fixed';
-      item.style.left = (к.left - вылет) + 'px';
-      item.style.top = к.top + 'px';
-      item.style.width = (к.width + вылет * 2) + 'px';
-      item.style.margin = '0';
-      item.classList.add('dragging');
-      openEmptyDropZones();
-      /* Отклик в руку — 18 миллисекунд, а не восемь.
-
-         Восемь на этом телефоне не чувствуются вовсе: короткий импульс мотор
-         не успевает раскрутить. Восемнадцать — это уже щелчок, но ещё не
-         тревога. */
-      if (navigator.vibrate) { try { navigator.vibrate(18); } catch (e){} }
-    }, HOLD_MS)
+  НЕСУ = {
+    id: карточка.getAttribute('data-task'),
+    узел: карточка,
+    x0: event.clientX,
+    y0: event.clientY,
+    активен: false,
+    таймер: setTimeout(function(){ поднять(event.clientY); }, HOLD_MS)
   };
 });
 
-document.addEventListener('pointermove', function(event){
-  if (!touchDrag) return;
+function поднять(y){
+  if (!НЕСУ) return;
+  var узел = НЕСУ.узел;
+  var к = узел.getBoundingClientRect();
 
-  if (!touchDrag.active){
-    // Уехал пальцем до срабатывания удержания — значит, он листает список.
-    var moved = Math.abs(event.clientX - touchDrag.startX) + Math.abs(event.clientY - touchDrag.startY);
-    if (moved > 12) cancelTouchDrag();
-    return;
+  НЕСУ.активен = true;
+  НЕСУ.высота = к.height;
+  НЕСУ.отступ = y - к.top;          // за какое место карточку держат
+  document.documentElement.classList.add('dragging-now');
+
+  // Свайп и перенос начинаются одинаково; кто первым себя опознал, тот и ведёт.
+  if (typeof swipe !== 'undefined' && swipe){
+    if (swipe.лицо) swipe.лицо.style.left = '';
+    swipe.карточка.classList.remove('swiping');
+    swipe = null;
   }
+  if (typeof swipeCloseAll === 'function') swipeCloseAll(null);
 
-  event.preventDefault();
+  var вылет = 6;
+  узел.style.position = 'fixed';
+  узел.style.left = (к.left - вылет) + 'px';
+  узел.style.top = к.top + 'px';
+  узел.style.width = (к.width + вылет * 2) + 'px';
+  узел.style.margin = '0';
+  узел.classList.add('dragging');
 
-  // Карточка идёт за пальцем. Без этого держать её было невозможно: палец
-  // едет, а карточка стоит на месте — жест выглядит несработавшим.
-  touchDrag.node.style.transform = 'translateY(' + (event.clientY - touchDrag.startY) + 'px)';
+  // Снимок снимаем ПОСЛЕ выноса: список уже сомкнулся, и в снимке настоящее.
+  НЕСУ.дни = снятьРаскладку(узел);
+  НЕСУ.выбор = null;
 
-  // Блок, в который несут задачу, обычно ниже экрана телефона: без подкрутки
-  // у края дотащить её было бы некуда.
-  autoScroll(event.clientY);
-
-  var under = document.elementFromPoint(event.clientX, event.clientY);
-  var zone = зонаПод(under);
-  var lit = document.querySelectorAll('.over');
-  for (var i = 0; i < lit.length; i++) lit[i].classList.remove('over');
-  if (zone){
-    zone.classList.add('over');
-    // У свёрнутого дня подсвечивать нечего — список нулевой высоты. Метим сам
-    // блок, чтобы было видно, куда упадёт карточка.
-    // Метим шапку только у свёрнутого дня: у развёрнутого место посадки
-    // показывает плашка, и вторая подсветка на том же экране только спорит.
-    var блок = zone.closest('.group');
-    if (блок && блок.classList.contains('closed')) блок.classList.add('over');
-  }
-
-  /* Решение живёт на самом жесте, а не пересчитывается с нуля каждый кадр.
-     Смена блока сбрасывает его: в новом списке держаться не за что. */
-  if (zone !== touchDrag.zone){ touchDrag.zone = zone; touchDrag.ход = { before: undefined, y: event.clientY }; }
-  var прежнее = touchDrag.before;
-  touchDrag.before = zone ? местоВставки(zone, event.clientY, touchDrag.ход) : null;
-  /* Отклик на каждое пересечение: глазами за перестановкой не уследить —
-     карточка под пальцем закрывает как раз то место, где она случается.
-     Восемь миллисекунд против восемнадцати на подъёме: подъём надо заметить,
-     а это лишь отметка «прошли ещё одну». */
-  if (inApp() && прежнее !== touchDrag.before && navigator.vibrate){
-    try { navigator.vibrate(8); } catch (e){}
-  }
-  markDropSpot(zone, touchDrag.before);
-}, { passive: false });
-
-document.addEventListener('pointerup', function(event){
-  if (!touchDrag) return;
-  var wasActive = touchDrag.active;
-  var id = touchDrag.id;
-  var under = wasActive ? document.elementFromPoint(event.clientX, event.clientY) : null;
-  var zone = зонаПод(under);
-  /* На отпускании берём то решение, которое человек видел щелью под пальцем.
-     Пересчёт здесь давал редкое, но обидное расхождение: щель стояла в одном
-     месте, а карточка садилась в другое. */
-  var before = zone ? (zone === touchDrag.zone ? touchDrag.before
-                                               : местоВставки(zone, event.clientY, { before: undefined, y: event.clientY })) : null;
-  var bucket = zone ? zone.getAttribute('data-drop') : null;
-  cancelTouchDrag();
-  if (wasActive) перенёсВ = Date.now();
-  /* Отпустили мимо всех дней — карточка возвращается на место. Перерисовка
-     здесь обязательна: без неё экран остаётся с тем, что накопил жест, и
-     расходится с данными. Это и была пропавшая карточка. */
-  if (wasActive && !zone){ render(); return; }
-  if (!wasActive || !zone) return;
-
-  if (before === id) { render(); return; }
-  var changed = dropTask(id, bucket, before);
-  /* Свёрнутый день раскрываем, раз в него положили.
-
-     Задачу можно донести до свёрнутого дня, не разворачивая его, — но если
-     отпустили, она должна быть видна. Иначе жест кончается тем, что карточка
-     исчезла, а куда — знает только счётчик в шапке. */
-  if (inApp() && bucket) S.closed[bucket] = false;
-  commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
-});
-
-/* Прокрутку отменяем на touchmove, а не на pointermove.
-
-   touch-action у карточки — pan-y: вертикаль отдана браузеру, без этого список
-   вообще не пролистать пальцем. Обработчик удержания переключает её в none, но
-   толку с этого нет: touch-action читается в начале жеста, а не посреди него.
-   Палец после вибрации шёл вниз, браузер понимал это как прокрутку и присылал
-   pointercancel — перенос умирал, не начавшись.
-
-   Видно это стало только сейчас. Раньше на карточке стоял draggable, андроид
-   запускал по удержанию своё перетаскивание, и оно перебивало прокрутку: жест
-   «работал», просто ездил системный клон вместо карточки. Убрали клон —
-   обнажилась поломка, которая была там всё это время.
-
-   preventDefault у pointermove прокрутку не останавливает, это должен быть
-   именно touchmove, и слушатель обязан быть непассивным — иначе браузер
-   проигнорирует отмену. Отменяем только когда карточку уже несут: до этого
-   вертикальное движение — обычная прокрутка списка, и забирать её нельзя. */
-document.addEventListener('touchmove', function(event){
-  if (inApp() && touchDrag && touchDrag.active && event.cancelable) event.preventDefault();
-}, { passive: false });
-
-document.addEventListener('pointercancel', function(){ cancelTouchDrag(); });
-
-/* Куда упадёт карточка, если отпустить над этой точкой.
-
-   Обычно это список задач под пальцем. Но дни теперь свёрнуты по умолчанию, а
-   у свёрнутого списка нулевая высота — под палец он не попадает вовсе, и
-   перенос оказывался заперт внутри одного развёрнутого дня. Поэтому, не найдя
-   списка, целимся в сам блок дня и берём его список: он в разметке есть, просто
-   схлопнут. Так задачу можно перенести в любой день, не разворачивая его. */
-function зонаПод(узел){
-  if (!узел || !узел.closest) return null;
-  var zone = узел.closest('[data-drop]');
-  if (zone) return zone;
-  if (!inApp()) return null;
-  var группа = узел.closest('.group[data-bucket]');
-  return группа ? группа.querySelector('[data-drop]') : null;
+  if (navigator.vibrate){ try { navigator.vibrate(18); } catch (e){} }
+  вести(y);
 }
 
-var scrollTimer = null;
-function autoScroll(y){
-  var edge = 90;
-  var speed = 0;
-  if (y < edge) speed = -Math.ceil((edge - y) / 6);
-  else if (y > window.innerHeight - edge) speed = Math.ceil((y - (window.innerHeight - edge)) / 6);
+function вести(y){
+  if (!НЕСУ || !НЕСУ.активен) return;
+  НЕСУ.узел.style.top = (y - НЕСУ.отступ) + 'px';
 
-  if (!speed){
-    if (scrollTimer){ clearInterval(scrollTimer); scrollTimer = null; }
+  var наСтранице = y + window.scrollY;
+  var день = деньПод(НЕСУ.дни, наСтранице);
+  if (!день) return;
+  var номер = местоВДне(день, наСтранице, НЕСУ.выбор);
+
+  var прежний = НЕСУ.выбор;
+  if (!прежний || прежний.день !== день || прежний.номер !== номер){
+    НЕСУ.выбор = { день: день, номер: номер };
+    показатьМесто(НЕСУ.дни, день, номер, НЕСУ.высота);
+    // Отклик на каждое пересечение: глазами за перестановкой не уследить,
+    // карточка под пальцем закрывает как раз то место, где она случается.
+    if (прежний && navigator.vibrate){ try { navigator.vibrate(8); } catch (e){} }
+  }
+
+  подкрутить(y);
+}
+
+/* Подкрутка у краёв: блок, в который несут задачу, обычно ниже экрана.
+   Координаты снимка страничные, поэтому прокрутка их не портит. */
+var таймерПрокрутки = null;
+function подкрутить(y){
+  var край = 110, шаг = 0;
+  if (y < край) шаг = -Math.ceil((край - y) / 7);
+  else if (y > window.innerHeight - край) шаг = Math.ceil((y - (window.innerHeight - край)) / 7);
+
+  if (!шаг){
+    if (таймерПрокрутки){ clearInterval(таймерПрокрутки); таймерПрокрутки = null; }
     return;
   }
-  if (scrollTimer) return;
-  scrollTimer = setInterval(function(){
-    if (!touchDrag || !touchDrag.active){ clearInterval(scrollTimer); scrollTimer = null; return; }
-    window.scrollBy(0, speed);
+  if (таймерПрокрутки) return;
+  таймерПрокрутки = setInterval(function(){
+    if (!НЕСУ || !НЕСУ.активен){ clearInterval(таймерПрокрутки); таймерПрокрутки = null; return; }
+    window.scrollBy(0, шаг);
+    вести(НЕСУ.последнийY || y);
   }, 16);
 }
 
-function cancelTouchDrag(){
-  document.documentElement.classList.remove('dragging-now');
-  if (scrollTimer){ clearInterval(scrollTimer); scrollTimer = null; }
-  // Сначала уборка по разметке, и только потом — по памяти о жесте.
-  сброситьВидПереноса();
-  closeEmptyDropZones();
-  if (!touchDrag) return;
-  clearTimeout(touchDrag.timer);
-  if (touchDrag.node){
-    touchDrag.node.style.touchAction = '';
-    touchDrag.node.style.transform = '';
-    touchDrag.node.classList.remove('dragging');
+document.addEventListener('pointermove', function(event){
+  if (!НЕСУ) return;
+  if (!НЕСУ.активен){
+    // Уехал пальцем до срабатывания удержания — значит, листает список.
+    if (Math.abs(event.clientX - НЕСУ.x0) + Math.abs(event.clientY - НЕСУ.y0) > 12) бросить();
+    return;
   }
-  endDragVisuals();
-  touchDrag = null;
+  event.preventDefault();
+  НЕСУ.последнийY = event.clientY;
+  вести(event.clientY);
+}, { passive: false });
+
+/* Прокрутку отменяем на touchmove: у pointermove preventDefault её не
+   останавливает, а touch-action читается в начале жеста и менять её поздно. */
+document.addEventListener('touchmove', function(event){
+  if (НЕСУ && НЕСУ.активен && event.cancelable) event.preventDefault();
+}, { passive: false });
+
+document.addEventListener('pointerup', function(){
+  if (!НЕСУ) return;
+  var нёс = НЕСУ.активен, id = НЕСУ.id, выбор = НЕСУ.выбор;
+  бросить();
+  if (!нёс) return;
+
+  // Отпустили, не выбрав дня, — просто возвращаем карточку на место.
+  if (!выбор){ render(); return; }
+
+  var перед = выбор.номер < выбор.день.карточки.length
+    ? выбор.день.карточки[выбор.номер].id : null;
+  if (перед === id){ render(); return; }
+
+  var изменилось = dropTask(id, выбор.день.bucket, перед);
+  // Свёрнутый день раскрываем, раз в него положили: иначе жест кончается тем,
+  // что карточка исчезла, а куда — знает только счётчик в шапке.
+  S.closed[выбор.день.bucket] = false;
+  commit(изменилось ? 'Перенесено в «' + bucketTitle(выбор.день.bucket) + '»' : '');
+});
+
+document.addEventListener('pointercancel', function(){ if (НЕСУ){ бросить(); render(); } });
+
+/**
+ * Убрать за жестом. Чистим по разметке, а не по памяти о нём: оборвавшийся
+ * жест оставлял карточку висеть со своим смещением, и в списке зияла дыра.
+ */
+function бросить(){
+  document.documentElement.classList.remove('dragging-now');
+  if (таймерПрокрутки){ clearInterval(таймерПрокрутки); таймерПрокрутки = null; }
+
+  var следы = document.querySelectorAll('.item[style], .item.dragging');
+  for (var i = 0; i < следы.length; i++){
+    var э = следы[i];
+    э.style.transform = ''; э.style.position = ''; э.style.left = '';
+    э.style.top = ''; э.style.width = ''; э.style.margin = ''; э.style.touchAction = '';
+    э.classList.remove('dragging');
+  }
+  var метки = document.querySelectorAll('.over');
+  for (var j = 0; j < метки.length; j++) метки[j].classList.remove('over');
+
+  if (НЕСУ){ clearTimeout(НЕСУ.таймер); НЕСУ = null; }
 }
 
 document.addEventListener('drop', function(event){
@@ -10532,9 +10398,7 @@ document.addEventListener('drop', function(event){
   zone.classList.remove('over');
   var id = S.drag;
   var bucket = zone.getAttribute('data-drop');
-  var before = zone === мышьЗона && мышьХод ? мышьХод.before
-             : местоВставки(zone, event.clientY, { before: undefined, y: event.clientY });
-  мышьЗона = null; мышьХод = null;
+  var before = dropTargetIn(zone, event.clientY);
   S.drag = null;
   endDragVisuals();
   if (before === id) return;
@@ -10779,7 +10643,8 @@ document.addEventListener('pointerdown', function(event){
 document.addEventListener('pointermove', function(event){
   if (!swipe) return;
   // Карточку уже несут — свайпу здесь делать нечего.
-  if (typeof touchDrag !== 'undefined' && touchDrag && touchDrag.active){ swipe = null; return; }
+  // Карточку уже несут — свайпу здесь делать нечего.
+  if (typeof НЕСУ !== 'undefined' && НЕСУ && НЕСУ.активен){ swipe = null; return; }
   var dx = event.clientX - swipe.x;
   var dy = event.clientY - swipe.y;
 
@@ -10795,7 +10660,8 @@ document.addEventListener('pointermove', function(event){
     if (!swipe.это_свайп){ swipe = null; return; }
     // Ушли вбок — значит это не перенос: снимаем отсчёт удержания, чтобы
     // карточка посреди свайпа вдруг не поднялась на перетаскивание.
-    if (typeof cancelTouchDrag === 'function') cancelTouchDrag();
+    // Ушли вбок — значит это не перенос: снимаем отсчёт удержания.
+    if (typeof бросить === 'function' && typeof НЕСУ !== 'undefined' && НЕСУ && !НЕСУ.активен) бросить();
     swipeCloseAll(swipe.карточка);
     swipe.карточка.classList.add('swiping');
   }
