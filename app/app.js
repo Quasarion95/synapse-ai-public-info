@@ -4386,7 +4386,15 @@ function vGoals(){
           '<button data-act="edit-goal" data-goal="' + g.id + '" aria-label="Править цель">' + ICON.edit + '</button>' +
           '<button class="kill" data-act="kill-goal" data-goal="' + g.id + '" aria-label="Удалить цель">' + ICON.kill + '</button>' +
         '</div>' : '') +
-      '<button class="goalcard-h' + (touchUI() ? ' swipe-face' : '') + '" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
+      /* Едет вся карточка, а не одна шапка.
+
+         Сперва лицом сделал шапку — и у раскрытой цели уезжала полоска в
+         сорок пикселей, а тело в двести оставалось на месте; кнопки при этом
+         растягивались на всю высоту карточки. Выглядело поломкой, и владелец
+         справедливо сказал, что свайп в целях не работает. Оборачиваем всё
+         содержимое: карточка едет целиком, как задача. */
+      (touchUI() ? '<div class="swipe-face gc-face">' : '') +
+      '<button class="goalcard-h" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
         '<span class="gt">' + esc(g.title) + '</span>' +
         '<span class="gp mono">' + pct(p.done, p.total) + '%</span>' +
         '<span class="car">⌄</span>' +
@@ -4400,6 +4408,7 @@ function vGoals(){
       // Как и у задач: тело рисуется всегда, высоту схлопывает CSS —
       // иначе раскрытие нечем анимировать.
       '<div class="goalbody-wrap">' + goalBody(g) + '</div>' +
+      (touchUI() ? '</div>' : '') +
     '</section>';
   }
 

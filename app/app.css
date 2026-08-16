@@ -550,8 +550,8 @@ select.inp{appearance:none}
    строка подробностей. Всё остальное — смысл, этапы, задачи — раскрывается
    по нажатию прямо здесь, отдельной страницы у цели больше нет. */
 .goalcard{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); margin-bottom:var(--gap)}
-.goalcard > .swipe-face{padding:14px 16px}
-.goalcard > .goalbody{padding:0 16px 14px}
+/* Поле теперь на обёртке: она и есть вся карточка. */
+.goalcard > .gc-face{padding:14px 16px}
 .goalcard-h{display:flex; align-items:center; gap:10px; width:100%; padding:0}
 .goalcard-h .gt{font-family:var(--display); font-size:16px; font-weight:700; letter-spacing:-.02em; flex:1; min-width:0; overflow-wrap:anywhere; line-height:1.25}
 .goalcard-h .gp{font-size:13px; font-weight:600; color:var(--fg-2); flex:none}
