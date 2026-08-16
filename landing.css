@@ -480,13 +480,24 @@ a { color: var(--accent-strong); }
 
 /* ---------- hero ---------- */
 
+/* Колонки в пользу макета, а не текста.
+
+   Было 1.05 / 0.95 — то есть снимок получал меньше половины и выходил 460
+   пикселей при секции высотой 720. Первый экран продаёт продукт, а продукт
+   здесь — то, что на экране; заголовок в 66 пунктов и без того забирает
+   внимание, а вот разглядеть в макете задачи, дни и телефон было нельзя.
+
+   Колонка текста при этом почти не пострадала: заголовок ломается на те же
+   четыре строки, плашка сверху остаётся в одну. Проверено на 1440 и 1024.
+   Ниже 900 раскладка всё равно становится одноколоночной — см. блок
+   responsive, он идёт позже и перебивает эти значения. */
 .hero {
   max-width: 1080px;
   margin: 0 auto;
   padding: 72px 24px 32px;
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 48px;
+  grid-template-columns: 1fr 1.45fr;
+  gap: 28px;
   align-items: center;
 }
 
@@ -547,9 +558,13 @@ a { color: var(--accent-strong); }
   color: var(--muted);
 }
 
+/* Потолок поднят выше, чем колонка бывает на деле: ширину теперь задаёт
+   сетка, а это значение только страхует от разъезда на очень широких экранах.
+   Ноутбук и телефон внутри считаются в долях от макета, поэтому растут вместе
+   с ним и пропорции не плывут. */
 .hero-shot .duo-stage {
   width: 100%;
-  max-width: 460px;
+  max-width: 700px;
   margin-inline: auto;
 }
 
@@ -852,6 +867,29 @@ a { color: var(--accent-strong); }
 
 /* ---------- responsive ---------- */
 
+/* Шапка не влезала задолго до того, как прятала ссылки.
+
+   Ссылки убирались только на 900, а сумма её содержимого — марка, шесть
+   ссылок, переключатель темы и две кнопки — перестаёт помещаться уже около
+   1100. На 1024 кнопка Telegram уходила за правый край на 31 пиксель, и вся
+   страница получала горизонтальную прокрутку: заголовок первого экрана
+   уезжал, стоило качнуть трекпад вбок. Ширина обычная — ноутбук, айпад
+   поперёк, — так что видели это многие.
+
+   Двумя ступенями: сперва ужимаем зазоры, потом убираем ссылки. Одним
+   зазором не обойтись — на 910 шесть ссылок не помещаются никак. */
+@media (max-width: 1120px) {
+  .nav { gap: 12px; }
+  .nav-links { gap: 18px; }
+}
+
+@media (max-width: 1040px) {
+  .nav-links { display: none; }
+  /* The links carried margin-left:auto and held the button against the right
+     edge. With them hidden the button needs to hold that edge itself. */
+  .nav .btn-small { margin-left: auto; }
+}
+
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: 1fr;
@@ -861,10 +899,6 @@ a { color: var(--accent-strong); }
   .hero-shot { order: -1; }
   .hero-shot .duo-stage { max-width: 380px; }
   .cards, .grid, .grid-3, .shots { grid-template-columns: repeat(2, 1fr); }
-  .nav-links { display: none; }
-  /* The links carried margin-left:auto and held the button against the right
-     edge. With them hidden the button needs to hold that edge itself. */
-  .nav .btn-small { margin-left: auto; }
 }
 
 @media (max-width: 560px) {
