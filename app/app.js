@@ -10086,6 +10086,27 @@ document.addEventListener('pointerup', function(event){
   commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
 });
 
+/* Прокрутку отменяем на touchmove, а не на pointermove.
+
+   touch-action у карточки — pan-y: вертикаль отдана браузеру, без этого список
+   вообще не пролистать пальцем. Обработчик удержания переключает её в none, но
+   толку с этого нет: touch-action читается в начале жеста, а не посреди него.
+   Палец после вибрации шёл вниз, браузер понимал это как прокрутку и присылал
+   pointercancel — перенос умирал, не начавшись.
+
+   Видно это стало только сейчас. Раньше на карточке стоял draggable, андроид
+   запускал по удержанию своё перетаскивание, и оно перебивало прокрутку: жест
+   «работал», просто ездил системный клон вместо карточки. Убрали клон —
+   обнажилась поломка, которая была там всё это время.
+
+   preventDefault у pointermove прокрутку не останавливает, это должен быть
+   именно touchmove, и слушатель обязан быть непассивным — иначе браузер
+   проигнорирует отмену. Отменяем только когда карточку уже несут: до этого
+   вертикальное движение — обычная прокрутка списка, и забирать её нельзя. */
+document.addEventListener('touchmove', function(event){
+  if (touchDrag && touchDrag.active && event.cancelable) event.preventDefault();
+}, { passive: false });
+
 document.addEventListener('pointercancel', function(){ cancelTouchDrag(); });
 
 var scrollTimer = null;
