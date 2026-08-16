@@ -63,13 +63,12 @@ function seed(){
     theme: systemPrefersDark() ? 'dark' : 'light',
     palette: 'paper',
     font: 'rounded',
-    /* По умолчанию мелкий, а не средний.
+    /* В приложении по умолчанию мелкий, в браузере прежний средний.
 
        На телефоне средний давал огромные карточки: на экран влезало вдвое
-       меньше, чем помещается. Тот, кому нужно крупнее, найдёт настройку —
-       а вот тот, кому тесно, чаще просто уходит, не догадавшись, что размер
-       вообще меняется. */
-    fontSize: 'compact',
+       меньше, чем помещается. На большом экране этой беды нет, и менять там
+       привычный размер незачем. */
+    fontSize: touchUI() ? 'compact' : 'standard',
     box: 'square',
     markColor: 'default',
     hintSeen: false,
@@ -1619,8 +1618,32 @@ function vTabbar(){
    своим названием строка «Список» сверху не сообщает ничего: и так видно, что
    это список, — вернуться помогает кнопка «Назад», а не подпись. Пустой первый
    аргумент означает «без надстрочника». */
+/* В приложении «Назад» рисовать не нужно.
+
+   На андроиде есть системная кнопка и жест от края, и они теперь работают:
+   переходы между разделами пишутся в историю. Своя кнопка сверху дублирует их
+   и занимает строку на каждом втором экране. В браузере она остаётся — там
+   кнопка браузера далеко, а на десктопе жеста нет вовсе. */
+function inApp(){
+  return !!(window.AndroidVoice);
+}
+
+/* Свайп решается наличием пальца, а не тем, приложение это или браузер.
+
+   Сперва я развёл по «приложение против веба» и ошибся: с телефона сайт
+   открывают тем же пальцем, и свайп там уместен ровно так же. А вот с
+   компьютера его не сделать вовсе — мышью карточку не сдвинешь, и убрать
+   оттуда кнопки значило бы отобрать правку и удаление совсем.
+
+   Поэтому признак — сенсорный ввод: телефон и планшет получают свайп хоть в
+   приложении, хоть в браузере; десктоп остаётся с кнопками, как был. */
+function touchUI(){
+  return !!(window.matchMedia &&
+    window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+}
+
 function head(sub, title, backView){
-  return (backView ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
+  return (backView && !inApp() ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
     (sub ? '<p class="hi">' + esc(sub) + '</p>' : '') +
     (title ? '<h1 class="page">' + esc(title) + '</h1>' : '');
 }
@@ -2421,14 +2444,22 @@ function vFinOps(){
       '<div class="finday-h"><b>' + esc(humanDate(date)) + '</b>' +
         '<span>' + finMoney(sum, { plus: sum > 0 }) + '</span></div>' +
       '<div class="finrows">' + rows.map(function(op){
-        return '<div class="finrow">' +
+        return '<div class="finrow' + (touchUI() ? ' swipe' : '') + '">' +
+          (touchUI() ?
+            '<div class="side">' +
+              '<button data-act="fin-op-edit" data-op="' + op.id + '" aria-label="Править">' + ICON.edit + '</button>' +
+              '<button class="kill" data-act="fin-op-kill" data-op="' + op.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+            '</div>' +
+            '<div class="swipe-face">' : '') +
           '<span class="fr-dot" style="background:' + finTint(op.cat, .95) + '"></span>' +
           '<button class="fr-t" data-act="fin-op-edit" data-op="' + op.id + '">' + esc(op.title) +
             '<span class="fr-c">' + esc(finCat(op.cat).title) + '</span></button>' +
           '<span class="fr-v' + (op.kind === 'income' ? ' up' : '') + '">' +
             finMoney(op.amount * (op.kind === 'income' ? 1 : -1), { plus: op.kind === 'income' }) + '</span>' +
-          '<button class="fr-x" data-act="fin-op-edit" data-op="' + op.id + '" title="Править" aria-label="Править">' + ICON.edit + '</button>' +
-          '<button class="fr-x" data-act="fin-op-kill" data-op="' + op.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+          (touchUI() ? '' :
+            '<button class="fr-x" data-act="fin-op-edit" data-op="' + op.id + '" title="Править" aria-label="Править">' + ICON.edit + '</button>' +
+            '<button class="fr-x" data-act="fin-op-kill" data-op="' + op.id + '" aria-label="Удалить">' + ICON.kill + '</button>') +
+          (touchUI() ? '</div>' : '') +
         '</div>';
       }).join('') + '</div>' +
     '</div>';
@@ -2611,8 +2642,15 @@ function vFinDebts(){
      значками справа. */
   html += '<div class="debtlist">' + S.finance.debts.map(function(d){
     var left = Math.max(0, d.amount - (d.paid || 0));
-    return '<article class="debtrow' + (d.closed ? ' done' : '') + '">' +
-      '<div class="dr-main">' +
+    return '<article class="debtrow' + (d.closed ? ' done' : '') + (touchUI() ? ' swipe' : '') + '">' +
+      /* Под свайп уходит только удаление: «вернуть», «закрыть» и частичный
+         возврат — это то, ради чего в долги и заходят, и прятать их за жест
+         значило бы прятать сам смысл раздела. */
+      (touchUI() ?
+        '<div class="side">' +
+          '<button class="kill" data-act="fin-debt-kill" data-debt="' + d.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+        '</div>' : '') +
+      '<div class="dr-main' + (touchUI() ? ' swipe-face' : '') + '">' +
         '<span class="dr-t">' + esc(d.who) +
           '<span class="dr-n">' + (d.mine ? 'я должен' : 'мне должны') +
             (d.due ? ' · до ' + esc(humanDate(d.due)) : '') +
@@ -2628,7 +2666,8 @@ function vFinDebts(){
             : '<button class="fr-pay" data-act="fin-debt-pay" data-debt="' + d.id + '">' +
                 (d.mine ? 'Платёж' : 'Возврат') + '</button>' +
               '<button class="fr-x" data-act="fin-debt-close" data-debt="' + d.id + '" title="Закрыть долг" aria-label="Закрыть долг">' + ICON.check + '</button>') +
-          '<button class="fr-x" data-act="fin-debt-kill" data-debt="' + d.id + '" title="Удалить" aria-label="Удалить">' + ICON.kill + '</button>' +
+          (touchUI() ? '' :
+            '<button class="fr-x" data-act="fin-debt-kill" data-debt="' + d.id + '" title="Удалить" aria-label="Удалить">' + ICON.kill + '</button>') +
         '</span>' +
       '</div>' +
     '</article>';
@@ -2751,7 +2790,13 @@ function finPayTable(rows, key, title, lead){
         else if (next) note = 'до ' + humanDate(next);
         else note = every.title;
 
-        return '<div class="payrow' + (sub.off ? ' off' : '') + (paid ? ' paid' : '') + '">' +
+        return '<div class="payrow' + (sub.off ? ' off' : '') + (paid ? ' paid' : '') + (touchUI() ? ' swipe' : '') + '">' +
+          (touchUI() ?
+            '<div class="side">' +
+              '<button data-act="fin-sub-edit" data-sub="' + sub.id + '" aria-label="Править">' + ICON.edit + '</button>' +
+              '<button class="kill" data-act="fin-sub-kill" data-sub="' + sub.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+            '</div>' +
+            '<div class="swipe-face">' : '') +
           '<span class="pr-t">' + esc(sub.title) +
             '<span class="pr-n">' + esc(note) + '</span></span>' +
           '<span class="pr-v">' + (known ? (finSubVaries(sub) ? '≈ ' : '') + finMoney(finPerMonth(sub)) : '—') + '</span>' +
@@ -2761,11 +2806,11 @@ function finPayTable(rows, key, title, lead){
               '<button class="fr-pay' + (paid ? ' on' : '') + '" data-act="fin-sub-pay" data-sub="' + sub.id + '" ' +
                 'title="' + (paid ? 'Отменить отметку' : 'Отметить оплату') + '">' +
                 (paid ? ICON.check : 'Оплатить') + '</button>') +
-            '<button class="fr-x" data-act="fin-sub-edit" data-sub="' + sub.id + '" title="Править" aria-label="Править">' + ICON.edit + '</button>' +
+            (touchUI() ? '' : '<button class="fr-x" data-act="fin-sub-edit" data-sub="' + sub.id + '" title="Править" aria-label="Править">' + ICON.edit + '</button>') +
             '<button class="fr-x" data-act="fin-sub-toggle" data-sub="' + sub.id + '" ' +
               'title="' + (sub.off ? 'Включить' : 'Отключить') + '" aria-label="Включить или отключить">' +
               (sub.off ? ICON.undo : ICON.power) + '</button>' +
-            '<button class="fr-x" data-act="fin-sub-kill" data-sub="' + sub.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+            (touchUI() ? '' : '<button class="fr-x" data-act="fin-sub-kill" data-sub="' + sub.id + '" aria-label="Удалить">' + ICON.kill + '</button>') +
           '</span>' +
         '</div>';
       }).join('') +
@@ -3594,6 +3639,21 @@ function vTasks(){
   return html;
 }
 
+/* Кнопки строки задачи.
+
+   Одна разметка на два места: в браузере она стоит внутри строки справа, как
+   стояла всегда, в приложении — под карточкой, откуда её достаёт свайп.
+   Кнопка переноса нужна только в браузере: в приложении блок меняется
+   перетаскиванием, а на телефоне три кнопки в ряд слишком мелкие для пальца. */
+function боковыеКнопкиЗадачи(t){
+  return '<div class="side">' +
+    (touchUI() ? '' :
+      '<button data-act="move-open" data-task="' + t.id + '" aria-label="Перенести в другой блок" title="Перенести в блок">' + ICON.move + '</button>') +
+    '<button data-act="edit-task" data-task="' + t.id + '" aria-label="Редактировать задачу" title="Редактировать">' + ICON.edit + '</button>' +
+    '<button class="kill" data-act="kill-task" data-task="' + t.id + '" aria-label="Удалить задачу" title="Удалить">' + ICON.kill + '</button>' +
+  '</div>';
+}
+
 function itemRow(t){
   var goal = t.goalId ? findGoal(t.goalId) : null;
   var subDone = t.subtasks.filter(function(s){ return s.done; }).length;
@@ -3677,8 +3737,8 @@ function itemRow(t){
   // карточки незачем. data-act висит на .item-main, чтобы нажатия внутри
   // раскрытой части не сворачивали её обратно.
 
-  return '<article class="item swipe' + (t.done ? ' done' : '') + (open ? ' open' : '') + '" draggable="true" data-task="' + t.id + '">' +
-    '<div class="item-main swipe-face" data-act="expand" data-task="' + t.id + '">' +
+  return '<article class="item' + (touchUI() ? ' swipe' : '') + (t.done ? ' done' : '') + (open ? ' open' : '') + '" draggable="true" data-task="' + t.id + '">' +
+    '<div class="item-main' + (touchUI() ? ' swipe-face' : '') + '" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
         '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
@@ -3695,16 +3755,9 @@ function itemRow(t){
            подпунктов остаётся одно название. */
         (meta.length ? '<div class="chips">' + meta.join('') + '</div>' : '') +
       '</div>' +
+      (touchUI() ? '' : боковыеКнопкиЗадачи(t)) +
     '</div>' +
-    /* Кнопки лежат под карточкой и открываются свайпом влево.
-
-       Раньше три значка стояли в каждой строке справа и отъедали место у
-       названия — на телефоне длинное название переносилось из-за них на вторую
-       строку. Действия эти нужны изредка, а место занимают всегда. */
-    '<div class="side">' +
-      '<button data-act="edit-task" data-task="' + t.id + '" aria-label="Редактировать задачу">' + ICON.edit + '</button>' +
-      '<button class="kill" data-act="kill-task" data-task="' + t.id + '" aria-label="Удалить задачу">' + ICON.kill + '</button>' +
-    '</div>' + detail +
+    (touchUI() ? боковыеКнопкиЗадачи(t) : '') + detail +
   '</article>';
 }
 
@@ -4324,17 +4377,16 @@ function vGoals(){
     var p = goalProgress(g);
     var open = !!S.openGoal[g.id];
 
-    html += '<section class="goalcard swipe' + (open ? ' open' : '') + '" data-goal="' + g.id + '">' +
-      /* Править и удалить — свайпом по карточке, как у задач.
-
-         Две текстовые кнопки внизу раскрытой цели занимали целую строку и
-         повторялись у каждой цели: на экране с пятью целями это пять строк
-         ради действий, которыми пользуются раз в месяц. */
-      '<div class="side">' +
-        '<button data-act="edit-goal" data-goal="' + g.id + '" aria-label="Править цель">' + ICON.edit + '</button>' +
-        '<button class="kill" data-act="kill-goal" data-goal="' + g.id + '" aria-label="Удалить цель">' + ICON.kill + '</button>' +
-      '</div>' +
-      '<button class="goalcard-h swipe-face" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
+    html += '<section class="goalcard' + (touchUI() ? ' swipe' : '') + (open ? ' open' : '') + '" data-goal="' + g.id + '">' +
+      /* В приложении править и удалить — свайпом по карточке, как у задач:
+         две текстовые кнопки внизу каждой раскрытой цели занимали по строке.
+         В браузере они остаются на прежнем месте — там места хватает. */
+      (touchUI() ?
+        '<div class="side">' +
+          '<button data-act="edit-goal" data-goal="' + g.id + '" aria-label="Править цель">' + ICON.edit + '</button>' +
+          '<button class="kill" data-act="kill-goal" data-goal="' + g.id + '" aria-label="Удалить цель">' + ICON.kill + '</button>' +
+        '</div>' : '') +
+      '<button class="goalcard-h' + (touchUI() ? ' swipe-face' : '') + '" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
         '<span class="gt">' + esc(g.title) + '</span>' +
         '<span class="gp mono">' + pct(p.done, p.total) + '%</span>' +
         '<span class="car">⌄</span>' +
@@ -4404,6 +4456,9 @@ function goalBody(g){
 
   html += '<div class="acts">' +
       '<button class="btn sm" data-act="new-stage" data-goal="' + g.id + '">+ Этап</button>' +
+      (touchUI() ? '' :
+        '<button class="btn sm soft" data-act="edit-goal" data-goal="' + g.id + '">Править</button>' +
+        '<button class="btn sm soft" data-act="kill-goal" data-goal="' + g.id + '">Удалить цель</button>') +
 
     '</div>';
 
@@ -4920,8 +4975,8 @@ function vLists(){
     // Не одна большая кнопка, а карточка с кнопкой внутри: переименовать и
     // удалить теперь можно прямо отсюда, не заходя внутрь. Кнопку в кнопку
     // браузер не пускает, поэтому обёртка — обычный article.
-    html += '<article class="card row-card" data-list="' + l.id + '">' +
-      '<button class="main swipe-face" data-act="open-list" data-list="' + l.id + '">' +
+    html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-list="' + l.id + '">' +
+      '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-list" data-list="' + l.id + '">' +
         '<h3>' + esc(l.title) + '</h3>' +
         '<p class="sub">Готово ' + d + ' из ' + l.items.length + '</p>' +
         '<div style="margin-top:12px"><div class="bar slim"><i style="width:' + pct(d, l.items.length) + '%"></i></div></div>' +
@@ -4973,8 +5028,8 @@ function vNotes(){
   html += '<div class="acts" style="margin:0 0 16px"><button class="btn" data-act="new-note">+ Новая запись</button></div>';
   for (var i = 0; i < S.notes.length; i++){
     var n = S.notes[i];
-    html += '<article class="card row-card" data-note="' + n.id + '">' +
-      '<button class="main swipe-face" data-act="open-note" data-note="' + n.id + '">' +
+    html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-note="' + n.id + '">' +
+      '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-note" data-note="' + n.id + '">' +
         '<h3>' + esc(n.title) + '</h3>' +
         '<p class="sub">' + esc(n.body ? n.body.slice(0, 120) : 'Пустая запись') + '</p>' +
       '</button>' +
@@ -4992,13 +5047,26 @@ function vNote(){
   if (!n) return head('', 'Заметка не найдена', 'notes') +
     blank(NAV_ICONS.notes, 'Похоже, она уже была удалена', 'Вернись к заметкам.', 'go', 'Заметки', ' data-view="notes"');
 
-  var html = head('', n.title, 'notes');
-  html += '<section class="card">' +
-    '<textarea class="note-field" data-notebody="' + n.id + '" placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>' +
-    '<p class="hint">Сохраняется по мере набора — заметка, которую надо не забыть сохранить, это заметка, которую теряют.</p>' +
-    '<div class="acts"><button class="btn sm soft" data-act="kill-note" data-note="' + n.id + '">Удалить запись</button></div>' +
-  '</section>';
-  return html;
+  /* Поле во всю карточку, без пояснений и кнопок.
+
+     Было три лишних вещи разом. Карточка внутри карточки — поле со своей
+     рамкой внутри блока со своей: две рамки на пустом месте и двойное поле по
+     краям, а пишут в заметке длинный текст, и место там дороже всего.
+     Пояснение «сохраняется по мере набора» — правда, но человек читает её
+     один раз, а занимает она строку всегда. Кнопка «Удалить запись» под
+     текстом: удаление живёт в списке записей на свайпе, и держать его ещё и
+     здесь, где на него можно ткнуть промахнувшись мимо текста, незачем. */
+  if (!touchUI()){
+    return head('', n.title, 'notes') +
+      '<section class="card">' +
+        '<textarea class="note-field" data-notebody="' + n.id + '" placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>' +
+        '<p class="hint">Сохраняется по мере набора — заметка, которую надо не забыть сохранить, это заметка, которую теряют.</p>' +
+        '<div class="acts"><button class="btn sm soft" data-act="kill-note" data-note="' + n.id + '">Удалить запись</button></div>' +
+      '</section>';
+  }
+  return head('', n.title, 'notes') +
+    '<textarea class="note-field solo" data-notebody="' + n.id + '" ' +
+      'placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>';
 }
 
 /* ---- помодоро ---- */
@@ -9755,7 +9823,32 @@ document.addEventListener('focusin', function(event){
   var node = event.target;
   if (!node || !node.tagName) return;
   var tag = node.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || node.isContentEditable) setKeyboardMode(true);
+  if (tag !== 'INPUT' && tag !== 'TEXTAREA' && !node.isContentEditable) return;
+  setKeyboardMode(true);
+
+  /* Поле, в которое встали, должно быть видно.
+
+     Окна прокручиваются внутри себя, и клавиатура закрывает нижнюю их треть.
+     Встав в поле у нижнего края, человек печатал вслепую и подтягивал окно
+     рукой. Браузер сам подкручивает не всегда: он смотрит на видимую область
+     страницы, а не на прокручиваемую коробку окна.
+
+     Задержка — не для красоты: клавиатура выезжает не мгновенно, и прокрутка
+     до её появления промахнётся ровно на её высоту. */
+  setTimeout(function(){
+    if (document.activeElement !== node) return;
+    var коробка = node.closest('.modal-in');
+    if (!коробка) return;
+    var поле = node.getBoundingClientRect();
+    var окно = коробка.getBoundingClientRect();
+    // Оставляем поле не впритык к краю: под ним обычно подпись или подсказка.
+    var запас = 24;
+    if (поле.bottom > окно.bottom - запас){
+      коробка.scrollTop += поле.bottom - окно.bottom + запас;
+    } else if (поле.top < окно.top + запас){
+      коробка.scrollTop -= окно.top + запас - поле.top;
+    }
+  }, 260);
 });
 document.addEventListener('focusout', function(){ setKeyboardMode(false); });
 
