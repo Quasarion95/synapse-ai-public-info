@@ -9,6 +9,12 @@
          момент нажатия, а не на запуске. Приложение остаётся полностью
          работоспособным при отказе. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Короткий отклик, когда карточка поднялась на перетаскивание. Без
+         этого разрешения navigator.vibrate в WebView молча ничего не делает,
+         и жест кажется несработавшим: карточка уже взята, а рука об этом не
+         знает. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <!-- Без этого система не покажет нам установленный распознаватель речи, и

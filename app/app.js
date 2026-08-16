@@ -9657,7 +9657,12 @@ document.addEventListener('pointerdown', function(event){
       item.style.touchAction = 'none';
       item.classList.add('dragging');
       openEmptyDropZones();
-      if (navigator.vibrate) navigator.vibrate(8);
+      /* Отклик в руку — 18 миллисекунд, а не восемь.
+
+         Восемь на этом телефоне не чувствуются вовсе: короткий импульс мотор
+         не успевает раскрутить. Восемнадцать — это уже щелчок, но ещё не
+         тревога. */
+      if (navigator.vibrate) { try { navigator.vibrate(18); } catch (e){} }
     }, HOLD_MS)
   };
 });

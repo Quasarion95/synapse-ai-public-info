@@ -281,7 +281,16 @@ select.inp{appearance:none}
 .item.swipe.open > .detail-wrap{padding:0 10px 8px 11px}
 /* Карточка в руке едет за пальцем сама и без задержки: переход на ней
    превратил бы жест в вязкое перетягивание. */
-.item.dragging{transition:none; z-index:4; opacity:.92; box-shadow:var(--shadow-lift); cursor:grabbing}
+/* Карточку под пальцем ведём без перехода, соседей — с переходом.
+
+   Переход на всех сразу и давал ту дёрганость: карточка догоняла палец с
+   задержкой в шестую долю секунды и постоянно промахивалась мимо него, а
+   соседи, наоборот, перескакивали мгновенно, потому что их сдвиг шёл тем же
+   правилом, что и рывок несомой. Теперь наоборот: несомая приклеена к пальцу,
+   соседи расступаются плавно. */
+.item.dragging{transition:none; z-index:4; opacity:.96; cursor:grabbing;
+  box-shadow:var(--shadow-lift); transform-origin:center}
+.dragging-now .item:not(.dragging){transition:transform .18s cubic-bezier(.2,.8,.3,1)}
 @media (prefers-reduced-motion:reduce){ .item{transition:none} }
 .item-main{display:flex; gap:10px; align-items:flex-start}
 /* ---- отметка выполнения ---- */
@@ -421,9 +430,17 @@ select.inp{appearance:none}
 
    У них поле держит сама строка, и лицо оказалось бы уже её: те же кнопки,
    выглядывающие из-под закрытой строки, что уже ловили у задач. */
-.finrow.swipe, .payrow.swipe{padding:0}
-.finrow.swipe > .swipe-face, .payrow.swipe > .swipe-face{
-  display:flex; align-items:center; gap:10px; width:100%; padding:9px 12px}
+.finrow.swipe{padding:0}
+.finrow.swipe > .swipe-face{display:flex; align-items:center; gap:10px; width:100%;
+  padding:9px var(--fin-pad, 18px)}
+
+/* У платежей строка — сетка из четырёх колонок, и обёртка стала одной её
+   клеткой: лицо вышло на 88 пикселей уже строки, и кнопки торчали из-под
+   него. Сетку теперь несёт само лицо, а строка становится простым блоком. */
+.payrow.swipe{display:block; padding:0}
+.payrow.swipe > .swipe-face{display:grid;
+  grid-template-columns:minmax(0,1fr) 92px 100px auto;
+  align-items:center; gap:10px; padding:10px var(--fin-pad, 18px)}
 .debtrow.swipe{padding:0}
 .debtrow.swipe > .swipe-face{padding:11px 13px}
 /* Значки были символами шрифта (⇅ ✎ ✕): в разных браузерах разной толщины,
