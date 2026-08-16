@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView web;
     private VoiceBridge голос;
+    private NotifyBridge напоминания;
     private String код;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -219,6 +220,13 @@ public class MainActivity extends AppCompatActivity {
         голос = new VoiceBridge(this, web);
         web.addJavascriptInterface(голос, "AndroidVoice");
 
+        /* Напоминания. Канал заводим здесь, а не при первом показе: без него
+           уведомление на Android 8+ молча не появится, а узнать об этом можно
+           было бы только пропустив первое же напоминание. */
+        ПоказатьНапоминание.завестиКанал(this);
+        напоминания = new NotifyBridge(this);
+        web.addJavascriptInterface(напоминания, "AndroidNotify");
+
         setContentView(web);
 
         /* Кнопка «назад» ходит по разделам, а не закрывает приложение.
@@ -307,6 +315,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(code, permissions, results);
+        if (code == NotifyBridge.ЗАПРОС_УВЕДОМЛЕНИЙ){
+            // Страница сама решит, что делать: разрешили — поставит будильники,
+            // отказали — вернёт переключатель в положение «выключено».
+            boolean дали = results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            web.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('android-notify',{detail:{granted:" + дали + "}}))", null);
+            return;
+        }
         if (code != VoiceBridge.ЗАПРОС_МИКРОФОНА) return;
         boolean дали = results.length > 0
                 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;

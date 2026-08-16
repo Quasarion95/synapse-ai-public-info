@@ -2099,3 +2099,30 @@ button.fintile:hover{background:var(--soft)}
 .medown .mu{font-size:13.5px; color:var(--fg-3)}
 .medown.on .mu{color:var(--bg); opacity:.75}
 
+
+/* ---- строка с переключателем (настройки приложения) ---- */
+/* Раньше в настройках были только наборы кнопок-радио: «включено/выключено»
+   ими выражается плохо — две кнопки на два состояния занимают строку и всё
+   равно требуют прочесть обе. */
+.switchrow{
+  display:flex; align-items:center; gap:14px; width:100%;
+  background:none; border:0; padding:11px 0; text-align:left; color:var(--fg);
+  border-top:1px solid var(--line); cursor:pointer;
+}
+.switchrow:first-child{border-top:0}
+.sw-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+.sw-text b{font-size:14.5px; font-weight:600}
+.sw-text i{font-style:normal; font-size:12.5px; color:var(--fg-3); line-height:1.35}
+.sw-knob{
+  flex:none; width:44px; height:26px; border-radius:999px;
+  background:var(--soft-2); position:relative; transition:background .16s ease;
+}
+.sw-knob::after{
+  content:''; position:absolute; top:3px; left:3px; width:20px; height:20px;
+  border-radius:999px; background:var(--card); box-shadow:var(--shadow);
+  transition:transform .16s cubic-bezier(.2,.8,.3,1);
+}
+.switchrow[aria-pressed="true"] .sw-knob{background:var(--accent)}
+.switchrow[aria-pressed="true"] .sw-knob::after{transform:translateX(18px)}
+.switchrow:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:8px}
+@media (prefers-reduced-motion:reduce){ .sw-knob, .sw-knob::after{transition:none} }

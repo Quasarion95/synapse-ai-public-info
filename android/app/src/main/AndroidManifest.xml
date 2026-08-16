@@ -15,6 +15,17 @@
          и жест кажется несработавшим: карточка уже взята, а рука об этом не
          знает. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Напоминания о задачах, целях и брифинге. С Android 13 разрешение
+         спрашивается в момент, когда человек включил напоминания в настройках
+         приложения, а не на запуске. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Будильник переживает засыпание системы: напоминание в 9 утра бесполезно,
+         если придёт, когда телефон проснётся сам. Точное время не просим — для
+         напоминания хватает окна в четверть часа, а разрешение на точные
+         будильники магазины смотрят придирчиво. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <!-- Без этого система не покажет нам установленный распознаватель речи, и
@@ -62,5 +73,11 @@
                 <data android:scheme="synapse" android:host="activate" />
             </intent-filter>
         </activity>
-    </application>
+    
+        <!-- Показывает напоминание, когда приложение закрыто. exported=false:
+             будить его вправе только наш будильник, снаружи звать незачем. -->
+        <receiver
+            android:name=".ПоказатьНапоминание"
+            android:exported="false" />
+</application>
 </manifest>

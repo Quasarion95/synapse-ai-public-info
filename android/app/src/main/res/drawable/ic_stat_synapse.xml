@@ -1,0 +1,27 @@
+<!--
+  Значок в строке состояния.
+
+  Система рисует его одним цветом по силуэту: цветную марку она превратила бы
+  в белое пятно. Поэтому здесь тот же граф, что и в логотипе, но контуром —
+  четыре узла и связи между ними, различимые в двадцать четыре пикселя.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+
+    <!-- Связи. Рисуются первыми, чтобы узлы легли поверх стыков. -->
+    <path
+        android:strokeWidth="1.6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:pathData="M5.6,15.4 L11,7.2 M11,7.2 L18.4,10.4 M18.4,10.4 L13.6,18.2 M13.6,18.2 L5.6,15.4" />
+
+    <!-- Узлы. -->
+    <path android:fillColor="#FFFFFF" android:pathData="M5.6,13.2 m-2.4,0 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M11,7.2 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M18.4,10.4 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M13.6,18.2 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0" />
+</vector>

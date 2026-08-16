@@ -38,6 +38,118 @@ function seedDay(offset){
   return day.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
 }
 
+/* ============ НАПОМИНАНИЯ ============ */
+
+/* Что напомнить — решает страница, показать — система.
+
+   Правила живут здесь, потому что здесь записи. Если бы их продублировали на
+   Java, две копии разошлись бы в первый же вечер: тут поменяли определение
+   «требует внимания», там забыли.
+
+   Мост принимает готовый список и заменяет им прежний целиком. Разбираться,
+   что изменилось со вчера, незачем: задач в дне десятки.
+
+   Ежедневные брифинг и отчёт помечены особо — они переставляют себя сами, уже
+   на стороне системы. Иначе утренний план пришёл бы один раз: чтобы переставить
+   его на завтра, надо открыть приложение, а человек, которому нужен план на
+   утро, как раз до него приложение и не открывает. */
+
+function уведомленияДоступны(){
+  return inApp() && typeof window.AndroidNotify !== 'undefined';
+}
+
+/// Ближайший момент с заданным временем: сегодня, если ещё не прошло, иначе завтра.
+function ближайшее(время){
+  var ч = parseInt(String(время).slice(0, 2), 10) || 0;
+  var м = parseInt(String(время).slice(3, 5), 10) || 0;
+  var д = new Date();
+  д.setHours(ч, м, 0, 0);
+  if (д.getTime() <= Date.now()) д.setDate(д.getDate() + 1);
+  return д.getTime();
+}
+
+/// Момент задачи: её собственные дата и время.
+function когдаЗадача(t){
+  if (!t.date || !t.time) return 0;
+  var ч = parseInt(t.time.slice(0, 2), 10) || 0;
+  var м = parseInt(t.time.slice(3, 5), 10) || 0;
+  var д = new Date(t.date + 'T00:00:00');
+  if (isNaN(д.getTime())) return 0;
+  д.setHours(ч, м, 0, 0);
+  return д.getTime();
+}
+
+function собратьНапоминания(){
+  var н = S.notify || {};
+  var список = [];
+  if (!н.on) return список;
+
+  var сейчас = Date.now();
+
+  if (н.tasks){
+    // Задачи со временем — о каждой в её час. Выполненные молчат.
+    liveTasks().forEach(function(t){
+      if (t.done) return;
+      var когда = когдаЗадача(t);
+      if (когда <= сейчас) return;
+      /* Заголовок — само дело, второй строкой контекст. Сперва писал в обе
+         строки одно и то же («Позвонить в клинику» / «Пора: Позвонить в
+         клинику») — уведомление занимало два ряда, чтобы сказать одно. */
+      var цель = t.goalId ? findGoal(t.goalId) : null;
+      список.push({ когда: когда, заголовок: t.title,
+        текст: (цель ? 'Цель: ' + цель.title + ' · ' : '') + 'на ' + t.time });
+    });
+  }
+
+  if (н.goals){
+    /* Цель напоминает о себе накануне срока, а не в сам день: цель — это не
+       задача на пятнадцать минут, и «сегодня последний день» приходит поздно. */
+    (S.goals || []).forEach(function(g){
+      if (!g.targetDate) return;
+      var д = new Date(g.targetDate + 'T09:00:00');
+      if (isNaN(д.getTime())) return;
+      д.setDate(д.getDate() - 1);
+      var п = goalProgress(g);
+      if (д.getTime() > сейчас){
+        список.push({ когда: д.getTime(), заголовок: 'Завтра срок цели',
+          текст: g.title + ' — пройдено ' + pct(п.done, п.total) + '%' });
+      }
+    });
+  }
+
+  if (н.brief){
+    var сегодня = liveTasks().filter(function(t){ return t.bucket === 'today'; });
+    var просрочено = liveTasks().filter(isOverdue).length;
+    var осталось = сегодня.filter(function(t){ return !t.done; }).length;
+
+    список.push({ когда: ближайшее(н.morning || '08:00'), ежедневно: true,
+      заголовок: 'План на день',
+      текст: сегодня.length
+        ? 'На сегодня ' + taskCount(сегодня.length) +
+          (просрочено ? ', и ' + просрочено + ' ждут со вчера' : '') + '. С чего начнём?'
+        : 'На сегодня пока пусто. Что важно успеть?' });
+
+    список.push({ когда: ближайшее(н.evening || '21:00'), ежедневно: true,
+      заголовок: 'Как прошёл день',
+      текст: сегодня.length
+        ? 'Закрыто ' + (сегодня.length - осталось) + ' из ' + сегодня.length +
+          (осталось ? '. Осталось ' + осталось + ' — перенести на завтра?' : '. Всё сделано.')
+        : 'Задач на сегодня не было. Наметить что-то на завтра?' });
+  }
+
+  // По времени: номера в мосте раздаются по порядку, и ближайшее должно
+  // получить место даже если дальних набралось больше предела.
+  список.sort(function(a, b){ return a.когда - b.когда; });
+  return список;
+}
+
+function пересобратьНапоминания(){
+  if (!уведомленияДоступны()) return;
+  try {
+    window.AndroidNotify.reschedule(JSON.stringify(собратьНапоминания()));
+  } catch (e){}
+}
+
 /* ============ БЛОКИ ДНЯ ============ */
 
 /* Порядок, названия и подписи — из TaskBucket в Models.swift. День, в котором
@@ -134,6 +246,9 @@ function seed(){
     fontSize: touchUI() ? 'compact' : 'standard',
     box: 'square',
     markColor: 'default',
+    /* Напоминания — только в приложении: в браузере их показывать нечем.
+       Времена хранятся строкой ЧЧ:ММ, как и всё остальное время в сервисе. */
+    notify: { on: false, tasks: true, goals: true, brief: true, morning: '08:00', evening: '21:00' },
     hintSeen: false,
     // Обучение показывается, пока не пройдено или пока его не закрыли руками.
     tourDone: false,
@@ -259,6 +374,7 @@ function load(){
     // Тем, у кого стояла системная, ставим ту, которую они и видели.
     if (parsed.theme !== 'light' && parsed.theme !== 'dark') parsed.theme = systemPrefersDark() ? 'dark' : 'light';
     if (!parsed.mm) parsed.mm = { zoom: 1 };
+    if (!parsed.notify) parsed.notify = { on: false, tasks: true, goals: true, brief: true, morning: '08:00', evening: '21:00' };
     if (!parsed.closed) parsed.closed = {};
     if (!parsed.open) parsed.open = {};
     if (!parsed.profile) parsed.profile = { name: '', avatar: '' };
@@ -5807,6 +5923,16 @@ function settingsRow(label, body, cols){
   '</div>';
 }
 
+/// Строка «название — переключатель». Своего компонента для этого не было:
+/// в настройках до сих пор были только наборы кнопок-радио.
+function строкаПереключателя(название, действие, включено, пояснение){
+  return '<button class="switchrow" data-act="' + действие + '" aria-pressed="' + !!включено + '">' +
+    '<span class="sw-text"><b>' + esc(название) + '</b>' +
+      (пояснение ? '<i>' + esc(пояснение) + '</i>' : '') + '</span>' +
+    '<span class="sw-knob" aria-hidden="true"></span>' +
+  '</button>';
+}
+
 function vSettingsView(){
   // Ни «Настройки», ни «Вид» тут не нужны: человек пришёл нажатием на
   // «Вид», кнопка «Назад» говорит откуда, а два заголовка съедали верх
@@ -5818,6 +5944,29 @@ function vSettingsView(){
      Внизу его не было видно: меняешь палитру наверху — а результат за краем
      экрана, и приходится листать туда-обратно после каждого нажатия. Теперь
      карточка прямо под шапкой: любое изменение видно, не сходя с места. */
+  /* Напоминания — только в приложении: в браузере их показывать нечем, и
+     переключатель, который ничего не делает, хуже его отсутствия. */
+  if (уведомленияДоступны()){
+    var н = S.notify;
+    html += '<p class="lbl">Напоминания</p><section class="card">' +
+      строкаПереключателя('Напоминать', 'notify-on', н.on,
+        'Задачи со временем, сроки целей, план утром и итог вечером.') +
+      (н.on
+        ? строкаПереключателя('О задачах со временем', 'notify-tasks', н.tasks, '') +
+          строкаПереключателя('О сроках целей', 'notify-goals', н.goals, 'Накануне дня цели.') +
+          строкаПереключателя('План и итог дня', 'notify-brief', н.brief, '') +
+          (н.brief
+            ? '<div class="rowadd" style="margin-top:10px">' +
+                '<label class="hint" style="flex:1">Утром' +
+                  '<input class="inp" type="time" value="' + esc(н.morning) + '" data-notify-time="morning"></label>' +
+                '<label class="hint" style="flex:1">Вечером' +
+                  '<input class="inp" type="time" value="' + esc(н.evening) + '" data-notify-time="evening"></label>' +
+              '</div>'
+            : '')
+        : '') +
+    '</section>';
+  }
+
   html += '<div class="preview-dock">' +
     '<p class="lbl">Как это выглядит</p>' +
     '<section class="card preview">' +
@@ -8238,6 +8387,9 @@ function commit(message){
   // всплывало бы снова при каждом открытии страницы.
   if (message) pendingToast = message;
   save();
+  // Расписание пересобирается после любой правки: задача закрылась, время
+  // сдвинули, цель удалили — система об этом сама не узнает.
+  пересобратьНапоминания();
   render();
 }
 
@@ -9478,6 +9630,21 @@ var ACTS = {
     commit('Запись в корзине');
   },
 
+  /* --- напоминания --- */
+  'notify-on': function(){
+    if (!S.notify.on && window.AndroidNotify && !window.AndroidNotify.permitted()){
+      // Спрашиваем разрешение в момент включения, а не на запуске: тут понятно,
+      // за что его просят. Ответ придёт событием, там и включим.
+      window.AndroidNotify.ask();
+      return;
+    }
+    S.notify.on = !S.notify.on;
+    commit(S.notify.on ? 'Напоминания включены' : 'Напоминания выключены');
+  },
+  'notify-tasks': function(){ S.notify.tasks = !S.notify.tasks; commit(); },
+  'notify-goals': function(){ S.notify.goals = !S.notify.goals; commit(); },
+  'notify-brief': function(){ S.notify.brief = !S.notify.brief; commit(); },
+
   /* --- помодоро --- */
   'pomo-mode': function(d){
     if (!lookOpen('pomoModes', порядковыйРежима(d.mode))) return openModal(modalLookPaywall('режим'));
@@ -9601,6 +9768,8 @@ document.addEventListener('submit', function(event){
    блок появился. Через класс, а не перерисовкой: перерисовка стёрла бы уже
    заполненные поля модалки. */
 document.addEventListener('change', function(event){
+  var поле = event.target.getAttribute && event.target.getAttribute('data-notify-time');
+  if (поле){ S.notify[поле] = event.target.value || S.notify[поле]; commit(); return; }
   // Своя длительность применяется, когда поле отпустили: пересчитывать на
   // каждой цифре значит менять круг с «1» на «14» по дороге к «140».
   if (event.target.id === 'medown'){ ACTS['med-own']({}); return; }
@@ -10771,4 +10940,19 @@ rolloverIfNeeded();
 if (finRunRecurring()) save();
 finSyncJarStages();
 render();
+// При каждом открытии переставляем будильники: время прошло, задачи закрылись,
+// а система про это не знает.
+пересобратьНапоминания();
+
+/* Ответ системы на просьбу о разрешении. Дали — включаем и ставим будильники,
+   отказали — говорим прямо, где это переключается, и не делаем вид, что
+   напоминания работают. */
+window.addEventListener('android-notify', function(e){
+  if (e.detail && e.detail.granted){
+    S.notify.on = true;
+    commit('Напоминания включены');
+  } else {
+    toast('Android не разрешил уведомления. Включить их можно в настройках телефона.');
+  }
+});
 registerServiceWorker();
