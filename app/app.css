@@ -985,6 +985,17 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   box-shadow:0 -14px 16px -12px rgba(0,0,0,.16)}
 .modal-foot .acts{margin-top:10px}
 
+/* Цена в окне лимита: две строки, цифра крупно.
+
+   Без неё окно предлагало «подключить» неизвестно за сколько, и первый вопрос
+   человека — «а сколько это стоит» — оставался без ответа ровно в тот момент,
+   когда он готов был решить. */
+.paywall-price{display:grid; grid-template-columns:auto 1fr; gap:4px 10px;
+  align-items:baseline; margin:14px 0 4px; padding:12px 14px;
+  background:var(--soft); border-radius:var(--r-md)}
+.paywall-price b{font-family:var(--mono); font-size:17px; letter-spacing:-.02em; white-space:nowrap}
+.paywall-price span{font-size:13px; color:var(--fg-2)}
+
 .modal-in h3{font-size:21px; margin-bottom:6px}
 .modal-in .s{font-size:13.5px; color:var(--fg-2); margin-bottom:18px}
 .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; background:var(--fg); color:var(--bg); border-radius:999px; padding:11px 20px; font-size:14px; z-index:90; box-shadow:var(--shadow-lift); max-width:calc(100% - 32px)}

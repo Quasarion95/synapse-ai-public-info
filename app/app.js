@@ -6490,16 +6490,36 @@ function synOfferPro(){
   setTimeout(function(){ openModal(modalSynPaywall()); }, 700);
 }
 
+/* Окно должно вести к покупке, а не к ожиданию.
+
+   Первая версия предлагала «подождать до завтра» — и это была честная, но
+   вредная кнопка: человек, которому ассистент нужен прямо сейчас, получал
+   готовый повод ничего не решать. Ждать он и так может, ему для этого кнопка
+   не нужна: достаточно закрыть окно.
+
+   Поэтому здесь названы цена и то, что за неё дают, а не то, когда всё
+   починится само. Недельный тариф стоит первым: 149 рублей — это решение на
+   один вечер, а не обязательство на год, и именно с него начинают. */
 function modalSynPaywall(){
   var limit = (SYN.quota && SYN.quota.limit) || FREE_SYN_LIMIT;
-  return '<h3>На сегодня всё</h3>' +
-    '<p class="s">Бесплатно Syn отвечает ' + limit + ' раз в сутки — счётчик обнулится завтра. ' +
-      'В подписке обращений столько, сколько нужно, плюс утренний план, вечерний отчёт и память между разговорами.</p>' +
-    '<button class="btn full" data-act="go" data-view="subscription">Смотреть тарифы</button>' +
+  var неделя = planPrice('pro.weekly'), месяц = planPrice('pro.monthly');
+  return '<h3>Syn на сегодня закончился</h3>' +
+    '<p class="s">Бесплатно он отвечает ' + limit + ' раз в сутки. В подписке — ' +
+      PRO_SYN_LIMIT + ', плюс утренний план, вечерний отчёт и память между разговорами.</p>' +
+    '<div class="paywall-price">' +
+      '<b>' + неделя + '</b><span>за неделю, чтобы попробовать</span>' +
+      '<b>' + месяц + '</b><span>за месяц</span>' +
+    '</div>' +
+    '<button class="btn full" data-act="go" data-view="subscription">Подключить Pro</button>' +
     '<div class="acts pair">' +
       '<button class="btn soft" data-act="pro-code">У меня есть код</button>' +
-      '<button class="btn soft" data-act="close-modal">Подожду до завтра</button>' +
+      '<button class="btn soft" data-act="close-modal">Закрыть</button>' +
     '</div>';
+}
+
+function planPrice(id){
+  for (var i = 0; i < PLANS.length; i++) if (PLANS[i].id === id) return PLANS[i].price;
+  return '';
 }
 
 function synErrorText(error){
@@ -7904,12 +7924,20 @@ function modalKillGoal(goal){
    что именно кончилось и что с этим делать. Две кнопки — тарифы и код, потому
    что часть людей уже купила подписку на сайте. */
 function modalPaywall(kind){
+  // «Не сейчас» звучало как предложение отложить, и его выбирали по инерции.
+  // Отказаться можно и «Закрыть», а звать окно должно к тому, ради чего оно
+  // открылось.
   return '<h3>Дальше — в подписке</h3>' +
-    '<p class="s">' + esc(limitReason(kind)) + ' В Synapse Pro их сколько угодно.</p>' +
-    '<button class="btn full" data-act="go" data-view="subscription">Смотреть тарифы</button>' +
+    '<p class="s">' + esc(limitReason(kind)) + ' В Synapse Pro их сколько угодно — ' +
+      'вместе с ассистентом, брифингами и памятью между разговорами.</p>' +
+    '<div class="paywall-price">' +
+      '<b>' + planPrice('pro.weekly') + '</b><span>за неделю, чтобы попробовать</span>' +
+      '<b>' + planPrice('pro.monthly') + '</b><span>за месяц</span>' +
+    '</div>' +
+    '<button class="btn full" data-act="go" data-view="subscription">Подключить Pro</button>' +
     '<div class="acts pair">' +
       '<button class="btn soft" data-act="pro-code">У меня есть код</button>' +
-      '<button class="btn soft" data-act="close-modal">Не сейчас</button>' +
+      '<button class="btn soft" data-act="close-modal">Закрыть</button>' +
     '</div>';
 }
 
