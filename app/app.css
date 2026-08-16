@@ -334,8 +334,7 @@ select.inp{appearance:none}
    соседи, наоборот, перескакивали мгновенно, потому что их сдвиг шёл тем же
    правилом, что и рывок несомой. Теперь наоборот: несомая приклеена к пальцу,
    соседи расступаются плавно. */
-.item.dragging{transition:none; z-index:4; opacity:.96; cursor:grabbing;
-  box-shadow:var(--shadow-lift); transform-origin:center}
+.item.dragging{transition:none; cursor:grabbing; transform-origin:center}
 
 /* В приложении карточку под пальцем видно, что подняли.
 
@@ -344,7 +343,7 @@ select.inp{appearance:none}
    тенью и шире списка: выходит за его поля с обеих сторон, как лист, который
    вынули из стопки. Ширину даём отрицательными полями, а не масштабом — от
    scale текст мылится. */
-.touch .item.dragging{
+.item.dragging.lifted{
   opacity:1; z-index:60;
   /* Несомая карточка не участвует в поиске «что под пальцем».
 
@@ -358,7 +357,7 @@ select.inp{appearance:none}
   background:var(--card);
   box-shadow:0 10px 26px rgba(20,22,26,.20), 0 2px 6px rgba(20,22,26,.10);
 }
-.touch .item.dragging > .swipe-face{background:var(--card); padding-left:6px; padding-right:6px}
+.item.dragging.lifted > .swipe-face{background:var(--card); padding-left:6px; padding-right:6px}
 
 /* У раскрытой карточки свайпа нет.
 
@@ -521,11 +520,11 @@ select.inp{appearance:none}
    Селектор составной, без пробела: и in-app, и dragging-now висят на одном и
    том же элементе — на корне страницы. С пробелом это читается как «потомок»,
    и правило не совпадало ни разу; рамку владелец так и видел. */
-.touch.dragging-now .tasklist.over{background:none; outline:none}
-.touch.dragging-now .tasklist{min-height:0}
+.dragging-now .tasklist.over{background:none; outline:none}
+.dragging-now .tasklist{min-height:0}
 /* Свёрнутый день подсвечиваем шапкой: списка там нет, а понимать, куда
    целишься, надо. */
-.touch.dragging-now .group.over > .group-h{background:var(--soft); border-radius:var(--r-sm)}
+.dragging-now .group.over > .group-h{background:var(--soft); border-radius:var(--r-sm)}
 
 /* Финансовые строки — те же правила, но своё поле у лица.
 
@@ -2128,3 +2127,9 @@ button.fintile:hover{background:var(--soft)}
 @media (prefers-reduced-motion:reduce){ .sw-knob, .sw-knob::after{transition:none} }
 
 .in-app .toast{bottom:188px}
+
+/* Под курсором карточка не раздувается: мышью её не сдвигают вбок, и лишние
+   двенадцать пикселей ширины только сбивают прицел. Тень и слой остаются —
+   поднятой она должна выглядеть в любом случае. */
+.item.dragging.мышью{cursor:grabbing}
+.dragging-now, .dragging-now *{cursor:grabbing !important; user-select:none}

@@ -1892,17 +1892,16 @@ function touchUI(){
     window.matchMedia('(hover: none) and (pointer: coarse)').matches);
 }
 
-/* Кому положено перетаскивание пальцем.
+/* Признак «этим устройством носят пальцем».
 
-   Сенсорному вводу — потому что с телефона сайт листают тем же пальцем, а
-   браузерный механизм перетаскивания на сенсоре не работает вовсе: ни dragstart,
-   ни drop туда не приходят.
+   Нужен не для того, чтобы решить, работает перенос или нет — он работает
+   везде, — а чтобы выбрать, как его начинать. Пальцем карточку берут
+   удержанием: без него любая прокрутка списка утаскивала бы задачу. Мышью —
+   сразу, как только курсор сдвинулся с зажатой кнопкой: ждать треть секунды
+   с мышью незачем, это читается как тормоз.
 
-   И приложению — всегда, безусловно. Здесь не лишняя строчка: WebView на части
-   устройств и на эмуляторе отвечает, что наведение курсором доступно, и
-   touchUI() возвращает ложь. Полагайся мы только на него, приложение на таком
-   аппарате осталось бы вообще без переноса — а это телефон, других способов
-   переложить задачу там нет. */
+   Приложение здесь не лишнее слово: WebView на части устройств и на эмуляторе
+   отвечает, что наведение курсором доступно, и touchUI() возвращает ложь. */
 function жестПальцем(){
   return inApp() || touchUI();
 }
@@ -9967,157 +9966,14 @@ document.addEventListener('keydown', function(event){
    под пальцем нельзя — карточка, которую держат, оказалась бы вырвана из
    дерева, а весь список бы дёрнулся. */
 
-/// Насколько элемент сейчас сдвинут нами. Хранится на самом узле: считать это
-/// из getBoundingClientRect нельзя — там уже учтён сам сдвиг.
-function shiftOf(node){ return node.__shift || 0; }
+/* Переложить задачу: сменить блок дня и встать на нужное место в списке.
 
-function setShift(node, value){
-  if (shiftOf(node) === value) return;
-  node.__shift = value;
-  node.style.transform = value ? 'translateY(' + value + 'px)' : '';
-}
+   Живёт отдельно от жеста намеренно: тем же самым пользуется кнопка «Перенести
+   в блок» в карточке — она нужна для клавиатуры и для случаев, когда жест не
+   вышел. Один порядок на оба способа.
 
-function clearShifts(){
-  var moved = document.querySelectorAll('.tasklist .item');
-  for (var i = 0; i < moved.length; i++) setShift(moved[i], 0);
-}
-
-/* Полный сброс вида после жеста — без оглядки на то, чем он кончился.
-
-   Прежняя уборка снимала сдвиг только с той карточки, ссылка на которую
-   лежала в состоянии переноса, и стояла ЗА проверкой «а состояние ещё есть?».
-   Жест, оборвавшийся не отпусканием, оставлял карточку висеть со своим
-   transform: в списке дыра, а сама она уехала за нижние блоки. Владелец
-   поймал это, утащив задачу ниже всех дней и отпустив там.
-
-   Теперь чистим всё, что могло остаться, по разметке, а не по памяти. */
-/// Положение карточки без нашего сдвига — для мышиного пути этого довольно:
-/// там раскладка под курсором не едет, потому что карточку несёт браузер.
-function baseTop(node){
-  return node.getBoundingClientRect().top - shiftOf(node);
-}
-
-/// Перед какой карточкой встанет перетаскиваемая мышью. По середине соседа:
-/// у курсора нет дрожания пальца, и усложнять здесь нечего.
-function dropTargetIn(zone, clientY){
-  var cards = zone.querySelectorAll('.item:not(.dragging)');
-  for (var i = 0; i < cards.length; i++){
-    if (clientY < baseTop(cards[i]) + cards[i].offsetHeight / 2) return cards[i].getAttribute('data-task');
-  }
-  return null;
-}
-
-/* Раздвинуть карточки так, чтобы щель оказалась там, куда сядет перенесённая.
-
-   Внутри своего блока карточка занимает своё место, поэтому соседи не
-   раздвигаются, а меняются с ней местами: те, через кого её пронесли, съезжают
-   на её высоту в обратную сторону. В чужом блоке щель открывается просто —
-   всё, что ниже места вставки, уезжает вниз. */
-/* Плашка на месте, куда сядет карточка.
-
-   Щели между соседями мало: она читается как «здесь чего-то не хватает», а не
-   «сюда попадёт». Закрашенный прямоугольник отвечает прямо, и его видно даже
-   когда карточка под пальцем закрывает пол-экрана.
-
-   Координату не вычисляем заново, а получаем из расстановки сдвигов: там уже
-   известно, между кем и кем открылась щель. Первая попытка считала её от
-   текущего положения несомой карточки — то есть от пальца, — и плашка уезжала
-   под соседнюю карточку, где её просто не было видно.
-
-   position:fixed, чтобы не зависеть от того, кто в предках создал систему
-   координат: у несомой карточки свой transform, а он такую систему создаёт. */
-/* Раздвинуть карточки так, чтобы щель оказалась там, куда сядет перенесённая.
-
-   Внутри своего блока карточка занимает своё место, поэтому соседи не
-   раздвигаются, а меняются с ней местами: те, через кого её пронесли, съезжают
-   на её высоту в обратную сторону. В чужом блоке щель открывается просто —
-   всё, что ниже места вставки, уезжает вниз. */
-/* Плашка на месте, куда сядет карточка.
-
-   Щели между соседями мало: она читается как «здесь чего-то не хватает», а не
-   «сюда попадёт». Закрашенный прямоугольник отвечает прямо, и его видно даже
-   когда карточка под пальцем закрывает пол-экрана.
-
-   Координату не вычисляем заново, а получаем из расстановки сдвигов: там уже
-   известно, между кем и кем открылась щель. Первая попытка считала её от
-   текущего положения несомой карточки — то есть от пальца, — и плашка уезжала
-   под соседнюю карточку, где её просто не было видно.
-
-   position:fixed, чтобы не зависеть от того, кто в предках создал систему
-   координат: у несомой карточки свой transform, а он такую систему создаёт. */
-
-/* Место посадки показывает сама щель между карточками, и ничего больше.
-
-   Здесь была закрашенная плашка. Она отставала от карточки, спорила с ней за
-   внимание и дважды вставала не туда из-за расчётов, которые я же и сломал.
-   Владелец справедливо сказал убрать: в руке едет карточка, соседи
-   расступаются — этого довольно, чтобы понять, куда она сядет. */
-function markDropSpot(zone, beforeId){
-  var dragged = document.querySelector('.item.dragging');
-  clearShifts();
-  if (!zone || !dragged) return;
-
-  var cards = [].slice.call(zone.querySelectorAll('.item'));
-  var gap = parseFloat(getComputedStyle(zone).rowGap) || 8;
-  var step = dragged.offsetHeight + gap;
-
-  var from = cards.indexOf(dragged);
-  var to = cards.length;
-  if (beforeId){
-    for (var i = 0; i < cards.length; i++){
-      if (cards[i].getAttribute('data-task') === beforeId){ to = i; break; }
-    }
-  }
-
-  if (from < 0){
-    for (var j = to; j < cards.length; j++) setShift(cards[j], step);
-    return;
-  }
-  if (to > from){
-    for (var k = from + 1; k < to; k++) setShift(cards[k], -step);
-  } else if (to < from){
-    for (var m = to; m < from; m++) setShift(cards[m], step);
-  }
-}
-
-/* Пустые блоки на время жеста. Их нет в разметке — пустой день не показывается
-   вовсе, — но перенести задачу в пустой день надо. Полосы добавляются прямо в
-   дерево и снимаются в конце: перерисовать экран нельзя, из него вырвало бы
-   карточку, которую держат. */
-function openEmptyDropZones(){
-  var host = $('app');
-  if (!host || S.view !== 'tasks' || host.querySelector('.empty-drop')) return;
-
-  var present = {};
-  var groups = host.querySelectorAll('.group[data-bucket]');
-  for (var i = 0; i < groups.length; i++) present[groups[i].getAttribute('data-bucket')] = groups[i];
-
-  BUCKETS.forEach(function(b, index){
-    if (present[b.id]) return;
-
-    var zone = document.createElement('section');
-    zone.className = 'group empty-drop';
-    zone.setAttribute('data-bucket', b.id);
-    zone.innerHTML = '<div class="tasklist" data-drop="' + b.id + '">' +
-      '<div class="dropnote">' + esc(b.title) + '</div></div>';
-
-    // Ставим по порядку блоков дня, а не в конец: «Завтра» между «Сегодня» и
-    // «Послезавтра», иначе пустые дни собьются в кучу внизу.
-    var after = null;
-    for (var j = index + 1; j < BUCKETS.length && !after; j++) after = present[BUCKETS[j].id];
-    if (after) host.insertBefore(zone, after);
-    else host.insertBefore(zone, host.querySelector('.composer') || null);
-    present[b.id] = zone;
-  });
-}
-
-function closeEmptyDropZones(){
-  var zones = document.querySelectorAll('.empty-drop');
-  for (var i = 0; i < zones.length; i++) zones[i].parentNode.removeChild(zones[i]);
-}
-
-/// Перенос карточки. Возвращает true, если сменился блок, — только тогда есть
-/// о чём говорить вслух.
+   Я эту функцию однажды снёс заодно с браузерным перетаскиванием, и перенос
+   молча перестал сохраняться: карточка ехала, отпускалась и возвращалась. */
 function dropTask(id, bucket, beforeId){
   var task = findTask(id);
   if (!task) return false;
@@ -10149,47 +10005,7 @@ function dropTask(id, bucket, beforeId){
   return changedBucket;
 }
 
-/// Общий конец жеста для обоих путей: снять сдвиги, убрать пустые полосы,
-/// погасить подсветку.
-function endDragVisuals(){
-  clearShifts();
-  closeEmptyDropZones();
-  var over = document.querySelectorAll('.tasklist.over');
-  for (var i = 0; i < over.length; i++) over[i].classList.remove('over');
-}
-
-document.addEventListener('dragstart', function(event){
-  var item = event.target.closest ? event.target.closest('[data-task]') : null;
-  if (!item || !item.classList.contains('item')) return;
-  S.drag = item.getAttribute('data-task');
-  item.classList.add('dragging');
-  document.documentElement.classList.add('dragging-now');
-  openEmptyDropZones();
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-});
-
-document.addEventListener('dragend', function(event){
-  var item = event.target.closest ? event.target.closest('.item') : null;
-  if (item) item.classList.remove('dragging');
-  document.documentElement.classList.remove('dragging-now');
-  S.drag = null;
-  endDragVisuals();
-});
-
-document.addEventListener('dragover', function(event){
-  var zone = event.target.closest ? event.target.closest('[data-drop]') : null;
-  if (!zone || !S.drag) return;
-  event.preventDefault();
-  zone.classList.add('over');
-  markDropSpot(zone, dropTargetIn(zone, event.clientY));
-});
-
-document.addEventListener('dragleave', function(event){
-  var zone = event.target.closest ? event.target.closest('[data-drop]') : null;
-  if (zone) zone.classList.remove('over');
-});
-
-/* --- перетаскивание пальцем --- */
+/* --- перетаскивание --- */
 
 /* Написано заново, после того как правки поверх правок перестали держаться.
 
@@ -10402,7 +10218,9 @@ function поправка(дни, день, целевой){
    поднимать рано: человек, возможно, просто листает список. */
 document.addEventListener('pointerdown', function(event){
   // Только приложение и только палец: у мыши свой путь через HTML5 drag.
-  if (!жестПальцем() || event.pointerType === 'mouse') return;
+  // Мышь теперь идёт этим же путём: браузерного перетаскивания больше нет.
+  var мышь = event.pointerType === 'mouse';
+  if (мышь && event.button !== 0) return;   // правая кнопка — не перенос
   var карточка = event.target.closest ? event.target.closest('.item[data-task]') : null;
   if (!карточка) return;
   // Отказываемся только от настоящих органов управления: название задачи —
@@ -10414,8 +10232,12 @@ document.addEventListener('pointerdown', function(event){
     узел: карточка,
     x0: event.clientX,
     y0: event.clientY,
+    мышь: мышь,
     активен: false,
-    таймер: setTimeout(function(){ поднять(event.clientY); }, HOLD_MS)
+    // Пальцу — удержание, мыши — движение. Таймера у мыши нет вовсе: она
+    // поднимет карточку в pointermove, как только курсор уедет на пять
+    // пикселей с зажатой кнопкой.
+    таймер: мышь ? null : setTimeout(function(){ поднять(event.clientY); }, HOLD_MS)
   };
 });
 
@@ -10428,6 +10250,9 @@ function поднять(y){
   НЕСУ.высота = к.height;
   НЕСУ.отступ = y - к.top;          // за какое место карточку держат
   document.documentElement.classList.add('dragging-now');
+  // Свайпы и вылет за поля списка — только у пальца: мышью карточку не
+  // сдвигают вбок, и раздувать её под курсором незачем.
+  if (НЕСУ.мышь) узел.classList.add('мышью');
 
   // Свайп и перенос начинаются одинаково; кто первым себя опознал, тот и ведёт.
   if (typeof swipe !== 'undefined' && swipe){
@@ -10439,19 +10264,21 @@ function поднять(y){
 
   var м = масштаб();
   НЕСУ.масштаб = м;
-  var вылет = 6;
+  var вылет = НЕСУ.мышь ? 0 : 6;
   узел.style.position = 'fixed';
   узел.style.left = ((к.left - вылет * м) / м) + 'px';
   узел.style.top = (к.top / м) + 'px';
   узел.style.width = ((к.width + вылет * 2 * м) / м) + 'px';
   узел.style.margin = '0';
   узел.classList.add('dragging');
+  // Вид поднятой карточки — общий для мыши и пальца.
+  узел.classList.add('lifted');
 
   // Снимок снимаем ПОСЛЕ выноса: список уже сомкнулся, и в снимке настоящее.
   НЕСУ.дни = снятьРаскладку(узел);
   НЕСУ.выбор = null;
 
-  if (navigator.vibrate){ try { navigator.vibrate(18); } catch (e){} }
+  if (!НЕСУ.мышь && navigator.vibrate){ try { navigator.vibrate(18); } catch (e){} }
   вести(y);
 }
 
@@ -10490,7 +10317,7 @@ function вести(y){
        как раз то место, где она случается. Двенадцать миллисекунд против
        восемнадцати на подъёме: подъём надо заметить, а это отметка «прошли
        ещё одну» — она должна ощущаться, но не спорить с подъёмом. */
-    if (прежний && navigator.vibrate){ try { navigator.vibrate(12); } catch (e){} }
+    if (прежний && !НЕСУ.мышь && navigator.vibrate){ try { navigator.vibrate(12); } catch (e){} }
   }
 
   подкрутить(y);
@@ -10524,8 +10351,11 @@ function подкрутить(y){
 document.addEventListener('pointermove', function(event){
   if (!НЕСУ) return;
   if (!НЕСУ.активен){
-    // Уехал пальцем до срабатывания удержания — значит, листает список.
-    if (Math.abs(event.clientX - НЕСУ.x0) + Math.abs(event.clientY - НЕСУ.y0) > 12) бросить();
+    var путь = Math.abs(event.clientX - НЕСУ.x0) + Math.abs(event.clientY - НЕСУ.y0);
+    /* Мышь: сдвинулась — берём карточку. Палец: сдвинулся до срабатывания
+       удержания — значит, человек листает список, и жест не наш. */
+    if (НЕСУ.мышь){ if (путь > 5) поднять(event.clientY); }
+    else if (путь > 12) бросить();
     return;
   }
   event.preventDefault();
@@ -10578,6 +10408,8 @@ function бросить(){
     э.style.transform = ''; э.style.position = ''; э.style.left = '';
     э.style.top = ''; э.style.width = ''; э.style.margin = ''; э.style.touchAction = '';
     э.classList.remove('dragging');
+    э.classList.remove('lifted');
+    э.classList.remove('мышью');
   }
   var метки = document.querySelectorAll('.over');
   for (var j = 0; j < метки.length; j++) метки[j].classList.remove('over');
@@ -10586,21 +10418,6 @@ function бросить(){
 
   if (НЕСУ){ clearTimeout(НЕСУ.таймер); НЕСУ = null; }
 }
-
-document.addEventListener('drop', function(event){
-  var zone = event.target.closest ? event.target.closest('[data-drop]') : null;
-  if (!zone || !S.drag) return;
-  event.preventDefault();
-  zone.classList.remove('over');
-  var id = S.drag;
-  var bucket = zone.getAttribute('data-drop');
-  var before = dropTargetIn(zone, event.clientY);
-  S.drag = null;
-  endDragVisuals();
-  if (before === id) return;
-  var changed = dropTask(id, bucket, before);
-  commit(changed ? 'Перенесено в «' + bucketTitle(bucket) + '»' : '');
-});
 
 /* --- высота левой колонки --- */
 
