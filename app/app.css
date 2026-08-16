@@ -684,14 +684,31 @@ select.inp{appearance:none}
    тянется вдоль всего этапа, поэтому видно, где он кончился, а фон остаётся
    один на всю цель. */
 .stage{
-  background:none; border-radius:0; margin-top:16px;
+  background:none; border-radius:0; margin-top:26px;
   padding:0 0 0 13px; border-left:2px solid var(--soft-2);
 }
-.stage:first-of-type{margin-top:12px}
+.stage:first-of-type{margin-top:14px}
 /* Пройденный этап гасит черту: список сверху вниз читается как «эти позади». */
 .stage.on{border-left-color:var(--ok)}
+
+/* «Этап 2» — номер строкой над названием.
+
+   Раскрытая цель читалась как один длинный список: заголовок этапа и название
+   задачи различались кеглем на пункт, и глазу не за что было зацепиться, где
+   кончается один уровень и начинается другой. Номер даёт и метку уровня, и
+   место в очереди — этапы идут последовательно, и «сколько ещё» больше не
+   надо считать строки. */
+.st-num{
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--fg-3); margin:0 0 5px;
+}
+.stage.on .st-num{color:var(--ok)}
+
+/* Заголовок этапа — заголовок, а не строка списка. Кегль и начертание
+   уводят его от названия задачи, которое идёт обычным текстом в 13.5. */
 .stage-h{display:flex; gap:10px; align-items:center}
-.stage-h .t{font-size:14.5px; font-weight:600; flex:1; min-width:0; overflow-wrap:anywhere}
+.stage-h .t{font-family:var(--display); font-size:15.5px; font-weight:700;
+  letter-spacing:-.015em; flex:1; min-width:0; overflow-wrap:anywhere}
 .stage-h .kill{color:var(--fg-3); font-size:12px; flex:none}
 .stage.on .stage-h .t{color:var(--fg-3)}
 .stage .detail{font-size:12.5px; color:var(--fg-3); margin-top:4px; padding-left:30px}
@@ -701,7 +718,14 @@ select.inp{appearance:none}
    задано отступом и волосяной линией сверху. На экране «Задачи» карточка
    остаётся карточкой — там она сама себе контекст, и отнимать у неё вид
    незачем. */
-.stage .tasks{margin-top:8px; display:grid; grid-template-columns:minmax(0,1fr); gap:0}
+/* Задачи сдвинуты под заголовок этапа, а не под его черту.
+
+   Раньше они начинались от той же вертикали, что и сам этап, — то есть на
+   картинке лежали рядом с ним, а не внутри. Отступ в тридцать пикселей ставит
+   их под название этапа, за галочкой: теперь видно, что это его содержимое, а
+   не следующий пункт того же уровня. Столько же у пояснения, у строки «нет
+   задач» и у поля добавления — весь низ этапа выстроен по одной вертикали. */
+.stage .tasks{margin-top:8px; margin-left:30px; display:grid; grid-template-columns:minmax(0,1fr); gap:0}
 .stage .tasks .item{
   background:none; border:0; border-radius:0; box-shadow:none;
   padding:7px 0; border-top:1px solid var(--line);
@@ -723,7 +747,7 @@ select.inp{appearance:none}
 /* Добавление задачи этапа — действие второго ряда, и выглядеть должно так же.
    С обычным полем и тёмной кнопкой оно оказывалось самым тяжёлым пятном в
    раскрытой цели и перебивало то, ради чего её открыли. */
-.stage .rowadd{margin-top:8px; gap:6px}
+.stage .rowadd{margin-top:8px; margin-left:30px; gap:6px}
 .stage .rowadd .inp{
   background:none; border:0; border-bottom:1px solid var(--line);
   border-radius:0; padding:6px 2px; font-size:13.5px;

@@ -3756,8 +3756,14 @@ function боковыеКнопкиЗадачи(t){
   '</div>';
 }
 
-function itemRow(t){
-  var goal = t.goalId ? findGoal(t.goalId) : null;
+/* Второй параметр — «эта строка рисуется внутри самой цели».
+
+   Сравнение именно с true не педантизм: строки почти везде собираются через
+   list.map(itemRow), а map передаёт вторым аргументом индекс. Без проверки
+   первая задача каждого списка (индекс 0) вела бы себя как обычная, а все
+   остальные — как внутренние. */
+function itemRow(t, внутриЦели){
+  var goal = (t.goalId && внутриЦели !== true) ? findGoal(t.goalId) : null;
   var subDone = t.subtasks.filter(function(s){ return s.done; }).length;
   var open = !!S.open[t.id];
 
@@ -4544,6 +4550,51 @@ function vGoals(){
   return html + vGoalComposer();
 }
 
+/* Один этап — одной разметкой на оба экрана.
+
+   Копий было две: в раскрытой цели этап рисовался чертой слева, на отдельной
+   странице цели — карточкой с полем в шестнадцать пикселей. Они успели
+   разойтись: на странице не было ни кнопки правки, ни срока этапа, зато были
+   свои отступы прямо в атрибуте style. Любая правка иерархии требовала
+   вспомнить про второе место, а вспоминалось оно не всегда.
+
+   Оставлен вариант с чертой: он и есть иерархия — рёбра вместо вложенных
+   коробок.
+
+   Номер этапа не украшение. Этапы идут последовательно, и «Этап 2» отвечает
+   на вопрос, который иначе решается пересчётом строк глазами: где я и сколько
+   ещё. Он же отделяет заголовок этапа от названия задачи — раньше их роднил
+   почти одинаковый кегль, и раскрытая цель читалась как один длинный список
+   без уровней. */
+function stageBlock(g, st, номер){
+  var list = tasksOfStage(g.id, st.id);
+  return '<div class="stage' + (st.status === 'done' ? ' on' : '') + '">' +
+    '<p class="st-num">Этап ' + номер + '</p>' +
+    '<div class="stage-h">' +
+      '<button class="box' + (st.status === 'done' ? ' on' : '') + '" data-act="stage-toggle" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Готово">✓</button>' +
+      '<span class="t">' + esc(st.title) + '</span>' +
+      '<span class="status">' + STATUS[st.status] + '</span>' +
+      '<button class="kill" data-act="edit-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Править этап" title="Править">' + ICON.edit + '</button>' +
+      '<button class="kill" data-act="kill-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Удалить этап">✕</button>' +
+    '</div>' +
+    (st.detail ? '<p class="detail">' + esc(st.detail) + '</p>' : '') +
+    (st.targetDate && st.status !== 'done'
+      ? '<p class="detail stage-target' + dueSoonClass(st.targetDate) + '">К ' +
+        esc(humanDate(st.targetDate)) + ' · ' + esc(untilText(st.targetDate)) + '</p>'
+      : '') +
+    (list.length
+      /* Чип с названием цели внутри самой цели — это повтор заголовка на
+         каждой строке. Он нужен на экране задач, где задача оторвана от
+         своего контекста, и мешает здесь, где контекст и есть экран. */
+      ? '<div class="tasks">' + list.map(function(t){ return itemRow(t, true); }).join('') + '</div>'
+      : '<p class="none">У этого этапа пока нет задач.</p>') +
+    '<div class="rowadd">' +
+      '<input class="inp" type="text" placeholder="Задача этапа" data-goaltask="' + st.id + '" autocomplete="off">' +
+      '<button class="btn sm" data-act="goal-task" data-goal="' + g.id + '" data-stage="' + st.id + '">Добавить</button>' +
+    '</div>' +
+  '</div>';
+}
+
 /// Внутренность раскрытой цели: смысл, этапы с их задачами, действия.
 function goalBody(g){
   var html = '<div class="goalbody">';
@@ -4562,34 +4613,12 @@ function goalBody(g){
   }
 
   for (var i = 0; i < g.stages.length; i++){
-    var st = g.stages[i];
-    var list = tasksOfStage(g.id, st.id);
-    html += '<div class="stage' + (st.status === 'done' ? ' on' : '') + '">' +
-      '<div class="stage-h">' +
-        '<button class="box' + (st.status === 'done' ? ' on' : '') + '" data-act="stage-toggle" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Готово">✓</button>' +
-        '<span class="t">' + esc(st.title) + '</span>' +
-        '<span class="status">' + STATUS[st.status] + '</span>' +
-        '<button class="kill" data-act="edit-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Править этап" title="Править">' + ICON.edit + '</button>' +
-        '<button class="kill" data-act="kill-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Удалить этап">✕</button>' +
-      '</div>' +
-      (st.detail ? '<p class="detail">' + esc(st.detail) + '</p>' : '') +
-      (st.targetDate && st.status !== 'done'
-        ? '<p class="detail stage-target' + dueSoonClass(st.targetDate) + '">К ' +
-          esc(humanDate(st.targetDate)) + ' · ' + esc(untilText(st.targetDate)) + '</p>'
-        : '') +
-      (list.length
-        ? '<div class="tasks">' + list.map(itemRow).join('') + '</div>'
-        : '<p class="none">У этого этапа пока нет задач.</p>') +
-      '<div class="rowadd">' +
-        '<input class="inp" type="text" placeholder="Задача этапа" data-goaltask="' + st.id + '" autocomplete="off">' +
-        '<button class="btn sm" data-act="goal-task" data-goal="' + g.id + '" data-stage="' + st.id + '">Добавить</button>' +
-      '</div>' +
-    '</div>';
+    html += stageBlock(g, g.stages[i], i + 1);
   }
 
   var loose = S.tasks.filter(function(t){ return t.goalId === g.id && !findStage(g, t.stageId); });
   if (loose.length){
-    html += '<p class="lbl">Задачи без этапа</p><div class="tasklist">' + loose.map(itemRow).join('') + '</div>';
+    html += '<p class="lbl">Задачи без этапа</p><div class="tasklist">' + loose.map(function(t){ return itemRow(t, true); }).join('') + '</div>';
   }
 
   html += '<div class="acts">' +
@@ -4644,31 +4673,17 @@ function vGoal(){
       'new-stage', 'Создать этап', ' data-goal="' + g.id + '"');
   }
 
-  html += '<p class="lbl">Этапы</p>';
-  for (var i = 0; i < g.stages.length; i++){
-    var st = g.stages[i];
-    var list = tasksOfStage(g.id, st.id);
-    html += '<section class="card" style="padding:16px">' +
-      '<div class="stage-h">' +
-        '<button class="box' + (st.status === 'done' ? ' on' : '') + '" data-act="stage-toggle" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Готово">✓</button>' +
-        '<span class="t">' + esc(st.title) + '</span>' +
-        '<span class="status">' + STATUS[st.status] + '</span>' +
-        '<button class="kill" data-act="kill-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Удалить этап" style="color:var(--fg-3)">✕</button>' +
-      '</div>' +
-      (st.detail ? '<p class="sub" style="padding-left:34px">' + esc(st.detail) + '</p>' : '') +
-      (list.length
-        ? '<div class="tasklist" style="margin-top:10px">' + list.map(itemRow).join('') + '</div>'
-        : '<p class="none" style="font-size:12.5px;color:var(--fg-3);margin-top:10px">У этого этапа пока нет задач.</p>') +
-      '<div class="rowadd">' +
-        '<input class="inp" type="text" placeholder="Создать задачу этапа" data-goaltask="' + st.id + '" autocomplete="off">' +
-        '<button class="btn sm" data-act="goal-task" data-goal="' + g.id + '" data-stage="' + st.id + '">Добавить</button>' +
-      '</div>' +
-    '</section>';
+  if (g.stages.length){
+    html += '<p class="lbl">Этапы</p><section class="card">';
+    for (var i = 0; i < g.stages.length; i++){
+      html += stageBlock(g, g.stages[i], i + 1);
+    }
+    html += '</section>';
   }
 
   var loose = S.tasks.filter(function(t){ return t.goalId === g.id && !findStage(g, t.stageId); });
   if (loose.length){
-    html += '<p class="lbl">Задача без этапа</p><div class="tasklist">' + loose.map(itemRow).join('') + '</div>';
+    html += '<p class="lbl">Задача без этапа</p><div class="tasklist">' + loose.map(function(t){ return itemRow(t, true); }).join('') + '</div>';
   }
 
   html += '<p class="hint">Задачи цели — те же самые объекты, что на экране «Задачи». Отметил здесь — отмечено и там.</p>';
@@ -9264,20 +9279,26 @@ var ACTS = {
      человек жмёт, ничего не меняется, и он жмёт ещё раз.
 
      Решаем в пользу человека: сказал «этап пройден» — значит и его задачи
-     сделаны, закрываем их вместе с ним. Обратная отметка задач не трогает:
-     «этап ещё не закончен» не то же самое, что «всё в нём заново». */
+     сделаны, закрываем их вместе с ним.
+
+     И ровно так же в обратную сторону. Сначала я снятие галочки задач не
+     трогал — и получил ту же болезнь с другого конца: этап закрыт, все его
+     задачи закрыты, жмёшь ещё раз, а пересчёт видит «все задачи сделаны» и
+     снова ставит «готово». Галочка не снималась.
+
+     Поэтому жест симметричен: отметка закрывает задачи этапа, снятие их
+     открывает. Это обратное действие к тому, что человек только что сделал,
+     а не самостоятельное решение за него. */
   'stage-toggle': function(d){
     var st = findStage(findGoal(d.goal), d.stage);
     if (!st) return;
     var закрываем = st.status !== 'done';
     st.status = закрываем ? 'done' : 'active';
-    if (закрываем){
-      S.tasks.forEach(function(t){
-        if (t.stageId !== st.id || t.done) return;
-        t.done = true;
-        if (t.subtasks) t.subtasks.forEach(function(sub){ sub.done = true; });
-      });
-    }
+    S.tasks.forEach(function(t){
+      if (t.stageId !== st.id || t.done === закрываем) return;
+      t.done = закрываем;
+      if (t.subtasks) t.subtasks.forEach(function(sub){ sub.done = закрываем; });
+    });
     commit();
   },
   'kill-stage': function(d){
