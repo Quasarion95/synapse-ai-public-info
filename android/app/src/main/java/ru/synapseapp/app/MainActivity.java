@@ -17,6 +17,12 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+
 import androidx.webkit.WebViewAssetLoader;
 
 /**
@@ -50,6 +56,16 @@ public class MainActivity extends AppCompatActivity {
     private WebView web;
     private VoiceBridge голос;
     private NotifyBridge напоминания;
+
+    /* Выбор файла в WebView.
+
+       Сам по себе <input type="file"> в WebView не работает: страница его
+       открывает, а система ничего не показывает — нажатие просто проваливается
+       в пустоту. Так и было с загрузкой фото в профиле: человек жмёт на
+       аватар, и ничего. Мост между полем и системным выбором надо построить
+       руками, вот он. */
+    private ValueCallback<Uri[]> ждётФайл;
+    private ActivityResultLauncher<String> выборФайла;
     private String код;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -101,6 +117,16 @@ public class MainActivity extends AppCompatActivity {
         if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             WebView.setWebContentsDebuggingEnabled(true);
         }
+
+        /* Регистрируем выбор файла до создания WebView: контракт должен быть
+           заведён, пока активность ещё создаётся, иначе система ругается. */
+        выборФайла = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (ждётФайл == null) return;
+                    ждётФайл.onReceiveValue(uri == null ? null : new Uri[]{uri});
+                    ждётФайл = null;
+                });
 
         web = new WebView(this);
         web.setLayoutParams(new ViewGroup.LayoutParams(
@@ -217,6 +243,38 @@ public class MainActivity extends AppCompatActivity {
            нет: объект объявлен, но отвечает «not-allowed» при любых
            разрешениях. Страница проверяет наличие AndroidVoice и, если он
            есть, слушает через систему. */
+        /* Без этого обработчика поле выбора файла в WebView мертво: страница
+           открывает <input type="file">, а система ничего не показывает —
+           нажатие проваливается в пустоту. Так и было с загрузкой фото в
+           профиле.
+
+           Ставится ЗДЕСЬ, а не внутри WebViewClient: туда я его сперва и
+           засунул подстановкой, и приложение падало при первом же запросе —
+           shouldInterceptRequest работает в фоновом потоке, а методы WebView
+           можно звать только из главного.
+
+           Отменённый выбор обязательно возвращаем как null: иначе поле ждёт
+           вечно, и второе нажатие на аватар уже ничего не откроет. */
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
+                                             FileChooserParams params) {
+                if (ждётФайл != null) ждётФайл.onReceiveValue(null);
+                ждётФайл = callback;
+                String[] типы = params.getAcceptTypes();
+                String тип = (типы != null && типы.length > 0 && типы[0] != null && !типы[0].isEmpty())
+                        ? типы[0] : "*/*";
+                try {
+                    выборФайла.launch(тип);
+                } catch (Exception e) {
+                    ждётФайл = null;
+                    callback.onReceiveValue(null);
+                    return false;
+                }
+                return true;
+            }
+        });
+
         голос = new VoiceBridge(this, web);
         web.addJavascriptInterface(голос, "AndroidVoice");
 

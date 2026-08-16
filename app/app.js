@@ -90,14 +90,15 @@ function собратьНапоминания(){
     // Задачи со временем — о каждой в её час. Выполненные молчат.
     liveTasks().forEach(function(t){
       if (t.done) return;
-      var когда = когдаЗадача(t);
+      var когда = когдаЗадача(t) - (н.заранее || 0) * 60000;
       if (когда <= сейчас) return;
       /* Заголовок — само дело, второй строкой контекст. Сперва писал в обе
          строки одно и то же («Позвонить в клинику» / «Пора: Позвонить в
          клинику») — уведомление занимало два ряда, чтобы сказать одно. */
       var цель = t.goalId ? findGoal(t.goalId) : null;
       список.push({ когда: когда, заголовок: t.title,
-        текст: (цель ? 'Цель: ' + цель.title + ' · ' : '') + 'на ' + t.time });
+        текст: (цель ? 'Цель: ' + цель.title + ' · ' : '') +
+          ((н.заранее ? 'через ' + н.заранее + ' мин, в ' : 'на ') + t.time) });
     });
   }
 
@@ -248,7 +249,12 @@ function seed(){
     markColor: 'default',
     /* Напоминания — только в приложении: в браузере их показывать нечем.
        Времена хранятся строкой ЧЧ:ММ, как и всё остальное время в сервисе. */
-    notify: { on: false, tasks: true, goals: true, brief: true, morning: '08:00', evening: '21:00' },
+    /* Включены сразу: планировщик, который молчит, пока его не попросят
+       заговорить, для большинства так и остаётся молчащим. Разрешение всё
+       равно спрашивается отдельно, так что навязать уведомления это не может.
+       `заранее` — за сколько минут до задачи напомнить. */
+    notify: { on: true, tasks: true, goals: true, brief: true,
+              morning: '08:00', evening: '21:00', заранее: 0, перенесено: true },
     hintSeen: false,
     // Обучение показывается, пока не пройдено или пока его не закрыли руками.
     tourDone: false,
@@ -374,7 +380,18 @@ function load(){
     // Тем, у кого стояла системная, ставим ту, которую они и видели.
     if (parsed.theme !== 'light' && parsed.theme !== 'dark') parsed.theme = systemPrefersDark() ? 'dark' : 'light';
     if (!parsed.mm) parsed.mm = { zoom: 1 };
-    if (!parsed.notify) parsed.notify = { on: false, tasks: true, goals: true, brief: true, morning: '08:00', evening: '21:00' };
+    if (!parsed.notify) parsed.notify = { on: true, tasks: true, goals: true, brief: true, morning: '08:00', evening: '21:00', заранее: 0 };
+    if (typeof parsed.notify.заранее !== 'number') parsed.notify.заранее = 0;
+    /* Разовый перенос для тех, у кого приложение уже стояло.
+
+       Напоминания вышли выключенными по умолчанию, и у первых установок так и
+       осталось. Это не их выбор, а наша прежняя настройка, поэтому включаем
+       один раз и метку ставим — второй раз трогать нельзя: тогда это уже был
+       бы их выбор, и возвращать его назад было бы наглостью. */
+    if (!parsed.notify.перенесено){
+      parsed.notify.перенесено = true;
+      parsed.notify.on = true;
+    }
     if (!parsed.closed) parsed.closed = {};
     if (!parsed.open) parsed.open = {};
     if (!parsed.profile) parsed.profile = { name: '', avatar: '' };
@@ -5977,6 +5994,14 @@ function vSettingsView(){
         'Задачи со временем, сроки целей, план утром и итог вечером.') +
       (н.on
         ? строкаПереключателя('О задачах со временем', 'notify-tasks', н.tasks, '') +
+          (н.tasks
+            ? '<div class="lbl" style="margin:12px 0 8px">Напоминать</div><div class="radios">' +
+              [[0, 'в срок'], [15, 'за 15 мин'], [30, 'за 30 мин'], [60, 'за час'], [180, 'за 3 часа'], [1440, 'за сутки']]
+                .map(function(в){
+                  return '<button class="radio" data-act="notify-lead" data-min="' + в[0] + '"' +
+                    ' aria-pressed="' + ((н.заранее || 0) === в[0]) + '">' + в[1] + '</button>';
+                }).join('') + '</div>'
+            : '') +
           строкаПереключателя('О сроках целей', 'notify-goals', н.goals, 'Накануне дня цели.') +
           строкаПереключателя('План и итог дня', 'notify-brief', н.brief, '') +
           (н.brief
@@ -8295,6 +8320,9 @@ function modalLookPaywall(что){
     '<div class="paywall-price">' +
       '<b>' + planPrice('pro.weekly') + '</b><span>за неделю, чтобы попробовать</span>' +
       '<b>' + planPrice('pro.monthly') + '</b><span>за месяц</span>' +
+      // Год показываем всегда: без него человек видит только «дорого в
+      // пересчёте» и не знает, что есть тариф вдвое дешевле помесячного.
+      '<b>' + planPrice('pro.yearly') + '</b><span>за год — 416 ₽ в месяц</span>' +
     '</div>' +
     '<button class="btn full" data-act="go" data-view="subscription">Подключить Pro</button>' +
     '<div class="acts pair">' +
@@ -8313,6 +8341,7 @@ function modalPaywall(kind){
     '<div class="paywall-price">' +
       '<b>' + planPrice('pro.weekly') + '</b><span>за неделю, чтобы попробовать</span>' +
       '<b>' + planPrice('pro.monthly') + '</b><span>за месяц</span>' +
+      '<b>' + planPrice('pro.yearly') + '</b><span>за год — 416 ₽ в месяц</span>' +
     '</div>' +
     '<button class="btn full" data-act="go" data-view="subscription">Подключить Pro</button>' +
     '<div class="acts pair">' +
@@ -9219,6 +9248,19 @@ var ACTS = {
   /* Раскрытие меняет один класс, а не перерисовывает экран: перерисовка
      подменила бы карточку уже раскрытой, и переход было бы не увидеть. */
   expand: function(d){
+    /* Пока карточка складывается, панель свайпа не должна проступать.
+
+       Класс open снимается сразу, а высота едет ещё двести миллисекунд — и в
+       эту щель кнопки правки и удаления успевали моргнуть. Вешаем на время
+       анимации отдельный признак и снимаем его, когда всё улеглось. */
+    var сворачиваем = !!S.open[d.task];
+    if (inApp() && сворачиваем){
+      var к = document.querySelector('.item[data-task="' + d.task + '"]');
+      if (к){
+        к.classList.add('folding');
+        setTimeout(function(){ к.classList.remove('folding'); }, 280);
+      }
+    }
     /* Раскрытая карточка и открытый свайп несовместимы: панель правки тянется
        на всю высоту карточки, а раскрытая вдвое выше — кнопки оказывались
        посреди подпунктов и накрывали поле ввода. Раскрываем — закрываем. */
@@ -9670,6 +9712,7 @@ var ACTS = {
   'notify-tasks': function(){ S.notify.tasks = !S.notify.tasks; commit(); },
   'notify-goals': function(){ S.notify.goals = !S.notify.goals; commit(); },
   'notify-brief': function(){ S.notify.brief = !S.notify.brief; commit(); },
+  'notify-lead': function(d){ S.notify.заранее = parseInt(d.min, 10) || 0; commit(); },
 
   /* --- помодоро --- */
   'pomo-mode': function(d){
