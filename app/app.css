@@ -346,17 +346,31 @@ select.inp{appearance:none}
    scale текст мылится. */
 .in-app .item.dragging{
   opacity:1; z-index:6;
+  /* Несомая карточка не участвует в поиске «что под пальцем».
+
+     Она едет прямо под ним, и elementFromPoint возвращал её саму — а через
+     неё находился её РОДНОЙ список. Зона назначения залипала на исходном дне,
+     и дни, над которыми проносили карточку, пропускались: система считала,
+     что палец всё ещё в первом. */
+  pointer-events:none;
   margin-left:-6px; margin-right:-6px;
   background:var(--card);
   box-shadow:0 10px 26px rgba(20,22,26,.20), 0 2px 6px rgba(20,22,26,.10);
 }
 .in-app .item.dragging > .swipe-face{background:var(--card); padding-left:6px; padding-right:6px}
 
+/* У раскрытой карточки свайпа нет.
+
+   Панель правки растянута на всю высоту карточки, а раскрытая вдвое выше:
+   кнопки оказывались посреди подпунктов и накрывали поле ввода. Закрывать её
+   при раскрытии было мало — карточку раскрывали и свайпали снова. Пока
+   карточка раскрыта, панели просто нет: правка и удаление доступны, когда её
+   свернули обратно. */
+.in-app .item.swipe.open > .side{display:none}
+.in-app .item.swipe.open > .swipe-face{left:0 !important}
+
 /* Плашка места посадки. Не рамка и не пунктир: сплошная заливка отвечает
    «сюда попадёт», а не «здесь чего-то не хватает». */
-/* Список — система координат для плашки: она его ребёнок и за края не выйдет. */
-.in-app.dragging-now .tasklist{position:relative}
-
 /* На время переноса развёрнутые дни перестают обрезать содержимое.
 
    Обёртка списка живёт с overflow:hidden — им схлопывается высота, когда день
@@ -367,18 +381,6 @@ select.inp{appearance:none}
    Свёрнутые дни исключены: у них высота ноль, и без обрезки наружу вывалилось
    бы всё их содержимое. */
 .in-app.dragging-now .group:not(.closed) .tasklist-wrap{overflow:visible}
-.drop-slot{
-  position:absolute; left:0; right:0; z-index:0; pointer-events:none;
-  border-radius:var(--r-md);
-  background:var(--accent-soft);
-  box-shadow:inset 0 0 0 2px var(--accent);
-  opacity:.9;
-  /* Тот же переход, что у соседей (.dragging-now .item:not(.dragging)). Был
-     короче — плашка приезжала на новое место раньше, чем расступались
-     карточки, и казалось, что она едет сама по себе. */
-  transition:top .18s cubic-bezier(.2,.8,.3,1), height .18s cubic-bezier(.2,.8,.3,1);
-}
-@media (prefers-reduced-motion:reduce){ .drop-slot{transition:none} }
 .dragging-now .item:not(.dragging){transition:transform .18s cubic-bezier(.2,.8,.3,1)}
 @media (prefers-reduced-motion:reduce){ .item{transition:none} }
 .item-main{display:flex; gap:10px; align-items:flex-start}
