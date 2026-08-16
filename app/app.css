@@ -385,8 +385,12 @@ select.inp{appearance:none}
 .swipe > .side button svg{width:18px; height:18px; fill:none; stroke:currentColor;
   stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 
-/* Значки в строке задачи на десктопе — как были до свайпов. */
-.item:not(.swipe) .side{display:flex; gap:1px; flex:none; margin:-2px -3px 0 0}
+/* Значки в строке задачи на десктопе — как были до свайпов, но по центру.
+
+   Прижатые к верху, они держались за первую строку названия, а карточка с
+   чипами вдвое выше — значки оказывались в её верхней трети и висели без
+   опоры. По центру они привязаны к карточке целиком. */
+.item:not(.swipe) .side{display:flex; gap:1px; flex:none; margin:0; align-self:center}
 .item:not(.swipe) .side button{width:27px; height:27px; border-radius:999px;
   display:grid; place-items:center; color:var(--fg-3); font-size:13px}
 .item:not(.swipe) .side button:hover{background:var(--soft); color:var(--fg)}
@@ -450,9 +454,23 @@ select.inp{appearance:none}
    и название на каждом наведении перекладывалось бы заново, строка бы прыгала.
    Там, где наведения не бывает (телефон, планшет), кнопки видны всегда — иначе
    до них попросту не добраться. */
-/* Правило про появление по наведению больше не нужно: кнопки лежат под
-   карточкой и не видны, пока её не сдвинут. */
+/* Значки появляются под курсором.
+
+   Там, где есть мышь, они не нужны постоянно: в списке из двадцати строк это
+   шестьдесят значков, и глаз собирает их в столбцы вместо того, чтобы читать
+   названия. Место под них остаётся занятым и в покое — иначе название на
+   каждом наведении перекладывалось бы, и строка прыгала.
+
+   На сенсоре этого правила нет вовсе: наводить там нечем, и там кнопки живут
+   под карточкой, откуда их достаёт свайп. */
 @media (hover:hover) and (pointer:fine){
+  .item:not(.swipe) .side, .row-card:not(.swipe) .side{opacity:0; transition:opacity .14s ease}
+  .item:not(.swipe) .side button, .row-card:not(.swipe) .side button{pointer-events:none}
+  .item:not(.swipe):hover .side, .item:not(.swipe):focus-within .side,
+  .row-card:not(.swipe):hover .side, .row-card:not(.swipe):focus-within .side{opacity:1}
+  .item:not(.swipe):hover .side button, .item:not(.swipe):focus-within .side button,
+  .row-card:not(.swipe):hover .side button,
+  .row-card:not(.swipe):focus-within .side button{pointer-events:auto}
 }
 /* ---- плавное раскрытие ---- */
 /* Высоту ведёт JS замером (foldOpen): приём с grid-template-rows от 0fr к 1fr

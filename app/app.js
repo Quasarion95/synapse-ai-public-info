@@ -3683,8 +3683,19 @@ function itemRow(t){
   if (t.windowFrom && t.windowFrom.time) meta.push('<span class="chip">с ' + esc(t.windowFrom.time) + '</span>');
   // Срок — со словом «до»: без него «15 апреля 18:30» читается как время самой
   // задачи.
-  if (t.deadline) meta.push('<span class="chip ' + (deadlinePassed(t) ? 'late' : 'hard') + '">до ' +
-    esc(deadlineText(t.deadline)) + '</span>');
+  /* Срок показываем, только если он говорит что-то новое.
+
+     У задачи, созданной «на 16 августа в 10:00», срок ставится тем же днём и
+     часом — и рядом с датой и временем появлялся третий чип «до 16 августа
+     10:00», повторяющий оба. Три чипа на одну мысль. Совпал с датой задачи —
+     молчим; стоит на другой день или час — говорим, ради этого он и нужен. */
+  var срокДублирует = t.deadline &&
+    t.deadline.date === t.date &&
+    (t.deadline.time || '') === (t.time || '');
+  if (t.deadline && !срокДублирует){
+    meta.push('<span class="chip ' + (deadlinePassed(t) ? 'late' : 'hard') + '">до ' +
+      esc(deadlineText(t.deadline)) + '</span>');
+  }
   if (isOverdue(t)) meta.push('<span class="chip late">просрочено</span>');
   // Один перенос — житейское дело, о нём молчим. Со второго это уже привычка,
   // и человек имеет право её видеть.
