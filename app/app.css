@@ -189,10 +189,6 @@ main{max-width:var(--col); margin:0 auto; padding:24px var(--pad) 230px}
 .hi{font-size:14px; color:var(--fg-3)}
 h1.page{font-size:clamp(28px,7vw,38px); margin:2px 0 20px}
 .lbl{font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--fg-3); display:flex; justify-content:space-between; align-items:center; margin:26px 0 12px}
-/* Верхние 26 пикселей отделяют подпись от того, что над ней. Когда над ней
-   ничего нет — а в аналитике «Карта целей» теперь идёт первой — они
-   превращаются в пустую полосу под шапкой. */
-.lbl:first-child{margin-top:0}
 .card{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:18px; margin-bottom:var(--gap)}
 .card h3{font-size:19px}
 .card .sub{font-size:13.5px; color:var(--fg-2); margin-top:5px}
