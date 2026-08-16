@@ -1892,6 +1892,21 @@ function touchUI(){
     window.matchMedia('(hover: none) and (pointer: coarse)').matches);
 }
 
+/* Кому положено перетаскивание пальцем.
+
+   Сенсорному вводу — потому что с телефона сайт листают тем же пальцем, а
+   браузерный механизм перетаскивания на сенсоре не работает вовсе: ни dragstart,
+   ни drop туда не приходят.
+
+   И приложению — всегда, безусловно. Здесь не лишняя строчка: WebView на части
+   устройств и на эмуляторе отвечает, что наведение курсором доступно, и
+   touchUI() возвращает ложь. Полагайся мы только на него, приложение на таком
+   аппарате осталось бы вообще без переноса — а это телефон, других способов
+   переложить задачу там нет. */
+function жестПальцем(){
+  return inApp() || touchUI();
+}
+
 function head(sub, title, backView){
   return (backView && !inApp() ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
     (sub ? '<p class="hi">' + esc(sub) + '</p>' : '') +
@@ -4027,7 +4042,7 @@ function itemRow(t, внутриЦели){
      не ставим: отменить системный жест из скрипта уже нельзя, он начинается
      раньше, чем страница о нём узнаёт. */
   return '<article class="item' + (touchUI() ? ' swipe' : '') + (t.done ? ' done' : '') + (open ? ' open' : '') + '"' +
-    (inApp() ? '' : ' draggable="true"') + ' data-task="' + t.id + '">' +
+    (жестПальцем() ? '' : ' draggable="true"') + ' data-task="' + t.id + '">' +
     '<div class="item-main' + (touchUI() ? ' swipe-face' : '') + '" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
@@ -10387,7 +10402,7 @@ function поправка(дни, день, целевой){
    поднимать рано: человек, возможно, просто листает список. */
 document.addEventListener('pointerdown', function(event){
   // Только приложение и только палец: у мыши свой путь через HTML5 drag.
-  if (!inApp() || event.pointerType === 'mouse') return;
+  if (!жестПальцем() || event.pointerType === 'mouse') return;
   var карточка = event.target.closest ? event.target.closest('.item[data-task]') : null;
   if (!карточка) return;
   // Отказываемся только от настоящих органов управления: название задачи —
@@ -10951,6 +10966,12 @@ function registerServiceWorker(){
    класс, по которому их разбирает CSS. Именно inApp(), а не touchUI(): сайт с
    телефона остаётся сайтом, меняется только то, что внутри apk. */
 if (inApp()) document.documentElement.classList.add('in-app');
+/* Отдельный признак сенсорного ввода. Перетаскивание пальцем нужно и на сайте,
+   открытом с телефона: там оно единственный способ переложить задачу, а
+   браузерный механизм на сенсоре не работает вовсе. Стили жеста висят на нём,
+   а не на in-app, — иначе в мобильном вебе карточка поднималась бы без вида
+   поднятой. */
+if (жестПальцем()) document.documentElement.classList.add('touch');
 
 // Развёрнутая карта не переживает перезагрузку: страница, открывшаяся сразу
 // поверх всего, читается как поломка, а не как выбранный экран.

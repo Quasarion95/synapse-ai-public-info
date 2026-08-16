@@ -344,7 +344,7 @@ select.inp{appearance:none}
    тенью и шире списка: выходит за его поля с обеих сторон, как лист, который
    вынули из стопки. Ширину даём отрицательными полями, а не масштабом — от
    scale текст мылится. */
-.in-app .item.dragging{
+.touch .item.dragging{
   opacity:1; z-index:60;
   /* Несомая карточка не участвует в поиске «что под пальцем».
 
@@ -358,7 +358,7 @@ select.inp{appearance:none}
   background:var(--card);
   box-shadow:0 10px 26px rgba(20,22,26,.20), 0 2px 6px rgba(20,22,26,.10);
 }
-.in-app .item.dragging > .swipe-face{background:var(--card); padding-left:6px; padding-right:6px}
+.touch .item.dragging > .swipe-face{background:var(--card); padding-left:6px; padding-right:6px}
 
 /* У раскрытой карточки свайпа нет.
 
@@ -367,9 +367,9 @@ select.inp{appearance:none}
    при раскрытии было мало — карточку раскрывали и свайпали снова. Пока
    карточка раскрыта, панели просто нет: правка и удаление доступны, когда её
    свернули обратно. */
-.in-app .item.swipe.open > .side,
-.in-app .item.swipe.folding > .side{display:none}
-.in-app .item.swipe.open > .swipe-face{left:0 !important}
+.touch .item.swipe.open > .side,
+.touch .item.swipe.folding > .side{display:none}
+.touch .item.swipe.open > .swipe-face{left:0 !important}
 
 /* Плашка места посадки. Не рамка и не пунктир: сплошная заливка отвечает
    «сюда попадёт», а не «здесь чего-то не хватает». */
@@ -521,11 +521,11 @@ select.inp{appearance:none}
    Селектор составной, без пробела: и in-app, и dragging-now висят на одном и
    том же элементе — на корне страницы. С пробелом это читается как «потомок»,
    и правило не совпадало ни разу; рамку владелец так и видел. */
-.in-app.dragging-now .tasklist.over{background:none; outline:none}
-.in-app.dragging-now .tasklist{min-height:0}
+.touch.dragging-now .tasklist.over{background:none; outline:none}
+.touch.dragging-now .tasklist{min-height:0}
 /* Свёрнутый день подсвечиваем шапкой: списка там нет, а понимать, куда
    целишься, надо. */
-.in-app.dragging-now .group.over > .group-h{background:var(--soft); border-radius:var(--r-sm)}
+.touch.dragging-now .group.over > .group-h{background:var(--soft); border-radius:var(--r-sm)}
 
 /* Финансовые строки — те же правила, но своё поле у лица.
 
