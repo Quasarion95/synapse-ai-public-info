@@ -128,7 +128,27 @@ public class MainActivity extends AppCompatActivity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                return loader.shouldInterceptRequest(request.getUrl());
+                Uri адрес = request.getUrl();
+
+                /* Чего нет внутри — того нет вовсе, в сеть за ним не ходим.
+
+                   AssetsPathHandler на отсутствующий файл отвечает «не мой
+                   запрос», и WebView идёт за ним в настоящую сеть. На sw.js это
+                   выстрелило: файл из сборки исключён, и приложение притащило
+                   service worker с живого сайта, а с ним кэш веб-версии поверх
+                   собственных файлов.
+
+                   Своё — только /app/ и /fonts/. Всё остальное на этом домене
+                   (страницы сайта, оплата) уходит в браузер целой страницей,
+                   а не подгружается кусками внутрь. */
+                if (APP_HOST.equals(адрес.getHost())) {
+                    WebResourceResponse ответ = loader.shouldInterceptRequest(адрес);
+                    if (ответ != null) return ответ;
+                    return new WebResourceResponse("text/plain", "utf-8", 404,
+                            "Not Found", new java.util.HashMap<String, String>(),
+                            new java.io.ByteArrayInputStream(new byte[0]));
+                }
+                return null;
             }
 
             /* Полоса статуса под цвет выбранной темы.
