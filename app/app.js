@@ -483,7 +483,7 @@ var FREE_LOOKS = {
   palettes: 2,   // «Бумага» и «Графит»
   boxes: 1,      // квадрат
   sounds: 1,     // дождь
-  pomoModes: 1   // «Фокус»; перерывы — в подписке
+  pomoModes: 1   // самый короткий режим; остальные — в подписке
 };
 
 /// Открыт ли элемент под номером index в наборе kind.
@@ -5221,6 +5221,14 @@ function pomoOrdered(){
   });
 }
 
+/// Номер режима в том порядке, в каком он показан человеку. Замок и экран
+/// обязаны считать одинаково, иначе открытым окажется не тот, что виден первым.
+function порядковыйРежима(id){
+  var список = pomoOrdered();
+  for (var i = 0; i < список.length; i++) if (список[i].id === id) return i;
+  return 0;
+}
+
 var ticker = null;
 var remaining = null;
 
@@ -5239,7 +5247,13 @@ function vPomodoro(){
     '<p class="phase">' + m.title + ' · ' + S.pomodoro[m.key] + ' мин</p>' +
     '<div class="modes">' + pomoOrdered().map(function(p){
       // Минуты прямо на карточке режима — ровно то, что чинили в приложении.
-      var режимОткрыт = lookOpen('pomoModes', POMO.indexOf(p));
+      /* Считаем по порядку НА ЭКРАНЕ, а не в массиве.
+
+         Массив идёт «фокус, перерыв, длинный», экран — по возрастанию минут:
+         5, 15, 25. Замок вешался по массиву, поэтому бесплатным оказывался
+         «Фокус» на 25 минут, стоящий третьим, а первая карточка на экране была
+         закрыта. Бесплатен первый из показанных — самый короткий. */
+      var режимОткрыт = lookOpen('pomoModes', порядковыйРежима(p.id));
       return '<button class="mode' + (режимОткрыт ? '' : ' locked') + '" data-act="pomo-mode" data-mode="' + p.id + '" aria-pressed="' + (p.id === S.pomodoro.mode) + '">' +
         '<b>' + p.title + '</b><span>' + S.pomodoro[p.key] + ' мин</span></button>';
     }).join('') + '</div>' +
@@ -5610,9 +5624,10 @@ function vProfile(){
     '<h3>' + (isPro() ? 'Synapse Pro' : 'Бесплатный доступ') + '</h3>' +
     '<p class="sub">' + (isPro()
       ? planTitle(S.pro.plan) + (S.pro.expiresAt ? ' · действует до ' + esc(humanDateTime(S.pro.expiresAt)) : '') +
-        ' · открыты все разделы и ' + PRO_SYN_LIMIT + ' запросов к Syn в день'
+        ' · открыты все разделы и ' + proSynLimit(S.pro.plan) + ' запросов к Syn в день'
       : FREE_LIMITS.goals + ' цели, ' + FREE_LIMITS.lists + ' списка, ' + FREE_LIMITS.notes +
-        ' заметки, ' + FREE_SYN_LIMIT + ' запросов к Syn в день. Помодоро и медитация открыты.') + '</p>' +
+        ' заметки, ' + FREE_SYN_LIMIT + ' запросов к Syn в день. Помодоро и медитация — ' +
+        'по одному режиму и звуку.') + '</p>' +
     (isPro() && S.pro.code
       ? '<div class="sub-code"><span class="lbl">Код</span><b class="mono">' + esc(S.pro.code) + '</b>' +
         '<button class="btn sm soft" data-act="pro-copy">Скопировать</button></div>' +
@@ -6016,8 +6031,9 @@ function vSubscription(){
         '<p class="sub">' + (pro
           ? planTitle(S.pro.plan) + (S.pro.expiresAt ? ' · до ' + esc(humanDateTime(S.pro.expiresAt)) : '') +
             ' · открыты все разделы'
-          : 'Задачи, помодоро и медитация — без ограничений. Дальше: ' + FREE_LIMITS.goals + ' цели, ' +
-            FREE_LIMITS.lists + ' списка, ' + FREE_LIMITS.notes + ' заметки.') + '</p>' +
+          : 'Задачи без ограничений. Дальше: ' + FREE_LIMITS.goals + ' цели, ' +
+            FREE_LIMITS.lists + ' списка, ' + FREE_LIMITS.notes + ' заметки, ' +
+            'по одному режиму помодоро и звуку медитации.') + '</p>' +
       '</div>' +
     '</div>' +
     (pro && S.pro.code ? '<div class="sub-code"><span class="lbl">Код подписки</span>' +
@@ -6054,9 +6070,14 @@ function vSubscription(){
       planRow('Цели с этапами', FREE_LIMITS.goals + ' цели', 'без ограничений') +
       planRow('Списки', FREE_LIMITS.lists + ' списка', 'без ограничений') +
       planRow('Заметки', FREE_LIMITS.notes + ' заметки', 'без ограничений') +
-      planRow('Ассистент Syn', FREE_SYN_LIMIT + ' запросов в день', PRO_SYN_LIMIT + ' в день') +
-      planRow('Метод Помодоро', 'есть', 'есть') +
-      planRow('Медитация', 'есть', 'есть') +
+      planRow('Ассистент Syn', FREE_SYN_LIMIT + ' запросов в день',
+        PLAN_SYN_LIMITS['pro.monthly'] + ' в день, на годовом ' + PLAN_SYN_LIMITS['pro.yearly']) +
+      /* Раньше здесь стояло «есть / есть» — с тех пор оформление и наборы
+         закрыли подпиской, а таблица осталась прежней и обещала лишнее. */
+      planRow('Метод Помодоро', 'самый короткий режим', 'все режимы') +
+      planRow('Медитация', 'один звук', 'все звуки и своя длительность') +
+      planRow('Оформление', FREE_LOOKS.palettes + ' темы, одна форма отметки', 'все темы, формы и цвета') +
+      planRow('Мои финансы', 'по две записи каждого вида', 'без ограничений') +
     '</div></section>';
 
   html += '<p class="lbl">Как это работает</p><section class="card">' +
@@ -6149,7 +6170,16 @@ function vLocked(view){
    чтобы называть их вслух до первого запроса, а не после отказа. Сервер
    присылает свои в ответе, и они всегда главнее написанного тут. */
 var FREE_SYN_LIMIT = 6;
-var PRO_SYN_LIMIT = 200;
+/* Норма подписчика зависит от тарифа, и цифры здесь должны совпадать с
+   PLAN_DAILY_AI_REQUESTS на сервере: считает он, а показываем мы. Разойдутся —
+   человек увидит одно число, а упрётся в другое. */
+var PLAN_SYN_LIMITS = { 'pro.weekly': 50, 'pro.monthly': 50, 'pro.yearly': 100 };
+/// Норма для неизвестного тарифа: старая запись без поля plan.
+var PRO_SYN_LIMIT = 50;
+
+function proSynLimit(plan){
+  return PLAN_SYN_LIMITS[plan] || PRO_SYN_LIMIT;
+}
 
 var SYN = {
   base: (function(){
@@ -6504,7 +6534,7 @@ function synScrollDown(){
 /// Остаток запросов. Число берём у сервера, а до первого ответа называем
 /// дневную норму — молчать про счётчик хуже, чем ошибиться на единицу.
 function synQuotaHTML(){
-  var limit = isPro() ? PRO_SYN_LIMIT : FREE_SYN_LIMIT;
+  var limit = isPro() ? proSynLimit(S.pro.plan) : FREE_SYN_LIMIT;
   var text;
   if (SYN.quota && typeof SYN.quota.used === 'number'){
     limit = SYN.quota.limit || limit;
@@ -6623,7 +6653,8 @@ function modalSynPaywall(){
   var неделя = planPrice('pro.weekly'), месяц = planPrice('pro.monthly');
   return '<h3>Syn на сегодня закончился</h3>' +
     '<p class="s">Бесплатно он отвечает ' + limit + ' раз в сутки. В подписке — ' +
-      PRO_SYN_LIMIT + ', плюс утренний план, вечерний отчёт и память между разговорами.</p>' +
+      PLAN_SYN_LIMITS['pro.monthly'] + ' в сутки, на годовом ' + PLAN_SYN_LIMITS['pro.yearly'] +
+      ', плюс утренний план, вечерний отчёт и память между разговорами.</p>' +
     '<div class="paywall-price">' +
       '<b>' + неделя + '</b><span>за неделю, чтобы попробовать</span>' +
       '<b>' + месяц + '</b><span>за месяц</span>' +
@@ -9431,8 +9462,7 @@ var ACTS = {
 
   /* --- помодоро --- */
   'pomo-mode': function(d){
-    var номер = POMO.map(function(x){ return x.id; }).indexOf(d.mode);
-    if (!lookOpen('pomoModes', номер)) return openModal(modalLookPaywall('режим'));
+    if (!lookOpen('pomoModes', порядковыйРежима(d.mode))) return openModal(modalLookPaywall('режим'));
     stopTicker();
     S.pomodoro.mode = d.mode;
     remaining = S.pomodoro[modeOf().key] * 60;
@@ -9680,6 +9710,12 @@ function baseTop(node){
   return node.getBoundingClientRect().top - shiftOf(node);
 }
 
+/* Насколько внутрь от грани карточки стоит порог перестановки.
+
+   Между двумя порогами одной карточки лежит мёртвая зона высотой почти во всю
+   карточку: пока палец в ней, решение не меняется вообще. Это и лечит дрожь. */
+var КРАЙ_ПЕРЕСТАНОВКИ = 10;
+
 /// Перед какой карточкой встанет перетаскиваемая, если отпустить здесь.
 /// Возвращает id или null — значит в конец блока.
 function dropTargetIn(zone, clientY){
@@ -9689,6 +9725,56 @@ function dropTargetIn(zone, clientY){
     if (clientY < top + cards[i].offsetHeight / 2) return cards[i].getAttribute('data-task');
   }
   return null;
+}
+
+/* Куда встанет карточка — с оглядкой на то, где она стояла мгновение назад.
+
+   Раньше место считалось каждый раз заново по средней линии соседа: выше
+   середины — встаём перед ним, ниже — после. Одна линия, и решение
+   переворачивается от дрожания пальца в один пиксель. Хуже того, после
+   перестановки соседи разъезжаются на высоту карточки, геометрия под пальцем
+   меняется — и следующий кадр нередко переворачивает решение обратно. Отсюда
+   и скачки: список бьётся между двумя состояниями, пока палец стоит на месте.
+
+   Теперь порогов два, и они разнесены к граням. Шаг вниз происходит, когда
+   палец дошёл до нижней грани соседа снизу; шаг вверх — когда поднялся до
+   верхней грани соседа сверху. Между ними вся середина карточки, где не
+   меняется ничего.
+
+   Владелец просил порог на ближней грани — трогаем верх соседа снизу и он
+   уезжает. Так нельзя: ближние грани двух соседних карточек стоят вплотную,
+   пороги «вниз» и «вверх» накладываются, и дрожь стала бы сильнее прежней.
+   Порог на дальней грани даёт ту же понятную границу, но с зазором между
+   ними — а щель под карточку открывается сразу, поэтому на ощупь жест
+   остаётся отзывчивым.
+
+   Считаем по baseTop — положению без наших сдвигов. Раскладка соседей при
+   этом стоит неподвижно, сколько бы раз они ни съезжали на экране. */
+function местоВставки(zone, clientY, было){
+  var cards = [].slice.call(zone.querySelectorAll('.item:not(.dragging)'));
+  if (!cards.length) return null;
+
+  // Первое решение в этом блоке: прошлого нет, берём ближайшую середину —
+  // держаться не за что, и любой порог одинаково честен.
+  if (было === undefined) return dropTargetIn(zone, clientY);
+
+  var idx = cards.length;
+  for (var i = 0; i < cards.length; i++){
+    if (cards[i].getAttribute('data-task') === было){ idx = i; break; }
+  }
+
+  while (idx < cards.length){
+    var снизу = cards[idx];
+    if (clientY <= baseTop(снизу) + снизу.offsetHeight - КРАЙ_ПЕРЕСТАНОВКИ) break;
+    idx++;
+  }
+  while (idx > 0){
+    var сверху = cards[idx - 1];
+    if (clientY >= baseTop(сверху) + КРАЙ_ПЕРЕСТАНОВКИ) break;
+    idx--;
+  }
+
+  return idx < cards.length ? cards[idx].getAttribute('data-task') : null;
 }
 
 /* Раздвинуть карточки так, чтобы щель оказалась там, куда сядет перенесённая.
@@ -9821,15 +9907,24 @@ document.addEventListener('dragend', function(event){
   if (item) item.classList.remove('dragging');
   document.documentElement.classList.remove('dragging-now');
   S.drag = null;
+  // Брошенный жест не должен оставлять решение следующему: вернувшись в тот
+  // же блок, он начал бы с чужого места.
+  мышьЗона = null; мышьМесто = undefined;
   endDragVisuals();
 });
+
+/// Место вставки для перетаскивания мышью — то же состояние, что у пальца,
+/// только жест здесь ведёт браузер, и хранить его негде, кроме модуля.
+var мышьМесто, мышьЗона;
 
 document.addEventListener('dragover', function(event){
   var zone = event.target.closest ? event.target.closest('[data-drop]') : null;
   if (!zone || !S.drag) return;
   event.preventDefault();
   zone.classList.add('over');
-  markDropSpot(zone, dropTargetIn(zone, event.clientY));
+  if (zone !== мышьЗона){ мышьЗона = zone; мышьМесто = undefined; }
+  мышьМесто = местоВставки(zone, event.clientY, мышьМесто);
+  markDropSpot(zone, мышьМесто);
 });
 
 document.addEventListener('dragleave', function(event){
@@ -9919,7 +10014,12 @@ document.addEventListener('pointermove', function(event){
   var lit = document.querySelectorAll('.tasklist.over');
   for (var i = 0; i < lit.length; i++) lit[i].classList.remove('over');
   if (zone) zone.classList.add('over');
-  markDropSpot(zone, zone ? dropTargetIn(zone, event.clientY) : null);
+
+  /* Решение живёт на самом жесте, а не пересчитывается с нуля каждый кадр.
+     Смена блока сбрасывает его: в новом списке держаться не за что. */
+  if (zone !== touchDrag.zone){ touchDrag.zone = zone; touchDrag.before = undefined; }
+  touchDrag.before = zone ? местоВставки(zone, event.clientY, touchDrag.before) : null;
+  markDropSpot(zone, touchDrag.before);
 }, { passive: false });
 
 document.addEventListener('pointerup', function(event){
@@ -9928,7 +10028,11 @@ document.addEventListener('pointerup', function(event){
   var id = touchDrag.id;
   var under = wasActive ? document.elementFromPoint(event.clientX, event.clientY) : null;
   var zone = under && under.closest ? under.closest('[data-drop]') : null;
-  var before = zone ? dropTargetIn(zone, event.clientY) : null;
+  /* На отпускании берём то решение, которое человек видел щелью под пальцем.
+     Пересчёт здесь давал редкое, но обидное расхождение: щель стояла в одном
+     месте, а карточка садилась в другое. */
+  var before = zone ? (zone === touchDrag.zone ? touchDrag.before
+                                               : местоВставки(zone, event.clientY, undefined)) : null;
   var bucket = zone ? zone.getAttribute('data-drop') : null;
   cancelTouchDrag();
   if (!wasActive || !zone) return;
@@ -9979,7 +10083,8 @@ document.addEventListener('drop', function(event){
   zone.classList.remove('over');
   var id = S.drag;
   var bucket = zone.getAttribute('data-drop');
-  var before = dropTargetIn(zone, event.clientY);
+  var before = zone === мышьЗона ? мышьМесто : местоВставки(zone, event.clientY, undefined);
+  мышьЗона = null; мышьМесто = undefined;
   S.drag = null;
   endDragVisuals();
   if (before === id) return;
