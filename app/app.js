@@ -9725,10 +9725,21 @@ function clearShifts(){
   for (var i = 0; i < moved.length; i++) setShift(moved[i], 0);
 }
 
-/// Положение карточки без нашего сдвига — иначе расчёт места вставки поедет
-/// вслед за собственной анимацией и начнёт дрожать.
+/* Положение карточки в раскладке — без наших сдвигов и без оглядки на то,
+   доехала ли анимация.
+
+   Считалось как «прямоугольник минус записанный сдвиг». Пока соседи стоят,
+   это верно, но они разъезжаются с переходом в 180 мс: значение сдвига уже
+   новое, а прямоугольник ещё старый, и разница промахивается ровно на шаг.
+   Плашка места посадки из-за этого рисовалась на соседней карточке.
+
+   offsetTop transform не меняет вовсе — это позиция в раскладке, а не на
+   экране. Переводим её в экранные координаты через сам список; общий
+   offsetParent у них один, поэтому разность точна. */
 function baseTop(node){
-  return node.getBoundingClientRect().top - shiftOf(node);
+  var список = node.parentElement;
+  if (!список) return node.getBoundingClientRect().top - shiftOf(node);
+  return список.getBoundingClientRect().top + (node.offsetTop - список.offsetTop);
 }
 
 /* Насколько внутрь от грани стоит порог и сколько надо отыграть назад.
@@ -9854,10 +9865,43 @@ function местоВставки(zone, clientY, ход){
    раздвигаются, а меняются с ней местами: те, через кого её пронесли, съезжают
    на её высоту в обратную сторону. В чужом блоке щель открывается просто —
    всё, что ниже места вставки, уезжает вниз. */
+/* Плашка на месте, куда сядет карточка.
+
+   Щели между соседями мало: она читается как «здесь чего-то не хватает», а не
+   «сюда попадёт». Закрашенный прямоугольник отвечает прямо, и его видно даже
+   когда карточка под пальцем закрывает пол-экрана.
+
+   Координату не вычисляем заново, а получаем из расстановки сдвигов: там уже
+   известно, между кем и кем открылась щель. Первая попытка считала её от
+   текущего положения несомой карточки — то есть от пальца, — и плашка уезжала
+   под соседнюю карточку, где её просто не было видно.
+
+   position:fixed, чтобы не зависеть от того, кто в предках создал систему
+   координат: у несомой карточки свой transform, а он такую систему создаёт. */
+function отметитьЩель(zone, верх, высота){
+  var плашка = document.querySelector('.drop-slot');
+  if (!inApp() || верх === null){ if (плашка) плашка.remove(); return; }
+  if (!плашка){
+    плашка = document.createElement('div');
+    плашка.className = 'drop-slot';
+    document.body.appendChild(плашка);
+  }
+  var коробка = zone.getBoundingClientRect();
+  плашка.style.left   = коробка.left + 'px';
+  плашка.style.width  = коробка.width + 'px';
+  плашка.style.top    = верх + 'px';
+  плашка.style.height = высота + 'px';
+}
+
+function убратьЩель(){
+  var плашка = document.querySelector('.drop-slot');
+  if (плашка) плашка.remove();
+}
+
 function markDropSpot(zone, beforeId){
   var dragged = document.querySelector('.item.dragging');
   clearShifts();
-  if (!zone || !dragged) return;
+  if (!zone || !dragged){ убратьЩель(); return; }
 
   var cards = [].slice.call(zone.querySelectorAll('.item'));
   var gap = parseFloat(getComputedStyle(zone).rowGap) || 8;
@@ -9874,15 +9918,28 @@ function markDropSpot(zone, beforeId){
   if (from < 0){
     // Чужой блок: открываем щель перед той карточкой, на место которой встаём.
     for (var j = to; j < cards.length; j++) setShift(cards[j], step);
+    var верхЧужой = to < cards.length ? baseTop(cards[to])
+      : (cards.length ? baseTop(cards[cards.length - 1]) + cards[cards.length - 1].offsetHeight + gap
+                      : zone.getBoundingClientRect().top);
+    отметитьЩель(zone, верхЧужой, dragged.offsetHeight);
     return;
   }
 
   // Свой блок: сдвигаются только те, через кого карточку пронесли.
+  /* Куда сядет карточка. Пронесли вниз — она встаёт на место последнего, через
+     кого прошли; вверх — на место того, перед кем встаём; никуда не двигали —
+     остаётся на своём. */
+  var верхЩели;
   if (to > from){
     for (var k = from + 1; k < to; k++) setShift(cards[k], -step);
+    верхЩели = baseTop(cards[to - 1]);
   } else if (to < from){
     for (var m = to; m < from; m++) setShift(cards[m], step);
+    верхЩели = baseTop(cards[to]);
+  } else {
+    верхЩели = baseTop(dragged);
   }
+  отметитьЩель(zone, верхЩели, dragged.offsetHeight);
 }
 
 /* Пустые блоки на время жеста. Их нет в разметке — пустой день не показывается
@@ -10199,6 +10256,7 @@ function autoScroll(y){
 }
 
 function cancelTouchDrag(){
+  убратьЩель();
   document.documentElement.classList.remove('dragging-now');
   if (scrollTimer){ clearInterval(scrollTimer); scrollTimer = null; }
   if (!touchDrag) return;

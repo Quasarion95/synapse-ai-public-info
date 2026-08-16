@@ -336,6 +336,33 @@ select.inp{appearance:none}
    соседи расступаются плавно. */
 .item.dragging{transition:none; z-index:4; opacity:.96; cursor:grabbing;
   box-shadow:var(--shadow-lift); transform-origin:center}
+
+/* В приложении карточку под пальцем видно, что подняли.
+
+   Было почти незаметно: та же ширина, та же прозрачность, лёгкая тень — на
+   ходу не отличить от лежащих рядом. Теперь она непрозрачная, с настоящей
+   тенью и шире списка: выходит за его поля с обеих сторон, как лист, который
+   вынули из стопки. Ширину даём отрицательными полями, а не масштабом — от
+   scale текст мылится. */
+.in-app .item.dragging{
+  opacity:1; z-index:6;
+  margin-left:-10px; margin-right:-10px;
+  background:var(--card);
+  box-shadow:0 10px 26px rgba(20,22,26,.20), 0 2px 6px rgba(20,22,26,.10);
+}
+.in-app .item.dragging > .swipe-face{background:var(--card); padding-left:10px; padding-right:10px}
+
+/* Плашка места посадки. Не рамка и не пунктир: сплошная заливка отвечает
+   «сюда попадёт», а не «здесь чего-то не хватает». */
+.drop-slot{
+  position:fixed; z-index:3; pointer-events:none;
+  border-radius:var(--r-md);
+  background:var(--accent-soft);
+  box-shadow:inset 0 0 0 2px var(--accent);
+  opacity:.9;
+  transition:top .16s cubic-bezier(.2,.8,.3,1), height .16s ease;
+}
+@media (prefers-reduced-motion:reduce){ .drop-slot{transition:none} }
 .dragging-now .item:not(.dragging){transition:transform .18s cubic-bezier(.2,.8,.3,1)}
 @media (prefers-reduced-motion:reduce){ .item{transition:none} }
 .item-main{display:flex; gap:10px; align-items:flex-start}
