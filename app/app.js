@@ -9740,7 +9740,7 @@ function baseTop(node){
    перестановка отменилась. Это и есть защита от дрожи, и она не геометрическая:
    пороги стоят там, где просил владелец, а от тремора спасает то, что
    отыгрывать назад надо осознанным движением, а не колебанием в пиксель. */
-var КРАЙ_ПЕРЕСТАНОВКИ = 4;
+var КРАЙ_ПЕРЕСТАНОВКИ = 0;   // соприкосновение рамок, без захода внутрь
 var ОТКАТ_ПЕРЕСТАНОВКИ = 6;
 
 /// Перед какой карточкой встанет перетаскиваемая, если отпустить здесь.
@@ -9773,6 +9773,25 @@ function dropTargetIn(zone, clientY){
    Считаем по baseTop — положению без наших сдвигов: раскладка соседей стоит
    неподвижно, сколько бы раз они ни съезжали на экране. */
 function местоВставки(zone, clientY, ход){
+  /* Меряем не палец, а рамку несомой карточки.
+
+     По пальцу выходило странно: палец держит карточку где-то посередине, и
+     сосед уезжал, когда до него доходил палец, — то есть когда несомая уже
+     наполовину его перекрыла. Теперь считаем по её краю: пошла вниз — работает
+     нижняя грань, пошла вверх — верхняя. Сосед трогается ровно в тот момент,
+     когда рамки соприкоснулись, а не когда одна дошла до середины другой. */
+  /* Только когда карточку действительно несут пальцем. При перетаскивании
+     мышью браузер рисует свой призрак, а сама карточка остаётся на месте — её
+     рамка стояла бы неподвижно, и место вставки перестало бы меняться вовсе.
+     Там считаем по курсору, как и раньше. */
+  var несомая = (typeof touchDrag !== 'undefined' && touchDrag && touchDrag.active)
+    ? document.querySelector('.item.dragging') : null;
+  if (несомая){
+    var р = несомая.getBoundingClientRect();
+    ход.низ_ли = ход.низ !== false;
+    clientY = ход.низ_ли ? р.bottom : р.top;
+  }
+
   var cards = [].slice.call(zone.querySelectorAll('.item:not(.dragging)'));
   if (!cards.length){ ход.before = null; return null; }
 
@@ -10075,15 +10094,29 @@ document.addEventListener('pointermove', function(event){
   autoScroll(event.clientY);
 
   var under = document.elementFromPoint(event.clientX, event.clientY);
-  var zone = under && under.closest ? under.closest('[data-drop]') : null;
-  var lit = document.querySelectorAll('.tasklist.over');
+  var zone = зонаПод(under);
+  var lit = document.querySelectorAll('.over');
   for (var i = 0; i < lit.length; i++) lit[i].classList.remove('over');
-  if (zone) zone.classList.add('over');
+  if (zone){
+    zone.classList.add('over');
+    // У свёрнутого дня подсвечивать нечего — список нулевой высоты. Метим сам
+    // блок, чтобы было видно, куда упадёт карточка.
+    var блок = zone.closest('.group');
+    if (блок) блок.classList.add('over');
+  }
 
   /* Решение живёт на самом жесте, а не пересчитывается с нуля каждый кадр.
      Смена блока сбрасывает его: в новом списке держаться не за что. */
   if (zone !== touchDrag.zone){ touchDrag.zone = zone; touchDrag.ход = { before: undefined, y: event.clientY }; }
+  var прежнее = touchDrag.before;
   touchDrag.before = zone ? местоВставки(zone, event.clientY, touchDrag.ход) : null;
+  /* Отклик на каждое пересечение: глазами за перестановкой не уследить —
+     карточка под пальцем закрывает как раз то место, где она случается.
+     Восемь миллисекунд против восемнадцати на подъёме: подъём надо заметить,
+     а это лишь отметка «прошли ещё одну». */
+  if (прежнее !== touchDrag.before && navigator.vibrate){
+    try { navigator.vibrate(8); } catch (e){}
+  }
   markDropSpot(zone, touchDrag.before);
 }, { passive: false });
 
@@ -10092,7 +10125,7 @@ document.addEventListener('pointerup', function(event){
   var wasActive = touchDrag.active;
   var id = touchDrag.id;
   var under = wasActive ? document.elementFromPoint(event.clientX, event.clientY) : null;
-  var zone = under && under.closest ? under.closest('[data-drop]') : null;
+  var zone = зонаПод(under);
   /* На отпускании берём то решение, которое человек видел щелью под пальцем.
      Пересчёт здесь давал редкое, но обидное расхождение: щель стояла в одном
      месте, а карточка садилась в другое. */
@@ -10130,6 +10163,21 @@ document.addEventListener('touchmove', function(event){
 }, { passive: false });
 
 document.addEventListener('pointercancel', function(){ cancelTouchDrag(); });
+
+/* Куда упадёт карточка, если отпустить над этой точкой.
+
+   Обычно это список задач под пальцем. Но дни теперь свёрнуты по умолчанию, а
+   у свёрнутого списка нулевая высота — под палец он не попадает вовсе, и
+   перенос оказывался заперт внутри одного развёрнутого дня. Поэтому, не найдя
+   списка, целимся в сам блок дня и берём его список: он в разметке есть, просто
+   схлопнут. Так задачу можно перенести в любой день, не разворачивая его. */
+function зонаПод(узел){
+  if (!узел || !узел.closest) return null;
+  var zone = узел.closest('[data-drop]');
+  if (zone) return zone;
+  var группа = узел.closest('.group[data-bucket]');
+  return группа ? группа.querySelector('[data-drop]') : null;
+}
 
 var scrollTimer = null;
 function autoScroll(y){
