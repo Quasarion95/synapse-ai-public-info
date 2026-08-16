@@ -392,6 +392,29 @@ function freeLeft(kind){
 
 function canAdd(kind){ return freeLeft(kind) !== 0; }
 
+/* Что из оформления открыто без подписки.
+
+   Раньше здесь было пусто: темы, значки, звуки и режимы таймера отдавались
+   целиком. Владелец решил иначе — и это не жадность на пустом месте: каждая
+   тема, каждый звук и каждый режим кем-то нарисован и записан, а платит за
+   всю работу подписка. Первое из каждого набора остаётся бесплатным, чтобы
+   человек видел, что выбор вообще существует, и понимал, за что платит.
+
+   Считаем по месту в списке, а не по имени: порядок в наборах и есть порядок
+   «сначала бесплатное». */
+var FREE_LOOKS = {
+  palettes: 2,   // «Бумага» и «Графит»
+  boxes: 1,      // квадрат
+  sounds: 1,     // дождь
+  pomoModes: 1   // «Фокус»; перерывы — в подписке
+};
+
+/// Открыт ли элемент под номером index в наборе kind.
+function lookOpen(kind, index){
+  if (isPro()) return true;
+  return index < (FREE_LOOKS[kind] || 0);
+}
+
 var LIMIT_WORDS = {
   lists: ['список', 'списка', 'списков'],
   notes: ['заметка', 'заметки', 'заметок'],
@@ -5128,7 +5151,8 @@ function vPomodoro(){
     '<p class="phase">' + m.title + ' · ' + S.pomodoro[m.key] + ' мин</p>' +
     '<div class="modes">' + pomoOrdered().map(function(p){
       // Минуты прямо на карточке режима — ровно то, что чинили в приложении.
-      return '<button class="mode" data-act="pomo-mode" data-mode="' + p.id + '" aria-pressed="' + (p.id === S.pomodoro.mode) + '">' +
+      var режимОткрыт = lookOpen('pomoModes', POMO.indexOf(p));
+      return '<button class="mode' + (режимОткрыт ? '' : ' locked') + '" data-act="pomo-mode" data-mode="' + p.id + '" aria-pressed="' + (p.id === S.pomodoro.mode) + '">' +
         '<b>' + p.title + '</b><span>' + S.pomodoro[p.key] + ' мин</span></button>';
     }).join('') + '</div>' +
     '<div class="pomo-actions">' +
@@ -5400,7 +5424,9 @@ function vMeditation(){
       SOUNDS.map(function(s){
         var on = sound.id === s.id;
         var playing = on && med.preview;
-        return '<button class="soundcard' + (on ? ' on' : '') + (playing ? ' playing' : '') + '" ' +
+        var звукОткрыт = lookOpen('sounds', SOUNDS.indexOf(s));
+        return '<button class="soundcard' + (on ? ' on' : '') + (playing ? ' playing' : '') +
+          (звукОткрыт ? '' : ' locked') + '" ' +
           'data-act="med-sound" data-sound="' + s.id + '" aria-pressed="' + on + '" title="' + esc(s.hint) + '">' +
           '<span class="sw">' + soundGlyph(s.id) + (playing ? '<i class="pulse"></i>' : '') + '</span>' +
           '<span class="tt">' + esc(s.title) + '</span>' +
@@ -5717,7 +5743,8 @@ function vSettingsView(){
       var dark = isDarkNow();
       var bg = paletteColor(p, dark ? 'darkBackground' : 'lightBackground');
       var ac = paletteColor(p, dark ? 'accentDark' : 'accent');
-      return '<button class="radio pal" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
+      var открыта = lookOpen('palettes', PALETTES.indexOf(p));
+      return '<button class="radio pal' + (открыта ? '' : ' locked') + '" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
         '<span class="sw" style="background:' + rgb(bg) + '"><i style="background:' + rgb(ac) + '"></i></span>' +
         '<span class="rl">' + esc(p.title) + '</span></button>';
     }).join(''), 2));
@@ -5731,7 +5758,8 @@ function vSettingsView(){
 
   html += settingsBlock('Отметка выполнения', 'Форма галочки у закрытой задачи.',
     settingsRow('', BOXES.map(function(b){
-      return '<button class="radio boxpick" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '" ' +
+      var формаОткрыта = lookOpen('boxes', BOXES.indexOf(b));
+      return '<button class="radio boxpick' + (формаОткрыта ? '' : ' locked') + '" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '" ' +
         'title="' + esc(b.title) + '" aria-label="' + esc(b.title) + '">' +
         '<span class="box on" data-shape="' + b.id + '"' + markStyle + '>' + ICON.check + '</span>' +
         '<span class="rl">' + esc(b.title) + '</span></button>';
@@ -5741,7 +5769,8 @@ function vSettingsView(){
       var круг = c.css
         ? '<span class="msw" style="background:' + c.css + '"></span>'
         : '<span class="msw" style="background:var(--ok)"></span>';
-      return '<button class="radio markpick" data-act="set-mark-color" data-color="' + c.id + '" ' +
+      var цветОткрыт = isPro() || c.id === 'default';
+      return '<button class="radio markpick' + (цветОткрыт ? '' : ' locked') + '" data-act="set-mark-color" data-color="' + c.id + '" ' +
         'aria-pressed="' + ((S.markColor || 'default') === c.id) + '" ' +
         'title="' + esc(c.title) + '" aria-label="Цвет отметки: ' + esc(c.title) + '">' +
         круг + '<span class="rl">' + esc(c.title) + '</span></button>';
@@ -7923,6 +7952,25 @@ function modalKillGoal(goal){
 /* Замок в виде окна, а не тоста: тост уезжает, а тут человеку надо прочитать,
    что именно кончилось и что с этим делать. Две кнопки — тарифы и код, потому
    что часть людей уже купила подписку на сайте. */
+/* Окно для закрытого оформления: темы, значки, звуки, режимы.
+
+   Отдельное от лимитного: там человек упёрся в предел работы и ему важно, что
+   он теряет; здесь он выбирает оформление, и разговор должен быть коротким. */
+function modalLookPaywall(что){
+  return '<h3>' + esc(что.charAt(0).toUpperCase() + что.slice(1)) + ' — в подписке</h3>' +
+    '<p class="s">Первое из каждого набора открыто всем, остальное входит в Synapse Pro ' +
+      'вместе с ассистентом и его брифингами.</p>' +
+    '<div class="paywall-price">' +
+      '<b>' + planPrice('pro.weekly') + '</b><span>за неделю, чтобы попробовать</span>' +
+      '<b>' + planPrice('pro.monthly') + '</b><span>за месяц</span>' +
+    '</div>' +
+    '<button class="btn full" data-act="go" data-view="subscription">Подключить Pro</button>' +
+    '<div class="acts pair">' +
+      '<button class="btn soft" data-act="pro-code">У меня есть код</button>' +
+      '<button class="btn soft" data-act="close-modal">Закрыть</button>' +
+    '</div>';
+}
+
 function modalPaywall(kind){
   // «Не сейчас» звучало как предложение отложить, и его выбирали по инерции.
   // Отказаться можно и «Закрыть», а звать окно должно к тому, ради чего оно
@@ -8271,11 +8319,22 @@ var ACTS = {
   },
 
   'set-theme': function(d){ S.theme = d.theme; commit(); },
-  'set-palette': function(d){ S.palette = d.palette; commit(); },
+  'set-palette': function(d){
+    var i = PALETTES.map(function(p){ return p.id; }).indexOf(d.palette);
+    if (!lookOpen('palettes', i)) return openModal(modalLookPaywall('тема'));
+    S.palette = d.palette; commit();
+  },
   'set-font': function(d){ S.font = d.font; commit(); },
   'set-fontsize': function(d){ S.fontSize = d.size; commit(); },
-  'set-mark-color': function(d){ S.markColor = d.color; commit(); },
-  'set-box': function(d){ S.box = d.box; commit(); },
+  'set-mark-color': function(d){
+    if (!isPro() && d.color !== 'default') return openModal(modalLookPaywall('цвет отметки'));
+    S.markColor = d.color; commit();
+  },
+  'set-box': function(d){
+    var i = BOXES.map(function(b){ return b.id; }).indexOf(d.box);
+    if (!lookOpen('boxes', i)) return openModal(modalLookPaywall('форма отметки'));
+    S.box = d.box; commit();
+  },
 
   /* Дни недели в своём правиле переключаются на месте, без перерисовки модалки:
      перерисовка стёрла бы остальные поля, которые человек уже заполнил. */
@@ -9236,6 +9295,8 @@ var ACTS = {
 
   /* --- помодоро --- */
   'pomo-mode': function(d){
+    var номер = POMO.map(function(x){ return x.id; }).indexOf(d.mode);
+    if (!lookOpen('pomoModes', номер)) return openModal(modalLookPaywall('режим'));
     stopTicker();
     S.pomodoro.mode = d.mode;
     remaining = S.pomodoro[modeOf().key] * 60;
@@ -9274,6 +9335,8 @@ var ACTS = {
      ушами. Повторное нажатие по уже играющей — выключает. Если идёт сеанс,
      дорожка просто меняется на лету и не останавливается. */
   'med-sound': function(d){
+    var номер = SOUNDS.map(function(x){ return x.id; }).indexOf(d.sound);
+    if (!lookOpen('sounds', номер)) return openModal(modalLookPaywall('звук'));
     var picked = soundOf(d.sound);
     var same = soundOf(S.meditation.sound).id === picked.id;
     S.meditation.sound = picked.title;

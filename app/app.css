@@ -990,6 +990,16 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    Без неё окно предлагало «подключить» неизвестно за сколько, и первый вопрос
    человека — «а сколько это стоит» — оставался без ответа ровно в тот момент,
    когда он готов был решить. */
+/* Закрытое подпиской — приглушено и с замком.
+
+   Не спрятано и не выключено: человек должен видеть, что выбор есть и он
+   больше двух тем. Спрятанное не продаёт, а выключенное выглядит поломкой. */
+.radio.locked, .soundcard.locked, .mode.locked{position:relative; opacity:.55}
+.radio.locked::after, .soundcard.locked::after, .mode.locked::after{
+  content:'🔒'; position:absolute; top:2px; right:5px; font-size:9px; opacity:.75; line-height:1}
+.radio.pal.locked::after, .radio.boxpick.locked::after, .radio.markpick.locked::after{
+  top:1px; right:3px}
+
 .paywall-price{display:grid; grid-template-columns:auto 1fr; gap:4px 10px;
   align-items:baseline; margin:14px 0 4px; padding:12px 14px;
   background:var(--soft); border-radius:var(--r-md)}
