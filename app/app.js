@@ -9573,6 +9573,7 @@ document.addEventListener('dragstart', function(event){
   if (!item || !item.classList.contains('item')) return;
   S.drag = item.getAttribute('data-task');
   item.classList.add('dragging');
+  document.documentElement.classList.add('dragging-now');
   openEmptyDropZones();
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
 });
@@ -9580,6 +9581,7 @@ document.addEventListener('dragstart', function(event){
 document.addEventListener('dragend', function(event){
   var item = event.target.closest ? event.target.closest('.item') : null;
   if (item) item.classList.remove('dragging');
+  document.documentElement.classList.remove('dragging-now');
   S.drag = null;
   endDragVisuals();
 });
@@ -9625,6 +9627,20 @@ document.addEventListener('pointerdown', function(event){
     timer: setTimeout(function(){
       if (!touchDrag) return;
       touchDrag.active = true;
+      document.documentElement.classList.add('dragging-now');
+
+      /* Два жеста на одном касании — так не бывает.
+
+         Свайп и перетаскивание начинаются одинаково: палец лёг на карточку.
+         Пока они оба считали себя начатыми, карточка одновременно ехала вбок
+         от свайпа и вниз от переноса, и оба выглядели сломанными. Кто первым
+         себя опознал, тот и ведёт жест: удержание сработало — свайп забыт. */
+      if (swipe){
+        if (swipe.лицо) swipe.лицо.style.left = '';
+        swipe.карточка.classList.remove('swiping');
+        swipe = null;
+      }
+
       // touch-action выключаем только на время жеста, иначе список перестанет
       // прокручиваться пальцем вообще.
       item.style.touchAction = 'none';
@@ -9700,6 +9716,7 @@ function autoScroll(y){
 }
 
 function cancelTouchDrag(){
+  document.documentElement.classList.remove('dragging-now');
   if (scrollTimer){ clearInterval(scrollTimer); scrollTimer = null; }
   if (!touchDrag) return;
   clearTimeout(touchDrag.timer);
@@ -9847,7 +9864,21 @@ document.addEventListener('focusin', function(event){
   setTimeout(function(){
     if (document.activeElement !== node) return;
     var коробка = node.closest('.modal-in');
-    if (!коробка) return;
+    if (!коробка){
+      /* Поля бывают не только в окнах: строка подпункта в раскрытой задаче,
+         поле этапа в цели, ввод в финансах. Их закрывает та же клавиатура, и
+         подкручивать надо так же — только прокручивается тут вся страница.
+
+         center, а не nearest: у нижнего края экрана «ближайшее» положение —
+         это остаться под клавиатурой. */
+      var видно = node.getBoundingClientRect();
+      var низ = window.innerHeight - (parseInt(
+        getComputedStyle(document.documentElement).getPropertyValue('--vv-shift')) || 0);
+      if (видно.bottom > низ - 24 || видно.top < 80){
+        node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+      return;
+    }
     var поле = node.getBoundingClientRect();
     var окно = коробка.getBoundingClientRect();
     // Оставляем поле не впритык к краю: под ним обычно подпись или подсказка.
@@ -9947,6 +9978,8 @@ document.addEventListener('pointerdown', function(event){
 
 document.addEventListener('pointermove', function(event){
   if (!swipe) return;
+  // Карточку уже несут — свайпу здесь делать нечего.
+  if (typeof touchDrag !== 'undefined' && touchDrag && touchDrag.active){ swipe = null; return; }
   var dx = event.clientX - swipe.x;
   var dy = event.clientY - swipe.y;
 
@@ -9960,6 +9993,9 @@ document.addEventListener('pointermove', function(event){
     swipe.решено = true;
     swipe.это_свайп = Math.abs(dx) > Math.abs(dy);
     if (!swipe.это_свайп){ swipe = null; return; }
+    // Ушли вбок — значит это не перенос: снимаем отсчёт удержания, чтобы
+    // карточка посреди свайпа вдруг не поднялась на перетаскивание.
+    if (typeof cancelTouchDrag === 'function') cancelTouchDrag();
     swipeCloseAll(swipe.карточка);
     swipe.карточка.classList.add('swiping');
   }
