@@ -9725,6 +9725,28 @@ function clearShifts(){
   for (var i = 0; i < moved.length; i++) setShift(moved[i], 0);
 }
 
+/* Полный сброс вида после жеста — без оглядки на то, чем он кончился.
+
+   Прежняя уборка снимала сдвиг только с той карточки, ссылка на которую
+   лежала в состоянии переноса, и стояла ЗА проверкой «а состояние ещё есть?».
+   Жест, оборвавшийся не отпусканием, оставлял карточку висеть со своим
+   transform: в списке дыра, а сама она уехала за нижние блоки. Владелец
+   поймал это, утащив задачу ниже всех дней и отпустив там.
+
+   Теперь чистим всё, что могло остаться, по разметке, а не по памяти. */
+function сброситьВидПереноса(){
+  clearShifts();
+  var следы = document.querySelectorAll('.item[style], .item.dragging');
+  for (var i = 0; i < следы.length; i++){
+    следы[i].style.transform = '';
+    следы[i].style.touchAction = '';
+    следы[i].classList.remove('dragging');
+  }
+  var метки = document.querySelectorAll('.over');
+  for (var j = 0; j < метки.length; j++) метки[j].classList.remove('over');
+  убратьЩель();
+}
+
 /* Положение карточки в раскладке — без наших сдвигов и без оглядки на то,
    доехала ли анимация.
 
@@ -9878,18 +9900,54 @@ function местоВставки(zone, clientY, ход){
 
    position:fixed, чтобы не зависеть от того, кто в предках создал систему
    координат: у несомой карточки свой transform, а он такую систему создаёт. */
+/* Где окажется щель — считаем сложением, а не вычитанием.
+
+   Пробовал вывести её из положения соседей: то из прямоугольников (врут во
+   время перехода), то из baseTop с поправкой на сдвиг (промахивался на шаг).
+   Оба раза плашка вставала не туда.
+
+   Сложение не врёт вовсе: убираем несомую карточку из списка, и остальные
+   ложатся вплотную друг за другом. Место посадки — сумма высот тех, кто
+   оказался выше него. Высоты берём настоящие: карточка с чипами выше пустой,
+   и один общий шаг тут не годится. */
+function щельНа(zone, cards, dragged, to, gap){
+  var остальные = [], свой = -1;
+  for (var i = 0; i < cards.length; i++){
+    if (cards[i] === dragged){ свой = остальные.length; continue; }
+    остальные.push(cards[i]);
+  }
+  // Индекс среди оставшихся: пронося карточку вниз, мы перешагнули и через
+  // её собственное место, поэтому номер сдвигается на один назад.
+  var номер = (свой >= 0 && to > свой) ? to - 1 : to;
+  if (номер > остальные.length) номер = остальные.length;
+
+  var верх = zone.getBoundingClientRect().top;
+  for (var j = 0; j < номер; j++) верх += остальные[j].offsetHeight + gap;
+  отметитьЩель(zone, верх, dragged.offsetHeight);
+}
+
 function отметитьЩель(zone, верх, высота){
   var плашка = document.querySelector('.drop-slot');
   if (!inApp() || верх === null){ if (плашка) плашка.remove(); return; }
-  if (!плашка){
+
+  /* Плашка лежит ВНУТРИ списка того дня, куда целимся, а не поверх страницы.
+
+     Была position:fixed на всю страницу — и накрывала заголовки соседних
+     дней: прямоугольник ехал по «ЗАВТРА» вместе со счётчиком, текст читался
+     сквозь него. Внутри списка её обрезает сам список, и выйти за границы
+     дня она физически не может. */
+  if (!плашка || плашка.parentElement !== zone){
+    if (плашка) плашка.remove();
     плашка = document.createElement('div');
     плашка.className = 'drop-slot';
-    document.body.appendChild(плашка);
+    zone.appendChild(плашка);
   }
+  /* Подрезаем по списку. Позиция считается по раскладке карточек, а у первой
+     из них верх может оказаться чуть выше начала самого списка — тогда плашка
+     торчала над ним и заезжала под заголовок дня. */
   var коробка = zone.getBoundingClientRect();
-  плашка.style.left   = коробка.left + 'px';
-  плашка.style.width  = коробка.width + 'px';
-  плашка.style.top    = верх + 'px';
+  var сверху = Math.max(0, Math.min(верх - коробка.top, коробка.height - высота));
+  плашка.style.top    = сверху + 'px';
   плашка.style.height = высота + 'px';
 }
 
@@ -9916,12 +9974,21 @@ function markDropSpot(zone, beforeId){
   }
 
   if (from < 0){
+    /* Карточку унесли в другой день — её собственное место должно закрыться.
+
+       Раньше не закрывалось: в родном списке оставалась дыра высотой в
+       карточку, и на экране было сразу две щели — старая и новая. В образце
+       список смыкается, как только карточку подняли. */
+    var родной = dragged.parentElement;
+    if (родной && родной !== zone){
+      var свои = [].slice.call(родной.querySelectorAll('.item'));
+      var мой = свои.indexOf(dragged);
+      var шагРодного = dragged.offsetHeight + (parseFloat(getComputedStyle(родной).rowGap) || 8);
+      for (var n = мой + 1; n < свои.length; n++) setShift(свои[n], -шагРодного);
+    }
     // Чужой блок: открываем щель перед той карточкой, на место которой встаём.
     for (var j = to; j < cards.length; j++) setShift(cards[j], step);
-    var верхЧужой = to < cards.length ? baseTop(cards[to])
-      : (cards.length ? baseTop(cards[cards.length - 1]) + cards[cards.length - 1].offsetHeight + gap
-                      : zone.getBoundingClientRect().top);
-    отметитьЩель(zone, верхЧужой, dragged.offsetHeight);
+    щельНа(zone, cards, dragged, to, gap);
     return;
   }
 
@@ -9929,17 +9996,12 @@ function markDropSpot(zone, beforeId){
   /* Куда сядет карточка. Пронесли вниз — она встаёт на место последнего, через
      кого прошли; вверх — на место того, перед кем встаём; никуда не двигали —
      остаётся на своём. */
-  var верхЩели;
   if (to > from){
     for (var k = from + 1; k < to; k++) setShift(cards[k], -step);
-    верхЩели = baseTop(cards[to - 1]);
   } else if (to < from){
     for (var m = to; m < from; m++) setShift(cards[m], step);
-    верхЩели = baseTop(cards[to]);
-  } else {
-    верхЩели = baseTop(dragged);
   }
-  отметитьЩель(zone, верхЩели, dragged.offsetHeight);
+  щельНа(zone, cards, dragged, to, gap);
 }
 
 /* Пустые блоки на время жеста. Их нет в разметке — пустой день не показывается
@@ -10158,8 +10220,10 @@ document.addEventListener('pointermove', function(event){
     zone.classList.add('over');
     // У свёрнутого дня подсвечивать нечего — список нулевой высоты. Метим сам
     // блок, чтобы было видно, куда упадёт карточка.
+    // Метим шапку только у свёрнутого дня: у развёрнутого место посадки
+    // показывает плашка, и вторая подсветка на том же экране только спорит.
     var блок = zone.closest('.group');
-    if (блок) блок.classList.add('over');
+    if (блок && блок.classList.contains('closed')) блок.classList.add('over');
   }
 
   /* Решение живёт на самом жесте, а не пересчитывается с нуля каждый кадр.
@@ -10191,6 +10255,10 @@ document.addEventListener('pointerup', function(event){
   var bucket = zone ? zone.getAttribute('data-drop') : null;
   cancelTouchDrag();
   if (wasActive) перенёсВ = Date.now();
+  /* Отпустили мимо всех дней — карточка возвращается на место. Перерисовка
+     здесь обязательна: без неё экран остаётся с тем, что накопил жест, и
+     расходится с данными. Это и была пропавшая карточка. */
+  if (wasActive && !zone){ render(); return; }
   if (!wasActive || !zone) return;
 
   if (before === id) { render(); return; }
@@ -10262,9 +10330,11 @@ function autoScroll(y){
 }
 
 function cancelTouchDrag(){
-  убратьЩель();
   document.documentElement.classList.remove('dragging-now');
   if (scrollTimer){ clearInterval(scrollTimer); scrollTimer = null; }
+  // Сначала уборка по разметке, и только потом — по памяти о жесте.
+  сброситьВидПереноса();
+  closeEmptyDropZones();
   if (!touchDrag) return;
   clearTimeout(touchDrag.timer);
   if (touchDrag.node){
