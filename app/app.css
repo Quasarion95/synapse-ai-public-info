@@ -473,9 +473,12 @@ select.inp{appearance:none}
 /* Пунктирной рамки нет: она обводила список поверх карточек и читалась как
    поломка вёрстки. Куда упадёт карточка, и так видно по раскрывшейся щели —
    подсветки хватает мягкой заливки. */
-.dragging-now .tasklist.over{background:var(--soft)}
+.dragging-now .tasklist.over{background:var(--soft); outline:2px dashed var(--stroke); outline-offset:-2px}
+/* В приложении рамки нет: она обводила список поверх карточек и читалась как
+   поломка вёрстки. В вебе оставлена прежней — там её не просили трогать. */
+.in-app .dragging-now .tasklist.over{outline:none}
 /* Свёрнутый день: список нулевой высоты подсветить нечем, метим сам блок. */
-.dragging-now .group.over > .group-h{background:var(--soft); border-radius:var(--r-sm)}
+.in-app .dragging-now .group.over > .group-h{background:var(--soft); border-radius:var(--r-sm)}
 
 /* Финансовые строки — те же правила, но своё поле у лица.
 

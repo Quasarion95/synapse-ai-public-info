@@ -3856,7 +3856,7 @@ function itemRow(t, внутриЦели){
   // карточки незачем. data-act висит на .item-main, чтобы нажатия внутри
   // раскрытой части не сворачивали её обратно.
 
-  /* draggable — только для мыши.
+  /* draggable убираем только в приложении.
 
      Атрибут нужен браузерному перетаскиванию, которым на компьютере таскают
      карточки между блоками. На сенсорном экране он вреден: андроид на долгое
@@ -3870,7 +3870,7 @@ function itemRow(t, внутриЦели){
      не ставим: отменить системный жест из скрипта уже нельзя, он начинается
      раньше, чем страница о нём узнаёт. */
   return '<article class="item' + (touchUI() ? ' swipe' : '') + (t.done ? ' done' : '') + (open ? ' open' : '') + '"' +
-    (touchUI() ? '' : ' draggable="true"') + ' data-task="' + t.id + '">' +
+    (inApp() ? '' : ' draggable="true"') + ' data-task="' + t.id + '">' +
     '<div class="item-main' + (touchUI() ? ' swipe-face' : '') + '" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
@@ -9784,7 +9784,7 @@ function местоВставки(zone, clientY, ход){
      мышью браузер рисует свой призрак, а сама карточка остаётся на месте — её
      рамка стояла бы неподвижно, и место вставки перестало бы меняться вовсе.
      Там считаем по курсору, как и раньше. */
-  var несомая = (typeof touchDrag !== 'undefined' && touchDrag && touchDrag.active)
+  var несомая = (inApp() && typeof touchDrag !== 'undefined' && touchDrag && touchDrag.active)
     ? document.querySelector('.item.dragging') : null;
   if (несомая){
     var р = несомая.getBoundingClientRect();
@@ -10033,7 +10033,7 @@ document.addEventListener('pointerdown', function(event){
 
      Перечисляем то, что переносом быть не должно: отметка выполнения, кнопки
      под свайпом и обычные кнопки вроде «подпункта». */
-  if (event.target.closest('.box, .side, .btn')) return;
+  if (event.target.closest(inApp() ? '.box, .side, .btn' : 'button')) return;
 
   touchDrag = {
     id: item.getAttribute('data-task'),
@@ -10114,7 +10114,7 @@ document.addEventListener('pointermove', function(event){
      карточка под пальцем закрывает как раз то место, где она случается.
      Восемь миллисекунд против восемнадцати на подъёме: подъём надо заметить,
      а это лишь отметка «прошли ещё одну». */
-  if (прежнее !== touchDrag.before && navigator.vibrate){
+  if (inApp() && прежнее !== touchDrag.before && navigator.vibrate){
     try { navigator.vibrate(8); } catch (e){}
   }
   markDropSpot(zone, touchDrag.before);
@@ -10159,7 +10159,7 @@ document.addEventListener('pointerup', function(event){
    проигнорирует отмену. Отменяем только когда карточку уже несут: до этого
    вертикальное движение — обычная прокрутка списка, и забирать её нельзя. */
 document.addEventListener('touchmove', function(event){
-  if (touchDrag && touchDrag.active && event.cancelable) event.preventDefault();
+  if (inApp() && touchDrag && touchDrag.active && event.cancelable) event.preventDefault();
 }, { passive: false });
 
 document.addEventListener('pointercancel', function(){ cancelTouchDrag(); });
@@ -10175,6 +10175,7 @@ function зонаПод(узел){
   if (!узел || !узел.closest) return null;
   var zone = узел.closest('[data-drop]');
   if (zone) return zone;
+  if (!inApp()) return null;
   var группа = узел.closest('.group[data-bucket]');
   return группа ? группа.querySelector('[data-drop]') : null;
 }
