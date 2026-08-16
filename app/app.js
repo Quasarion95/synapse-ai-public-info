@@ -6768,6 +6768,29 @@ function synAsk(){
    Проверять код заново на каждом запуске незачем: сервер отдал срок, и до него
    Pro считается включённым. Кнопка «Проверить» на экране тарифов есть на
    случай, когда подписку продлили или перенесли на другое устройство. */
+/* Включение подписки по коду из ссылки, а не из поля ввода.
+
+   Страница активации на сайте открывает synapse://activate?code=… — на айфоне
+   это ловит приложение и включает Pro само. На андроиде оболочка теперь делает
+   то же: зовёт эту функцию с кодом из ссылки. Человеку не приходится
+   переписывать двенадцать знаков из браузера в приложение руками, а именно на
+   этом переносе обычно и теряются покупатели. */
+function activateFromLink(code){
+  code = String(code || '').trim();
+  if (!code) return;
+  openModal(modalProCode('', true));
+  proActivate(code).then(function(pro){
+    if (!pro || !pro.active){
+      openModal(modalProCode('Код принят, но подписка по нему неактивна.', false));
+      return;
+    }
+    closeModal();
+    commit('Подписка включена');
+  }).catch(function(error){
+    openModal(modalProCode((error && error.message) || 'Не получилось проверить код.', false));
+  });
+}
+
 function proActivate(code){
   return synFetch('/v1/synapse/subscription/activate', {
     code: String(code || '').trim().toUpperCase(),

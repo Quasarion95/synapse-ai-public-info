@@ -47,6 +47,20 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Ссылка активации подписки.
+
+                 Страница оплаты на сайте открывает synapse://activate?code=…
+                 На айфоне это ловит приложение и включает Pro само; андроид до
+                 сих пор такую ссылку не понимал, и человек переписывал
+                 двенадцать знаков из браузера в приложение руками. На этом
+                 переносе покупатели и теряются. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="synapse" android:host="activate" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

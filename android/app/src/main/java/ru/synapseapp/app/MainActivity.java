@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView web;
     private VoiceBridge голос;
+    private String код;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -161,6 +162,9 @@ public class MainActivity extends AppCompatActivity {
                собрано наспех. */
             @Override
             public void onPageFinished(WebView view, String url) {
+                // Код из ссылки ждал загрузки страницы: раньше её функций
+                // просто не существовало.
+                отдатьКодСтранице();
                 view.evaluateJavascript(
                         "getComputedStyle(document.body).backgroundColor", value -> {
                             Integer цвет = разобратьЦвет(value);
@@ -235,11 +239,44 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        код = кодИзСсылки(getIntent());
+
         if (savedInstanceState == null) {
             web.loadUrl("https://" + APP_HOST + "/app/index.html");
         } else {
             web.restoreState(savedInstanceState);
         }
+    }
+
+    /* Ссылка активации подписки: synapse://activate?code=XXXX-XXXX-XXXX
+
+       Приложение запущено в singleTask, поэтому вторая такая ссылка приходит не
+       в onCreate, а сюда — иначе код, присланный при уже открытом приложении,
+       потерялся бы молча. */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        код = кодИзСсылки(intent);
+        отдатьКодСтранице();
+    }
+
+    private static String кодИзСсылки(Intent intent) {
+        if (intent == null || intent.getData() == null) return null;
+        Uri data = intent.getData();
+        if (!"synapse".equals(data.getScheme())) return null;
+        String c = data.getQueryParameter("code");
+        return (c == null || c.trim().isEmpty()) ? null : c.trim();
+    }
+
+    /** Отдаём код один раз: повторная активация того же кода ничего не даёт. */
+    private void отдатьКодСтранице() {
+        if (код == null || web == null) return;
+        String один = код;
+        код = null;
+        web.evaluateJavascript(
+                "window.activateFromLink && window.activateFromLink("
+                        + org.json.JSONObject.quote(один) + ")", null);
     }
 
     /** Из «"rgb(245, 241, 232)"» — в цвет. null, если строка не та. */
