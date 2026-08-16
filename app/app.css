@@ -260,8 +260,20 @@ select.inp{appearance:none}
 
 /* Карточка ужата: 12/14 внутрь и 23-пиксельный кружок давали на телефоне три
    задачи на экран. Теперь помещается пять, при том же кегле названия. */
-.item{position:relative; background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-md); box-shadow:var(--shadow); padding:8px 10px 8px 11px;
+.item{position:relative; background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-md); box-shadow:var(--shadow);
   transition:transform .16s cubic-bezier(.2,.7,.3,1)}
+/* Поле держит лицо, а не карточка.
+
+   Пока поле было на карточке, лицо оказывалось уже её на ширину поля — и
+   кнопки, прижатые к правому краю карточки, выглядывали из-под него даже у
+   закрытой строки. Теперь лицо ровно во всю ширину и закрывает их целиком. */
+.item > .swipe-face{padding:8px 10px 8px 11px}
+/* Свёрнутая часть не должна занимать высоту.
+
+   Дал ей поле заодно с лицом — и свёрнутая карточка стала на восемь пикселей
+   выше своего лица, из-под которого снизу выглянули кнопки. Поле только
+   раскрытой. */
+.item.open > .detail-wrap{padding:0 10px 8px 11px}
 /* Карточка в руке едет за пальцем сама и без задержки: переход на ней
    превратил бы жест в вязкое перетягивание. */
 .item.dragging{transition:none; z-index:4; opacity:.92; box-shadow:var(--shadow-lift); cursor:grabbing}
@@ -389,8 +401,8 @@ select.inp{appearance:none}
 /* Была одна большая кнопка на всю карточку. Теперь внутри неё живут ещё две —
    правка и удаление, — а кнопку в кнопку класть нельзя, поэтому снаружи
    обычный article, а «открыть» осталось кнопкой на всю ширину. */
-.row-card{display:flex; align-items:flex-start; gap:8px}
-.row-card .main{flex:1; min-width:0; display:block; width:100%; text-align:left}
+.row-card{display:block; padding:0}
+.row-card > .main{display:block; width:100%; text-align:left; padding:14px 16px}
 
 .row-card .side button svg{width:16px; height:16px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
 
@@ -401,13 +413,9 @@ select.inp{appearance:none}
    и название на каждом наведении перекладывалось бы заново, строка бы прыгала.
    Там, где наведения не бывает (телефон, планшет), кнопки видны всегда — иначе
    до них попросту не добраться. */
+/* Правило про появление по наведению больше не нужно: кнопки лежат под
+   карточкой и не видны, пока её не сдвинут. */
 @media (hover:hover) and (pointer:fine){
-  .item .side, .row-card .side{opacity:0; transition:opacity .14s ease}
-  .item .side button, .row-card .side button{pointer-events:none}
-  .item:hover .side, .item:focus-within .side,
-  .row-card:hover .side, .row-card:focus-within .side{opacity:1}
-  .item:hover .side button, .item:focus-within .side button,
-  .row-card:hover .side button, .row-card:focus-within .side button{pointer-events:auto}
 }
 /* ---- плавное раскрытие ---- */
 /* Высоту ведёт JS замером (foldOpen): приём с grid-template-rows от 0fr к 1fr
@@ -531,7 +539,9 @@ select.inp{appearance:none}
 /* Карточка цели ужата до трёх строк: название с процентом, полоска и одна
    строка подробностей. Всё остальное — смысл, этапы, задачи — раскрывается
    по нажатию прямо здесь, отдельной страницы у цели больше нет. */
-.goalcard{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:14px 16px; margin-bottom:var(--gap)}
+.goalcard{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); margin-bottom:var(--gap)}
+.goalcard > .swipe-face{padding:14px 16px}
+.goalcard > .goalbody{padding:0 16px 14px}
 .goalcard-h{display:flex; align-items:center; gap:10px; width:100%; padding:0}
 .goalcard-h .gt{font-family:var(--display); font-size:16px; font-weight:700; letter-spacing:-.02em; flex:1; min-width:0; overflow-wrap:anywhere; line-height:1.25}
 .goalcard-h .gp{font-size:13px; font-weight:600; color:var(--fg-2); flex:none}
