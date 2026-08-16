@@ -4458,15 +4458,31 @@ var WEEKDAYS_SHORT = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 
 var STATUS = { planned: 'План', active: 'В работе', done: 'Готово' };
 
+/* Цель меряется этапами, а не задачами.
+
+   Считалось наоборот: есть хоть одна задача — прогресс по задачам. Цель из
+   четырёх этапов, у которой закрыта одна задача одного этапа, показывала
+   100% и полную зелёную полосу, пока три этапа стояли в работе и в плане.
+   Полоса врала ровно там, где её и смотрят.
+
+   Задача — это шаг внутри этапа, и «все задачи закрыты» никогда не значит
+   «цель достигнута»: следующий этап просто ещё не расписан. Этапы же и есть
+   цель, разложенная на части, поэтому доля закрытых этапов — честный ответ.
+   Внутри этапа за задачами следит syncCompletion: закрылись все — этап
+   закрывается сам и попадает в этот счёт.
+
+   Без этапов считаем по задачам: там цель и есть список задач, делить
+   нечего. */
 function goalProgress(goal){
-  // Прогресс считается по задачам цели, а если их ещё нет — по этапам.
-  var tasks = tasksOfGoal(goal.id);
-  if (tasks.length){
-    return { done: tasks.filter(function(t){ return t.done; }).length, total: tasks.length, unit: 'задач' };
+  var stages = goal.stages || [];
+  if (!stages.length){
+    var tasks = tasksOfGoal(goal.id);
+    return { done: tasks.filter(function(t){ return t.done; }).length,
+             total: tasks.length, unit: 'задач' };
   }
   return {
-    done: goal.stages.filter(function(s){ return s.status === 'done'; }).length,
-    total: goal.stages.length, unit: 'этапов'
+    done: stages.filter(function(s){ return s.status === 'done'; }).length,
+    total: stages.length, unit: 'этапов'
   };
 }
 
@@ -9240,10 +9256,28 @@ var ACTS = {
     var stage = findStage(g, d.stage);
     if (stage) openModal(modalStage(g.id, stage));
   },
+  /* Отметка этапа руками сильнее пересчёта по задачам.
+
+     Раньше галочка на этапе с незакрытыми задачами не держалась: обработчик
+     ставил «готово», следом syncCompletion видел открытую задачу и возвращал
+     «в работе». Снаружи это выглядит как кнопка, которая не нажимается, —
+     человек жмёт, ничего не меняется, и он жмёт ещё раз.
+
+     Решаем в пользу человека: сказал «этап пройден» — значит и его задачи
+     сделаны, закрываем их вместе с ним. Обратная отметка задач не трогает:
+     «этап ещё не закончен» не то же самое, что «всё в нём заново». */
   'stage-toggle': function(d){
     var st = findStage(findGoal(d.goal), d.stage);
     if (!st) return;
-    st.status = st.status === 'done' ? 'active' : 'done';
+    var закрываем = st.status !== 'done';
+    st.status = закрываем ? 'done' : 'active';
+    if (закрываем){
+      S.tasks.forEach(function(t){
+        if (t.stageId !== st.id || t.done) return;
+        t.done = true;
+        if (t.subtasks) t.subtasks.forEach(function(sub){ sub.done = true; });
+      });
+    }
     commit();
   },
   'kill-stage': function(d){
