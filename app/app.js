@@ -1240,6 +1240,26 @@ function isOverdue(task){
     Number(parts[0]), Number(parts[1])) < new Date();
 }
 
+/// На сколько полных календарных дней задача просрочена. 0 — срок прошёл
+/// сегодня (тогда число не показываем, просто «просрочено»).
+function днейПросрочки(task){
+  var day = dateOf(task.date);
+  if (!day) return 0;
+  var срок = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+  var сейчас = new Date();
+  var сегодня = new Date(сейчас.getFullYear(), сейчас.getMonth(), сейчас.getDate());
+  return Math.max(0, Math.round((сегодня - срок) / 86400000));
+}
+
+/// «1 день», «2 дня», «5 дней» — русская форма по числу.
+function склонДень(n){
+  var сотня = n % 100, десяток = n % 10;
+  if (сотня >= 11 && сотня <= 14) return 'дней';
+  if (десяток === 1) return 'день';
+  if (десяток >= 2 && десяток <= 4) return 'дня';
+  return 'дней';
+}
+
 /* ============ ЗНАЧКИ РАЗДЕЛОВ ============ */
 
 /* Свой набор вместо символов шрифта.
@@ -3071,8 +3091,10 @@ function finPayTable(rows, key, title, lead){
               '<button class="kill" data-act="fin-sub-kill" data-sub="' + sub.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
             '</div>' +
             '<div class="swipe-face">' : '') +
-          '<span class="pr-t">' + esc(sub.title) +
-            '<span class="pr-n">' + esc(note) + '</span></span>' +
+          '<span class="pr-main">' + finSubLogo(sub) +
+            '<span class="pr-t">' + esc(sub.title) +
+              '<span class="pr-n">' + esc(note) + '</span></span>' +
+          '</span>' +
           '<span class="pr-v">' + (known ? (finSubVaries(sub) ? '≈ ' : '') + finMoney(finPerMonth(sub)) : '—') + '</span>' +
           '<span class="pr-v year">' + (known ? (finSubVaries(sub) ? '≈ ' : '') + finMoney(finPerYear(sub)) : '—') + '</span>' +
           '<span class="pr-a">' +
@@ -3397,6 +3419,26 @@ function finTplMark(tpl){
     '<img src="' + FIN_LOGO + tpl.dom + '?size=120" alt="" width="20" height="20" loading="lazy" ' +
       'onload="this.classList.add(&quot;ok&quot;)">' +
   '</span>';
+}
+
+/* Логотип для СОЗДАННОЙ подписки в списке. Домен в подписке не хранится (шаблон
+   заполняет только поля, а название человек мог поправить), поэтому ищем шаблон
+   по названию и берём его знак. Не нашли — буква названия на нейтральном фоне,
+   как у своей подписки без шаблона. */
+function finSubTemplate(sub){
+  var t = (sub.title || '').trim().toLowerCase();
+  if (!t) return null;
+  for (var i = 0; i < FIN_SUB_TEMPLATES.length; i++){
+    if ((FIN_SUB_TEMPLATES[i].title || '').trim().toLowerCase() === t) return FIN_SUB_TEMPLATES[i];
+  }
+  return null;
+}
+
+function finSubLogo(sub){
+  var tpl = finSubTemplate(sub);
+  if (tpl) return finTplMark(tpl);
+  var буква = (sub.title || '?').trim().charAt(0).toUpperCase() || '?';
+  return '<span class="tplmark" style="background:var(--soft-2)">' + esc(буква) + '</span>';
 }
 
 function finTemplateChips(duty){
@@ -3970,22 +4012,15 @@ function itemRow(t, внутриЦели){
   if (t.repeat) meta.push('<span class="chip rep">' + ICON.repeat +
     esc(repeatLabel(t.repeat, t)) + '</span>');
   if (t.windowFrom && t.windowFrom.time) meta.push('<span class="chip">с ' + esc(t.windowFrom.time) + '</span>');
-  // Срок — со словом «до»: без него «15 апреля 18:30» читается как время самой
-  // задачи.
-  /* Срок показываем, только если он говорит что-то новое.
-
-     У задачи, созданной «на 16 августа в 10:00», срок ставится тем же днём и
-     часом — и рядом с датой и временем появлялся третий чип «до 16 августа
-     10:00», повторяющий оба. Три чипа на одну мысль. Совпал с датой задачи —
-     молчим; стоит на другой день или час — говорим, ради этого он и нужен. */
-  var срокДублирует = t.deadline &&
-    t.deadline.date === t.date &&
-    (t.deadline.time || '') === (t.time || '');
-  if (t.deadline && !срокДублирует){
-    meta.push('<span class="chip ' + (deadlinePassed(t) ? 'late' : 'hard') + '">до ' +
-      esc(deadlineText(t.deadline)) + '</span>');
+  // Отдельный чип срока «до …» убран: дата и время задачи уже стоят выше, а
+  // «до 16 августа 10:00» рядом с ними — третий чип на ту же мысль. Сам дедлайн
+  // остаётся в данных задачи, просто не дублируется на карточке.
+  if (isOverdue(t)){
+    var дней = днейПросрочки(t);
+    meta.push('<span class="chip late">' +
+      (дней >= 1 ? 'просрочено на ' + дней + ' ' + склонДень(дней) : 'просрочено') +
+      '</span>');
   }
-  if (isOverdue(t)) meta.push('<span class="chip late">просрочено</span>');
   // Один перенос — житейское дело, о нём молчим. Со второго это уже привычка,
   // и человек имеет право её видеть.
   if ((t.carried || 0) >= 2) meta.push('<span class="chip carried" title="Столько раз переносилась">' +
@@ -10257,6 +10292,17 @@ function поднять(y){
   НЕСУ.активен = true;
   НЕСУ.высота = к.height;
   НЕСУ.отступ = y - к.top;          // за какое место карточку держат
+  // Где карточка лежит СЕЙЧАС, пока она ещё в потоке. Нужно, чтобы при выносе
+  // открыть щель ровно на её месте, а не там, куда пришлась бы её середина: у
+  // нижней карточки середина уже за границей следующего дня, и без этого её
+  // список схлопывался, а секции ниже прыгали.
+  НЕСУ.исхСписок = узел.closest('[data-drop]');
+  НЕСУ.исхНомер = 0;
+  if (НЕСУ.исхСписок){
+    var всеКарточки = НЕСУ.исхСписок.querySelectorAll('.item[data-task]');
+    var поз = Array.prototype.indexOf.call(всеКарточки, узел);
+    НЕСУ.исхНомер = поз < 0 ? 0 : поз;
+  }
   document.documentElement.classList.add('dragging-now');
   // Свайпы и вылет за поля списка — только у пальца: мышью карточку не
   // сдвигают вбок, и раздувать её под курсором незачем.
@@ -10285,6 +10331,27 @@ function поднять(y){
   // Снимок снимаем ПОСЛЕ выноса: список уже сомкнулся, и в снимке настоящее.
   НЕСУ.дни = снятьРаскладку(узел);
   НЕСУ.выбор = null;
+
+  // Сразу открываем щель ровно там, где карточка лежала, в ТОМ ЖЕ кадре, что и
+  // вынос: список не успевает схлопнуться на экране, и ничего под ним не
+  // прыгает. Дальше вести() двигает щель по движению.
+  var исхДень = null;
+  for (var iд = 0; iд < НЕСУ.дни.length; iд++){
+    if (НЕСУ.дни[iд].список === НЕСУ.исхСписок){ исхДень = НЕСУ.дни[iд]; break; }
+  }
+  if (исхДень){
+    var номер0 = Math.min(НЕСУ.исхНомер, исхДень.карточки.length);
+    НЕСУ.выбор = { день: исхДень, номер: номер0 };
+    // Первую расстановку — МГНОВЕННО, без перехода: вынос поднял соседей,
+    // сдвиг тут же опускает их обратно, и в одном кадре это гасит друг друга.
+    // С анимацией сосед сначала прыгнул бы вверх (вынос), потом плавно вниз —
+    // ровно тот рывок, на который жаловались. Плавность включаем со следующего
+    // движения.
+    document.documentElement.classList.add('no-drag-anim');
+    показатьМесто(НЕСУ.дни, исхДень, номер0, НЕСУ.высота);
+    void document.documentElement.offsetWidth;   // применить без перехода
+    document.documentElement.classList.remove('no-drag-anim');
+  }
 
   if (!НЕСУ.мышь && navigator.vibrate){ try { navigator.vibrate(18); } catch (e){} }
   вести(y);

@@ -373,6 +373,9 @@ select.inp{appearance:none}
 /* Плашка места посадки. Не рамка и не пунктир: сплошная заливка отвечает
    «сюда попадёт», а не «здесь чего-то не хватает». */
 .dragging-now .item:not(.dragging){transition:transform .18s cubic-bezier(.2,.8,.3,1)}
+/* Первая расстановка щели при подъёме — без перехода, чтобы компенсация выноса
+   совпала с ним в одном кадре и соседи не дёргались вверх-вниз. */
+.no-drag-anim .item, .no-drag-anim [data-drop]{transition:none !important}
 @media (prefers-reduced-motion:reduce){ .item{transition:none} }
 .item-main{display:flex; gap:10px; align-items:flex-start}
 /* ---- отметка выполнения ---- */
@@ -506,6 +509,10 @@ select.inp{appearance:none}
    перенос в пустой день просто не срабатывал — палец опускался мимо, на сам
    заголовок блока. На время переноса даём каждому списку высоту строки. */
 .dragging-now .tasklist{min-height:46px; border-radius:var(--r-md)}
+/* Высота списка (щель снизу) меняется плавно, чтобы секции ниже съезжали
+   мягко, а не скачком, когда карточка переходит между днями. При подъёме это
+   гасится классом .no-drag-anim. */
+.dragging-now [data-drop]{transition:padding-bottom .18s cubic-bezier(.2,.8,.3,1)}
 /* Пунктирной рамки нет: она обводила список поверх карточек и читалась как
    поломка вёрстки. Куда упадёт карточка, и так видно по раскрывшейся щели —
    подсветки хватает мягкой заливки. */
@@ -1352,7 +1359,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .item .chips .chip.rep svg{width:11px; height:11px}
 /* Срок и просрочка — единственное, что кричит. Остальное ровным серым. */
 .item .chips .chip.hard{background:transparent; color:var(--fg-2); box-shadow:inset 0 0 0 1px var(--stroke)}
-.item .chips .chip.late{background:transparent; color:var(--danger); font-weight:600; box-shadow:inset 0 0 0 1px var(--danger)}
+.item .chips .chip.late{background:transparent; color:var(--danger); box-shadow:inset 0 0 0 1px var(--danger)}
 .item .chips .chip.carried{background:transparent; color:var(--fg-3); box-shadow:inset 0 0 0 1px var(--stroke)}
 /* Чип подпунктов несёт стрелку раскрытия — она и говорит, что карточка
    открывается. У карточек без подпунктов и без описания её нет, и открывать
@@ -1752,6 +1759,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .payhead span:nth-child(2), .payhead span:nth-child(3){text-align:right}
 .payrow{border-top:1px solid var(--line)}
 .payrow.off{opacity:.5}
+.pr-main{min-width:0; display:flex; align-items:center; gap:10px}
 .pr-t{min-width:0; display:flex; flex-direction:column; gap:1px; font-size:14px}
 .pr-n{font-size:11.5px; color:var(--fg-3)}
 .pr-v{text-align:right; font-size:13.5px; font-variant-numeric:tabular-nums; white-space:nowrap}
