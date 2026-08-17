@@ -1524,6 +1524,9 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .fintiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
   gap:1px; background:var(--line); border:1px solid var(--line);
   border-radius:var(--r-lg); overflow:hidden; margin-bottom:var(--gap)}
+/* Сводка — ровно четыре плитки: две колонки, чтобы не оставалось пустого
+   слота в неполном третьем столбце (auto-fit его не растягивает). */
+.fintiles.summary{grid-template-columns:repeat(2,1fr)}
 /* Отступ тот же, что у карточки: раньше плитки были на 16, карточки на 18, и
    на стыке двух блоков подписи стояли ступенькой. Весь раздел живёт на одной
    мерке --fin-pad, и любая строка в нём начинается на одной вертикали. */

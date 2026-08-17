@@ -147,6 +147,13 @@ function собратьНапоминания(){
 function пересобратьНапоминания(){
   if (!уведомленияДоступны()) return;
   try {
+    // На Android 13+ уведомления не покажутся без разрешения POST_NOTIFICATIONS.
+    // Напоминания включены по умолчанию, поэтому просим разрешение при первой
+    // реальной постановке, а не по тумблеру (его никто не трогает — уже
+    // включено). Система сама покажет диалог один раз и после отказа замолчит.
+    if (S.notify.on && !window.AndroidNotify.permitted()){
+      window.AndroidNotify.ask();
+    }
     window.AndroidNotify.reschedule(JSON.stringify(собратьНапоминания()));
   } catch (e){}
 }
@@ -1857,10 +1864,13 @@ function vTabbar(){
         return (t.sep ? '<div class="tabs-sep"></div>' : '') + tabButton(t, 'tab wide');
       }).join('') +
       // Выход — последним и отделённым чертой: это не раздел, а уход из
-      // приложения на сайт. Записи при этом остаются в браузере, о чём
+      // веб-версии на сайт. Записи при этом остаются в браузере, о чём
       // спрашивают в первую очередь, поэтому это сказано в подсказке кнопки.
-      '<button class="tab wide leave" data-act="leave" title="Записи останутся в этом браузере">' +
-        '<span class="ic">' + NAV_ICONS.leave + '</span><span class="tx">Выйти</span></button>' +
+      // В приложении кнопки нет: выходить некуда — оно и есть точка входа, а
+      // '../' наружу не выпускается и упёрся бы в пустой экран.
+      (inApp() ? '' :
+        '<button class="tab wide leave" data-act="leave" title="Записи останутся в этом браузере">' +
+          '<span class="ic">' + NAV_ICONS.leave + '</span><span class="tx">Выйти</span></button>') +
     '</div>';
 }
 
@@ -2583,7 +2593,7 @@ function vFinSummary(){
     '</section>';
   }
 
-  html += '<div class="fintiles">' +
+  html += '<div class="fintiles summary">' +
     // Плитка открывает правку остатка: число меняют там же, где на него смотрят.
     '<button class="fintile' + (free < 0 ? ' bad' : '') + '" data-act="fin-opening">' +
       '<span>Свободно</span><b>' + finMoney(free) + '</b></button>' +
@@ -5897,8 +5907,8 @@ function vSettings(){
   var html = head('Приложение', 'Настройки');
   html += settingsLink('profile', 'Профиль', S.profile.name || 'Имя и фото') +
     settingsLink('settings-view', 'Вид', fontOf(S.font).title + ' · ' + paletteOf(S.palette).title) +
-    settingsLink('settings-data', 'Данные', 'Копия файлом, примеры, стирание') +
-    settingsLink('about', 'О сервисе', 'Что умеет веб-версия');
+    settingsLink('settings-data', 'Данные', 'Резервная копия, примеры, стирание') +
+    settingsLink('about', 'О сервисе', inApp() ? 'Что умеет приложение' : 'Что умеет веб-версия');
   return html;
 }
 
@@ -6114,7 +6124,7 @@ function vSettingsData(){
   var html = head('', '', 'settings');
 
   html += '<section class="card">' +
-    '<h3>Копия файлом</h3>' +
+    '<h3>Резервная копия</h3>' +
     '<p class="sub">Один файл со всем: задачи, цели, списки, заметки, настройки. Им же переносят данные в другой браузер или на другое устройство.</p>' +
     '<div class="acts">' +
       '<button class="btn sm" data-act="export">Сохранить копию</button>' +

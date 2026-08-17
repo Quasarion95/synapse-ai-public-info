@@ -16,9 +16,17 @@
          знает. -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Напоминания о задачах, целях и брифинге. С Android 13 разрешение
-         спрашивается в момент, когда человек включил напоминания в настройках
-         приложения, а не на запуске. -->
+         спрашивается в момент, когда приложение впервые реально ставит
+         напоминание (пересобратьНапоминания в app.js), а не по тумблеру:
+         напоминания включены по умолчанию, тумблер никто не трогает, и запрос
+         иначе не срабатывал бы вовсе. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Счётчик-бейдж на иконке (Samsung One UI). Без него система пишет
+         SecurityException при попытке обновить число на значке приложения —
+         само уведомление показывается, а цифра на иконке нет. -->
+    <uses-permission android:name="com.sec.android.provider.badge.permission.READ" />
+    <uses-permission android:name="com.sec.android.provider.badge.permission.WRITE" />
 
     <!-- Будильник переживает засыпание системы: напоминание в 9 утра бесполезно,
          если придёт, когда телефон проснётся сам. Точное время не просим — для
@@ -51,7 +59,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:screenOrientation="unspecified"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
