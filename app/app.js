@@ -1503,9 +1503,9 @@ function render(){
   applyTheme();
 
   var view = VIEWS[S.view] || VIEWS.tasks;
-  $('top').innerHTML = vTop() + (storageBroken ? vStorageWarning() : '');
+  $('top').innerHTML = SynI18n.tr(vTop() + (storageBroken ? vStorageWarning() : ''));
   $('tabbar').classList.remove('hidden');
-  $('tabbar').innerHTML = vTabbar();
+  $('tabbar').innerHTML = SynI18n.tr(vTabbar());
   // Полоса вкладок финансов прокручена вбок, и перерисовка сбрасывала её в
   // самое начало: нажал «Подписки» справа — и они уехали за край экрана.
   // Запоминаем сдвиг до перерисовки, возвращаем после.
@@ -1516,7 +1516,7 @@ function render(){
 
   // Платный раздел не подменяется тарифами молча: у него свой экран, с тем же
   // названием в шапке, — иначе нажатие в меню выглядит как промах.
-  $('app').innerHTML = (PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render();
+  $('app').innerHTML = SynI18n.tr((PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render());
   restoreTabStrip(stripLeft);
 
   restoreComposer();
@@ -1812,6 +1812,13 @@ function vTop(){
       '<img class="mark" src="icons/icon-192.png" alt="" width="28" height="28">' +
       '<span class="nm">Synapse AI</span></button>' +
     '<div class="top-acts">' +
+      // Язык — рядом с темой: обе кнопки про то, «как выглядит», и человек
+      // ищет их в одном месте. Подпись — код языка, он читается без перевода.
+      '<button class="iconbtn lang" data-act="lang" title="' +
+        (SynI18n.isEnglish() ? 'Переключить на русский' : 'Переключить на английский') +
+        '" aria-label="' +
+        (SynI18n.isEnglish() ? 'Переключить на русский' : 'Переключить на английский') +
+        '"><span class="lang-code">' + (SynI18n.isEnglish() ? 'EN' : 'RU') + '</span></button>' +
       '<button class="iconbtn" data-act="theme" title="' + (isDarkNow() ? 'Светлая тема' : 'Тёмная тема') +
         '" aria-label="' + (isDarkNow() ? 'Включить светлую тему' : 'Включить тёмную тему') + '">' +
         (isDarkNow() ? NAV_ICONS.sun : NAV_ICONS.moon) + '</button>' +
@@ -8148,7 +8155,7 @@ function foldModalActions(){
 }
 
 function openModal(html, toInput){
-  $('modalIn').innerHTML = html;
+  $('modalIn').innerHTML = SynI18n.tr(html);
   foldModalActions();
   $('modal').classList.add('on');
   lockScroll();
@@ -8610,6 +8617,13 @@ var ACTS = {
   theme: function(){
     S.theme = isDarkNow() ? 'light' : 'dark';
     commit();
+  },
+
+  /* Язык. Хранится отдельно от S — рядом с самим переводом, чтобы выбор
+     пережил очистку данных приложения и был известен ещё до загрузки app.js. */
+  lang: function(){
+    SynI18n.set(SynI18n.isEnglish() ? 'ru' : 'en');
+    render();
   },
   more: function(){ S.more = !S.more; commit(); },
 

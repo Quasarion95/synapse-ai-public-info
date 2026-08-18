@@ -2144,3 +2144,11 @@ button.fintile:hover{background:var(--soft)}
    поднятой она должна выглядеть в любом случае. */
 .item.dragging.мышью{cursor:grabbing}
 .dragging-now, .dragging-now *{cursor:grabbing !important; user-select:none}
+
+/* Код языка в шапке рядом с темой. Буквами, а не флагом: флаг обозначает
+   страну, а не язык, и для английского пришлось бы выбирать между странами. */
+.iconbtn.lang .lang-code{
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
