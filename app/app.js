@@ -1517,6 +1517,10 @@ function render(){
   // Платный раздел не подменяется тарифами молча: у него свой экран, с тем же
   // названием в шапке, — иначе нажатие в меню выглядит как промах.
   $('app').innerHTML = SynI18n.tr((PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render());
+  // Строка записи трат живёт внизу экрана, как строка создания задач.
+  if (S.view === 'finance' && S.finTab === 'ops' && !(PRO_ONLY[S.view] && !isPro())){
+    $('app').insertAdjacentHTML('beforeend', SynI18n.tr(vFinComposer()));
+  }
   restoreTabStrip(stripLeft);
 
   restoreComposer();
@@ -2691,37 +2695,117 @@ function finTile(caption, value, tone){
     '<span>' + esc(caption) + '</span><b>' + esc(value) + '</b></div>';
 }
 
-function vFinOps(){
-  var kind = S.finKind || 'spend';
-  var html = finMonthBar();
 
-  html += '<div class="finadd">' +
+/* Строка записи трат внизу экрана — ровно там же, где строка создания задач.
+
+   Раньше форма стояла карточкой сверху: чтобы записать кофе, нужно было
+   доскроллить до неё вверх. Трату записывают на ходу и по одной, поэтому поле
+   должно быть под большим пальцем и всегда на виду — как в задачах.
+
+   Микрофон рядом ЗАПИСЫВАЕТ САМ, не открывая ассистента: сказал «за кофе 300»
+   — строка разобрана тем же разбором, что и печатный ввод, и трата легла в
+   список. Открывать ради одной траты экран Syn, ждать ответа и тратить запрос
+   — цена, несоразмерная задаче. */
+function vFinComposer(){
+  var kind = S.finKind || 'spend';
+  return '<div class="composer fincomposer">' +
     '<div class="finswitch">' +
       '<button class="' + (kind === 'spend' ? 'on' : '') + '" data-act="fin-kind" data-kind="spend">Трата</button>' +
       '<button class="' + (kind === 'income' ? 'on' : '') + '" data-act="fin-kind" data-kind="income">Доход</button>' +
     '</div>' +
-    '<div class="rowadd">' +
-      '<input class="inp" type="text" id="finfield" autocomplete="off" ' +
+    '<form class="say" data-form="fin-add">' +
+      '<label class="visually-hidden" for="finfield">' +
+        (kind === 'income' ? 'Новый доход' : 'Новая трата') + '</label>' +
+      '<input id="finfield" type="text" autocomplete="off" enterkeyhint="done" ' +
         'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
-      // Кнопка AI уходит к Syn: пачка за раз, прошедшие даты, возвраты по долгам.
-      '<button class="ai" type="button" data-act="fin-ai" aria-label="Записать через Syn" title="Записать через Syn">' +
-        ICON.ai + '</button>' +
-      '<button class="btn sm" data-act="fin-add">Записать</button>' +
-    '</div>' +
-    // Дата отдельным полем: пачку за неделю иначе не записать — всё падало
-    // на сегодня. По умолчанию сегодняшняя, менять нужно редко.
-    '<div class="finwhen">' +
+      (voiceSupported()
+        ? '<button class="ai' + (finVoice.on ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
+          'aria-label="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '" ' +
+          'title="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '">' + ICON.mic + '</button>'
+        : '') +
+      '<button class="send" type="submit" aria-label="Записать">' + NAV_ICONS.send + '</button>' +
+    '</form>' +
+  '</div>';
+}
+
+/* Голос для трат — отдельный от голоса ассистента.
+
+   У ассистента слушание кончается отправкой запроса на сервер и ответом на
+   экране Syn. Здесь всё локально: что услышали, то и разобрали, и трата уже в
+   списке. Поэтому и состояние своё: два слушания на одном объекте глушили бы
+   друг друга. */
+var finVoice = { on: false, rec: null, final: '', held: 0 };
+
+function finVoiceStart(){
+  if (finVoice.on || !voiceSupported()) return;
+
+  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) return;
+  var rec = new Recognition();
+  rec.lang = 'ru-RU';
+  rec.continuous = false;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+
+  finVoice.rec = rec;
+  finVoice.on = true;
+  finVoice.final = '';
+
+  rec.onresult = function(event){
+    var interim = '';
+    for (var i = event.resultIndex; i < event.results.length; i++){
+      var chunk = event.results[i][0].transcript;
+      if (event.results[i].isFinal) finVoice.final += chunk;
+      else interim += chunk;
+    }
+    // Пишем прямо в поле, без перерисовки: перерисовка оборвала бы слушание.
+    var field = $('finfield');
+    if (field) field.value = (finVoice.final + interim).trim();
+  };
+
+  rec.onerror = function(event){
+    finVoice.on = false; finVoice.rec = null;
+    toast(event && event.error === 'not-allowed'
+      ? 'Браузер не дал доступ к микрофону.'
+      : 'Распознавание не сработало.');
+    render();
+  };
+
+  rec.onend = function(){
+    finVoice.on = false; finVoice.rec = null;
+    var said = finVoice.final.trim();
+    finVoice.final = '';
+    var field = $('finfield');
+    if (field && said) field.value = said;
+    // Услышали — сразу записываем: голосом говорят, чтобы не нажимать.
+    if (said) ACTS['fin-add']({});
+    else render();
+  };
+
+  try { rec.start(); } catch (error){ finVoice.on = false; finVoice.rec = null; }
+  render();
+}
+
+function finVoiceStop(){
+  if (!finVoice.on || !finVoice.rec) return;
+  var rec = finVoice.rec;
+  try { rec.stop(); } catch (error){ finVoice.on = false; finVoice.rec = null; render(); }
+}
+
+function vFinOps(){
+  var kind = S.finKind || 'spend';
+  var html = '<div class="finance-has-composer">' + finMonthBar();
+
+  // Дата — над списком, а не в строке ввода: меняют её редко, а строку она
+  // раздувала бы на треть. Сама строка ввода уехала вниз экрана (vFinComposer).
+  html += '<div class="finwhen">' +
       '<label for="findate">Дата</label>' +
       '<input class="inp" type="date" id="findate" value="' + esc(S.finDate || isoOf(todayDate())) + '">' +
-
-    '</div>' +
-    '<p class="hint" style="margin:8px 0 0">Сумму можно писать прямо в строке — «такси 1.5к», «продукты 2 400». ' +
-      'Категория подставится сама. Кнопка AI рядом понимает несколько трат за раз и вчерашние даты.</p>' +
-  '</div>';
+    '</div>';
 
   if (!S.finance.ops.length){
     return html + blank(NAV_ICONS.finance, 'Записей пока нет',
-      'Одна строка на трату — этого достаточно. Через месяц раздел покажет, куда уходят деньги.');
+      'Одна строка на трату — этого достаточно. Через месяц раздел покажет, куда уходят деньги.') + '</div>';
   }
 
   // По дням, свежие сверху: список трат читают как ленту, а не как таблицу.
@@ -2768,7 +2852,7 @@ function vFinOps(){
 
   // Аналитика под лентой: те же числа, только собранные. Отдельной вкладкой
   // она заставляла смотреть на одно и то же дважды.
-  return html + vFinChart(true);
+  return html + vFinChart(true) + '</div>';
 }
 
 function vFinBudgets(){
@@ -8904,7 +8988,17 @@ var ACTS = {
     closeModal();
     commit('Категория добавлена');
   },
-  'fin-kind': function(d){ S.finKind = d.kind; commit(); },
+  'fin-kind': function(d){ S.finKind = d.kind; commit(); keepFocus('#finfield'); },
+
+  /* Голос для трат. Нажал — слушает, отпустил — записал.
+
+     Короткий тычок (меньше четверти секунды) слушание НЕ обрывает: человек
+     нажал и сразу отпустил, а говорить только начал. В этом случае слушание
+     держится само и кончится по паузе в речи — так работает и тычок, и
+     удержание, и не нужно объяснять, какой из них «правильный». */
+  'fin-voice': function(){
+    if (finVoice.on) finVoiceStop(); else finVoiceStart();
+  },
 
   'fin-add': function(){
     var field = $('finfield');

@@ -2152,3 +2152,35 @@ button.fintile:hover{background:var(--soft)}
   font-weight: 700;
   letter-spacing: .04em;
 }
+
+/* Строка записи трат: тот же вид, что у строки создания задач, плюс
+   переключатель «Трата / Доход» над ней. Переключатель именно НАД полем, а не
+   внутри: внутри он съедал бы половину строки, а меняют его редко — обычно
+   пишут траты подряд. */
+.fincomposer .finswitch{
+  display: flex;
+  gap: 4px;
+  margin: 0 auto 8px;
+  width: max-content;
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  padding: 3px;
+  box-shadow: var(--shadow);
+}
+.fincomposer .finswitch button{
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-3);
+}
+.fincomposer .finswitch button.on{ background: var(--accent-soft); color: var(--accent); }
+
+/* Микрофон во время слушания — заметно «включён»: человек говорит и должен
+   видеть, что его слышат, не вглядываясь. */
+.say .ai.on{ background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Место под плавающей строкой: без него последняя трата в списке оказывается
+   под ней и её не прочитать. */
+.finance-has-composer{ padding-bottom: 96px; }
