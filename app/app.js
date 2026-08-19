@@ -8678,7 +8678,10 @@ function showToast(){
 
   var node = document.createElement('div');
   node.className = 'toast';
-  node.textContent = pendingToast;
+  // Через tr, как и весь остальной текст: плашка собирается здесь, а не в
+  // render(), и без этого «Цель сохранена» оставалась русской даже при
+  // английском интерфейсе. Текст простой, без разметки — берём как фразу.
+  node.textContent = SynI18n.tr(pendingToast);
   document.body.appendChild(node);
   pendingToast = '';
   if (toastTimer) clearTimeout(toastTimer);
@@ -9370,8 +9373,13 @@ var ACTS = {
     var count = S.trash.length;
     // Стирание насовсем — единственное действие во всём сервисе, которое
     // нечем отменить: спрашиваем, и с числом, чтобы человек видел объём.
-    if (!confirm('Стереть навсегда ' + count + ' ' +
-        plural(count, 'запись', 'записи', 'записей') + '? Вернуть их будет нельзя.')) return;
+    // Системное окно рисует браузер, наш перевод разметки до него не доходит —
+    // собираем текст сразу на нужном языке.
+    var question = SynI18n.isEnglish()
+      ? 'Erase ' + count + ' item' + (count === 1 ? '' : 's') + ' permanently? This cannot be undone.'
+      : 'Стереть навсегда ' + count + ' ' +
+        plural(count, 'запись', 'записи', 'записей') + '? Вернуть их будет нельзя.';
+    if (!confirm(question)) return;
     S.trash = [];
     commit('Корзина пуста: стёрто ' + count);
   },

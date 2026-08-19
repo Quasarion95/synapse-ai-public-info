@@ -190,7 +190,7 @@
     'Фокус': 'Focus', 'Фокус дня': 'Focus of the day', 'Работа': 'Focus',
     'Перерыв': 'Break', 'Короткий перерыв': 'Short break', 'короткий перерыв': 'short break',
     'Длинный перерыв': 'Long break', 'длинный перерыв': 'long break',
-    'Пауза': 'Pause', 'Сброс': 'Reset', 'Круг': 'Round', 'Звук': 'Sound',
+    'Пауза': 'Pause', 'Сброс': 'Reset', 'Круг': 'Circle', 'Звук': 'Sound',
     'Громкость': 'Volume', 'Тишина': 'Silence', 'Дождь': 'Rain', 'Море': 'Sea',
     'Лес': 'Forest', 'Ручей': 'Stream', 'Гроза': 'Thunderstorm', 'Ветер': 'Wind',
     'Камин': 'Fireplace', 'Вдох': 'Inhale', 'Выдох': 'Exhale',
@@ -733,7 +733,247 @@
     'Крем от солнца': 'Sunscreen',
     'Зарядка для телефона': 'Phone charger',
     'Встреча с подрядчиком': 'Meeting with the contractor',
-    'Обсудили сроки: черновой этап к 20 числу, приём работ через неделю.': 'Agreed the timing: draft stage by the 20th, handover a week later.'
+    'Обсудили сроки: черновой этап к 20 числу, приём работ через неделю.': 'Agreed the timing: draft stage by the 20th, handover a week later.',
+
+    // — счётчики: формы слов после числа —
+    'заметка': 'note',
+    'заметки': 'notes',
+    'заметок': 'notes',
+    'долг': 'debt',
+    'долга': 'debts',
+    'долгов': 'debts',
+    'копилка': 'savings jar',
+    'копилки': 'savings jars',
+    'копилок': 'savings jars',
+    'подписка': 'subscription',
+    'подписки': 'subscriptions',
+    'подписок': 'subscriptions',
+    'конверт': 'envelope',
+    'конверта': 'envelopes',
+    'конвертов': 'envelopes',
+    'операция': 'entry',
+    'операции': 'entries',
+    'операций': 'entries',
+    'платежа': 'payments',
+    'платежей': 'payments',
+    'месяца': 'months',
+    'месяцев': 'months',
+    'день': 'day',
+    'дня': 'days',
+    'дней': 'days',
+
+    // — метки для голосового доступа и подписи полей —
+    'Новая трата': 'New expense',
+    'Новый доход': 'New income',
+    'Сказать трату голосом': 'Say the expense out loud',
+    'Включить или отключить': 'Turn on or off',
+    'Своя длительность в минутах': 'Custom length in minutes',
+    'своё': 'custom',
+    'В неделю': 'Per week',
+    'в неделю': 'per week',
+
+    // — оформление и наборы в подписке —
+    'Тема — в подписке': 'Themes are part of Pro',
+    'Цвет отметки — в подписке': 'Mark colours are part of Pro',
+    'Форма отметки — в подписке': 'Mark shapes are part of Pro',
+    'Режим — в подписке': 'This mode is part of Pro',
+    'Звук — в подписке': 'This sound is part of Pro',
+
+    // — длинные подсказки под полями —
+    'День и время можно сказать прямо в строке — «завтра», «послезавтра», «в 8 вечера». Из названия эти слова уйдут.': 'You can say the day and time right in the line — "tomorrow", "in two days", "at 8pm". Those words will be taken out of the title.',
+    'Сохраняется по мере набора — заметка, которую надо не забыть сохранить, это заметка, которую теряют.': 'Saved as you type — a note you have to remember to save is a note you lose.',
+
+    // — подпись под столбиками аналитики —
+    'закрыто': 'done',
+
+    // — строка «Вид» в настройках: начертание и палитра —
+    'Rounded · Бумага': 'Rounded · Paper',
+    'Rounded · Графит': 'Rounded · Graphite',
+    'Rounded · Лес': 'Rounded · Forest',
+    'Rounded · Латунь': 'Rounded · Brass',
+    'Rounded · Бордо': 'Rounded · Burgundy',
+    'Rounded · Табак': 'Rounded · Tobacco',
+    'Rounded · Индиго': 'Rounded · Indigo',
+    'Rounded · Слива': 'Rounded · Plum',
+    'Rounded · Море': 'Rounded · Sea',
+    'Rounded · Уголь': 'Rounded · Charcoal',
+    'Clean · Бумага': 'Clean · Paper',
+    'Clean · Графит': 'Clean · Graphite',
+    'Clean · Лес': 'Clean · Forest',
+    'Clean · Латунь': 'Clean · Brass',
+    'Clean · Бордо': 'Clean · Burgundy',
+    'Clean · Табак': 'Clean · Tobacco',
+    'Clean · Индиго': 'Clean · Indigo',
+    'Clean · Слива': 'Clean · Plum',
+    'Clean · Море': 'Clean · Sea',
+    'Clean · Уголь': 'Clean · Charcoal',
+    'Serif · Бумага': 'Serif · Paper',
+    'Serif · Графит': 'Serif · Graphite',
+    'Serif · Лес': 'Serif · Forest',
+    'Serif · Латунь': 'Serif · Brass',
+    'Serif · Бордо': 'Serif · Burgundy',
+    'Serif · Табак': 'Serif · Tobacco',
+    'Serif · Индиго': 'Serif · Indigo',
+    'Serif · Слива': 'Serif · Plum',
+    'Serif · Море': 'Serif · Sea',
+    'Serif · Уголь': 'Serif · Charcoal',
+
+    // — заголовок палитры на экране «Вид» —
+    'Палитра · Бумага': 'Palette · Paper',
+    'Палитра · Графит': 'Palette · Graphite',
+    'Палитра · Лес': 'Palette · Forest',
+    'Палитра · Латунь': 'Palette · Brass',
+    'Палитра · Бордо': 'Palette · Burgundy',
+    'Палитра · Табак': 'Palette · Tobacco',
+    'Палитра · Индиго': 'Palette · Indigo',
+    'Палитра · Слива': 'Palette · Plum',
+    'Палитра · Море': 'Palette · Sea',
+    'Палитра · Уголь': 'Palette · Charcoal',
+
+    // — цвет отметки: подписи для голосового доступа —
+    'Цвет отметки: Как в теме': 'Mark colour: Match theme',
+    'Цвет отметки: Трава': 'Mark colour: Grass',
+    'Цвет отметки: Хвоя': 'Mark colour: Pine',
+    'Цвет отметки: Небо': 'Mark colour: Sky',
+    'Цвет отметки: Индиго': 'Mark colour: Indigo',
+    'Цвет отметки: Слива': 'Mark colour: Plum',
+    'Цвет отметки: Ягода': 'Mark colour: Berry',
+    'Цвет отметки: Кирпич': 'Mark colour: Brick',
+    'Цвет отметки: Янтарь': 'Mark colour: Amber',
+    'Цвет отметки: Глина': 'Mark colour: Clay',
+    'Цвет отметки: Графит': 'Mark colour: Graphite',
+    'Цвет отметки: Мох': 'Mark colour: Moss',
+
+    // — номера этапов у цели —
+    'Этап 1': 'Stage 1',
+    'Этап 2': 'Stage 2',
+    'Этап 3': 'Stage 3',
+    'Этап 4': 'Stage 4',
+    'Этап 5': 'Stage 5',
+    'Этап 6': 'Stage 6',
+    'Этап 7': 'Stage 7',
+    'Этап 8': 'Stage 8',
+    'Этап 9': 'Stage 9',
+    'Этап 10': 'Stage 10',
+    'Этап 11': 'Stage 11',
+    'Этап 12': 'Stage 12',
+    'Этап 13': 'Stage 13',
+    'Этап 14': 'Stage 14',
+    'Этап 15': 'Stage 15',
+    'Этап 16': 'Stage 16',
+    'Этап 17': 'Stage 17',
+    'Этап 18': 'Stage 18',
+    'Этап 19': 'Stage 19',
+    'Этап 20': 'Stage 20',
+
+    // — текущий повтор в редакторе задачи —
+    'Сейчас: без повтора': 'Currently: no repeat',
+    'Сейчас: каждый день': 'Currently: every day',
+    'Сейчас: каждую неделю': 'Currently: every week',
+    'Сейчас: каждый месяц': 'Currently: every month',
+    'Сейчас: по будням': 'Currently: on weekdays',
+
+    // — помодоро: фаза и длительность на экране —
+    'Фокус · 3 мин': 'Focus · 3 min',
+    'Фокус · 5 мин': 'Focus · 5 min',
+    'Фокус · 10 мин': 'Focus · 10 min',
+    'Фокус · 15 мин': 'Focus · 15 min',
+    'Фокус · 20 мин': 'Focus · 20 min',
+    'Фокус · 25 мин': 'Focus · 25 min',
+    'Фокус · 30 мин': 'Focus · 30 min',
+    'Фокус · 35 мин': 'Focus · 35 min',
+    'Фокус · 40 мин': 'Focus · 40 min',
+    'Фокус · 45 мин': 'Focus · 45 min',
+    'Фокус · 50 мин': 'Focus · 50 min',
+    'Фокус · 60 мин': 'Focus · 60 min',
+    'Фокус · 90 мин': 'Focus · 90 min',
+    'Перерыв · 3 мин': 'Break · 3 min',
+    'Перерыв · 5 мин': 'Break · 5 min',
+    'Перерыв · 10 мин': 'Break · 10 min',
+    'Перерыв · 15 мин': 'Break · 15 min',
+    'Перерыв · 20 мин': 'Break · 20 min',
+    'Перерыв · 25 мин': 'Break · 25 min',
+    'Перерыв · 30 мин': 'Break · 30 min',
+    'Перерыв · 35 мин': 'Break · 35 min',
+    'Перерыв · 40 мин': 'Break · 40 min',
+    'Перерыв · 45 мин': 'Break · 45 min',
+    'Перерыв · 50 мин': 'Break · 50 min',
+    'Перерыв · 60 мин': 'Break · 60 min',
+    'Перерыв · 90 мин': 'Break · 90 min',
+    'Длинный · 3 мин': 'Long · 3 min',
+    'Длинный · 5 мин': 'Long · 5 min',
+    'Длинный · 10 мин': 'Long · 10 min',
+    'Длинный · 15 мин': 'Long · 15 min',
+    'Длинный · 20 мин': 'Long · 20 min',
+    'Длинный · 25 мин': 'Long · 25 min',
+    'Длинный · 30 мин': 'Long · 30 min',
+    'Длинный · 35 мин': 'Long · 35 min',
+    'Длинный · 40 мин': 'Long · 40 min',
+    'Длинный · 45 мин': 'Long · 45 min',
+    'Длинный · 50 мин': 'Long · 50 min',
+    'Длинный · 60 мин': 'Long · 60 min',
+    'Длинный · 90 мин': 'Long · 90 min',
+
+    // — Syn: что именно он переключил —
+    'помодоро запущен': 'pomodoro started',
+    'помодоро — фокус': 'pomodoro — focus',
+    'помодоро — перерыв': 'pomodoro — break',
+    'помодоро — длинный': 'pomodoro — long',
+    'тема — тёмная': 'theme — dark',
+    'тема — светлая': 'theme — light',
+    'размер шрифта — маленький': 'font size — small',
+    'размер шрифта — средний': 'font size — medium',
+    'размер шрифта — большой': 'font size — large',
+    'шрифт — Rounded': 'typeface — Rounded',
+    'шрифт — Clean': 'typeface — Clean',
+    'шрифт — Serif': 'typeface — Serif',
+    'фокус': 'focus',
+    'перерыв': 'break',
+    'длинный': 'long',
+    'тёмная': 'dark',
+    'светлая': 'light',
+
+    // — бесплатные пределы: числа приходят из констант —
+    'Без подписки можно вести 2 цели. В Synapse Pro их сколько угодно — вместе с ассистентом, брифингами и памятью между разговорами.': 'Without a subscription you can have 2 goals. With Synapse Pro there is no limit — along with the assistant, its briefings and memory between conversations.',
+    'Без подписки можно вести 2 цели. Нужна подписка': 'Without a subscription you can have 2 goals. Pro required',
+    'Без подписки можно держать 2 списка. В Synapse Pro их сколько угодно — вместе с ассистентом, брифингами и памятью между разговорами.': 'Without a subscription you can keep 2 lists. With Synapse Pro there is no limit — along with the assistant, its briefings and memory between conversations.',
+    'Без подписки можно держать 2 списка. Нужна подписка': 'Without a subscription you can keep 2 lists. Pro required',
+    'Без подписки можно держать 2 заметки. В Synapse Pro их сколько угодно — вместе с ассистентом, брифингами и памятью между разговорами.': 'Without a subscription you can keep 2 notes. With Synapse Pro there is no limit — along with the assistant, its briefings and memory between conversations.',
+    'Без подписки можно держать 2 заметки. Нужна подписка': 'Without a subscription you can keep 2 notes. Pro required',
+    'Без подписки можно держать 2 долга. В Synapse Pro их сколько угодно — вместе с ассистентом, брифингами и памятью между разговорами.': 'Without a subscription you can keep 2 debts. With Synapse Pro there is no limit — along with the assistant, its briefings and memory between conversations.',
+    'Без подписки можно держать 2 долга. Нужна подписка': 'Without a subscription you can keep 2 debts. Pro required',
+    'Без подписки можно держать 2 копилки. В Synapse Pro их сколько угодно — вместе с ассистентом, брифингами и памятью между разговорами.': 'Without a subscription you can keep 2 savings jars. With Synapse Pro there is no limit — along with the assistant, its briefings and memory between conversations.',
+    'Без подписки можно держать 2 копилки. Нужна подписка': 'Without a subscription you can keep 2 savings jars. Pro required',
+    'Без подписки можно держать 2 подписки. В Synapse Pro их сколько угодно — вместе с ассистентом, брифингами и памятью между разговорами.': 'Without a subscription you can keep 2 subscriptions. With Synapse Pro there is no limit — along with the assistant, its briefings and memory between conversations.',
+    'Без подписки можно держать 2 подписки. Нужна подписка': 'Without a subscription you can keep 2 subscriptions. Pro required',
+    'Без подписки можно держать 2 конверта. В Synapse Pro их сколько угодно — вместе с ассистентом, брифингами и памятью между разговорами.': 'Without a subscription you can keep 2 envelopes. With Synapse Pro there is no limit — along with the assistant, its briefings and memory between conversations.',
+    'Без подписки можно держать 2 конверта. Нужна подписка': 'Without a subscription you can keep 2 envelopes. Pro required',
+    'Без подписки можно держать 2 регулярные операции. В Synapse Pro их сколько угодно — вместе с ассистентом, брифингами и памятью между разговорами.': 'Without a subscription you can keep 2 recurring entries. With Synapse Pro there is no limit — along with the assistant, its briefings and memory between conversations.',
+    'Без подписки можно держать 2 регулярные операции. Нужна подписка': 'Without a subscription you can keep 2 recurring entries. Pro required',
+    'Без подписки можно держать 2 свои категории. В Synapse Pro их сколько угодно — вместе с ассистентом, брифингами и памятью между разговорами.': 'Without a subscription you can keep 2 custom categories. With Synapse Pro there is no limit — along with the assistant, its briefings and memory between conversations.',
+    'Без подписки можно держать 2 свои категории. Нужна подписка': 'Without a subscription you can keep 2 custom categories. Pro required',
+
+    // — Syn: отказ записать из-за предела —
+    'долг не записан: Без подписки можно держать 2 долга.': 'the debt was not saved: without a subscription you can keep 2 debts.',
+    'копилка не заведена: Без подписки можно держать 2 копилки.': 'the savings jar was not created: without a subscription you can keep 2 savings jars.',
+    'подписка не записана: Без подписки можно держать 2 подписки.': 'the subscription was not saved: without a subscription you can keep 2 subscriptions.',
+    'конверт не разложен: Без подписки можно держать 2 конверта.': 'the envelope was not set up: without a subscription you can keep 2 envelopes.',
+
+    // — тарифная таблица и дневная норма Syn —
+    '6 запросов в день': '6 requests a day',
+    '50 в день, на годовом 100': '50 a day, 100 on the yearly plan',
+    '2 темы, одна форма отметки': '2 themes, one mark shape',
+    'голосом и текстом, 6 запросов в день бесплатно': 'by voice and by text, 6 requests a day for free',
+    'Бесплатно 6 запросов к Syn в день.': '6 Syn requests a day for free.',
+    'Задачи без ограничений. Дальше: 2 цели, 2 списка, 2 заметки, по одному режиму помодоро и звуку медитации.': 'Unlimited tasks. Beyond that: 2 goals, 2 lists, 2 notes, one Pomodoro mode and one meditation sound.',
+    '2 цели, 2 списка, 2 заметки, 6 запросов к Syn в день. Помодоро и медитация — по одному режиму и звуку.': '2 goals, 2 lists, 2 notes, 6 Syn requests a day. Pomodoro and meditation — one mode and one sound.',
+    'Бесплатно он отвечает 6 раз в сутки. В подписке — 50 в сутки, на годовом 100, плюс утренний план, вечерний отчёт и память между разговорами.': 'For free it answers 6 times a day. With the subscription — 50 a day, 100 on the yearly plan, plus a morning plan, an evening summary and memory between conversations.',
+    'ещё 1 бесплатно': '1 more for free',
+    'ещё 2 бесплатно': '2 more for free',
+
+    // — корзина: срок хранения —
+    'Удалённые задачи, цели, списки и заметки лежат здесь 30 дней, и всё это время их можно вернуть.': 'Deleted tasks, goals, lists and notes stay here for 30 days, and you can bring them back the whole time.',
+    'Хранится 30 дней, потом уходит само': 'Kept for 30 days, then it goes by itself'
   };
 
 
@@ -755,7 +995,19 @@
     [/^(\d+) (?:раз|раза)$/, function (m) {
       return m[1] + (m[1] === '1' ? ' time' : ' times');
     }],
-    [/^Осталось (\d+)$/, function (m) { return m[1] + ' left'; }]
+    [/^Осталось (\d+)$/, function (m) { return m[1] + ' left'; }],
+    // «Август 2026» — месяц склеен с годом, целиком в словарь не занести.
+    [/^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|Сентябрь|Октябрь|Ноябрь|Декабрь)\s+(\d{4})$/,
+      function (m) { return (EN[m[1]] || m[1]) + ' ' + m[2]; }],
+    // «18 августа» — день с месяцем в родительном падеже.
+    [/^(\d{1,2})\s+(январ|феврал|март|апрел|ма|июн|июл|август|сентябр|октябр|ноябр|декабр)[а-яё]*$/,
+      function (m) {
+        var months = { 'январ': 'January', 'феврал': 'February', 'март': 'March',
+          'апрел': 'April', 'ма': 'May', 'июн': 'June', 'июл': 'July',
+          'август': 'August', 'сентябр': 'September', 'октябр': 'October',
+          'ноябр': 'November', 'декабр': 'December' };
+        return (months[m[2]] || m[2]) + ' ' + m[1];
+      }]
   ];
 
   /* Переводим фразу ЦЕЛИКОМ или не трогаем вовсе.
@@ -796,15 +1048,34 @@
     return html.replace(/>([^<]+)</g, function (m, text) { return '>' + phrase(text) + '<'; });
   }
 
+  /* Заголовок вкладки и описание страницы. Браузер читает их из разметки ещё
+     до запуска приложения, поэтому переводом разметки они не покрываются.
+     Русские исходники запоминаем при старте — иначе после переключения туда и
+     обратно вернуть их было бы неоткуда. */
+  var titleRU = document.title;
+  var descNode = document.querySelector('meta[name="description"]');
+  var descRU = descNode ? descNode.getAttribute('content') : '';
+
+  function applyDocumentChrome() {
+    document.documentElement.setAttribute('lang', lang);
+    document.title = (lang === 'en') ? 'Synapse — planner' : titleRU;
+    if (descNode) {
+      descNode.setAttribute('content', (lang === 'en')
+        ? 'Goals, stages and daily tasks. Everything is stored in this browser.'
+        : descRU);
+    }
+  }
+
   global.SynI18n = {
     tr: tr,
     get: function () { return lang; },
     set: function (next) {
       lang = (next === 'en') ? 'en' : 'ru';
       try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) {}
-      document.documentElement.setAttribute('lang', lang);
+      applyDocumentChrome();
     },
     isEnglish: function () { return lang === 'en'; }
   };
-  document.documentElement.setAttribute('lang', lang);
+  applyDocumentChrome();
+
 })(window);
