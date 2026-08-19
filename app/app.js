@@ -4786,6 +4786,11 @@ function vHorizonStrip(){
 }
 
 var WEEKDAYS_SHORT = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+/* Для среза, который читает модель. Порядок с воскресенья — как у
+   getDay(); у WEEKDAYS_SHORT порядок с понедельника, и перепутать их
+   значит назвать человеку не тот день недели. */
+var WEEKDAYS_FULL = ['воскресенье', 'понедельник', 'вторник', 'среда',
+                     'четверг', 'пятница', 'суббота'];
 
 /* ============ ЦЕЛИ ============ */
 
@@ -6695,16 +6700,55 @@ function finContext(){
 
 function synContext(){
   if (S.synIntent === 'finance') return finContext();
-  var lines = ['СЕГОДНЯ: ' + isoOf(todayDate())];
+  /* Первая строка НЕ должна начинаться словом «СЕГОДНЯ».
+
+     Так было, и это ломало ответы: заголовки блоков ниже — тоже «СЕГОДНЯ:»,
+     «ЗАВТРА:», и одно и то же слово означало в тексте две разные вещи — дату
+     дня и название блока. Когда на сегодня задач не было, блок пропускался
+     совсем, модель видела «СЕГОДНЯ: 2026-08-19», сразу за ним «ЗАВТРА:» со
+     списком — и относила завтрашние дела к сегодняшнему дню. На вопрос «что у
+     меня сегодня?» человек получал завтрашний список, а счёт задач уезжал.
+     Поймано на живом прогоне 19 августа 2026.
+
+     Лечится тремя вещами: дата названа датой, у каждого блока рядом стоит его
+     собственное число, а пустые ближние блоки говорят «пусто» вслух — молчание
+     модель достраивает сама, и достраивает неверно. */
+  var todayISO = isoOf(todayDate());
+  var lines = ['ДАТА СЕЙЧАС: ' + todayISO + ', ' + WEEKDAYS_FULL[todayDate().getDay()] +
+    ', время ' + clock(new Date().getHours(), new Date().getMinutes())];
   var byBucket = {};
-  liveTasks().forEach(function(t){
+  var all = liveTasks();
+  all.forEach(function(t){
     (byBucket[t.bucket] = byBucket[t.bucket] || []).push(t);
   });
+  /* Готовый счёт, чтобы модель не считала сама.
+     На живом прогоне она перечисляла три задачи верно и тут же писала «всего
+     4»: сложение — не то, на что стоит полагаться, когда число можно посчитать
+     здесь и передать. Число в заголовке каждого блока — по той же причине. */
+  var openCount = all.filter(function(t){ return !t.done; }).length;
+  lines.push('ВСЕГО ЗАДАЧ: ' + all.length + ', из них незакрытых ' + openCount +
+    '. Это точные числа, считать заново не нужно.');
+  /* Число рядом с названием блока: «ЗАВТРА (2026-08-20)». Без него модель
+     считает дни сама и ошибается на единицу. */
+  var bucketDates = { today: 0, tomorrow: 1, dayAfterTomorrow: 2 };
   BUCKETS.forEach(function(b){
     var list = byBucket[b.id] || [];
-    if (!list.length) return;
+    var stamp = '';
+    if (bucketDates[b.id] !== undefined){
+      var d = todayDate(); d.setDate(d.getDate() + bucketDates[b.id]);
+      stamp = ' (' + isoOf(d) + ')';
+    }
+    // Ближние блоки называем даже пустыми: «на сегодня ничего» — это ответ,
+    // а пропущенный заголовок модель принимает за чужой список.
+    if (!list.length){
+      if (bucketDates[b.id] !== undefined){
+        lines.push('');
+        lines.push(b.title.toUpperCase() + stamp + ': пусто');
+      }
+      return;
+    }
     lines.push('');
-    lines.push(b.title.toUpperCase() + ':');
+    lines.push(b.title.toUpperCase() + stamp + ' — ' + list.length + ':');
     list.forEach(function(t){
       lines.push('- ' + t.title +
         (t.time ? ' в ' + t.time : '') +
@@ -8240,11 +8284,27 @@ function foldModalActions(){
   if (footer.childElementCount) box.appendChild(footer);
 }
 
+/// Выключить или вернуть к жизни всё, что лежит под модальным окном.
+function setPageInert(on){
+  ['top', 'app', 'tabbar'].forEach(function(id){
+    var node = document.getElementById(id);
+    if (!node) return;
+    if (on) node.setAttribute('inert', '');
+    else node.removeAttribute('inert');
+  });
+}
+
 function openModal(html, toInput){
   $('modalIn').innerHTML = SynI18n.tr(html);
   foldModalActions();
   $('modal').classList.add('on');
   lockScroll();
+  /* Пока окно открыто, страница под ним не должна принимать ни нажатия, ни
+     фокус: иначе Tab уводит курсор за окно, в 37 кнопок, которых человек не
+     видит, а читалка экрана продолжает зачитывать закрытый список. inert
+     выключает всё поддерево разом — и для мыши, и для клавиатуры, и для
+     озвучки. */
+  setPageInert(true);
 
   if (window.history && window.history.pushState){
     modalDepth++;
@@ -8287,6 +8347,7 @@ function closeModal(){
 /// закрывает сама кнопка «назад», запись уже снята браузером.
 function hideModal(){
   $('modal').classList.remove('on');
+  setPageInert(false);
   $('modalIn').innerHTML = '';
   unlockScroll();
 }
