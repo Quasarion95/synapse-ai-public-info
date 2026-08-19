@@ -1020,9 +1020,24 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    на его ширину. Ни одного нового элемента в разметке: то же самое дерево,
    другая раскладка. */
 @media (min-width:1040px){
-  :root{ --rail:232px; --gutter:36px }
+  :root{
+    --rail:232px;
 
-  body{ padding-left:calc(var(--rail) + var(--gutter)) }
+    /* Три просвета — до колонки меню, между меню и текстом, справа от текста —
+       считаются одной формулой, поэтому они одинаковые на любом окне. Раньше
+       левый был жёстко 36px, а два других делили остаток: на ноутбуке 1728px
+       получалось 36 / 250 / 250, и экран выглядел сдвинутым влево.
+
+       Плюс 2×--pad в числителе — потому что у main своё внутреннее поле, и
+       равнять надо видимые края текста, а не невидимые края блока. */
+    --col: clamp(700px, calc(100vw - var(--rail) - 3 * 28px), 1180px);
+    --gutter: max(28px, calc((100vw - var(--rail) - var(--col) + 2 * var(--pad)) / 3));
+  }
+
+  body{
+    padding-left:calc(var(--rail) + var(--gutter) * 2 - var(--pad));
+    padding-right:calc(var(--gutter) - var(--pad));
+  }
 
   /* Верх колонки стоит на одной линии с первой строкой содержимого — с тем
      самым «СЕГОДНЯ». Раньше она центрировалась по окну и поднималась при
@@ -1039,10 +1054,14 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   .tabbar{
     left:var(--gutter);
     top:var(--rail-y, 96px);
+    /* Низ на том же расстоянии от края, что и верх. Панель раньше кончалась
+       там, где кончались пункты: сверху 96px, снизу 294px — та же кривизна,
+       что и по бокам. Тянется фон, а не пункты: ни одна кнопка не сдвинулась
+       с места, к которому привыкла рука. */
+    bottom:var(--rail-y, 96px);
     transform:none;
-    bottom:auto;
     width:var(--rail);
-    max-height:calc(100vh - var(--rail-y, 96px) - 24px);
+    max-height:none;
     overflow-y:auto;
     border-radius:22px; padding:10px;
   }
@@ -1061,7 +1080,9 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   /* Строка создания задачи прижимается к колонке текста, а не к центру окна. */
   .composer,
   .kbd .composer{
-    left:calc(var(--rail) + var(--gutter)); right:0; transform:none;
+    left:calc(var(--rail) + var(--gutter) * 2 - var(--pad));
+    right:calc(var(--gutter) - var(--pad));
+    transform:none;
     width:min(620px, calc(100% - 40px)); margin:0 auto;
     bottom:calc(26px + var(--vv-shift, 0px));
   }
@@ -1076,8 +1097,8 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 /* Экраны, где есть что положить рядом: карточки в две колонки вместо одной
    длинной ленты. Задачи и цели остаются в одну — там порядок несёт смысл. */
 @media (min-width:1240px){
-  /* Колонка расширяется целиком — вместе с шапкой, а не только контент. */
-  :root{ --col:1000px }
+  /* Ширину колонки задаёт формула просветов выше — она растёт вместе с окном
+     до 1180px, а не прыгает на фиксированную тысячу. */
   .twocol{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--gap); align-items:start}
 }
 
@@ -1300,6 +1321,9 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .card.tour{border-color:var(--accent)}
 .tour-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px}
 .tour-head h3{margin:0}
+/* Заголовок подсказки и крестик — в одну строку, крестик у правого края. */
+.finhint-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px}
+.finhint-head h3{min-width:0}
 .tour-hide{flex:none; width:28px; height:28px; border-radius:999px; color:var(--fg-3); display:grid; place-items:center; font-size:13px}
 .tour-hide:hover{background:var(--soft); color:var(--fg)}
 

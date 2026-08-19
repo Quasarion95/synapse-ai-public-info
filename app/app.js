@@ -2615,9 +2615,17 @@ function vFinSummary(){
      сколько уйдёт в этом месяце и куда уходит. Подробности живут в своих
      вкладках, и туда ведут короткие строки, а не пересказ. */
 
-  if (!S.finance.opening){
+  /* Крестик обязателен: подсказка висит, пока остаток не вписан, а вписывать
+     его человек может не хотеть вовсе — и тогда она встречает его на входе в
+     раздел каждый раз. Закрыли — больше не показываем; вписать остаток всё
+     равно можно нажатием на плитку «Свободно» под ней. */
+  if (!S.finance.opening && !S.finance.openingHidden){
     html += '<section class="card finhint">' +
-      '<h3>Сначала — сколько у вас есть</h3>' +
+      '<div class="finhint-head">' +
+        '<h3>Сначала — сколько у вас есть</h3>' +
+        '<button class="tour-hide" data-act="fin-hint-hide" aria-label="' +
+          SynI18n.tr('Скрыть подсказку') + '" title="' + SynI18n.tr('Скрыть') + '">✕</button>' +
+      '</div>' +
       '<p class="sub">Впишите, сколько сейчас на карте и в кошельке, — одним числом. ' +
         'Без него «Свободно» показывает не деньги, а разницу доходов и трат с первой записи.</p>' +
       '<div class="acts"><button class="btn sm" data-act="fin-opening">Вписать</button></div>' +
@@ -9393,6 +9401,7 @@ var ACTS = {
                 : 'Вернуть не удалось');
   },
   'tour-hide': function(){ S.tourDone = true; commit('Первые шаги скрыты'); },
+  'fin-hint-hide': function(){ S.finance.openingHidden = true; commit('Подсказка скрыта'); },
   toggle: function(d){
     var t = findTask(d.task);
     if (!t) return;

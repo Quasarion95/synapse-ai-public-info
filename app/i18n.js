@@ -222,6 +222,7 @@
     'намечено на день': 'planned for the day', 'Первые шаги': 'First steps',
     'Первые шаги скрыты': 'First steps hidden', 'Первые шаги пройдены': 'First steps completed',
     'Пропустить первые шаги': 'Skip first steps', 'Пропустить знакомство': 'Skip the intro',
+    'Скрыть подсказку': 'Hide the hint', 'Скрыть': 'Hide', 'Подсказка скрыта': 'Hint hidden',
     'Создай первую задачу': 'Create your first task',
     'Отметь её выполненной': 'Mark it as done', 'Заведи цель': 'Set a goal',
     'Попроси Syn': 'Ask Syn', 'Придумать цель с Syn': 'Come up with a goal with Syn',
