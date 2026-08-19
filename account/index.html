@@ -424,16 +424,22 @@
 
       function describeMethod() {
         if (!hasMethod()) { return "Не сохранён"; }
-        if (state.paymentMethod.last4) { return "Карта •••• " + state.paymentMethod.last4; }
-        return "Сохранённая карта";
+        /* Платили через SberPay — так и пишем: тестировщик увидел «Сохранённая
+           карта», не понял, КАКАЯ карта привязана, и побоялся отвязывать. */
+        var name = state.paymentMethod.title || "Карта";
+        if (state.paymentMethod.last4) { return name + " •••• " + state.paymentMethod.last4; }
+        return name === "Карта" ? "Сохранённая карта" : name;
       }
 
       // То же самое, но внутри фразы: «удалим сохранённую карту •••• 4242».
       function describeCardInline() {
+        var name = state.paymentMethod.title && state.paymentMethod.title !== "Карта"
+          ? "привязку " + state.paymentMethod.title
+          : "сохранённую карту";
         if (state.paymentMethod.last4) {
-          return "сохранённую карту •••• " + state.paymentMethod.last4;
+          return name + " •••• " + state.paymentMethod.last4;
         }
-        return "сохранённую карту";
+        return name;
       }
 
       function show(node, visible) {
