@@ -411,31 +411,43 @@ a { color: var(--accent-strong); }
   shape-rendering: geometricPrecision;
 }
 
-/* Black pill with the Apple mark, the way Apple's own download badge reads. */
+/* Официальный бейдж Apple, а не своя чёрная плашка с яблоком.
+
+   Раньше кнопка была нарисована нами: тёмная пилюля, яблоко и надпись «Скоро
+   в App Store». Пока приложения не было, это годилось. Теперь оно есть, и
+   правила Apple для ссылки на магазин однозначны: берётся их артворк, без
+   перекраски, обрезки и своих рамок вокруг. Поэтому здесь только размер и
+   ровная посадка в ряд с остальными кнопками. */
 .btn-store {
-  background: var(--bg-dark);
-  color: var(--text-on-dark);
-  padding: 10px 22px 10px 18px;
-  box-shadow: 0 12px 28px rgba(27, 31, 28, 0.22);
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  border-radius: 10px;
+  line-height: 0;
 }
 
-.btn-store .ico { width: 23px; height: 23px; }
-
-.btn-store-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.1;
-  font-size: 17px;
-  font-weight: 600;
+.btn-store img {
+  display: block;
+  height: 50px;
+  width: auto;
 }
 
-.btn-store-text small {
-  font-size: 11px;
-  font-weight: 500;
-  opacity: 0.72;
-  letter-spacing: 0.02em;
+/* Чёрный бейдж на светлом фоне, белый — на тёмном: так предписывают правила
+   Apple, и так он вообще читается. Оба варианта — их артворк, мы только
+   выбираем нужный по теме. */
+.btn-store .badge-dark { display: none; }
+
+:root:not([data-theme="light"]) .btn-store .badge-light,
+:root[data-theme="dark"] .btn-store .badge-light { display: none; }
+
+:root[data-theme="dark"] .btn-store .badge-dark { display: block; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn-store .badge-dark { display: block; }
 }
+
+.btn-store:hover { transform: translateY(-1px); }
 
 /* Раньше кнопка заливалась фирменным голубым Telegram. В этой палитре он
    единственное пятно чужого бренда и рвёт всю систему, поэтому узнаваемость
@@ -458,21 +470,9 @@ a { color: var(--accent-strong); }
    поверхности — и получает обводку: без неё панель на панели теряет края, а
    кнопка перестаёт выглядеть нажимаемой. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .btn-store {
-    background: var(--surface);
-    border-color: var(--stroke-strong);
-    color: var(--text);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
-  }
 }
 
 /* То же самое, когда тему выбрали кнопкой, а не системой. */
-:root[data-theme="dark"] .btn-store {
-    background: var(--surface);
-    border-color: var(--stroke-strong);
-    color: var(--text);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
-  }
 
 
 /* The store is not open yet — the button says so and does not pretend to work. */
