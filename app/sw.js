@@ -28,12 +28,15 @@
   что выкладка не сработала. Обработчик — в app.js, registerServiceWorker.
 */
 
-var CACHE = 'synapse-shell-v72';
+var CACHE = 'synapse-shell-v73';
 
 var SHELL = [
   './',
   'index.html',
   'app.css',
+  /* Словарь идёт в оболочку вместе с кодом: app.js обращается к SynI18n сразу
+     при отрисовке шапки, и без словаря страница офлайн была бы белой. */
+  'i18n.js',
   'app.js',
   'manifest.webmanifest',
   'icons/icon-192.png',
