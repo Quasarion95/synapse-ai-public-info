@@ -1540,10 +1540,10 @@ a { color: var(--accent-strong); }
   border-radius: 12px 12px 4px 4px;
   /* Поля одинаковые с трёх сторон, снизу шире — там у ноутбука подбородок. */
   padding: 9px 9px 16px;
-  background: linear-gradient(158deg, #d7d2c4 0%, #f2efe8 26%, #cac5b7 62%, #ebe8de 100%);
+  background: linear-gradient(158deg, #2c332e 0%, #3a423c 26%, #232925 62%, #333b35 100%);
   box-shadow:
-    0 22px 48px rgba(40, 36, 28, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+    0 22px 48px rgba(40, 36, 28, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 /* Подставка шире корпуса и сужается книзу — так ноутбук стоит, а не висит. */
@@ -1556,8 +1556,8 @@ a { color: var(--accent-strong); }
      и подставка съезжала вправо. Половина превышения — ровно −5%. */
   margin-left: -5%;
   border-radius: 0 0 9px 9px;
-  background: linear-gradient(180deg, #ddd8cb 0%, #b6b1a4 100%);
-  box-shadow: 0 12px 22px rgba(40, 36, 28, 0.2);
+  background: linear-gradient(180deg, #3a423c 0%, #20261f 100%);
+  box-shadow: 0 12px 22px rgba(40, 36, 28, 0.3);
 }
 
 /* Экран держит пропорцию: содержимое внутри может быть любой длины, но
