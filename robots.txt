@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /checkout/
+Disallow: /account/
+Disallow: /activate/
+Disallow: /partner/
+
+Sitemap: https://synapseapp.ru/sitemap.xml
