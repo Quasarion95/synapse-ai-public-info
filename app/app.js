@@ -6814,8 +6814,35 @@ function synContext(){
 var SYN_CHAT_KEEP = 40;
 var SYN_CHAT_SEND = 8;
 
+/* Переписка без «повисших» просьб.
+
+   При обрыве связи неотвеченный вопрос убирается сразу (см. catch в synSend),
+   но есть случай, который так не лечится: вкладку закрыли или перезагрузили,
+   пока ответ шёл. Тогда просьба остаётся в ленте навсегда и уходит на сервер
+   со следующим запросом — как ещё одна живая команда.
+
+   Ровно это поймали на айфоне 19 августа 2026: человек попросил в 10:11, ответа
+   не было, а в 22:33 попросил другое — Syn выполнил обе. Правило то же, что в
+   приложении: реплику без ответа оставляем, только если она из того же захода
+   (15 минут), иначе выбрасываем. Две строки подряд — нормальный разговор,
+   просьба из прошлого дня — нет. */
+var SYN_BURST_MS = 15 * 60 * 1000;
+
+function synChatForSending(){
+  var chat = S.synChat || [];
+  if (!chat.length) return chat;
+  var newestAt = chat[chat.length - 1].at || 0;
+  return chat.filter(function(item, index){
+    if (item.role !== 'user') return true;
+    if (index === chat.length - 1) return true;
+    if (chat[index + 1] && chat[index + 1].role !== 'user') return true;
+    if (!item.at || !newestAt) return false;
+    return newestAt - item.at <= SYN_BURST_MS;
+  });
+}
+
 function synChatPush(role, text, result){
-  S.synChat.push({ role: role, text: String(text || ''),
+  S.synChat.push({ role: role, text: String(text || ''), at: Date.now(),
     done: result ? result.done : [], skipped: result ? result.skipped : [] });
   if (S.synChat.length > SYN_CHAT_KEEP) S.synChat = S.synChat.slice(-SYN_CHAT_KEEP);
 }
@@ -7278,7 +7305,7 @@ function synAsk(){
     return synFetch('/v1/synapse/reply', {
       workspace: workspace,
       workspaceContext: synContext(),
-      messages: S.synChat.slice(-SYN_CHAT_SEND).map(function(item){
+      messages: synChatForSending().slice(-SYN_CHAT_SEND).map(function(item){
         return { role: item.role === 'user' ? 'user' : 'assistant', text: item.text };
       })
     }, token);

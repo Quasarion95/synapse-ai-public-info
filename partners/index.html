@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Партнёрам Synapse — 30% с каждой оплаты, включая продления</title>
+    <meta name="description" content="Партнёрская программа Synapse: 30% с каждой оплаты приведённого человека, включая все продления. Свой код, счётчик дохода, выплаты раз в месяц.">
+    <link rel="icon" href="../screens/mark.png">
+    <link rel="stylesheet" href="../site.css">
+      <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+      (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+      })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=111395100', 'ym');
+
+      ym(111395100, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <noscript><div><img src="https://mc.yandex.ru/watch/111395100" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- /Yandex.Metrika counter -->
+      <script src="../theme.js"></script>
+    <style>
+      /* Стили счётчика живут здесь, а не в общем site.css: полей ввода на
+         остальных страницах сайта нет, и тащить их в общий файл ради одной
+         страницы значит раздать вес всем. */
+      .calc-fields { display: grid; gap: 18px; margin: 22px 0 26px; }
+      @media (min-width: 720px) { .calc-fields { grid-template-columns: 1fr 1fr 1fr; } }
+
+      .calc-field > span {
+        display: block; font-size: 13px; letter-spacing: .02em;
+        opacity: .72; margin-bottom: 8px;
+      }
+      .calc-field select,
+      .calc-field input {
+        width: 100%; box-sizing: border-box;
+        font: inherit; font-size: 16px; color: inherit;
+        background: var(--calc-field-bg, rgba(127,127,127,.10));
+        border: 1px solid var(--calc-field-line, rgba(127,127,127,.30));
+        border-radius: 12px; padding: 12px 14px;
+        -webkit-appearance: none; appearance: none;
+      }
+      .calc-field select:focus-visible,
+      .calc-field input:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+      .calc-out { display: grid; gap: 14px; }
+      @media (min-width: 720px) { .calc-out { grid-template-columns: 1fr 1fr 1fr; } }
+
+      .calc-cell {
+        border: 1px solid var(--calc-field-line, rgba(127,127,127,.30));
+        border-radius: 16px; padding: 16px 18px;
+      }
+      .calc-cell span { display: block; font-size: 13px; opacity: .72; }
+      .calc-cell b {
+        display: block; margin-top: 6px;
+        font-size: clamp(22px, 5vw, 30px); font-weight: 650;
+        font-variant-numeric: tabular-nums; line-height: 1.15;
+      }
+      .calc-note { font-size: 14px; opacity: .72; margin-top: 18px; }
+      .steps { counter-reset: step; list-style: none; padding: 0; }
+      .steps li { position: relative; padding-left: 40px; margin-bottom: 14px; }
+      .steps li::before {
+        counter-increment: step; content: counter(step);
+        position: absolute; left: 0; top: -1px;
+        width: 26px; height: 26px; border-radius: 999px;
+        display: grid; place-items: center;
+        font-size: 13px; font-weight: 650;
+        border: 1px solid var(--calc-field-line, rgba(127,127,127,.30));
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <button class="theme-toggle" data-theme-toggle type="button" aria-label="Сменить тему" title="Сменить тему">☾</button>
+
+      <section class="hero">
+        <span class="eyebrow">Партнёрам</span>
+        <h1>30% с каждой оплаты. Включая все продления.</h1>
+        <p class="lead">
+          Вы рассказываете о Synapse своей аудитории и получаете треть от всего,
+          что заплатят пришедшие по вашему коду люди, — не только с первой
+          покупки, а каждый раз, пока человек остаётся с нами. Один раз
+          привели — получаете, пока он платит.
+        </p>
+        <div class="actions">
+          <a class="button" href="https://t.me/synapseapp">Написать и получить код</a>
+          <a class="button secondary" href="../app/">Посмотреть продукт</a>
+          <a class="button secondary" href="../pricing/">Тарифы и цены</a>
+        </div>
+      </section>
+
+      <section class="stack">
+
+        <article class="card">
+          <h2>Что такое Synapse</h2>
+          <p>
+            Планировщик задач и целей с голосовым ассистентом. Отличие от
+            обычного списка дел одно: он показывает не только сегодняшний день,
+            а куда этот день ведёт — большая цель разбивается на этапы, этапы
+            на задачи, прогресс считается сам.
+          </p>
+          <p>
+            Ассистента зовут Syn. Ему говорят словами — «перенеси созвон на
+            пятницу», «разбери мой день», «запиши 500 на кафе», — и он меняет
+            план сам. Есть раздел личных финансов, заметки, списки, помодоро и
+            медитации.
+          </p>
+          <p>
+            Работает в браузере, на айфоне (App&nbsp;Store) и на андроиде.
+            Задачи хранятся на устройстве человека и в его личном iCloud —
+            на наших серверах их нет.
+          </p>
+        </article>
+
+        <article class="card">
+          <h2>Что вы получаете</h2>
+          <ul>
+            <li>
+              <strong>30% с каждой оплаты.</strong> И с первой покупки, и со
+              всех продлений — пока человек остаётся подписчиком.
+            </li>
+            <li>
+              <strong>Свой код.</strong> Короткое слово, которое вы называете
+              вслух или пишете в посте. По нему мы видим, кто пришёл от вас.
+            </li>
+            <li>
+              <strong>Скидка вашей аудитории — по согласованию.</strong> Можем
+              включить скидку на ваш код, чтобы людям было выгоднее приходить
+              именно от вас. Обсуждаем отдельно.
+            </li>
+            <li>
+              <strong>Выплаты раз в месяц.</strong> Переводом, по накопленной
+              за месяц сумме.
+            </li>
+            <li>
+              <strong>Отчёт по вашему коду.</strong> Сколько человек пришло,
+              сколько оплат, сколько начислено — по запросу в любой момент.
+            </li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2>Сколько это в деньгах</h2>
+          <p>
+            Посчитайте на своих числах. Тарифы настоящие: 149&nbsp;₽ за неделю,
+            590&nbsp;₽ за месяц, 4&nbsp;990&nbsp;₽ за год.
+          </p>
+
+          <div class="calc-fields">
+            <label class="calc-field">
+              <span>Какой тариф берут</span>
+              <select id="plan">
+                <option value="month" selected>Месяц — 590 ₽</option>
+                <option value="year">Год — 4 990 ₽</option>
+                <option value="week">Неделя — 149 ₽</option>
+              </select>
+            </label>
+            <label class="calc-field">
+              <span>Сколько человек приводите в месяц</span>
+              <input id="people" type="number" inputmode="numeric" min="0" max="10000" step="1" value="10">
+            </label>
+            <label class="calc-field">
+              <span>Сколько месяцев в среднем платят</span>
+              <input id="keep" type="number" inputmode="numeric" min="1" max="60" step="1" value="6">
+            </label>
+          </div>
+
+          <div class="calc-out">
+            <div class="calc-cell">
+              <span>За первый месяц</span>
+              <b id="out1">—</b>
+            </div>
+            <div class="calc-cell">
+              <span>За полгода, всего</span>
+              <b id="out6">—</b>
+            </div>
+            <div class="calc-cell">
+              <span>За год, всего</span>
+              <b id="out12">—</b>
+            </div>
+          </div>
+
+          <p class="calc-note" id="calcNote"></p>
+          <p class="calc-note">
+            Это оценка, а не обещание: сколько людей купит и как долго
+            останется, зависит от вашей аудитории. Считаем честно — доля берётся
+            от суммы, которую человек реально заплатил.
+          </p>
+        </article>
+
+        <article class="card">
+          <h2>Как это работает</h2>
+          <ol class="steps">
+            <li>
+              Пишете нам в <a href="https://t.me/synapseapp">Telegram</a> —
+              коротко, кто вы и где ваша аудитория.
+            </li>
+            <li>
+              Получаете свой код и готовую ссылку. Ссылку можно ставить в шапку
+              профиля, код — называть вслух.
+            </li>
+            <li>
+              Рассказываете о Synapse так, как считаете нужным. Мы дадим
+              скриншоты, короткие тексты и ответим на вопросы вашей аудитории,
+              если попросите.
+            </li>
+            <li>
+              Раз в месяц считаем, что пришло по вашему коду, и переводим вашу
+              долю.
+            </li>
+          </ol>
+        </article>
+
+        <article class="card">
+          <h2>Кому подходит</h2>
+          <p>
+            Тем, кто уже говорит с людьми о работе, учёбе, порядке в делах и
+            выгорании: блогерам и авторам каналов, психологам и коучам,
+            преподавателям и репетиторам, сообществам и чатам, продуктивщикам.
+          </p>
+          <p>
+            Не нужно быть большим блогером. Маленькая, но своя аудитория
+            приносит больше, чем купленный охват: тут платят за то, что человек
+            остался пользоваться, а не за клик.
+          </p>
+        </article>
+
+        <article class="card">
+          <h2>Чего делать нельзя</h2>
+          <ul>
+            <li>Рассылать код спамом и в чужие комментарии.</li>
+            <li>Обещать то, чего в приложении нет, — проверьте на себе перед тем, как рассказывать.</li>
+            <li>Говорить от имени Synapse: вы партнёр, а не наш сотрудник.</li>
+            <li>Заводить оплаты на себя ради доли — такие мы не считаем.</li>
+            <li>Использовать контекстную рекламу по слову «Synapse»: этот трафик и так наш.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2>Частые вопросы</h2>
+          <p><strong>Когда придут деньги?</strong><br>
+            Раз в месяц, по накопленной сумме. Отчёт покажем до перевода.</p>
+          <p><strong>А если человек отменит подписку?</strong><br>
+            Вы получаете долю с уже прошедших оплат — их никто не отнимает.
+            Просто со следующего месяца по нему начислений не будет.</p>
+          <p><strong>Что, если человек придёт без кода?</strong><br>
+            Тогда мы его не свяжем с вами. Код — единственный способ понять,
+            что человек пришёл от вас, поэтому просите называть его при оплате.</p>
+          <p><strong>Долго ли действует код?</strong><br>
+            Бессрочно, пока мы работаем. Отключить его можем только за
+            нарушения из списка выше.</p>
+          <p><strong>Можно ли просто попробовать?</strong><br>
+            Да. Планировщик бесплатный целиком — оплачивается только ассистент
+            и снятие ограничений. Ставьте и смотрите:
+            <a href="../app/">открыть в браузере</a>.</p>
+        </article>
+
+        <article class="card">
+          <h2>Начать</h2>
+          <p>
+            Напишите в <a href="https://t.me/synapseapp">Telegram</a> — выдадим
+            код в тот же день. Вопросы можно и на
+            <a href="mailto:support@synapseapp.ru">support@synapseapp.ru</a>.
+          </p>
+          <div class="actions">
+            <a class="button" href="https://t.me/synapseapp">Написать в Telegram</a>
+            <a class="button secondary" href="../">О продукте</a>
+          </div>
+        </article>
+
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img class="mark" src="../screens/mark.png" alt="" width="26" height="26">
+          <span>Synapse</span>
+        </div>
+        <nav class="footer-links">
+          <a href="../app/">Открыть Synapse</a>
+          <a href="../pricing/">Тарифы</a>
+          <a href="../account/">Подписка и отмена</a>
+          <a href="../partners/">Партнёрам</a>
+          <a href="../support/">Поддержка</a>
+          <a href="../privacy/">Конфиденциальность</a>
+          <a href="../terms/">Условия</a>
+          <a href="../offer/">Оферта</a>
+          <a href="../requisites/">Реквизиты</a>
+          <a href="https://t.me/synapseapp">Telegram</a>
+        </nav>
+        <p class="copy">© 2026 Synapse. Все права защищены.</p>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // Настоящие цены, те же, что на странице тарифов.
+        var PRICES = { month: 590, year: 4990, week: 149 };
+        var SHARE = 0.30;
+        // В месяце 4,345 недели — иначе недельный тариф считался бы заниженно.
+        var WEEKS_IN_MONTH = 4.345;
+
+        var plan = document.getElementById("plan");
+        var people = document.getElementById("people");
+        var keep = document.getElementById("keep");
+        var note = document.getElementById("calcNote");
+
+        function money(value) {
+          return Math.round(value).toLocaleString("ru-RU") + " ₽";
+        }
+
+        function clamp(input, min, max, fallback) {
+          var value = parseInt(input.value, 10);
+          if (isNaN(value)) { return fallback; }
+          return Math.max(min, Math.min(max, value));
+        }
+
+        /* Накопленный доход за horizon месяцев.
+           Каждый месяц приходит новая группа людей, а прежние продолжают
+           платить, пока не истечёт срок, который вы указали. Поэтому доход
+           растёт не линейно: во второй месяц платят и новые, и первые. */
+        function earned(kind, perMonth, keepMonths, horizon) {
+          var price = PRICES[kind];
+          var total = 0;
+          for (var month = 1; month <= horizon; month += 1) {
+            if (kind === "year") {
+              // Годовой платят разово: каждый месяц доход дают только новые.
+              total += perMonth * price * SHARE;
+            } else {
+              var paying = perMonth * Math.min(month, keepMonths);
+              total += paying * price * SHARE * (kind === "week" ? WEEKS_IN_MONTH : 1);
+            }
+          }
+          return total;
+        }
+
+        function recalc() {
+          var kind = plan.value;
+          var perMonth = clamp(people, 0, 10000, 10);
+          var keepMonths = clamp(keep, 1, 60, 6);
+
+          document.getElementById("out1").textContent = money(earned(kind, perMonth, keepMonths, 1));
+          document.getElementById("out6").textContent = money(earned(kind, perMonth, keepMonths, 6));
+          document.getElementById("out12").textContent = money(earned(kind, perMonth, keepMonths, 12));
+
+          var one = PRICES[kind] * SHARE;
+          if (kind === "year") {
+            note.textContent = "С каждого человека на годовом тарифе — " + money(one) +
+              " сразу. Следующая доля с него придёт через год, когда он продлит.";
+          } else if (kind === "week") {
+            note.textContent = "С каждого человека — " + money(one) +
+              " за каждую оплаченную неделю, пока он продлевает.";
+          } else {
+            note.textContent = "С каждого человека — " + money(one) +
+              " каждый месяц, пока он платит. Десять таких — " + money(one * 10) + " в месяц.";
+          }
+        }
+
+        // Срок «сколько месяцев платят» на годовом тарифе ничего не меняет:
+        // прячем поле, чтобы не создавать впечатление, будто меняет.
+        function syncFields() {
+          keep.parentElement.style.opacity = plan.value === "year" ? ".45" : "1";
+          keep.disabled = plan.value === "year";
+        }
+
+        [plan, people, keep].forEach(function (node) {
+          node.addEventListener("input", function () { syncFields(); recalc(); });
+          node.addEventListener("change", function () { syncFields(); recalc(); });
+        });
+
+        syncFields();
+        recalc();
+      })();
+    </script>
+  </body>
+</html>
