@@ -87,6 +87,26 @@
               <p class="hint" id="phoneHint">Мобильный, на который придёт чек.</p>
             </div>
 
+            <!-- Поле для кода партнёра.
+
+                 Раньше его не было вовсе, и код доезжал только по ссылке. Но
+                 половина людей приходит не по ссылке: услышали код в сторис,
+                 переписали от руки, открыли на другом телефоне. Для них
+                 партнёр оставался ни с чем, а человек — без скидки, если она
+                 включена. Поле подставляется само, когда пришли по ссылке. -->
+            <div class="fld">
+              <label class="fld-label" for="promo">Код партнёра или промокод</label>
+              <input
+                id="promo"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="24"
+                aria-describedby="promoHint"
+                placeholder="Если вам его называли">
+              <p class="hint" id="promoHint">Не обязательно. Влияет на скидку, если она есть у кода.</p>
+            </div>
+
             <p id="error" class="alert" hidden></p>
 
             <p style="margin: 22px 0 0;">
@@ -160,6 +180,68 @@
     <script>
       var BACKEND = "https://api.synapseapp.ru";
 
+      /* Партнёрский код: приходит в адресе (…/checkout/?promo=КОД) по ссылке
+         партнёра и запоминается на сутки.
+
+         Запоминаем, потому что путь до оплаты редко бывает прямым: человек
+         открыл ссылку, ушёл читать тарифы, вернулся через час. Без памяти
+         партнёр терял бы каждого, кто не оплатил в одно касание.
+
+         Из адресной строки код убираем сразу: он ничей не ключ, но и мусорить
+         им в истории браузера незачем. */
+      var PARTNER_KEY = "synapse.promo";
+      /* Тридцать дней, а не сутки.
+         Подписку берут не в одно касание: человек переходит по ссылке, идёт
+         читать тарифы, спрашивает жену, возвращается через неделю. Суточная
+         память молча съедала бы такие покупки — партнёр привёл, а ему не
+         засчиталось, и доказать он ничего не может. Тридцать дней — обычный
+         срок в партнёрских программах. */
+      var PARTNER_TTL = 30 * 24 * 60 * 60 * 1000;
+
+      var partnerCode = (function () {
+        function clean(value) {
+          return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 24);
+        }
+        var fromLink = clean(new URLSearchParams(location.search).get("promo"));
+        if (fromLink) {
+          try {
+            localStorage.setItem(PARTNER_KEY, JSON.stringify({ code: fromLink, at: Date.now() }));
+          } catch (error) {}
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, "", location.pathname);
+          }
+          return fromLink;
+        }
+        try {
+          var saved = JSON.parse(localStorage.getItem(PARTNER_KEY) || "null");
+          if (saved && saved.code && Date.now() - (saved.at || 0) < PARTNER_TTL) {
+            return clean(saved.code);
+          }
+        } catch (error) {}
+        return "";
+      })();
+
+      /* Что уходит на сервер: сначала то, что человек вписал руками, потом
+         запомненное по ссылке. Рука главнее памяти — если он специально ввёл
+         другой код, значит именно его и имел в виду. */
+      function currentPromo() {
+        var field = document.getElementById("promo");
+        var typed = field ? String(field.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
+        return typed || partnerCode;
+      }
+
+      // Пришли по ссылке — код виден в поле, а не спрятан: человек должен
+      // понимать, что применяется, и мочь стереть.
+      (function fillPromo() {
+        var field = document.getElementById("promo");
+        if (field && partnerCode) { field.value = partnerCode; }
+        if (field) {
+          field.addEventListener("input", function () {
+            this.value = this.value.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+          });
+        }
+      })();
+
       // Верх воронки. Считается здесь, а не на /pricing/: между просмотром цен
       // и нажатием «оплатить» стоит именно эта страница, и только её показ
       // сопоставим с checkout_started. Ошибку глотаем — счётчик не должен
@@ -168,7 +250,7 @@
         fetch(BACKEND + "/v1/synapse/checkout/viewed", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: "{}",
+          body: JSON.stringify({ promoCode: currentPromo() }),
           keepalive: true
         }).catch(function () {});
       } catch (error) {}
@@ -392,7 +474,14 @@
         fetch(BACKEND + "/v1/synapse/checkout/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: selectedPlan, phone: "+7" + digits, autoRenew: autoRenewEl.checked }),
+          body: JSON.stringify({
+            plan: selectedPlan, phone: "+7" + digits, autoRenew: autoRenewEl.checked,
+            // Партнёрский код доезжает до платежа отсюда. Раньше форма его не
+            // слала вовсе: сервер поле ждал, страница не отправляла — и
+            // приведённый партнёром человек покупал, а партнёру не
+            // засчитывалось ничего.
+            promoCode: currentPromo()
+          }),
           signal: abort ? abort.signal : undefined
         })
           .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
