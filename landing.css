@@ -861,19 +861,23 @@ a { color: var(--accent-strong); }
   font-weight: 700;
 }
 
-.footer-links {
-  display: flex;
-  /* Восемь ссылок в одну строку не помещаются нигде уже, а без переноса они
-     не сжимались, а выпихивали страницу за экран: на 420px документ был
-     761px шириной и уезжал вбок целиком, вместе с шапкой и текстом. */
-  flex-wrap: wrap;
-  gap: 10px 20px;
+.footer-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 20px 40px;
   margin-left: auto;
   font-size: 14.5px;
 }
-
-.footer-links a { color: var(--muted); text-decoration: none; }
-.footer-links a:hover { color: var(--text); }
+@media (max-width: 560px) {
+  .footer-cols { grid-template-columns: 1fr 1fr; margin-left: 0; width: 100%; }
+}
+.footer-col { display: grid; gap: 9px; align-content: start; }
+.footer-h {
+  margin: 0 0 2px; font-size: 11.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted); opacity: .8;
+}
+.footer-col a { color: var(--muted); text-decoration: none; }
+.footer-col a:hover { color: var(--text); }
 
 .copy {
   width: 100%;
@@ -922,7 +926,6 @@ a { color: var(--accent-strong); }
   .cards, .grid, .grid-3, .shots { grid-template-columns: 1fr; }
   .section { padding-block: 40px; }
   .cta .btn { flex: 1 1 100%; }
-  .footer-links { margin-left: 0; }
   /* Шапка на телефоне.
 
      Раньше в неё пытались влезть логотип с названием, «Открыть Synapse»,
