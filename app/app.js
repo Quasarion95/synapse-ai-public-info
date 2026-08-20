@@ -5057,22 +5057,30 @@ function vAnalytics(){
    buildGoalLayouts), от цели — её этапы, от этапа — задачи. Связи — кривые
    Безье с контрольными точками на 0.34 и 0.72 по горизонтали.
 
-   Заливка — GoalMindMapGeometry.Fill: пустое дерево стоит контуром, лист
-   выполненной задачи заливается на 0.32, этап набирает до 0.30, цель до 0.24
-   пропорционально доле закрытых задач, ствол наливается снизу вверх по общему
-   прогрессу, обводка усиливается с 0.28 до 0.75. */
+   Заливка — только у выполненного. Раньше цвет набирался ПРОПОРЦИОНАЛЬНО доле
+   закрытых задач: лист до 0.32, этап до 0.30, цель до 0.24. Карта от этого
+   покрывалась пятнами разной насыщенности, и понять по ней, что сделано, а что
+   нет, было нельзя — 20% и 80% отличались оттенком, который глаз не измеряет.
+   Теперь цвет означает ровно одно: закрыто. Долю показывает число под
+   названием («2 / 5»), а его читать не надо угадывая.
+
+   Ствол — исключение: он наливается снизу вверх по общему проценту, и процент
+   написан внутри него цифрами. Это не блок, а шкала. */
 var MM = {
   goalX: 210, stageX: 205, taskX: 185,
   goalW: 190, stageW: 176, taskW: 158,
-  rowH: 62, lineH: 14, stageGap: 10, goalGap: 28,
+  rowH: 70, lineH: 17, stageGap: 10, goalGap: 28,
   coreR: 54,
-  fillLeaf: 0.32, fillStage: 0.30, fillGoal: 0.24, fillCore: 0.90
+  // Ширина знака при 13px: по ней подпись режется на строки. Держать её рядом
+  // с размером шрифта в CSS обязательно — разъедутся, и текст полезет за край.
+  charW: 6.9,
+  fillDone: 0.22, fillCore: 0.90
 };
 
 /// Подпись в две строки вместо многоточия: узел, у которого от названия
 /// осталось «Сдать пробный экз…», не карта, а ребус.
 function wrapLabel(text, width, lines){
-  var perLine = Math.max(6, Math.floor((width - 18) / 5.9));
+  var perLine = Math.max(6, Math.floor((width - 20) / MM.charW));
   var words = String(text).split(/\s+/);
   var out = [], current = '';
   for (var i = 0; i < words.length; i++){
@@ -5118,19 +5126,25 @@ function goalBlockHeight(goal){
   return Math.max(MM.rowH + MM.stageGap, height);
 }
 
-function mmNode(x, y, w, text, sub, fillColor, ratio, fillMax, colors){
+function mmNode(x, y, w, text, sub, fillColor, done, colors){
   var lines = wrapLabel(text, w, 2);
-  var h = lines.length * MM.lineH + (sub ? 16 : 6) + 16;
+  var h = lines.length * MM.lineH + (sub ? 18 : 8) + 18;
   var left = x - w / 2, top = y - h / 2;
-  var first = top + 14 + MM.lineH / 2;
+  var first = top + 15 + MM.lineH / 2;
 
-  // Фон непрозрачный, поверх него — цвет по доле сделанного: связи проходят
-  // под карточками, и сквозь незалитый узел лезла бы линия.
+  /* Подложка непрозрачная: связи проходят ПОД карточками, и сквозь прозрачный
+     узел лезла бы линия прямо по буквам.
+
+     Цвет подложки — панель, а холст карты теперь стоит на фоне страницы. Пока
+     они совпадали, невыполненная карточка была видна только по волосяной линии
+     в 28% непрозрачности, то есть не видна вовсе. Отсюда и жалоба «блоки
+     плохо видно»: их и правда не было — был контур на своём же фоне. */
+  var line = done ? rgba(fillColor, 0.9) : rgba(colors.textSecondary, 0.5);
   return '<g>' +
     '<rect x="' + left + '" y="' + top + '" width="' + w + '" height="' + h + '" rx="11" fill="' + rgb(colors.panel) + '"/>' +
-    '<rect x="' + left + '" y="' + top + '" width="' + w + '" height="' + h + '" rx="11" class="mm-node" ' +
-      'fill="' + rgba(fillColor, (fillMax * ratio).toFixed(3)) + '" ' +
-      'stroke="' + rgba(fillColor, strokeOpacity(ratio).toFixed(3)) + '"/>' +
+    '<rect x="' + left + '" y="' + top + '" width="' + w + '" height="' + h + '" rx="11" class="mm-node' + (done ? ' done' : '') + '" ' +
+      'fill="' + (done ? rgba(fillColor, MM.fillDone) : 'none') + '" ' +
+      'stroke="' + line + '"/>' +
     lines.map(function(line, i){
       return '<text class="mm-label" x="' + (left + 11) + '" y="' + (first + i * MM.lineH) + '">' + esc(line) + '</text>';
     }).join('') +
@@ -5142,7 +5156,7 @@ function mmLink(x1, y1, x2, y2, colors, ratio){
   var c1 = x1 + (x2 - x1) * 0.34;
   var c2 = x1 + (x2 - x1) * 0.72;
   return '<path class="mm-link" d="M' + x1 + ' ' + y1 + ' C' + c1 + ' ' + y1 + ' ' + c2 + ' ' + y2 + ' ' + x2 + ' ' + y2 + '" ' +
-    'stroke="' + rgba(colors.stroke, strokeOpacity(ratio, 0.5, 1).toFixed(3)) + '"/>';
+    'stroke="' + rgba(colors.textSecondary, strokeOpacity(ratio, 0.34, 0.7).toFixed(3)) + '"/>';
 }
 
 function vMindMap(){
@@ -5180,9 +5194,10 @@ function vMindMap(){
     for (var i = 0; i < list.length; i++) h += goalBlockHeight(list[i]) + MM.goalGap;
     return h;
   };
-  // Нижняя граница высоты — чтобы карта из одной цели не превращалась в
-  // узкую полоску, в которой подписи мельче текста вокруг.
-  var height = Math.max(sideHeight(left), sideHeight(right), MM.coreR * 2 + 60, 300) + 48;
+  // Нижняя граница высоты — чтобы карта из одной цели не превращалась в узкую
+  // полоску. Раньше здесь стояло 300 при узлах высотой 60; с крупными узлами
+  // этот запас превращался в пустое поле сверху и снизу.
+  var height = Math.max(sideHeight(left), sideHeight(right), MM.coreR * 2 + 60) + 36;
   // Половина ширины считается по самому дальнему ряду плюс поля, чтобы
   // крайние карточки не липли к рамке (contentHalfWidth + edgeMargin).
   var halfWidth = MM.goalX + MM.stageX + MM.taskX + MM.taskW / 2 + 20;
@@ -5233,19 +5248,19 @@ function vMindMap(){
           var taskCx = stageCx + dir * MM.taskX;
           var leafRatio = task.done ? 1 : 0;
           body += mmLink(stageCx + dir * MM.stageW / 2, stageY, taskCx - dir * MM.taskW / 2, taskY, colors, leafRatio);
-          body += mmNode(taskCx, taskY, MM.taskW, task.title, '', colors.focusGreen, leafRatio, MM.fillLeaf, colors);
+          body += mmNode(taskCx, taskY, MM.taskW, task.title, '', colors.focusGreen, !!task.done, colors);
         }
 
         body += mmNode(stageCx, stageY, MM.stageW, stage.title,
           list2.length ? stageDone + ' / ' + list2.length : 'без задач',
-          colors.accent, stageRatio, MM.fillStage, colors);
+          colors.accent, stageRatio >= 1, colors);
 
         stageCursor += stageH;
       }
 
       body += mmNode(goalCx, goalY, MM.goalW, goal.title,
         goalTasks.length ? goalDone + ' / ' + goalTasks.length + ' задач' : 'без задач',
-        colors.accent, goalRatio, MM.fillGoal, colors);
+        colors.accent, goalTasks.length > 0 && goalRatio >= 1, colors);
 
       cursor += block + MM.goalGap;
     }
@@ -5280,9 +5295,12 @@ function vMindMap(){
     '<button class="chip" data-act="mm-zoom" data-dir="in" aria-label="Крупнее">+</button>';
 
   var legend = '<div class="mmlegend">' +
-      '<span><i style="background:' + rgba(colors.focusGreen, MM.fillLeaf) + '"></i>задача закрыта</span>' +
-      '<span><i style="background:' + rgba(colors.accent, MM.fillStage) + '"></i>этап набирает цвет</span>' +
-      '<span><i></i>пусто — только контур</span>' +
+      '<span><i style="background:' + rgba(colors.focusGreen, MM.fillDone) +
+        '; border-color:' + rgba(colors.focusGreen, 0.9) + '"></i>задача выполнена</span>' +
+      '<span><i style="background:' + rgba(colors.accent, MM.fillDone) +
+        '; border-color:' + rgba(colors.accent, 0.9) + '"></i>цель или этап закрыты</span>' +
+      '<span><i style="background:' + rgb(colors.panel) +
+        '; border-color:' + rgba(colors.textSecondary, 0.5) + '"></i>ещё в работе</span>' +
       (full ? '' : '<span style="margin-left:auto">' + zoomButtons + '</span>') +
     '</div>';
 
@@ -5309,6 +5327,10 @@ function vMindMap(){
    («ернуть ежим сна»). Здесь ширину считаем после отрисовки, когда рамка уже
    померена браузером, — увеличить можно кнопками, тогда холст прокручивается
    внутри своей рамки и страницу за собой не тянет. */
+/* Ниже этого масштаба подпись перестаёт читаться: 13px * 0.85 ≈ 11px на
+   экране — кегль нижнего меню приложения. */
+var MM_MIN_SCALE = 0.85;
+
 function fitMindMap(){
   var wrap = document.querySelector('.mmwrap');
   if (!wrap) return;
@@ -5334,9 +5356,10 @@ function fitMindMap(){
     // получает общий вид, когда он нужен, и платит за это размером подписей
     // осознанно.
     var fitFull = Math.min(available / vw, (wrap.clientHeight - 32) / vh);
-    // На телефоне пол ниже: развернув карту на весь экран, человек просит
-    // общий вид, а не крупные подписи.
-    var floorFull = window.innerWidth < 760 ? 0.34 : 0.9;
+    // Пол один и тот же на любом экране: подпись мельче 11 пикселей не читается
+    // ни на телефоне, ни на ноутбуке. Общий вид достаётся кнопкой «−» —
+    // осознанным действием, а не по умолчанию вместо текста.
+    var floorFull = MM_MIN_SCALE;
     var scale = Math.max(floorFull, Math.min(2.2, fitFull)) * zoom;
     svg.setAttribute('width', Math.max(60, Math.round(vw * scale)));
     svg.setAttribute('height', Math.round(vh * scale));
@@ -5363,14 +5386,18 @@ function fitMindMap(){
 
   var base;
   if (narrow){
-    // Честная подгонка по обеим сторонам, но не мельче того, при чём ещё видно,
-    // что это карта, а не сетка точек.
-    base = Math.max(0.34, Math.min(1, fit));
+    // Вписать карту целиком в ширину телефона можно только масштабом 0.42, а
+    // при нём подпись в 13 пикселей выходит на экран пятью — это и была жалоба
+    // «текст тяжело читается». Выбор здесь честный и неизбежный: карта из трёх
+    // столбцов шире телефона, и либо она читается и её листают, либо влезает
+    // целиком и не читается. Читаемость важнее: карту открывают, чтобы прочесть
+    // названия, а общий вид — одно нажатие на «−».
+    base = Math.max(MM_MIN_SCALE, Math.min(1, fit));
   } else {
     // Вписывать по ширине можно только до предела читаемости. Ужать карту в
     // полоску высотой девяносто пикселей — это зеркало той же баги, что была в
     // приложении: там подписи резались, здесь превращались бы в многоточия.
-    var readable = Math.max(0.9, Math.min(1, 340 / vh));
+    var readable = Math.max(MM_MIN_SCALE, Math.min(1, 340 / vh));
     base = Math.max(readable, Math.min(1, available / vw));
   }
 
@@ -5379,14 +5406,17 @@ function fitMindMap(){
   svg.setAttribute('width', drawnW);
   svg.setAttribute('height', drawnH);
 
-  /* Рамка на телефоне подгоняется под карту, а не наоборот.
+  /* Рамка подгоняется под карту, а не наоборот.
 
      Ширина экрана — жёсткий предел, поэтому карта редко занимает всю высоту
-     рамки: при фиксированных 460 пикселях под ней оставалась пустая половина,
-     и раздел выглядел недоделанным. Теперь рамка ровно по карте, но не выше
-     62% экрана — дальше начинается прокрутка внутри неё. */
-  if (narrow && !(S.mm && S.mm.full)){
-    var limit = Math.round(window.innerHeight * 0.62);
+     рамки: при фиксированной высоте под ней оставалась пустая половина, и
+     раздел выглядел недоделанным. На ноутбуке это было заметнее всего: 640
+     пикселей рамки на 300 пикселей карты — вдвое больше воздуха, чем дела.
+
+     Рамка ровно по карте, но не выше своего предела — дальше прокрутка
+     внутри неё. */
+  if (!(S.mm && S.mm.full)){
+    var limit = Math.round(window.innerHeight * (narrow ? 0.62 : 0.72));
     wrap.style.height = Math.min(limit, drawnH + 24) + 'px';
   } else {
     wrap.style.height = '';
