@@ -26,6 +26,44 @@
          палитры «Бумага» из AppTheme. -->
     <meta name="theme-color" content="#F6F2E7" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#1C1F1A" media="(prefers-color-scheme: dark)">
+
+    <!-- Яндекс.Метрика в веб-версии.
+
+         Два отличия от счётчика на страницах сайта, и оба намеренные.
+
+         1. Вебвизор ВЫКЛЮЧЕН. На сайте он пишет экран посетителя — там читать
+            нечего, обычные страницы. Здесь на экране лежат чужие задачи,
+            заметки и деньги. Запись такого экрана противоречила бы тому, что
+            мы обещаем прямым текстом: записи человека остаются у него, мы их
+            не видим. Ни один отчёт этого не стоит.
+
+         2. Внутри андроид-приложения счётчик не запускается. Апк — это та же
+            веб-версия в обёртке, и без проверки трекер уехал бы в приложение,
+            где мы обещали, что его нет. Признак — объект AndroidVoice, который
+            обёртка вставляет в страницу.
+
+         Считаем только посещения и переходы по экранам: сколько людей открыло,
+         откуда пришли, где закрыли. Ни строчки того, что человек написал. -->
+    <script>
+      if (!window.AndroidVoice) {
+        (function(m,e,t,r,i,k,a){
+          m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+          m[i].l=1*new Date();
+          for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+          k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+        })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=111395100', 'ym');
+
+        ym(111395100, 'init', {
+          ssr: true,
+          webvisor: false,
+          clickmap: false,
+          trackLinks: true,
+          accurateTrackBounce: true,
+          referrer: document.referrer,
+          url: location.href
+        });
+      }
+    </script>
   </head>
   <body>
     <!--
