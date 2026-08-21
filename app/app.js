@@ -6737,6 +6737,25 @@ function synContext(){
   var todayISO = isoOf(todayDate());
   var lines = ['ДАТА СЕЙЧАС: ' + todayISO + ', ' + WEEKDAYS_FULL[todayDate().getDay()] +
     ', время ' + clock(new Date().getHours(), new Date().getMinutes())];
+
+  /* Готовая таблица ближайших дней недели.
+
+     Ровно та же болезнь, что была у блоков: модель считает дни сама и
+     ошибается на единицу. 21 августа 2026 (пятница) на просьбу «перенеси на
+     понедельник» она ответила «перенесу на понедельник» и поставила 25-е —
+     вторник. Понедельник был 24-м.
+
+     Считать тут нечего: семь дней вперёд с их числами перечислены прямо, и
+     модели остаётся прочитать нужную строку. Семи хватает — дальше недели
+     днями недели не назначают, там говорят датой. */
+  var неделя = [];
+  for (var дн = 1; дн <= 7; дн++){
+    var д = todayDate();
+    д.setDate(д.getDate() + дн);
+    неделя.push(WEEKDAYS_FULL[д.getDay()] + ' ' + isoOf(д));
+  }
+  lines.push('БЛИЖАЙШИЕ ДНИ: ' + неделя.join(', ') +
+    '. Назвали день недели — берите дату отсюда, не вычисляйте.');
   var byBucket = {};
   var all = liveTasks();
   all.forEach(function(t){
@@ -7435,11 +7454,36 @@ function synFindGoal(target){
 }
 
 /// «2026-04-15 18:30» → дата и время по отдельности.
+/* День недели словом — в дату, теми же правилами, что и набранный текст.
+
+   Страховка на случай, когда модель пишет «понедельник» вместо числа: раньше
+   такое значение молча выбрасывалось (дата оставалась пустой), а собственный
+   счёт модели уже подводил — на пятнице она отвечала «перенесу на понедельник»
+   и ставила вторник. Здесь считает приложение, и считает верно. */
+function synWeekdayDate(text){
+  var work = normalizeText(text);
+  for (var w = 0; w < WEEKDAY_PATTERNS.length; w++){
+    var re = new RegExp('(?:^|\\s)(?:(?:в|на|к|до)\\s+)?(?:(след(?:ующ(?:ую|ий|ая|ей))?)\\s+)?(?:' +
+      WEEKDAY_PATTERNS[w][1] + ')(?:$|\\s)');
+    var m = work.match(re);
+    if (!m) continue;
+    var today = todayDate();
+    var until = (WEEKDAY_PATTERNS[w][0] - today.getDay() + 7) % 7;
+    if (m[1]) until += 7;
+    if (until === 0) until = 7;   // «в понедельник», сказанное в понедельник, — про следующий
+    var d = todayDate();
+    d.setDate(d.getDate() + until);
+    return isoOf(d);
+  }
+  return null;
+}
+
 function synSplitDateTime(value){
   var raw = String(value || '').trim();
   if (!raw) return { date: null, time: null };
   var parts = raw.split(/[ T]/);
   var date = /^\d{4}-\d{2}-\d{2}$/.test(parts[0]) ? parts[0] : null;
+  if (!date) date = synWeekdayDate(raw);
   var time = parts[1] && /^\d{1,2}:\d{2}/.test(parts[1])
     ? parts[1].slice(0, 5).padStart(5, '0') : null;
   if (!date && /^\d{1,2}:\d{2}/.test(parts[0])) time = parts[0].slice(0, 5);
