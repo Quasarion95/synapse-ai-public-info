@@ -6771,9 +6771,21 @@ function synContext(){
     lines.push('');
     lines.push(b.title.toUpperCase() + stamp + ' — ' + list.length + ':');
     list.forEach(function(t){
+      /* Описание идёт в срез вместе с задачей.
+
+         Без него ассистент не мог править описания вообще: человек просил
+         «убери из описания один пункт», модель описания НЕ ВИДЕЛА, и потому
+         не могла составить исправленный текст. Она отвечала «сделал», ничего
+         не меняя, — самый неприятный вид поломки, когда ответ бодрый, а дела
+         нет.
+
+         Режем по 200 знаков, как заметки режутся по 160: срез не должен
+         раздуваться, но одного перечисления в описании задачи хватает почти
+         всегда. */
       lines.push('- ' + t.title +
         (t.time ? ' в ' + t.time : '') +
         (t.done ? ' (сделано)' : '') +
+        (t.note ? ' [описание: ' + cut(String(t.note).replace(/\s*\n\s*/g, ' / '), 200) + ']' : '') +
         (t.subtasks.length ? ' [подпункты: ' + t.subtasks.map(function(s){ return s.title; }).join(', ') + ']' : ''));
     });
   });
@@ -7761,7 +7773,18 @@ synAct('update_task_note append_task_note research_task_note', function(a, done,
   var task = synFindTask(a.target);
   if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
   var note = String(a.note || a.value || '');
-  if (!note) return skipped.push('пустое описание для «' + task.title + '»');
+  /* Пустое описание у update_task_note — это «сотри описание», законная
+     просьба. Раньше отказывали всем трём видам одинаково, и «убери описание
+     совсем» упиралось в «пустое описание». Дописывать пустоту по-прежнему
+     бессмысленно, поэтому append и research отклоняем как раньше. */
+  if (!note && a.kind !== 'update_task_note'){
+    return skipped.push('пустое описание для «' + task.title + '»');
+  }
+  if (!note){
+    if (!task.note) return skipped.push('у «' + task.title + '» и так нет описания');
+    task.note = '';
+    return done.push('стёрто описание у «' + task.title + '»');
+  }
   task.note = (a.kind !== 'update_task_note') && task.note ? task.note + '\n' + note : note;
   done.push('описание у «' + task.title + '»');
 });
