@@ -552,11 +552,6 @@ a { color: var(--accent-strong); }
 
 .cta-center { justify-content: center; }
 
-.cta-note {
-  margin: 14px 0 0;
-  font-size: 13.5px;
-  color: var(--muted);
-}
 
 /* Макет выходит в правое поле страницы.
 

@@ -784,6 +784,21 @@ function humanDate(iso){
   return d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
 }
 
+/* Дата с днём недели: «24 августа, пн».
+
+   Просили люди: по числу с сокращённым месяцем не видно, будний это день или
+   выходной, а от этого зависит, браться за дело или переносить. Считать в
+   уме, на какой день падает 24-е, никто не хочет.
+
+   Отдельная функция, а не правка humanDate: та же дата стоит в финансах, у
+   долгов и копилок, и день недели там лишний — «отдал 5000 15 августа, сб»
+   ничего не добавляет. Здесь добавляет. */
+function humanDateWithDay(iso){
+  var d = dateOf(iso);
+  if (!d) return '';
+  return humanDate(iso) + ', ' + WEEKDAYS_SHORT[(d.getDay() + 6) % 7];
+}
+
 /* ============ РАЗБОР СТРОКИ ============ */
 
 /* Порт TaskSchedulingParser.swift и cleanTaskTitle. Правила зафиксированы
@@ -4116,7 +4131,7 @@ function itemRow(t, внутриЦели){
   // Дату показываем, когда её назвали сами или когда блок не «сегодня».
   // Выведенная нами дата сегодняшнего блока не сообщает ничего.
   if (t.date && (t.hasExplicitDate || t.bucket !== 'today')){
-    meta.push('<span class="chip">' + esc(humanDate(t.date)) + '</span>');
+    meta.push('<span class="chip">' + esc(humanDateWithDay(t.date)) + '</span>');
   }
   if (t.time) meta.push('<span class="chip">' + esc(t.time) + '</span>');
   if (t.repeat) meta.push('<span class="chip rep">' + ICON.repeat +
