@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ваш код Synapse Pro</title>
+    <meta name="description" content="Код на месяц Synapse Pro и как его включить на iPhone, Android и в браузере.">
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="../screens/mark.png?v=18ab930c">
+    <link rel="stylesheet" href="../site.css">
+    <style>
+        /* Код — главное на странице, поэтому он крупнее всего остального и
+           набран моноширинным: буквы кода читают вслух и переписывают руками,
+           а в пропорциональном шрифте «О» и «0» неразличимы. */
+        .code-box {
+            margin: 22px 0 6px;
+            padding: 22px 18px;
+            border-radius: 18px;
+            background: var(--panel, rgba(127,127,127,.08));
+            border: 1px solid var(--stroke, rgba(127,127,127,.25));
+            text-align: center;
+        }
+        .code-value {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: clamp(24px, 7vw, 38px);
+            font-weight: 700;
+            letter-spacing: .06em;
+            word-break: break-all;
+        }
+        .code-hint { margin-top: 10px; font-size: 13.5px; opacity: .7 }
+        .qr-box { display: flex; justify-content: center; margin: 18px 0 4px }
+        .qr-box img {
+            width: 200px; height: 200px;
+            background: #fff; padding: 12px; border-radius: 16px;
+        }
+        .steps { counter-reset: шаг; margin: 0; padding: 0; list-style: none }
+        .steps li {
+            counter-increment: шаг;
+            position: relative;
+            padding-left: 42px;
+            margin-bottom: 14px;
+            line-height: 1.5;
+        }
+        .steps li::before {
+            content: counter(шаг);
+            position: absolute; left: 0; top: -1px;
+            width: 28px; height: 28px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 700;
+            background: var(--panel-strong, rgba(127,127,127,.14));
+        }
+        .tabs { display: flex; gap: 8px; margin: 4px 0 18px; flex-wrap: wrap }
+        .tabs button {
+            flex: 1 1 auto; min-width: 96px;
+            padding: 10px 14px; border-radius: 999px;
+            border: 1px solid var(--stroke, rgba(127,127,127,.25));
+            background: transparent; color: inherit;
+            font: inherit; font-weight: 600; cursor: pointer;
+        }
+        .tabs button[aria-selected="true"] {
+            background: var(--panel-strong, rgba(127,127,127,.16));
+            border-color: currentColor;
+        }
+        .pane[hidden] { display: none }
+    </style>
+</head>
+<body>
+<div class="shell">
+
+    <header class="hero">
+        <p class="eyebrow" id="eyebrow" hidden>В честь открытия</p>
+        <h1 id="headline">Ваш Synapse Pro на месяц</h1>
+        <p class="lead">Код ниже — одноразовый и только ваш. Включите его там, где вам удобнее работать.</p>
+    </header>
+
+    <!-- Код и QR рисуются скриптом из адреса страницы: ссылка приходит человеку
+         в личные сообщения уже с его кодом, и вводить руками ничего не надо.
+         Без кода в адресе страница честно говорит об этом, а не показывает
+         пустую рамку. -->
+    <section class="card">
+        <div class="code-box">
+            <div class="code-value" id="code">—</div>
+            <div class="code-hint" id="code-hint">Откройте ссылку из сообщения — код подставится сам.</div>
+        </div>
+        <button class="button" id="copy" type="button" hidden>Скопировать код</button>
+
+        <div class="qr-box" id="qr-box" hidden>
+            <img id="qr" alt="QR-код с вашим кодом активации" width="200" height="200">
+        </div>
+        <p class="muted" id="qr-hint" hidden>
+            Наведите камеру телефона — подписка включится сама.
+        </p>
+    </section>
+
+    <section class="card">
+        <h2>Как включить</h2>
+
+        <div class="tabs" role="tablist">
+            <button type="button" role="tab" data-pane="web" aria-selected="true">Браузер</button>
+            <button type="button" role="tab" data-pane="ios" aria-selected="false">iPhone</button>
+            <button type="button" role="tab" data-pane="android" aria-selected="false">Android</button>
+        </div>
+
+        <div class="pane" id="pane-web">
+            <ol class="steps">
+                <li>Нажмите кнопку ниже — код подставится сам.</li>
+                <li>Готово: Pro включится в этом браузере, устанавливать ничего не нужно.</li>
+            </ol>
+            <a class="button" id="activate-web" href="../activate/">Включить в браузере</a>
+            <p class="muted">Веб-версия — это полноценное приложение: задачи, цели, финансы, заметки. Работает и на компьютере.</p>
+        </div>
+
+        <div class="pane" id="pane-ios" hidden>
+            <ol class="steps">
+                <li>Установите Synapse из App&nbsp;Store.</li>
+                <li>Наведите камеру на QR выше — откроется само приложение.</li>
+                <li>Готово: Pro включится на телефоне.</li>
+            </ol>
+            <a class="button" href="https://apps.apple.com/ru/app/synapse-ai/id6796978134">Открыть в App Store</a>
+            <p class="muted">
+                Сканируйте после установки: без приложения ссылка откроет браузер.
+                Ничего не сломается — код рассчитан и на телефон, и на браузер сразу,
+                просто на телефоне включить придётся ещё раз.
+            </p>
+        </div>
+
+        <div class="pane" id="pane-android" hidden>
+            <ol class="steps">
+                <li>Откройте Synapse в браузере телефона.</li>
+                <li>Наведите камеру на QR выше — или нажмите кнопку «Включить в браузере».</li>
+                <li>Готово: Pro включится, устанавливать ничего не нужно.</li>
+            </ol>
+            <p class="muted">
+                Приложение для Android ещё не в магазинах — пока пользуйтесь веб-версией,
+                она откроется в браузере телефона. Подписка не пропадёт: она привязана
+                к коду, и когда приложение выйдет, вы включите её там.
+            </p>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Что дальше</h2>
+        <p id="after">
+            Pro начинается с момента включения. Когда срок закончится, приложение
+            продолжит работать — вернутся бесплатные ограничения, ничего не пропадёт.
+        </p>
+        <p class="muted">
+            Продлить можно на <a href="../pricing/">странице тарифов</a>. Оплата проходит
+            на сайте, а доступ появляется там же, где вы им пользуетесь.
+        </p>
+    </section>
+
+    <footer class="foot">
+        <div class="foot-inner">
+            <p class="copy">© 2026 Synapse. <a href="../support/">Поддержка</a></p>
+        </div>
+    </footer>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var адрес = new URLSearchParams(location.search);
+    var код = (адрес.get('code') || '').trim().toUpperCase();
+
+    /* Срок словами.
+
+       Одна и та же страница обслуживает два случая: раздачу первой тысяче
+       (месяц всем) и код, выписанный вручную из админки, где срок бывает
+       любым — неделя тестеру, год журналисту. Писать «на месяц» человеку с
+       годовым доступом нельзя: он потом придёт спрашивать, почему обманули.
+
+       Без параметра остаётся месяц — так работают ссылки, уже разосланные
+       по акции. */
+    function срок(дней) {
+        if (!дней || дней < 1) { return 'на месяц'; }
+        if (дней === 7) { return 'на неделю'; }
+        if (дней === 14) { return 'на две недели'; }
+        if (дней >= 28 && дней <= 31) { return 'на месяц'; }
+        if (дней >= 88 && дней <= 92) { return 'на три месяца'; }
+        if (дней >= 180 && дней <= 185) { return 'на полгода'; }
+        if (дней >= 360 && дней <= 366) { return 'на год'; }
+        var последняя = дней % 10, две = дней % 100;
+        var слово = (последняя === 1 && две !== 11) ? 'день'
+                  : (последняя >= 2 && последняя <= 4 && (две < 12 || две > 14)) ? 'дня'
+                  : 'дней';
+        return 'на ' + дней + ' ' + слово;
+    }
+
+    document.getElementById('headline').textContent =
+        'Ваш Synapse Pro ' + срок(parseInt(адрес.get('days') || '', 10));
+
+    // «В честь открытия» — только у ссылок акции. Подарочному коду такая
+    // шапка не подходит: человек не участвовал ни в какой раздаче.
+    if (адрес.get('promo')) {
+        document.getElementById('eyebrow').hidden = false;
+    }
+
+    if (код) {
+        document.getElementById('code').textContent = код;
+        document.getElementById('code-hint').textContent = 'Один код — один человек. Никому его не пересылайте.';
+        document.getElementById('copy').hidden = false;
+        document.getElementById('activate-web').href = '../activate/?code=' + encodeURIComponent(код);
+
+        /* В QR лежит ссылка активации, а не эта страница.
+
+           Ссылка вида /activate/?code=… связана с приложением: на айфоне с
+           установленным Synapse обычная камера открывает не браузер, а само
+           приложение, и подписка включается там. Если приложения нет —
+           откроется браузер и включит веб-версию. Оба исхода рабочие.
+
+           Отдельные слоты у телефона и браузера означают, что один код
+           покрывает оба: включить сначала в браузере, потом на телефоне
+           можно, ничего не сгорит. */
+        var ссылка = location.origin + '/activate/?code=' + encodeURIComponent(код);
+        var qr = document.getElementById('qr');
+        qr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=0&data='
+               + encodeURIComponent(ссылка);
+        document.getElementById('qr-box').hidden = false;
+        document.getElementById('qr-hint').hidden = false;
+    }
+
+    document.getElementById('copy').addEventListener('click', function () {
+        var кнопка = this;
+        navigator.clipboard.writeText(код).then(function () {
+            кнопка.textContent = 'Скопировано';
+            setTimeout(function () { кнопка.textContent = 'Скопировать код'; }, 1600);
+        });
+    });
+
+    // Вкладка угадывается по телефону, с которого открыли: человек с айфона
+    // не должен искать свою инструкцию среди трёх.
+    var панели = ['web', 'ios', 'android'];
+    function показать(имя) {
+        панели.forEach(function (п) {
+            document.getElementById('pane-' + п).hidden = (п !== имя);
+        });
+        document.querySelectorAll('.tabs button').forEach(function (b) {
+            b.setAttribute('aria-selected', String(b.dataset.pane === имя));
+        });
+    }
+    document.querySelectorAll('.tabs button').forEach(function (b) {
+        b.addEventListener('click', function () { показать(b.dataset.pane); });
+    });
+
+    var ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/.test(ua)) { показать('ios'); }
+    else if (/Android/.test(ua)) { показать('android'); }
+})();
+</script>
+</body>
+</html>
