@@ -213,7 +213,7 @@ h1.page{font-size:clamp(28px,7vw,38px); margin:2px 0 20px}
 .barline b{font-family:var(--mono); font-size:14px; font-weight:600; color:var(--fg)}
 
 .chip{font-size:12px; padding:4px 10px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; background:var(--soft); color:var(--fg-2); white-space:nowrap}
-.chip.goal{background:var(--accent-soft); color:var(--accent)}
+.chip.goal{background:var(--accent-soft); color:var(--accent-text,var(--accent))}
 .chips{display:flex; gap:7px; flex-wrap:wrap}
 
 .btn{background:var(--fg); color:var(--bg); border-radius:999px; padding:12px 22px; font-size:15px; font-weight:600; display:inline-flex; align-items:center; justify-content:center; gap:9px; text-align:center; transition:opacity .12s}
@@ -484,7 +484,7 @@ select.inp{appearance:none}
 .item-main{cursor:pointer}
 .item .expand .car{display:inline-block; transition:transform .18s ease}
 .item.open .expand .car{transform:rotate(180deg)}
-.item .belongs{font-size:12.5px; color:var(--accent); margin-bottom:2px}
+.item .belongs{font-size:12.5px; color:var(--accent-text,var(--accent)); margin-bottom:2px}
 .item .m{font-size:12px; color:var(--fg-3); margin-top:3px; display:flex; gap:6px; flex-wrap:wrap; align-items:center}
 
 /* Место вставки показывает щель между карточками, а не линия поверх них:
@@ -501,7 +501,7 @@ select.inp{appearance:none}
   display:flex; align-items:stretch; gap:0; margin:0}
 .swipe > .side button{width:46px; height:auto; border-radius:0; display:grid;
   place-items:center; color:var(--fg-2); background:var(--soft-2)}
-.swipe > .side button.kill{background:var(--danger); color:#fff}
+.swipe > .side button.kill{background:var(--danger); color:var(--on-danger,#fff)}
 .swipe > .side button svg{width:18px; height:18px; fill:none; stroke:currentColor;
   stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 
@@ -691,8 +691,8 @@ select.inp{appearance:none}
 /* Искра одинаковая и в строке задач, и в строке финансов: правила были
    привязаны к .say, и в финансах кнопка выходила нулевой ширины — на экране
    её просто не было. */
-.say .ai, .rowadd .ai{width:38px; height:38px; border-radius:999px; display:grid; place-items:center; flex:none; background:var(--card); border:1px solid var(--stroke); color:var(--accent)}
-.say .ai:hover, .rowadd .ai:hover{background:var(--accent-soft); border-color:var(--accent)}
+.say .ai, .rowadd .ai{width:38px; height:38px; border-radius:999px; display:grid; place-items:center; flex:none; background:var(--card); border:1px solid var(--stroke); color:var(--accent-text,var(--accent))}
+.say .ai:hover, .rowadd .ai:hover{background:var(--accent-soft); border-color:var(--accent-text,var(--accent))}
 .say .ai svg, .rowadd .ai svg{width:19px; height:19px; fill:currentColor; stroke:none}
 .say .send{width:38px; height:38px; border-radius:999px; background:var(--fg); color:var(--bg); display:grid; place-items:center; flex:none; font-size:17px}
 .say .send .nav-ic{width:19px; height:19px; stroke-width:2}
@@ -713,7 +713,7 @@ select.inp{appearance:none}
 .focus-p span{font-size:10.5px; color:var(--fg-2); display:block; margin-top:3px}
 .focus-lines{display:grid; gap:11px; margin-top:16px}
 .fl{display:grid; gap:2px}
-.fll{font-family:var(--mono); font-size:9.5px; font-weight:700; letter-spacing:.11em; color:var(--accent)}
+.fll{font-family:var(--mono); font-size:9.5px; font-weight:700; letter-spacing:.11em; color:var(--accent-text,var(--accent))}
 .flt{font-size:13.5px; color:var(--fg); line-height:1.4}
 
 .card.strips{padding:16px 18px}
@@ -931,7 +931,7 @@ body.mm-open{overflow:hidden}
 .med-face{position:relative; display:grid; justify-items:center; gap:4px}
 .med-face b{font-family:var(--mono); font-size:clamp(34px,10vw,44px); font-weight:600; letter-spacing:-.045em; line-height:1}
 .med-face span{font-size:13px; color:var(--fg-2)}
-.card.med.on .med-face span{font-size:15px; color:var(--accent); font-weight:600}
+.card.med.on .med-face span{font-size:15px; color:var(--accent-text,var(--accent)); font-weight:600}
 .med-acts{display:flex; gap:9px; flex-wrap:wrap; justify-content:center}
 
 /* Громкость — часть карточки с кругом, а не отдельный блок ниже: её крутят,
@@ -952,10 +952,10 @@ body.mm-open{overflow:hidden}
 .soundcard .sw{position:relative; width:32px; height:32px; border-radius:999px; background:var(--soft); display:grid; place-items:center}
 .soundcard .sw svg{width:17px; height:17px; fill:none; stroke:var(--fg-2); stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round}
 .soundcard .tt{font-size:12.5px; font-weight:600; line-height:1.2}
-.soundcard.on{border-color:var(--accent); background:var(--accent-soft)}
+.soundcard.on{border-color:var(--accent-text,var(--accent)); background:var(--accent-soft)}
 .soundcard.on .sw{background:var(--accent)}
 .soundcard.on .sw svg{stroke:var(--bg)}
-.soundcard.on .tt{color:var(--accent)}
+.soundcard.on .tt{color:var(--accent-text,var(--accent))}
 /* Кольцо вокруг значка, пока среда звучит: видно, что именно играет. */
 .soundcard .pulse{position:absolute; inset:-4px; border-radius:999px; border:2px solid var(--accent); animation:pulse 1.9s ease-out infinite}
 @keyframes pulse{0%{transform:scale(.86); opacity:.9}100%{transform:scale(1.18); opacity:0}}
@@ -1206,7 +1206,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .plan-what{font-size:14px}
 .plan-free,.plan-pro{font-size:12.5px; color:var(--fg-2); text-align:right}
 .plan-free.off{color:var(--fg-3)}
-.plan-pro{color:var(--accent); font-weight:600}
+.plan-pro{color:var(--accent-text,var(--accent)); font-weight:600}
 
 /* На телефоне три колонки в строку не помещаются: «без ограничений» обрезалось
    на середине слова. Название занимает свою строку целиком, а под ним два
@@ -1223,20 +1223,20 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .plan-price b{font-family:var(--display); font-size:30px; letter-spacing:-.04em}
 .plan-price span{font-size:13px; color:var(--fg-3)}
 
-.card.pro-on{border-color:var(--accent)}
+.card.pro-on{border-color:var(--accent-text,var(--accent))}
 
 /* Замок. Рисунок, а не эмодзи: замок из шрифта в разных системах то жирный,
    то цветной, и карточка каждый раз выглядит по-разному. */
 .locked-card{text-align:center}
 .locked-mark{display:inline-grid; place-items:center; width:52px; height:52px; border-radius:999px;
-  background:var(--accent-soft); color:var(--accent); margin-bottom:12px}
+  background:var(--accent-soft); color:var(--accent-text,var(--accent)); margin-bottom:12px}
 .locked-mark svg{width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 .locked-card .acts{justify-content:center}
 
 /* Остаток запросов под кнопкой Syn: строка, а не значок, — число должно
    читаться до нажатия, а не объясняться после отказа. */
 .syn-quota{margin-top:10px; text-align:center}
-.q-link{color:var(--accent); text-decoration:none; border-bottom:1px solid transparent}
+.q-link{color:var(--accent-text,var(--accent)); text-decoration:none; border-bottom:1px solid transparent}
 .q-link:hover{border-bottom-color:currentColor}
 
 /* Крайний срок на карточке. Отличается от «просрочено» тем, что это ещё не
@@ -1278,21 +1278,21 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .syn-mic:hover{color:var(--fg)}
 /* Слушает — это состояние, которое должно быть видно через всю комнату:
    человек говорит, а не смотрит в экран. */
-.syn-mic.on{background:var(--accent); color:#fff; animation:mic-pulse 1.4s ease-in-out infinite}
+.syn-mic.on{background:var(--accent); color:var(--on-accent,#fff); animation:mic-pulse 1.4s ease-in-out infinite}
 @keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 var(--accent-soft)} 50%{box-shadow:0 0 0 9px transparent}}
 @media (prefers-reduced-motion:reduce){ .syn-mic.on{animation:none} }
 .syn-go{background:var(--fg); color:var(--bg); font-size:18px}
 .syn-go[disabled]{opacity:.5}
 .syn-error{margin-bottom:10px}
-.syn-voice-hint{margin-top:10px; text-align:center; color:var(--accent)}
+.syn-voice-hint{margin-top:10px; text-align:center; color:var(--accent-text,var(--accent))}
 
 /* ============ МОЯ ПОДПИСКА ============ */
 
 .sub-state .sub-head{display:flex; gap:14px; align-items:flex-start}
-.sub-state.on{border-color:var(--accent)}
+.sub-state.on{border-color:var(--accent-text,var(--accent))}
 .sub-mark{flex:none; display:grid; place-items:center; width:44px; height:44px; border-radius:999px;
   background:var(--soft); color:var(--fg-3)}
-.sub-state.on .sub-mark{background:var(--accent-soft); color:var(--accent)}
+.sub-state.on .sub-mark{background:var(--accent-soft); color:var(--accent-text,var(--accent))}
 .sub-mark svg{width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 .sub-state.on .sub-mark svg{fill:currentColor; stroke:none}
 .sub-code{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px solid var(--line)}
@@ -1305,19 +1305,19 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 @media (min-width:560px){ .plancards{grid-template-columns:repeat(3,1fr)} }
 .plancard{position:relative; display:flex; flex-direction:column; gap:3px; text-decoration:none; color:inherit;
   background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); padding:16px; box-shadow:var(--shadow)}
-.plancard.main{border-color:var(--accent)}
-.plancard:hover{border-color:var(--accent)}
+.plancard.main{border-color:var(--accent-text,var(--accent))}
+.plancard:hover{border-color:var(--accent-text,var(--accent))}
 .planname{font-size:13px; color:var(--fg-3)}
 .planprice{font-family:var(--display); font-size:24px; letter-spacing:-.04em}
 .plannote{font-size:12.5px; color:var(--fg-2); margin-top:2px}
-.planbuy{margin-top:10px; font-size:13px; color:var(--accent); font-weight:600}
+.planbuy{margin-top:10px; font-size:13px; color:var(--accent-text,var(--accent)); font-weight:600}
 .plantag{position:absolute; top:12px; right:12px; font-size:11px; padding:3px 8px; border-radius:999px;
-  background:var(--accent-soft); color:var(--accent)}
+  background:var(--accent-soft); color:var(--accent-text,var(--accent))}
 
 /* Главное дело дня из брифинга: одна строка, которую Syn просит не потерять. */
 .focus-main{margin-top:14px; padding:11px 13px; border-radius:var(--r-md); background:var(--accent-soft);
   color:var(--fg); font-size:13.5px; line-height:1.45}
-.focus-main span{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:3px}
+.focus-main span{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-text,var(--accent)); margin-bottom:3px}
 
 /* Выход из веб-версии — последним пунктом меню и отделён чертой: это не
    раздел, а уход на сайт, и стоять он должен не в одном ряду с разделами. */
@@ -1344,7 +1344,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 
 /* Обучение выглядит как карточка задач, а не как баннер поверх них: это часть
    работы, а не реклама самой себя. Раскрыт всегда один шаг — текущий. */
-.card.tour{border-color:var(--accent)}
+.card.tour{border-color:var(--accent-text,var(--accent))}
 .tour-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px}
 .tour-head h3{margin:0}
 /* Заголовок подсказки и крестик — в одну строку, крестик у правого края. */
@@ -1363,7 +1363,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   display:grid; place-items:center; font-size:11px; margin-top:1px}
 .tour-step.on .tour-mark{background:var(--ok); border-color:var(--ok)}
 .tour-step.on .tour-body b{color:var(--fg-3); text-decoration:line-through}
-.tour-step.now .tour-mark{border-color:var(--accent)}
+.tour-step.now .tour-mark{border-color:var(--accent-text,var(--accent))}
 .tour-body{min-width:0}
 .tour-body b{font-size:14.5px; display:block}
 .tour-body p{font-size:13px; color:var(--fg-2); line-height:1.45; margin-top:4px}
@@ -1432,7 +1432,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 
 /* Обучение выглядит как карточка задач, а не как баннер поверх них: это часть
    работы, а не реклама самой себя. Раскрыт всегда один шаг — текущий. */
-.card.tour{border-color:var(--accent)}
+.card.tour{border-color:var(--accent-text,var(--accent))}
 .tour-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px}
 .tour-head h3{margin:0}
 .tour-hide{flex:none; width:28px; height:28px; border-radius:999px; color:var(--fg-3); display:grid; place-items:center; font-size:13px}
@@ -1448,7 +1448,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   display:grid; place-items:center; font-size:11px; margin-top:1px}
 .tour-step.on .tour-mark{background:var(--ok); border-color:var(--ok)}
 .tour-step.on .tour-body b{color:var(--fg-3); text-decoration:line-through}
-.tour-step.now .tour-mark{border-color:var(--accent)}
+.tour-step.now .tour-mark{border-color:var(--accent-text,var(--accent))}
 .tour-body{min-width:0}
 .tour-body b{font-size:14.5px; display:block}
 .tour-body p{font-size:13px; color:var(--fg-2); line-height:1.45; margin-top:4px}
@@ -1753,7 +1753,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    в него упрутся, а не окном после нажатия. */
 .freeleft{font-size:12px; color:var(--fg-3); align-self:center}
 
-.card.finhint{border-color:var(--accent)}
+.card.finhint{border-color:var(--accent-text,var(--accent))}
 
 /* Карточка подтверждения в разговоре: что именно запишется и на сколько. */
 .syn-fin{margin-top:10px; padding:12px 14px; border:1px solid var(--stroke);
@@ -2225,11 +2225,11 @@ button.fintile:hover{background:var(--soft)}
   font-weight: 600;
   color: var(--fg-3);
 }
-.fincomposer .finswitch button.on{ background: var(--accent-soft); color: var(--accent); }
+.fincomposer .finswitch button.on{ background: var(--accent-soft); color: var(--accent-text,var(--accent)); }
 
 /* Микрофон во время слушания — заметно «включён»: человек говорит и должен
    видеть, что его слышат, не вглядываясь. */
-.say .ai.on{ background: var(--accent); border-color: var(--accent); color: #fff; }
+.say .ai.on{ background: var(--accent); border-color: var(--accent-text,var(--accent)); color: var(--on-accent,#fff); }
 
 /* Место под плавающей строкой: без него последняя трата в списке оказывается
    под ней и её не прочитать. */

@@ -840,13 +840,25 @@ a { color: var(--accent-strong); }
   padding: 28px 24px 44px;
 }
 
+/* Подвал держит сетка, а не выравнивание по краям.
+
+   Было так: бренд слева, колонки прижаты вправо через margin-left:auto,
+   и между ними — пустое поле в половину экрана. Плюс align-items:center
+   поднимал логотип к середине высоких колонок, а копирайт с width:100%
+   отваливался на свою строку. Три элемента стояли в трёх углах, и подвал
+   читался как незаконченный.
+
+   Теперь две колонки заданной ширины: слева бренд с одной строкой о
+   продукте, справа — ссылки. Пустота убрана не растяжкой, а тем, что
+   левой колонке дали содержание. Копирайт лежит внизу через всю ширину
+   и отделён линией — это подпись, а не четвёртая колонка. */
 .footer-inner {
   max-width: 1080px;
   margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
+  gap: 30px 56px;
+  align-items: start;
 }
 
 .footer-brand {
@@ -856,15 +868,19 @@ a { color: var(--accent-strong); }
   font-weight: 700;
 }
 
+.footer-about {
+  margin: 12px 0 0;
+  max-width: 34ch;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
 .footer-cols {
   display: grid;
-  grid-template-columns: repeat(3, minmax(140px, 1fr));
-  gap: 20px 40px;
-  margin-left: auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px 32px;
   font-size: 14.5px;
-}
-@media (max-width: 560px) {
-  .footer-cols { grid-template-columns: 1fr 1fr; margin-left: 0; width: 100%; }
 }
 .footer-col { display: grid; gap: 9px; align-content: start; }
 .footer-h {
@@ -875,10 +891,31 @@ a { color: var(--accent-strong); }
 .footer-col a:hover { color: var(--text); }
 
 .copy {
-  width: 100%;
-  margin: 4px 0 0;
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--stroke);
   font-size: 13px;
   color: var(--muted);
+}
+
+/* Узкий экран: бренд встаёт над ссылками, а сами группы ссылок текут
+   в две колонки, а не стоят в сетке.
+
+   Разница существенная. В сетке строки выравниваются по высоте, и рядом с
+   коротким «Помощь» из двух ссылок оставалась дыра в половину столбца, а
+   «Документы» уезжали на свою строку в одиночку. Поток раскладывает группы
+   по высоте: две короткие встают друг под друга рядом с длинной. Столбцы
+   получаются вровень, пустот нет. break-inside держит группу целой —
+   иначе заголовок мог оторваться от своих ссылок. */
+@media (max-width: 760px) {
+  .footer-inner { grid-template-columns: 1fr; gap: 26px; }
+  .footer-about { max-width: none; }
+  .footer-cols { display: block; column-count: 2; column-gap: 26px; }
+  .footer-col { break-inside: avoid; margin-bottom: 24px; }
+}
+@media (max-width: 380px) {
+  .footer-cols { column-count: 1; }
 }
 
 /* ---------- responsive ---------- */
