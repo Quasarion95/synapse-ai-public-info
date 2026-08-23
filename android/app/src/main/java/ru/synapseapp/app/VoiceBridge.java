@@ -118,6 +118,23 @@ public class VoiceBridge {
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, activity.getPackageName());
+
+        /* Пауза внутри фразы не должна заканчивать распознавание.
+
+           Системный движок по умолчанию считает речь законченной очень
+           быстро: человек замолчал на полсекунды, подбирая слово, — и фраза
+           уходит обрезанной. «Перенеси урок... на субботу» превращалось в
+           «перенеси урок».
+
+           Две секунды — та же величина, что и в браузерной версии, чтобы на
+           телефоне и в вебе приложение вело себя одинаково.
+
+           Оговорка: это подсказки, а не приказ. Движок Google волен их
+           игнорировать, и на части прошивок так и происходит. Вреда от них
+           нет, а там, где слушают, поведение становится человечнее. */
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L);
         recognizer.startListening(intent);
     }
 

@@ -7425,8 +7425,42 @@ function synErrorText(error){
    Чего здесь намеренно нет: постоянного слушания. Микрофон, включённый до
    закрытия вкладки, — не та цена, которую стоит платить за экономию одного
    нажатия. */
-var VOICE_SEND_DELAY = 1000;
-var voice = { on: false, rec: null, final: '', pending: null };
+/* Сколько молчания считаем концом мысли, а не паузой внутри неё.
+
+   Браузер решает это сам и решает торопливо: замолчал на полсекунды, подбирая
+   слово, — распознавание закончено, микрофон выключен, фраза ушла обрезанной.
+   Люди так не говорят. «Перенеси урок...» — пауза — «...на субботу» это одна
+   фраза, а не две, и вторую половину человек не успевал сказать.
+
+   Две секунды выбраны как обычная человеческая пауза при подборе слова.
+   Меньше — обрывает, заметно больше — начинает казаться, что не услышали. */
+var VOICE_SILENCE_MS = 2000;
+
+/* И ещё немного сверху — на «не то сказал».
+
+   Это не про распознавание, а про право передумать: после того как человек
+   договорил, у него остаётся мгновение нажать «стоп», прежде чем запрос уйдёт
+   ассистенту. */
+var VOICE_SEND_DELAY = 700;
+
+var voice = { on: false, rec: null, final: '', pending: null, silence: null, stopping: false };
+
+/// Сбросить отсчёт тишины — человек снова заговорил.
+function voiceSilenceReset(){
+  if (voice.silence) clearTimeout(voice.silence);
+  if (!voice.on) return;
+  voice.silence = setTimeout(function(){
+    voice.silence = null;
+    voice.stopping = true;
+    try { if (voice.rec) voice.rec.stop(); } catch (error){}
+  }, VOICE_SILENCE_MS);
+}
+
+function voiceSilenceClear(){
+  if (!voice.silence) return;
+  clearTimeout(voice.silence);
+  voice.silence = null;
+}
 
 /// Отменить отложенную отправку — например, когда человек снова взялся за
 /// микрофон или начал править текст руками.
@@ -7500,15 +7534,22 @@ function voiceStart(){
   var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   var rec = new Recognition();
   rec.lang = 'ru-RU';
-  rec.continuous = false;
+  // continuous = true, потому что паузу теперь отмеряем мы сами. При false
+  // браузер заканчивал слушание на своей короткой паузе — микрофон выключался
+  // посреди фразы, и добавить вторую половину было уже некуда.
+  rec.continuous = true;
   rec.interimResults = true;
   rec.maxAlternatives = 1;
 
   voice.rec = rec;
   voice.on = true;
   voice.final = '';
+  voice.stopping = false;
+  voiceSilenceReset();
 
   rec.onresult = function(event){
+    // Заговорил — отсчёт тишины начинается заново.
+    voiceSilenceReset();
     var interim = '';
     for (var i = event.resultIndex; i < event.results.length; i++){
       var chunk = event.results[i][0].transcript;
@@ -7528,7 +7569,9 @@ function voiceStart(){
   };
 
   rec.onerror = function(event){
+    voiceSilenceClear();
     voice.on = false;
+    voice.stopping = false;
     voice.rec = null;
     var reason = event && event.error === 'not-allowed'
       ? 'Браузер не дал доступ к микрофону.'
@@ -7539,7 +7582,18 @@ function voiceStart(){
   };
 
   rec.onend = function(){
+    /* Браузер иногда заканчивает слушание сам, даже при continuous.
+
+       Если наша тишина ещё не истекла, значит человек просто держит паузу, —
+       и слушание надо поднять обратно, а не считать фразу законченной. Без
+       этого continuous не спасает: Chrome всё равно обрывает через несколько
+       секунд молчания, и мы возвращались бы к прежней болезни. */
+    if (!voice.stopping && voice.on){
+      try { rec.start(); return; } catch (error){ /* поднять не вышло — заканчиваем */ }
+    }
+    voiceSilenceClear();
     voice.on = false;
+    voice.stopping = false;
     voice.rec = null;
     var said = voice.final.trim();
     voice.final = '';
@@ -7572,6 +7626,9 @@ function voiceStart(){
 
 function voiceStop(){
   voiceCancelPending();
+  // Нажали «стоп» — ждать тишину больше незачем.
+  voiceSilenceClear();
+  voice.stopping = false;
 
   var родной = voiceNative();
   if (родной && voice.on && !voice.rec){
