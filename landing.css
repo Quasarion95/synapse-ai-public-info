@@ -566,8 +566,15 @@ a { color: var(--accent-strong); }
    пикселя по краю. Ниже 1128 вылет ровно ноль, так что горизонтальной
    прокрутки не появляется ни на какой ширине; сверху ограничен 130, иначе на
    очень широком мониторе макет уполз бы к самому краю. */
+/* Картинка больше не вылезает за правый край.
+
+   Здесь стоял отрицательный margin до 130 пикселей: снимок «выходил из
+   макета» вправо, приём известный и сам по себе не плохой. Но слева текст
+   начинался по колонке, а справа картинка уезжала за неё — и первый экран
+   читался как перекошенный. Отступы до краёв теперь одинаковые с обеих
+   сторон. */
 .hero-shot {
-  margin-right: calc(-1 * clamp(0px, (100vw - 1128px) / 2, 130px));
+  margin-right: 0;
 }
 
 /* Потолок поднят выше, чем колонка бывает на деле: ширину теперь задаёт
@@ -858,7 +865,9 @@ a { color: var(--accent-strong); }
   display: grid;
   grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
   gap: 30px 56px;
-  align-items: start;
+  /* stretch, а не start: колонке бренда нужна полная высота ряда, иначе
+     копирайту не к чему прижиматься. */
+  align-items: stretch;
 }
 
 .footer-brand {
@@ -890,11 +899,20 @@ a { color: var(--accent-strong); }
 .footer-col a { color: var(--muted); text-decoration: none; }
 .footer-col a:hover { color: var(--text); }
 
+/* Колонка бренда тянется на всю высоту ряда, и копирайт прижат к её низу.
+
+   Раньше он лежал отдельной строкой через всю ширину, под разделительной
+   линией, — из-за чего подвал заканчивался почти пустой полосой. Теперь
+   подпись стоит вровень с последними ссылками соседних колонок, и лишняя
+   строка внизу исчезла. */
+.footer-brand-col {
+  display: flex;
+  flex-direction: column;
+}
+
 .copy {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding-top: 20px;
-  border-top: 1px solid var(--stroke);
+  margin: auto 0 0;
+  padding-top: 24px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -909,10 +927,15 @@ a { color: var(--accent-strong); }
    получаются вровень, пустот нет. break-inside держит группу целой —
    иначе заголовок мог оторваться от своих ссылок. */
 @media (max-width: 760px) {
-  .footer-inner { grid-template-columns: 1fr; gap: 26px; }
-  .footer-about { max-width: none; }
-  .footer-cols { display: block; column-count: 2; column-gap: 26px; }
+  /* Колонки исчезают, и прижимать копирайт становится не к чему — он должен
+     просто стоять последним. `display: contents` разбирает обёртку бренда,
+     чтобы её содержимое встало в общий поток и подпись ушла под ссылки. */
+  .footer-inner { display: flex; flex-direction: column; gap: 26px; }
+  .footer-brand-col { display: contents; }
+  .footer-about { max-width: none; margin-top: 0; }
+  .footer-cols { display: block; column-count: 2; column-gap: 26px; order: 2; }
   .footer-col { break-inside: avoid; margin-bottom: 24px; }
+  .copy { order: 3; margin: 0; padding-top: 0; }
 }
 @media (max-width: 380px) {
   .footer-cols { column-count: 1; }

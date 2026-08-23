@@ -94,16 +94,22 @@
                  переписали от руки, открыли на другом телефоне. Для них
                  партнёр оставался ни с чем, а человек — без скидки, если она
                  включена. Поле подставляется само, когда пришли по ссылке. -->
-            <div class="fld">
+            <div class="fld fld-promo">
               <label class="fld-label" for="promo">Код партнёра или промокод</label>
-              <input
-                id="promo"
-                type="text"
-                autocomplete="off"
-                spellcheck="false"
-                maxlength="24"
-                aria-describedby="promoHint"
-                placeholder="Если вам его называли">
+              <div class="promo-field" id="promoField">
+                <input
+                  id="promo"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="24"
+                  aria-describedby="promoHint"
+                  placeholder="Если вам его называли">
+                <!-- Галочка появляется, когда сервер подтвердил код. Без неё
+                     единственным признаком успеха была цена в другом углу
+                     экрана, и человек с кодом не понимал, засчитался ли он. -->
+                <span class="promo-mark" id="promoMark" aria-hidden="true"></span>
+              </div>
               <p class="hint" id="promoHint">Не обязательно. Влияет на скидку, если она есть у кода.</p>
             </div>
 
@@ -230,6 +236,11 @@
         return typed || partnerCode;
       }
 
+      /* Что известно про код прямо сейчас. Скидку считает сервер, а не мы:
+         цена — это деньги, и складывать её в браузере нельзя. Здесь только
+         то, что он ответил. */
+      var promoState = { code: "", valid: false, price: 0, percent: 0, plan: "" };
+
       // Пришли по ссылке — код виден в поле, а не спрятан: человек должен
       // понимать, что применяется, и мочь стереть.
       (function fillPromo() {
@@ -238,9 +249,81 @@
         if (field) {
           field.addEventListener("input", function () {
             this.value = this.value.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+            запросить();
           });
         }
       })();
+
+      /* Проверка кода на сервере.
+
+         Неизвестный код — не ошибка, а покупка без скидки: ронять оплату
+         из-за опечатки в необязательном поле значило бы терять продажу ради
+         строгости. Так же считает и сервер, когда создаёт платёж.
+
+         Пауза перед запросом нужна, потому что проверка висит на каждом
+         нажатии клавиши: без неё код из восьми букв стоил бы восьми запросов,
+         и последний ответ мог прийти раньше предпоследнего. Номер попытки
+         отсекает ответы, которые опоздали. */
+      var промоТаймер = null;
+      var промоПопытка = 0;
+
+      function показатьПромо(текст, состояние) {
+        var hint = document.getElementById("promoHint");
+        if (hint) { hint.textContent = текст; }
+        var field = document.getElementById("promoField");
+        var mark = document.getElementById("promoMark");
+        if (field) {
+          field.classList.toggle("is-ok", состояние === "ok");
+          field.classList.toggle("is-bad", состояние === "bad");
+        }
+        if (mark) { mark.textContent = состояние === "ok" ? "✓" : ""; }
+      }
+
+      function запросить() {
+        clearTimeout(промоТаймер);
+        промоТаймер = setTimeout(проверитьПромо, 400);
+      }
+
+      function проверитьПромо() {
+        var код = currentPromo();
+        var план = selectedPlan;
+        if (!код) {
+          promoState = { code: "", valid: false, price: 0, percent: 0, plan: "" };
+          показатьПромо("Не обязательно. Влияет на скидку, если она есть у кода.", "");
+          renderTotal();
+          return;
+        }
+
+        промоПопытка += 1;
+        var попытка = промоПопытка;
+        fetch(BACKEND + "/v1/synapse/checkout/promo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: код, plan: план })
+        }).then(function (r) { return r.json(); }).then(function (ответ) {
+          if (попытка !== промоПопытка) { return; }
+          if (ответ && ответ.valid) {
+            promoState = {
+              code: ответ.code, valid: true,
+              price: Number(ответ.price), percent: Number(ответ.discountPercent) || 0,
+              plan: план
+            };
+            показатьПромо(promoState.percent
+              ? "Код принят: скидка " + promoState.percent + "%."
+              : "Код принят.", "ok");
+          } else {
+            promoState = { code: код, valid: false, price: 0, percent: 0, plan: план };
+            показатьПромо((ответ && ответ.reason) || "Такого кода нет.", "bad");
+          }
+          renderTotal();
+        }).catch(function () {
+          // Связь пропала — молчим и оставляем полную цену. Сервер всё равно
+          // пересчитает при оплате, так что скидка не потеряется.
+          if (попытка !== промоПопытка) { return; }
+          promoState = { code: код, valid: false, price: 0, percent: 0, plan: план };
+          renderTotal();
+        });
+      }
 
       // Верх воронки. Считается здесь, а не на /pricing/: между просмотром цен
       // и нажатием «оплатить» стоит именно эта страница, и только её показ
@@ -298,6 +381,9 @@
         }).join("");
 
         Array.prototype.forEach.call(plansEl.querySelectorAll("input"), function (input) {
+          // Скидка считается от цены тарифа, поэтому при смене тарифа код
+          // проверяется заново: иначе рядом с годовым висела бы месячная цена.
+          input.addEventListener("change", проверитьПромо);
           input.addEventListener("change", function () {
             selectedPlan = input.value;
             renderTotal();
@@ -312,7 +398,21 @@
         var plan = PLANS[selectedPlan];
         var renews = autoRenewEl.checked;
         totalLabelEl.textContent = plan.title;
-        totalPriceEl.textContent = money(plan.price);
+        /* Цена со скидкой, если код проверен. Старая — рядом, зачёркнутой.
+
+           Раньше здесь всегда стояла полная цена: код из партнёрской ссылки
+           подставлялся в поле, уходил на сервер и честно применялся, но
+           увидеть скидку человек мог только на форме ЮKassa, уже нажав
+           «оплатить». До этого страница показывала 590 ₽ и выглядела так,
+           будто код не сработал, — а это ровно та секунда, на которой человек
+           уходит, и партнёр остаётся без продажи. */
+        if (promoState.valid && promoState.plan === selectedPlan) {
+            totalPriceEl.innerHTML = money(promoState.price) +
+              ' <s style="opacity:.45;font-size:.62em;font-weight:600">' +
+              money(plan.price) + '</s>';
+        } else {
+            totalPriceEl.textContent = money(plan.price);
+        }
 
         // Способы оплаты зависят от привязки, и человек должен узнать об этом
         // здесь, а не на форме ЮKassa, где вдруг не окажется его привычного.
@@ -512,6 +612,9 @@
       });
 
       renderPlans();
+      // Код из ссылки уже стоит в поле — проверяем его сразу, чтобы скидка
+      // была видна с первой секунды, а не после того, как поле тронут.
+      if (currentPromo()) { проверитьПромо(); }
     </script>
   </body>
 </html>

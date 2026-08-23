@@ -41,6 +41,7 @@
             margin-bottom: 14px;
             line-height: 1.5;
         }
+        .steps .button { display: inline-flex; margin-top: 10px }
         .steps li::before {
             content: counter(шаг);
             position: absolute; left: 0; top: -1px;
@@ -101,39 +102,53 @@
             <button type="button" role="tab" data-pane="android" aria-selected="false">Android</button>
         </div>
 
+        <!-- Первым шагом везде стоит «откуда взять само приложение».
+
+             Без этого страница отвечала на вопрос «как включить код» человеку,
+             у которого ещё нечего включать: он видел QR и не понимал, что
+             сканировать его нужно уже установленным приложением. Кнопка
+             установки стоит внутри первого шага, а не в конце списка, потому
+             что до конца списка доходит меньше людей, чем до первой строки. -->
         <div class="pane" id="pane-web">
             <ol class="steps">
-                <li>Нажмите кнопку ниже — код подставится сам.</li>
-                <li>Готово: Pro включится в этом браузере, устанавливать ничего не нужно.</li>
+                <li>
+                    <b>Откройте Synapse в браузере.</b> Устанавливать ничего не нужно —
+                    это полноценное приложение: задачи, цели, финансы, заметки.
+                    <a class="button" id="activate-web" href="../activate/">Открыть Synapse</a>
+                </li>
+                <li>Pro включится сам — код подставится из этой ссылки.</li>
             </ol>
-            <a class="button" id="activate-web" href="../activate/">Включить в браузере</a>
-            <p class="muted">Веб-версия — это полноценное приложение: задачи, цели, финансы, заметки. Работает и на компьютере.</p>
+            <p class="muted">Работает и на компьютере, и на телефоне.</p>
         </div>
 
         <div class="pane" id="pane-ios" hidden>
             <ol class="steps">
-                <li>Установите Synapse из App&nbsp;Store.</li>
-                <li>Наведите камеру на QR выше — откроется само приложение.</li>
-                <li>Готово: Pro включится на телефоне.</li>
+                <li>
+                    <b>Установите приложение</b> из App&nbsp;Store.
+                    <a class="button" href="https://apps.apple.com/ru/app/synapse-ai/id6796978134">Открыть в App Store</a>
+                </li>
+                <li>Откройте его один раз, чтобы приложение запустилось.</li>
+                <li>Наведите камеру телефона на QR выше — откроется само приложение.</li>
+                <li>Готово: Pro включится.</li>
             </ol>
-            <a class="button" href="https://apps.apple.com/ru/app/synapse-ai/id6796978134">Открыть в App Store</a>
             <p class="muted">
-                Сканируйте после установки: без приложения ссылка откроет браузер.
-                Ничего не сломается — код рассчитан и на телефон, и на браузер сразу,
-                просто на телефоне включить придётся ещё раз.
+                Сканируйте уже после установки: без приложения ссылка откроет браузер.
+                Ничего не сломается — код рассчитан и на телефон, и на браузер сразу.
             </p>
         </div>
 
         <div class="pane" id="pane-android" hidden>
             <ol class="steps">
-                <li>Откройте Synapse в браузере телефона.</li>
-                <li>Наведите камеру на QR выше — или нажмите кнопку «Включить в браузере».</li>
-                <li>Готово: Pro включится, устанавливать ничего не нужно.</li>
+                <li>
+                    <b>Приложение для Android скоро выйдет.</b> Пока откройте
+                    веб-версию — она работает в браузере телефона и умеет всё то же.
+                    <a class="button" id="activate-android" href="../activate/">Открыть Synapse в браузере</a>
+                </li>
+                <li>Pro включится сам — код уже в ссылке.</li>
             </ol>
             <p class="muted">
-                Приложение для Android ещё не в магазинах — пока пользуйтесь веб-версией,
-                она откроется в браузере телефона. Подписка не пропадёт: она привязана
-                к коду, и когда приложение выйдет, вы включите её там.
+                Подписка не пропадёт: она привязана к коду. Когда приложение выйдет,
+                вы включите её там тем же кодом.
             </p>
         </div>
     </section>
@@ -215,7 +230,9 @@
         document.getElementById('code').textContent = код;
         document.getElementById('code-hint').textContent = 'Один код — один человек. Никому его не пересылайте.';
         document.getElementById('copy').hidden = false;
-        document.getElementById('activate-web').href = '../activate/?code=' + encodeURIComponent(код);
+        ['activate-web', 'activate-android'].forEach(function (id) {
+            document.getElementById(id).href = '../activate/?code=' + encodeURIComponent(код);
+        });
 
         /* В QR лежит ссылка активации, а не эта страница.
 
