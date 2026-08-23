@@ -643,7 +643,12 @@ select.inp{appearance:none}
    вровень они читались как ещё несколько самостоятельных задач. Отступ равен
    кружку плюс зазор — ровно там, где начинается текст задачи. */
 .item .detail{margin:7px 0 1px 30px; padding-top:8px; border-top:1px solid var(--line); display:grid; grid-template-columns:minmax(0,1fr); gap:6px}
-.item .note{font-size:13px; color:var(--fg-2); background:var(--soft); border-radius:var(--r-sm); padding:8px 11px; overflow-wrap:anywhere}
+/* pre-line, потому что комментарий приходит строками, а не абзацем.
+   Без него переносы схлопывались в пробелы: ассистент присылал
+   аккуратный список, а на экране была та же сплошная каша. Идущие
+   подряд пустые строки pre-line всё равно сожмёт, так что лишнего
+   воздуха от чужого текста не будет. */
+.item .note{font-size:13px; color:var(--fg-2); background:var(--soft); border-radius:var(--r-sm); padding:8px 11px; overflow-wrap:anywhere; white-space:pre-line; line-height:1.45}
 .subline{display:flex; gap:10px; align-items:center; font-size:14px}
 .subline .box{width:17px; height:17px; font-size:9px}
 .subline.on span{color:var(--fg-3); text-decoration:line-through; text-decoration-color:var(--soft-2)}
