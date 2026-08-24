@@ -2245,3 +2245,41 @@ button.fintile:hover{background:var(--soft)}
 .line-text{flex:1; cursor:text}
 .line.editing{gap:8px}
 .line.editing .inp{flex:1; min-width:0; font-size:14.5px; padding:6px 10px}
+
+
+/* ---------- страница настроек ---------- */
+
+/* Колонка человеческой ширины. Пустота справа убирается не растягиванием
+   содержимого на монитор, а тем, что содержимое перестаёт растягиваться. */
+.setpage{max-width:720px}
+
+/* Разграничитель — заголовок снаружи, содержимое внутри карточки. Границу
+   группы видно формой, а не линией: линию надо прочитать, форму — нет. */
+.setgroup-t{
+  font-size:11.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--fg-3); margin:22px 0 8px 2px;
+}
+.setcard{
+  background:var(--panel); border:1px solid var(--stroke);
+  border-radius:var(--r-md); padding:2px 14px; margin:0;
+}
+/* Группа, которая приносит свои карточки, обёртки не получает. */
+.setgroup > .card:first-child{margin-top:0}
+.setgroup > .lbl:first-child{margin-top:0}
+
+.setline{
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  width:100%; padding:13px 0; background:none; border:0; text-align:left;
+  color:inherit; font:inherit;
+}
+.setline + .setline{border-top:1px solid var(--stroke)}
+.sl-text{display:flex; flex-direction:column; gap:2px; min-width:0}
+.sl-text b{font-size:14.5px; font-weight:600}
+.sl-text i{font-style:normal; font-size:12.5px; color:var(--fg-2)}
+.sl-arrow{flex:none; color:var(--fg-3); display:flex}
+
+/* Плотный список задач: ниже строки, тише пояснения. Признак стоит на корне,
+   поэтому правило одно, а не десяток условий в разметке. */
+html[data-dense="1"] .item{padding-top:7px; padding-bottom:7px}
+html[data-dense="1"] .item .note{display:none}
+html[data-dense="1"] .titleline{gap:6px}
