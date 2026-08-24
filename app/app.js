@@ -5755,9 +5755,26 @@ function vList(){
     (l.note ? '<p class="sub" style="margin:0 0 10px">' + esc(l.note) + '</p>' : '') +
     (l.items.length
       ? '<div class="lines">' + l.items.map(function(it){
+          /* Название пункта правится на месте.
+
+             Раньше его можно было только удалить и написать заново. На «хлеб»
+             это незаметно, а на строке в двадцать слов — переписывание из-за
+             одной опечатки. Списки как раз и собирают такие строки: сборы,
+             покупки, что взять с собой.
+
+             Правка открывается нажатием на сам текст, потому что именно туда
+             и целятся: отдельный карандаш рядом — ещё одна мишень в строке,
+             где уже есть галочка и крестик. */
+          if (S.editItem === it.id){
+            return '<div class="line editing">' +
+              '<button class="box' + (it.done ? ' on' : '') + '" data-act="item-toggle" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Готово">✓</button>' +
+              '<input class="inp" type="text" data-itemedit="' + it.id + '" data-list="' + l.id + '" value="' + esc(it.title) + '" autocomplete="off">' +
+              '<button class="kill" data-act="item-save" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Сохранить">✓</button>' +
+            '</div>';
+          }
           return '<div class="line' + (it.done ? ' on' : '') + '">' +
             '<button class="box' + (it.done ? ' on' : '') + '" data-act="item-toggle" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Готово">✓</button>' +
-            '<span>' + esc(it.title) + '</span>' +
+            '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить">' + esc(it.title) + '</span>' +
             '<button class="kill" data-act="item-kill" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Удалить">✕</button>' +
           '</div>';
         }).join('') + '</div>'
@@ -10322,6 +10339,23 @@ var ACTS = {
     l.items.forEach(function(it){ if (it.id === d.item) it.done = !it.done; });
     commit();
   },
+  'item-edit': function(d){
+    S.editItem = d.item;
+    render();
+    keepFocus('[data-itemedit="' + d.item + '"]');
+  },
+  'item-save': function(d){
+    var l = findList(d.list);
+    var input = document.querySelector('[data-itemedit="' + d.item + '"]');
+    if (!l || !input){ S.editItem = null; return render(); }
+    var value = input.value.trim();
+    S.editItem = null;
+    // Пустое название не сохраняем: пункт без текста неотличим от мусора, а
+    // удаление — отдельное осознанное действие с крестиком.
+    if (!value) return render();
+    l.items.forEach(function(it){ if (it.id === d.item) it.title = value; });
+    commit();
+  },
   'item-kill': function(d){
     var l = findList(d.list);
     if (!l) return;
@@ -10582,6 +10616,13 @@ document.addEventListener('keydown', function(event){
   }
 
   if (event.key === 'Escape'){
+    // Правка пункта списка отменяется первой: она самая мелкая и самая
+    // близкая к тому, на чём стоит курсор.
+    if (S.editItem){
+      S.editItem = null;
+      render();
+      return;
+    }
     // Развёрнутая карта закрывается тем же Esc, что и модалка, и раньше неё:
     // иначе из неё нет выхода с клавиатуры.
     if (S.mm && S.mm.full){
@@ -10603,6 +10644,11 @@ document.addEventListener('keydown', function(event){
   if (t.id === 'medown'){ event.preventDefault(); ACTS['med-own']({}); return; }
   if (t.getAttribute && t.getAttribute('data-subadd')){
     event.preventDefault(); ACTS.subadd({ task: t.getAttribute('data-subadd') }); return;
+  }
+  if (t.getAttribute && t.getAttribute('data-itemedit')){
+    event.preventDefault();
+    ACTS['item-save']({ list: t.getAttribute('data-list'), item: t.getAttribute('data-itemedit') });
+    return;
   }
   if (t.getAttribute && t.getAttribute('data-itemadd')){
     event.preventDefault(); ACTS['item-add']({ list: t.getAttribute('data-itemadd') }); return;

@@ -2239,3 +2239,9 @@ button.fintile:hover{background:var(--soft)}
 /* Место под плавающей строкой: без него последняя трата в списке оказывается
    под ней и её не прочитать. */
 .finance-has-composer{ padding-bottom: 96px; }
+
+/* Текст пункта списка — мишень для правки, поэтому он занимает всю
+   свободную ширину строки, а не только слово. */
+.line-text{flex:1; cursor:text}
+.line.editing{gap:8px}
+.line.editing .inp{flex:1; min-width:0; font-size:14.5px; padding:6px 10px}
