@@ -2283,3 +2283,9 @@ button.fintile:hover{background:var(--soft)}
 html[data-dense="1"] .item{padding-top:7px; padding-bottom:7px}
 html[data-dense="1"] .item .note{display:none}
 html[data-dense="1"] .titleline{gap:6px}
+
+/* Погашенный выбор стартового раздела: настройка перекрыта соседней.
+   Не disabled — по нажатию она включается обратно, поэтому кнопки живые,
+   просто приглушены. */
+.radios.off{opacity:.42}
+.radios.off .radio[aria-pressed="true"]{background:transparent;border-color:var(--stroke);color:var(--text-2)}

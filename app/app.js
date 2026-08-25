@@ -6517,10 +6517,23 @@ function vSettings(){
 
   html += группаНастроек('Вид', телоВида(), true);
 
+  /* Две настройки старта спорят друг с другом, и спор надо показать.
+
+     «Открывать последний экран» отменяет выбор раздела выше. Пояснение об
+     этом было, но выбранный раздел при этом оставался подсвеченным и на вид
+     живым: человек нажимал «Цели», видел, что кнопка встала, закрывал
+     настройки — и сервис открывался там же, где он был вчера. Настройка
+     выглядела сломанной, хотя работала как задумано.
+
+     Теперь, когда включён последний экран, выбор раздела гаснет и говорит,
+     почему он сейчас не в деле. */
+  var стартПерекрыт = !!S.openLast;
   html += группаНастроек('Старт и список',
     '<div class="setline"><span class="sl-text"><b>Открывать при запуске</b>' +
-      '<i>С какого раздела начинается сервис</i></span></div>' +
-    '<div class="radios">' + СТАРТОВЫЕ.map(function(в){
+      '<i>' + (стартПерекрыт
+        ? 'Сейчас не используется: ниже включён последний экран'
+        : 'С какого раздела начинается сервис') + '</i></span></div>' +
+    '<div class="radios' + (стартПерекрыт ? ' off' : '') + '">' + СТАРТОВЫЕ.map(function(в){
       return '<button class="radio" data-act="set-startview" data-id="' + в.id + '"' +
         ' aria-pressed="' + (S.startView === в.id) + '">' + esc(в.title) + '</button>';
     }).join('') + '</div>' +
@@ -8758,12 +8771,44 @@ synAct('set_font_style', function(a, done, skipped){
   done.push('шрифт — ' + found.title);
 });
 
-synAct('set_notifications set_haptics set_sounds set_compact_tasks set_start_screen', function(a, done, skipped){
-  var names = {
-    set_notifications: 'уведомлений', set_haptics: 'вибрации', set_sounds: 'звуков интерфейса',
-    set_compact_tasks: 'компактных карточек', set_start_screen: 'стартового экрана'
-  };
-  skipped.push(names[a.kind] + ' в вебе нет — только в приложении');
+/* Настройки голосом. Отказ остался только там, где отказывать честно.
+
+   Раньше все пять отклонялись одной строкой «в вебе нет — только в
+   приложении». Для вибрации и звуков интерфейса это правда: в браузере
+   вибрации не существует, а своих звуков у нас там нет. Для плотного списка и
+   стартового экрана это перестало быть правдой в тот момент, когда они
+   появились в настройках, — и осталось расхождение, при котором человек видит
+   переключатель, а Syn говорит, что такого нет. */
+synAct('set_compact_tasks', function(a, done){
+  var включить = String(a.value || '').toLowerCase() !== 'off';
+  S.compactTasks = включить;
+  применитьПлотность();
+  done.push(включить ? 'плотный список включён' : 'плотный список выключен');
+});
+
+synAct('set_start_screen', function(a, done, skipped){
+  // Названия из договора ассистента — общие с приложением, а экраны у веба
+  // свои: «мой фокус» здесь называется аналитикой.
+  var карта = { today: 'tasks', tasks: 'tasks', goals: 'goals',
+                coach: 'focus', focus: 'focus', analytics: 'analytics',
+                finance: 'finance' };
+  var экран = карта[String(a.value || '').toLowerCase()];
+  if (!экран) return skipped.push('не понял, какой экран сделать стартовым');
+  S.startView = экран;
+  done.push('при запуске будет открываться «' + VIEWS[экран].title + '»');
+});
+
+synAct('set_notifications', function(a, done, skipped){
+  if (!уведомленияДоступны()){
+    return skipped.push('уведомления есть только в приложении');
+  }
+  S.notify.on = String(a.value || '').toLowerCase() !== 'off';
+  done.push(S.notify.on ? 'напоминания включены' : 'напоминания выключены');
+});
+
+synAct('set_haptics set_sounds', function(a, done, skipped){
+  var имя = a.kind === 'set_haptics' ? 'вибрации' : 'звуков интерфейса';
+  skipped.push(имя + ' в вебе нет — только в приложении');
 });
 
 /* ---- переходы ---- */
@@ -9771,7 +9816,14 @@ var ACTS = {
   'autobackup-off': function(){ автокопияВыключить(); },
   'set-startview': function(d){
     S.startView = d.id || 'tasks';
-    commit('Открывается: ' + (СТАРТОВЫЕ.filter(function(в){ return в.id === S.startView; })[0] || {}).title);
+    // Нажали по погашенному выбору — значит, человек хочет именно этот раздел,
+    // а не «где был в прошлый раз». Молча ничего не делать было бы хуже всего.
+    var вернулиВыбор = S.openLast;
+    S.openLast = false;
+    var название = (СТАРТОВЫЕ.filter(function(в){ return в.id === S.startView; })[0] || {}).title;
+    commit(вернулиВыбор
+      ? 'Открывается: ' + название + ' (последний экран выключен)'
+      : 'Открывается: ' + название);
   },
   'toggle-openlast': function(){
     S.openLast = !S.openLast;
