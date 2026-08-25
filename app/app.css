@@ -2274,11 +2274,20 @@ button.fintile:hover{background:var(--soft)}
    читались как одна длинная простыня. Капслок убран заодно: слово «Данные»
    узнаётся быстрее, чем «ДАННЫЕ», у которого нет ни одной привычной глазу
    выступающей буквы. */
+/* Название раздела набрано ровно как заголовки блоков дня на экране задач.
+
+   Так и было задумано с самого начала, только вышло вполсилы: мелким и
+   бледным. А заголовок здесь делает ту же работу, что «СЕГОДНЯ» и «ЗАВТРА»
+   там, — режет сплошную ленту карточек на разделы. Один и тот же приём в
+   одном сервисе должен и выглядеть одинаково: человек уже научился читать
+   такие заголовки на главном экране, и переучиваться ему незачем. */
 .setgroup-t{
-  font-size:21px; font-weight:800; letter-spacing:-.01em;
-  color:var(--fg); margin:34px 0 12px 2px;
+  font-size:clamp(22px,6vw,34px); line-height:.86; text-transform:uppercase;
+  font-weight:800; letter-spacing:-.045em;
+  transform:scaleY(1.2); transform-origin:left bottom;
+  color:var(--fg); margin:38px 0 16px 2px;
 }
-.setpage > .setgroup-t:first-child{margin-top:6px}
+.setpage > .setgroup-t:first-child{margin-top:8px}
 .setcard{
   background:var(--panel); border:1px solid var(--stroke);
   border-radius:var(--r-md); padding:2px 14px; margin:0;
