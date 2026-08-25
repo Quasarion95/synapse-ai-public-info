@@ -1658,6 +1658,9 @@ function go(view){
   pushView(view);
   render();
   window.scrollTo(0, 0);
+  // Пришли туда, где брифинг читают, — самое время его освежить, если дела
+  // с прошлой сборки изменились.
+  if (view === 'focus') брифингОбновитьЕслиПора();
 }
 
 /* Переход между разделами — запись в истории браузера.
@@ -4984,13 +4987,229 @@ var BRIEFING = { busy: false };
 
 function briefingIsMorning(){ return new Date().getHours() < 16; }
 
+/* Брифинг, который сам замечает, что дела изменились.
+
+   Раньше он собирался только по кнопке: человек закрывал три дела, заводил
+   цель — а разбор на экране оставался утренним и говорил про день, которого
+   уже нет. Обновлять его руками никто не догадывается, и «умный помощник»
+   выходил разовым.
+
+   Пересобираем не на каждое движение, а по трём правилам сразу:
+
+   1. Повод должен быть существенным. Закрыл, создал, удалил задачу; тронул
+      цель или этап. Правка описания, галочка на подпункте, смена темы —
+      не повод: от них совет не меняется, а деньги и мигание экрана — да.
+
+   2. Не в момент правки, а когда человек посмотрит. Пока он работает со
+      списком, сборка ему только мешает; поводы копятся молча. Собираем при
+      заходе на экран фокуса — там разбор и читают.
+
+   3. Не чаще раза в час. Иначе десять правок подряд с заходами на экран
+      превращаются в десять запросов.
+
+   Выходит две-четыре сборки в день вместо сорока: полтора рубля в месяц на
+   человека вместо восемнадцати. Ручная кнопка остаётся и работает как
+   работала — она не спрашивает ни про поводы, ни про час. */
+var БРИФИНГ_ПАУЗА = 60 * 60 * 1000;
+
+function брифингУстарел(){
+  if (!S.briefing || !S.briefing.text) return false;
+  if (S.briefing.date !== isoOf(todayDate())) return false;
+  return !!S.briefing.устарел;
+}
+
+/// Что-то важное поменялось. Сам по себе вызов ничего не собирает.
+function брифингПометитьУстаревшим(){
+  if (!S.briefing || !S.briefing.text) return;
+  if (S.briefing.date !== isoOf(todayDate())) return;
+  S.briefing.устарел = true;
+}
+
+/// Зашли на экран фокуса. Пора ли пересобрать.
+function брифингОбновитьЕслиПора(){
+  if (!брифингУстарел() || BRIEFING.busy) return;
+  var прошло = Date.now() - (S.briefing.собранВ || 0);
+  if (прошло < БРИФИНГ_ПАУЗА) return;
+  S.briefing.устарел = false;
+  briefingRun();
+}
+
 /// Срез дня для разбора. Тот же смысл, что focusBriefingDigest в приложении:
 /// не весь список задач, а то, по чему можно судить о дне.
+/* Строка задачи для брифинга.
+
+   Раньше здесь было название, время и срок — и всё. По такому срезу можно
+   пересказать список, но нельзя ничего посоветовать: непонятно, что в задаче
+   осталось и почему она стоит.
+
+   Поэтому сюда идут ещё две вещи, которые человек пишет сам:
+
+   Незакрытые подпункты по названиям. «Подпунктов 1 из 3» говорит, что дело не
+   доделано, но не говорит, что именно осталось, — а осталось обычно то, из-за
+   чего задача и висит: «взять чек», «дождаться ответа». С названиями брифинг
+   может сказать «осталось только взять чек» вместо «задача не закрыта».
+
+   Описание. Там лежат адреса, суммы и условия: «магазин на Ленина», «после
+   звонка юристу», «до 15-го, иначе штраф». Половина решений принимается по
+   этому тексту, а модель его не видела вовсе.
+
+   Режем: четыре подпункта и 180 знаков описания. Чек-лист на сорок строк и
+   заметка в двести тысяч знаков утопили бы весь срез. */
+function briefingTaskLine(t, подробно){
+  var части = ['«' + t.title + '»'];
+  if (t.time) части.push('в ' + t.time);
+  if (t.date) части.push(t.date);
+  if (t.deadline) части.push('срок ' + deadlineText(t.deadline));
+  var цель = t.goalId && findGoal(t.goalId);
+  if (цель) части.push('цель «' + цель.title + '»');
+  if (t.done) части.push('выполнено');
+
+  if (подробно){
+    var подпункты = t.subtasks || [];
+    if (подпункты.length){
+      var закрыто = подпункты.filter(function(s){ return s.done; }).length;
+      части.push('подпунктов ' + закрыто + '/' + подпункты.length);
+      var открытые = подпункты.filter(function(s){ return !s.done; })
+        .slice(0, 4).map(function(s){ return s.title; });
+      if (открытые.length) части.push('осталось: ' + открытые.join('; '));
+    }
+    var описание = String(t.note || '').trim();
+    if (описание){
+      var одной = описание.replace(/\s*\n\s*/g, ' / ');
+      части.push('описание: ' + (одной.length > 180 ? одной.slice(0, 180) + '…' : одной));
+    }
+  }
+  return '- ' + части.join(', ');
+}
+
+/* Что изменилось с прошлого разбора.
+
+   Системная часть требует от модели строку ИЗМЕНЕНИЯ и называет её главным,
+   что отличает брифинг от списка задач. А в вебе изменения не собирались
+   вовсе: модель получала требование рассказать про то, чего ей не давали, и
+   строку либо пропускала, либо выдумывала.
+
+   Слепок делается в момент сборки брифинга и лежит рядом с ним. */
+function briefingSnapshot(){
+  var снимок = {};
+  liveTasks().forEach(function(t){
+    снимок[t.id] = (t.done ? 'done' : isOverdue(t) ? 'missed' : 'open') + '|' + t.title;
+  });
+  return снимок;
+}
+
+function briefingChanges(прошлый){
+  if (!прошлый) return [];
+  var текущий = briefingSnapshot();
+  var строки = [];
+  Object.keys(текущий).forEach(function(id){
+    var было = прошлый[id];
+    var стало = текущий[id].split('|');
+    var название = стало[1];
+    if (!было) return строки.push('создано: «' + название + '»');
+    var прежнее = было.split('|')[0];
+    if (прежнее !== 'done' && стало[0] === 'done') строки.push('закрыто: «' + название + '»');
+    else if (прежнее !== 'missed' && стало[0] === 'missed') строки.push('пропущено: «' + название + '»');
+  });
+  Object.keys(прошлый).forEach(function(id){
+    if (!текущий[id]) строки.push('удалено: «' + прошлый[id].split('|')[1] + '»');
+  });
+  return строки;
+}
+
+/* Деньги в том же брифинге, а не отдельным отчётом.
+
+   Планировщик и финансы жили порознь: разбор дня знал про задачи и цели и не
+   знал, что послезавтра списывается аренда, а Марат должен вернуть пять тысяч
+   ещё с прошлой недели. А человек живёт одной жизнью: «сегодня главное» может
+   оказаться не задачей, а платежом.
+
+   Даём срез, а не выписку. Модели не нужны триста операций — ей нужно то, по
+   чему принимают решения на этой неделе: сколько есть, кому и когда отдать,
+   что вот-вот спишется, куда ушли деньги и как это по сравнению с прошлым
+   месяцем. Суммы — в рублях, чтобы модель не делила на сто.
+
+   Пустые разделы не пишем: у человека без долгов не должно быть строки
+   «долгов нет» — она занимает место и провоцирует про неё сказать. */
+function briefingFinanceLines(){
+  var f = S.finance || {};
+  var lines = [];
+  var руб = function(коп){ return Math.round((коп || 0) / 100) + ' руб.'; };
+  var день = function(iso){ return iso ? humanDate(iso) : ''; };
+  var сегодня = isoOf(todayDate());
+  var черезНеделю = isoOf(new Date(Date.now() + 7 * 86400000));
+
+  if (f.opening || (f.ops || []).length) lines.push('СВОБОДНО: ' + руб(finBalance()));
+
+  var долги = (f.debts || []).filter(function(d){ return !d.closed; });
+  if (долги.length){
+    lines.push('ДОЛГИ:');
+    долги.forEach(function(d){
+      var осталось = Math.max(0, d.amount - (d.paid || 0));
+      var части = [(d.mine ? 'я должен ' : 'мне должен ') + d.who, руб(осталось)];
+      if (d.due){
+        части.push(d.due < сегодня ? 'срок прошёл ' + день(d.due) : 'вернуть ' + день(d.due));
+      }
+      lines.push('- ' + части.join(', '));
+    });
+  }
+
+  // Ближайшие списания: то, из-за чего «свободно» через неделю будет другим.
+  var подписки = (f.subs || []).map(function(sub){
+    return { title: sub.title, amount: sub.amount, when: finSubNext(sub) };
+  }).filter(function(x){ return x.when && x.when <= черезНеделю; })
+    .sort(function(a, b){ return a.when < b.when ? -1 : 1; });
+  if (подписки.length){
+    lines.push('СПИСАНИЯ НА НЕДЕЛЕ:');
+    подписки.forEach(function(x){
+      lines.push('- ' + x.title + ', ' + руб(x.amount) + ', ' + день(x.when));
+    });
+  }
+
+  var этот = finMonthTotals(finMonthKey(сегодня));
+  if (этот.ops.length){
+    lines.push('ЭТОТ МЕСЯЦ: потрачено ' + руб(этот.spent) + ', заработано ' + руб(этот.earned));
+    var кат = finByCat(finMonthKey(сегодня)).slice(0, 3);
+    if (кат.length){
+      lines.push('КУДА УХОДИТ: ' + кат.map(function(r){
+        return r.title + ' ' + руб(r.sum);
+      }).join(', '));
+    }
+    // Прошлый месяц — только числом для сравнения: «больше или меньше» человек
+    // спрашивает чаще, чем «сколько именно тогда».
+    var прошлый = finMonthTotals(finMonthShift(finMonthKey(сегодня), -1));
+    if (прошлый.ops.length) lines.push('ПРОШЛЫЙ МЕСЯЦ: потрачено ' + руб(прошлый.spent));
+  }
+
+  var копилки = (f.jars || []).filter(function(j){ return (j.saved || 0) < j.target; });
+  if (копилки.length){
+    lines.push('КОПИЛКИ:');
+    копилки.slice(0, 4).forEach(function(j){
+      var части = ['«' + j.title + '»', руб(j.saved || 0) + ' из ' + руб(j.target)];
+      if (j.due) части.push(j.due < сегодня ? 'срок прошёл ' + день(j.due) : 'к ' + день(j.due));
+      lines.push('- ' + части.join(', '));
+    });
+  }
+  return lines;
+}
+
 function briefingDigest(){
-  var today = liveTasks().filter(function(t){ return t.bucket === 'today'; });
+  var все = liveTasks();
+  var today = все.filter(function(t){ return t.bucket === 'today'; });
+  var overdue = все.filter(isOverdue);
+  var просроченоID = {};
+  overdue.forEach(function(t){ просроченоID[t.id] = true; });
+  /* Просроченная задача идёт только в свой блок.
+
+     Её блок дня по-прежнему «сегодня», поэтому без этой проверки она попадала
+     в срез дважды — и в ПРОСРОЧЕНО, и в ЗАДАЧИ ДНЯ. Модель считает такие
+     строки за две разные задачи и пересчитывает день неверно. */
+  today = today.filter(function(t){ return !просроченоID[t.id]; });
+  var tomorrow = все.filter(function(t){ return t.bucket === 'tomorrow' && !просроченоID[t.id]; });
+  var неделя = все.filter(function(t){ return (t.bucket === 'dayAfterTomorrow' || t.bucket === 'thisWeek') && !просроченоID[t.id]; });
+  var потом = все.filter(function(t){ return t.bucket === 'later' && !просроченоID[t.id]; });
+
   var doneCount = today.filter(function(t){ return t.done; }).length;
-  var overdue = liveTasks().filter(isOverdue);
-  var tomorrow = liveTasks().filter(function(t){ return t.bucket === 'tomorrow'; });
 
   var lines = ['ДАТА: ' + isoOf(todayDate()),
     'СЕЙЧАС: ' + clock(new Date().getHours(), new Date().getMinutes()),
@@ -4998,27 +5217,46 @@ function briefingDigest(){
   // Имя — чтобы вслух брифинг начинался с обращения, а не с «здравствуйте».
   if (S.profile.name) lines.splice(1, 0, 'ИМЯ: ' + S.profile.name);
 
-  if (today.length){
-    lines.push('ЗАДАЧИ ДНЯ:');
-    today.forEach(function(t){
-      lines.push('- ' + t.title + (t.time ? ' в ' + t.time : '') + (t.done ? ' (сделано)' : '') +
-        (t.deadline ? ' [срок ' + deadlineText(t.deadline) + ']' : ''));
-    });
-  }
-  if (overdue.length){
-    lines.push('ПРОСРОЧЕНО:');
-    overdue.forEach(function(t){ lines.push('- ' + t.title + (t.date ? ' с ' + t.date : '')); });
-  }
-  if (tomorrow.length){
-    lines.push('ЗАВТРА:');
-    tomorrow.forEach(function(t){ lines.push('- ' + t.title + (t.time ? ' в ' + t.time : '')); });
-  }
+  var блок = function(заголовок, задачи, подробно){
+    if (!задачи.length) return;
+    lines.push(заголовок + ':');
+    задачи.forEach(function(t){ lines.push(briefingTaskLine(t, подробно)); });
+  };
+  // Просрочка и сегодня — подробно, с подпунктами и описаниями: именно по ним
+  // человек принимает решения сегодня. Дальние горизонты — одной строкой.
+  блок('ПРОСРОЧЕНО', overdue, true);
+  блок('ЗАДАЧИ ДНЯ', today, true);
+  блок('ЗАВТРА', tomorrow, false);
+  блок('БЛИЖАЙШАЯ НЕДЕЛЯ', неделя, false);
+  блок('ДАЛЬШЕ', потом, false);
+
   if (S.goals.length){
     lines.push('ЦЕЛИ:');
     S.goals.forEach(function(g){
       var mine = tasksOfGoal(g.id);
-      lines.push('- ' + g.title + ' (' + (mine.length ? taskCount(mine.length) : 'без задач') + ')');
+      var закрыто = mine.filter(function(t){ return t.done; }).length;
+      var части = ['«' + g.title + '»'];
+      части.push(mine.length ? 'задач ' + закрыто + '/' + mine.length : 'без задач');
+      if (g.stages && g.stages.length){
+        var активный = g.stages.filter(function(st){ return st.status === 'active'; })[0];
+        if (активный) части.push('этап «' + активный.title + '»');
+      }
+      lines.push('- ' + части.join(', '));
     });
+  }
+
+  // Деньги — частью того же среза: брифинг один, и решения человек принимает
+  // по задачам и платежам вместе, а не по двум отчётам подряд.
+  var деньги = briefingFinanceLines();
+  if (деньги.length){
+    lines.push('ФИНАНСЫ:');
+    деньги.forEach(function(с){ lines.push(с); });
+  }
+
+  var изменения = briefingChanges(S.briefing && S.briefing.снимок);
+  if (изменения.length){
+    lines.push('ИЗМЕНЕНИЯ С ПРОШЛОГО БРИФИНГА:');
+    изменения.forEach(function(с){ lines.push('- ' + с); });
   }
   return lines.join('\n');
 }
@@ -5251,7 +5489,11 @@ function briefingRun(){
     S.briefing = {
       text: kept.join('\n'), main: main, voice: voice.trim(), morning: morning,
       date: isoOf(todayDate()), at: clock(new Date().getHours(), new Date().getMinutes()),
-      error: '', errorDate: ''
+      error: '', errorDate: '',
+      // Слепок состояния на момент сборки: по нему следующий разбор поймёт,
+      // что человек успел сделать между двумя брифингами.
+      снимок: briefingSnapshot(),
+      собранВ: Date.now(), устарел: false
     };
     commit('Брифинг собран');
   }).catch(function(error){
@@ -10181,9 +10423,33 @@ function syncCompletion(){
   }
 }
 
+/* Что считается поводом пересобрать брифинг.
+
+   Не «любое изменение», а те, от которых меняется совет: набор задач, их
+   выполненность и цели с этапами. Правка описания, галочка на подпункте,
+   смена палитры сюда не входят — от них разбор дня не меняется, а сборка
+   стоит денег и мигает экраном.
+
+   Слепок берём тот же самый, что уходит в срез: если он совпал с прошлым,
+   значит, с точки зрения брифинга ничего и не произошло. */
+function брифингСледОтДел(){
+  var задачи = liveTasks().map(function(t){
+    return t.id + (t.done ? 'd' : isOverdue(t) ? 'm' : 'o');
+  }).sort().join(',');
+  var цели = S.goals.map(function(g){
+    return g.id + ':' + (g.stages || []).map(function(st){ return st.id + st.status; }).sort().join('|');
+  }).sort().join(',');
+  return задачи + '#' + цели;
+}
+
+var БРИФИНГ_СЛЕД = null;
+
 function commit(message){
   finSyncJarStages();
   syncCompletion();
+  var след = брифингСледОтДел();
+  if (БРИФИНГ_СЛЕД !== null && след !== БРИФИНГ_СЛЕД) брифингПометитьУстаревшим();
+  БРИФИНГ_СЛЕД = след;
   if (tourCheck() && !message) message = 'Первые шаги пройдены';
   // Сообщение держим в переменной, а не в S: попав в localStorage, оно
   // всплывало бы снова при каждом открытии страницы.
