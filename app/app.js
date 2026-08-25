@@ -9622,12 +9622,29 @@ function modalMove(task){
    Две кнопки вместо одной, потому что верного ответа на двоих нет. Отдельно
    названо число задач: «удалить 14 задач» и «удалить 1 задачу» — решения
    разного веса. */
+function modalKillStage(goal, stage){
+  var count = S.tasks.filter(function(t){ return t.stageId === stage.id; }).length;
+  return '<h3>Удалить этап?</h3>' +
+    '<p class="s">' + esc(stage.title) + '</p>' +
+    '<p class="s">' + (count
+      ? 'Задачи этапа никуда не денутся: ' + taskCount(count) + ' останутся у цели «' +
+        esc(goal.title) + '», просто без этапа.'
+      : 'Задач у этапа нет.') + '</p>' +
+    '<p class="s">Сам этап вернуть будет нельзя.</p>' +
+    '<button class="btn full" data-act="kill-stage-do" data-goal="' + goal.id + '" data-stage="' + stage.id + '">Удалить этап</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
 function modalKillGoal(goal){
   var count = tasksOfGoal(goal.id).length;
+  /* Про корзину — прямо. Здесь стояло «Саму цель вернуть будет нельзя», и это
+     было неправдой: цель уходит в корзину вместе со всем остальным и лежит там
+     те же тридцать дней. Строка пугала зря, а того, кто ей поверил, отговаривала
+     заглянуть в корзину, когда он передумал. */
   if (!count){
     return '<h3>Удалить цель?</h3>' +
       '<p class="s">' + esc(goal.title) + '</p>' +
-      '<p class="s">Задач у цели нет. Саму цель вернуть будет нельзя.</p>' +
+      '<p class="s">Задач у цели нет. Сама цель уйдёт в корзину — оттуда её можно вернуть ' + TRASH_DAYS + ' дней.</p>' +
       '<button class="btn full" data-act="kill-goal-confirm" data-goal="' + goal.id + '">Удалить цель</button>' +
       '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
   }
@@ -9638,7 +9655,7 @@ function modalKillGoal(goal){
       'Оставить задачи в списке</button>' +
     '<button class="btn full soft" data-act="kill-goal-confirm" data-goal="' + goal.id + '" data-tasks="1" ' +
       'style="margin-top:8px">Удалить вместе с задачами</button>' +
-    '<p class="s" style="margin-top:10px">Задачи уйдут в корзину — оттуда их можно вернуть 30 дней. Саму цель вернуть будет нельзя.</p>' +
+    '<p class="s" style="margin-top:10px">Всё удалённое уходит в корзину и лежит там ' + TRASH_DAYS + ' дней — и цель, и задачи, если удалить вместе с ними.</p>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
@@ -11010,12 +11027,30 @@ var ACTS = {
     });
     commit();
   },
+  /* Крестик у этапа стирал его молча, без вопроса и без корзины.
+
+     У цели спрашивают, у задачи есть корзина, а этап — с названием, описанием
+     и десятком привязанных задач — исчезал от одного промаха пальцем, и вернуть
+     его было нечем. Теперь спрашиваем, и говорим, что будет с задачами: они
+     остаются у цели, просто без этапа. Это важно сказать заранее — иначе
+     человек боится, что вместе с этапом пропадёт и работа под ним. */
   'kill-stage': function(d){
     var g = findGoal(d.goal);
     if (!g) return;
+    var stage = findStage(g, d.stage);
+    if (!stage) return;
+    openModal(modalKillStage(g, stage));
+  },
+  'kill-stage-do': function(d){
+    var g = findGoal(d.goal);
+    if (!g) return;
+    var осиротело = 0;
     g.stages = g.stages.filter(function(s){ return s.id !== d.stage; });
-    S.tasks.forEach(function(t){ if (t.stageId === d.stage) t.stageId = null; });
-    commit('Этап удалён');
+    S.tasks.forEach(function(t){ if (t.stageId === d.stage){ t.stageId = null; осиротело++; } });
+    closeModal();
+    commit(осиротело
+      ? 'Этап удалён, его ' + осиротело + ' ' + plural(осиротело, 'задача осталась', 'задачи остались', 'задач остались') + ' у цели'
+      : 'Этап удалён');
   },
   'goal-task': function(d){
     var input = document.querySelector('[data-goaltask="' + d.stage + '"]');
