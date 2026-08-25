@@ -8616,10 +8616,20 @@ synAct('create_task create_task_for_goal', function(a, done, skipped){
    правильно.
 
    Спорить тут не о чем: понять её однозначно можно, значит, надо понять. */
-synAct('move_task set_task_schedule update_task', function(a, done, skipped){
+synAct('move_task set_task_schedule', function(a, done, skipped){
   var task = synFindTask(synTaskName(a));
   if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var when = synSplitDateTime(a.datetime || a.date);
+  /* Переносить не на что — значит, и говорить не о чем.
+
+     Раньше действие без даты, времени и блока всё равно писало «перенесена»:
+     ничего не менялось, а человек читал, что всё сделано. Ложный отчёт хуже
+     честного отказа — по нему нельзя даже понять, что просьбу надо повторить
+     иначе. */
+  var естьКуда = !!(when.date || when.time || (a.bucket && bucketTitle(a.bucket)));
+  if (!естьКуда){
+    return skipped.push('не понял, куда переносить «' + task.title + '»');
+  }
   if (!when.date && !when.time && a.bucket && bucketTitle(a.bucket)){
     task.bucket = a.bucket;
     task.date = dateForBucket(a.bucket);
@@ -9191,15 +9201,91 @@ synAct('delete_all_goals_and_tasks clear_goals_and_tasks reset_goals_and_tasks',
   done.push('удалено всё: ' + count);
 });
 
+/* Понять действие, имя которого модель придумала сама.
+
+   Договор с моделью перечисляет точные имена, но модель их не заучивает —
+   она пишет то, что звучит естественно для просьбы. Так появился update_task,
+   которого в договоре нет вовсе: приложение вида не знало, действие молча
+   выбрасывалось, и человек получал «не смог подтвердить выполнение» про
+   перенос, который модель разобрала правильно.
+
+   Список синонимов вести бесполезно: их столько же, сколько способов сказать
+   по-русски и по-английски. Поэтому разбираем имя на глагол и предмет и
+   ищем, на что это похоже среди тех, что мы умеем.
+
+   Осторожность важнее охвата. Если предмет непонятен — не угадываем: сделать
+   не то хуже, чем честно отказать. Поэтому неизвестные предметы отсюда
+   выходят как были и попадают в отказ под своим именем. */
+var ГЛАГОЛЫ = {
+  create: 'create', add: 'create', new: 'create', make: 'create',
+  update: 'update', edit: 'update', change: 'update', modify: 'update', set: 'update',
+  reschedule: 'move', move: 'move', shift: 'move', postpone: 'move', defer: 'move',
+  rename: 'rename', retitle: 'rename',
+  delete: 'delete', remove: 'delete', drop: 'delete', destroy: 'delete',
+  complete: 'complete', finish: 'complete', check: 'complete', close: 'complete',
+  reopen: 'reopen', uncomplete: 'reopen', uncheck: 'reopen', restore: 'restore'
+};
+
+var ПРЕДМЕТЫ = { task: 'task', todo: 'task', item: 'task', goal: 'goal',
+                 stage: 'stage', note: 'note', list: 'list', subtask: 'subtask' };
+
+/// Во что превращается пара «глагол + предмет», если такого имени мы не знаем.
+var ПОХОЖЕЕ = {
+  'create task': 'create_task',   'update task': 'move_task',
+  'move task': 'move_task',       'rename task': 'rename_task',
+  'delete task': 'delete_task',   'complete task': 'complete_task',
+  'reopen task': 'reopen_task',   'restore task': 'restore_task',
+  'create goal': 'create_goal',   'rename goal': 'rename_goal',
+  'delete goal': 'delete_goal',
+  'create stage': 'create_stage', 'rename stage': 'rename_stage',
+  'delete stage': 'delete_stage', 'update stage': 'set_stage_status',
+  'create note': 'create_note',   'update note': 'update_note',
+  'delete note': 'delete_note',   'rename note': 'update_note',
+  'create list': 'create_list',   'rename list': 'rename_list',
+  'delete list': 'delete_list',
+  'create subtask': 'add_subtask','delete subtask': 'remove_subtask',
+  'rename subtask': 'rename_subtask', 'complete subtask': 'toggle_subtask'
+};
+
+function synНормализоватьВид(kind, a){
+  if (SYN_ACTS[kind]) return kind;
+  var части = String(kind || '').split(/[_\-\s]+/).filter(Boolean);
+  var глагол = '', предмет = '';
+  for (var i = 0; i < части.length; i++){
+    if (!глагол && ГЛАГОЛЫ[части[i]]) глагол = ГЛАГОЛЫ[части[i]];
+    if (!предмет && ПРЕДМЕТЫ[части[i]]) предмет = ПРЕДМЕТЫ[части[i]];
+  }
+  if (!глагол || !предмет) return kind;
+
+  var найдено = ПОХОЖЕЕ[глагол + ' ' + предмет];
+  if (!найдено || !SYN_ACTS[найдено]) return kind;
+
+  /* «Поправить задачу» без даты — это не перенос.
+
+     update_task с датой — перенос, и это самый частый случай. Но та же
+     просьба без даты, зато с новым названием, — переименование, а с текстом
+     описания — правка описания. Смотрим, что в действии реально лежит. */
+  if (найдено === 'move_task' && !(a.datetime || a.date || a.bucket || a.time)){
+    if (a.note || a.detail) return 'update_task_note';
+    if (a.newTitle || a.new_title || a.title_new) return 'rename_task';
+    // Ни даты, ни описания, ни нового названия — менять нечего. Пусть уходит
+    // в отказ под своим именем, а не превращается в пустой перенос.
+    return kind;
+  }
+  return найдено;
+}
+
 function synApplyActions(actions){
   var done = [];
   var skipped = [];
 
   (actions || []).forEach(function(a){
     var kind = String(a && a.kind || '').toLowerCase();
+    var исходный = kind;
+    kind = synНормализоватьВид(kind, a || {});
     var handler = SYN_ACTS[kind];
     if (!handler){
-      skipped.push('«' + (kind || 'без вида') + '» веб пока не умеет');
+      skipped.push('«' + (исходный || 'без вида') + '» веб пока не умеет');
       return;
     }
     // Действие, упавшее на кривых данных, не должно ронять остальные: одна
