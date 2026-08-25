@@ -912,10 +912,18 @@ function dateForBucket(bucket){
 
 var MONTH_NAMES = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
 
+/* Дата словами. Год — только когда он не этот.
+
+   Без года «к 26 февраля» одинаково читается и как февраль будущего года,
+   и как февраль позапрошлого. У копилки со сроком и у долга это разница
+   между «успею» и «давно просрочено», а у платежа — между «через полгода» и
+   «год назад». В своём году год не пишем: он там лишний шум. */
 function humanDate(iso){
   var d = dateOf(iso);
   if (!d) return '';
-  return d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
+  var текст = d.getDate() + ' ' + MONTH_NAMES[d.getMonth()];
+  var этотГод = new Date().getFullYear();
+  return d.getFullYear() === этотГод ? текст : текст + ' ' + d.getFullYear();
 }
 
 /* Дата с днём недели: «24 августа, пн».
@@ -2773,14 +2781,27 @@ function finStepDate(iso, every){
 /* Сколько откладывать в месяц, чтобы успеть к сроку копилки. Считается по
    целым месяцам до даты: «ещё 8 400 в месяц» — это ответ, а «осталось
    67 200» — только половина ответа. */
+/* Сколько откладывать, чтобы успеть, — и отдельно случай, когда успевать уже
+   некуда.
+
+   Прошедший срок раньше выпрямлялся в «осталось 1 месяц»: копилка с датой
+   полугодовой давности бодро советовала, как успеть к ней. Совет звучал
+   уверенно и был неправдой дважды — и про «успеть», и про «месяц».
+
+   Теперь просрочка — своё состояние. Совета там нет, потому что честного
+   совета не существует: единственное осмысленное действие — передвинуть дату,
+   и об этом человеку и говорим. */
 function finJarPace(jar){
   if (!jar.due) return null;
   var left = Math.max(0, jar.target - (jar.saved || 0));
-  if (!left) return { done: true, perMonth: 0, months: 0 };
-  var now = new Date(), due = new Date(jar.due + 'T00:00:00');
+  if (!left) return { done: true, late: false, perMonth: 0, months: 0 };
+  var now = new Date(isoOf(todayDate()) + 'T00:00:00');
+  var due = new Date(jar.due + 'T00:00:00');
+  if (isNaN(due)) return null;
+  if (due < now) return { done: false, late: true, left: left, perMonth: 0, months: 0 };
   var months = (due.getFullYear() - now.getFullYear()) * 12 + (due.getMonth() - now.getMonth());
   if (months < 1) months = 1;
-  return { done: false, perMonth: Math.ceil(left / months / 100) * 100, months: months };
+  return { done: false, late: false, left: left, perMonth: Math.ceil(left / months / 100) * 100, months: months };
 }
 
 /* Подписки: следующее списание и во что обходится год. Люди платят за
@@ -3549,10 +3570,13 @@ function vFinJars(){
         '<span class="sub">из ' + finMoney(jar.target) +
           (jar.due ? ' · к ' + esc(humanDate(jar.due)) : '') + '</span></div>' +
       '<div class="bar slim" style="margin-top:10px"><i style="width:' + share + '%"></i></div>' +
-      (pace && !pace.done
-        ? '<p class="sub" style="margin-top:10px">Чтобы успеть — ' + finMoney(pace.perMonth) +
-          ' в месяц, осталось ' + pace.months + ' ' + plural(pace.months, 'месяц', 'месяца', 'месяцев') + '.</p>'
-        : (saved >= jar.target ? '<p class="sub" style="margin-top:10px">Собрано.</p>' : '')) +
+      (pace && pace.late
+        ? '<p class="sub late" style="margin-top:10px">Срок прошёл ' + esc(humanDate(jar.due)) +
+          ', не хватает ' + finMoney(pace.left) + '. Поставьте новую дату — посчитаю заново.</p>'
+        : pace && !pace.done
+          ? '<p class="sub" style="margin-top:10px">Чтобы успеть — ' + finMoney(pace.perMonth) +
+            ' в месяц, осталось ' + pace.months + ' ' + plural(pace.months, 'месяц', 'месяца', 'месяцев') + '.</p>'
+          : (saved >= jar.target ? '<p class="sub" style="margin-top:10px">Собрано.</p>' : '')) +
       '<div class="acts">' +
         '<button class="btn sm" data-act="fin-jar-put" data-jar="' + jar.id + '">Отложить</button>' +
         '<button class="btn sm soft" data-act="fin-jar-take" data-jar="' + jar.id + '">Снять</button>' +
@@ -4866,8 +4890,17 @@ function vFocusCard(today, todayDone, overdue, withTime){
   /* Брифинг вытесняет сводку, а не встаёт рядом. Сводка — заготовка на случай,
      когда разбора ещё нет: две карточки об одном и том же дне заставляли бы
      читать дважды и сравнивать. */
-  var brief = S.briefing && S.briefing.text && S.briefing.date === isoOf(todayDate()) ? S.briefing : null;
+  var сегодня = isoOf(todayDate());
+  var brief = S.briefing && S.briefing.text && S.briefing.date === сегодня ? S.briefing : null;
   var shown = brief ? briefingLines(brief.text) : lines;
+  /* Отказ Syn стареет вместе с брифингом.
+
+     Текст разбора проверялся по дате, а строка ошибки — нет: она лежала в
+     сохранённом состоянии и висела красным на экране столько, сколько человек
+     не жал «Собрать» заново. Неделю назад не было сети — сегодня всё работает,
+     а экран продолжает сообщать о поломке. */
+  var отказ = S.briefing && S.briefing.error && S.briefing.errorDate === сегодня
+    ? S.briefing.error : '';
 
   return '<section class="card focus">' +
     '<div class="focus-h">' +
@@ -4888,7 +4921,7 @@ function vFocusCard(today, todayDone, overdue, withTime){
       }).join('') +
     '</div>' +
     (brief && brief.main ? '<p class="focus-main"><span>Главное</span>' + esc(brief.main) + '</p>' : '') +
-    (S.briefing && S.briefing.error ? '<p class="err" style="margin-top:12px">' + esc(S.briefing.error) + '</p>' : '') +
+    (отказ ? '<p class="err" style="margin-top:12px">' + esc(отказ) + '</p>' : '') +
     '<div class="acts">' +
       '<button class="btn sm" data-act="briefing"' + (BRIEFING.busy ? ' disabled' : '') + '>' +
         (BRIEFING.busy ? 'Syn собирает…' : brief ? 'Обновить брифинг' : 'Собрать брифинг') + '</button>' +
@@ -5181,13 +5214,15 @@ function briefingRun(){
 
     S.briefing = {
       text: kept.join('\n'), main: main, voice: voice.trim(), morning: morning,
-      date: isoOf(todayDate()), at: clock(new Date().getHours(), new Date().getMinutes()), error: ''
+      date: isoOf(todayDate()), at: clock(new Date().getHours(), new Date().getMinutes()),
+      error: '', errorDate: ''
     };
     commit('Брифинг собран');
   }).catch(function(error){
     BRIEFING.busy = false;
     S.briefing = S.briefing || {};
     S.briefing.error = synErrorText(error);
+    S.briefing.errorDate = isoOf(todayDate());
     commit();
   });
 }
@@ -7049,8 +7084,25 @@ function planTitle(id){
   return id;
 }
 
+/* Подписка была и кончилась.
+
+   Отдельное состояние, а не «просто не Pro». Пока его не было, человек с
+   истёкшей подпиской видел ровно тот же экран, что и тот, кто никогда не
+   платил: «Бесплатный доступ», прайс, и ни слова о том, что он вообще был
+   клиентом. Его код при этом лежал в памяти браузера и не показывался.
+
+   Со стороны это читается как «приложение меня забыло», а не как «срок
+   вышел», и человек идёт не продлевать, а выяснять, куда делись деньги.
+   Здесь же тот единственный момент, когда предложение продлить уместно. */
+function подпискаИстекла(){
+  if (!S.pro || !S.pro.active || !S.pro.expiresAt) return false;
+  var до = Date.parse(S.pro.expiresAt);
+  return !!до && до < Date.now();
+}
+
 function vSubscription(){
   var pro = isPro();
+  var истекла = !pro && подпискаИстекла();
   var html = '';
 
   /* Состояние — первым, до цен. Человек, который уже платит, приходит сюда
@@ -7059,24 +7111,35 @@ function vSubscription(){
     '<div class="sub-head">' +
       '<span class="sub-mark" aria-hidden="true">' + (pro ? ICON.pro : ICON.lock) + '</span>' +
       '<div>' +
-        '<h3>' + (pro ? 'Synapse Pro' : 'Бесплатный доступ') + '</h3>' +
+        '<h3>' + (pro ? 'Synapse Pro' : истекла ? 'Подписка закончилась' : 'Бесплатный доступ') + '</h3>' +
         '<p class="sub">' + (pro
           ? planTitle(S.pro.plan) + (S.pro.expiresAt ? ' · до ' + esc(humanDateTime(S.pro.expiresAt)) : '') +
             ' · открыты все разделы'
-          : 'Задачи без ограничений. Дальше: ' + FREE_LIMITS.goals + ' цели, ' +
-            FREE_LIMITS.lists + ' списка, ' + FREE_LIMITS.notes + ' заметки, ' +
-            'по одному режиму помодоро и звуку медитации.') + '</p>' +
+          : истекла
+            ? planTitle(S.pro.plan) + ' · закончилась ' + esc(humanDateTime(S.pro.expiresAt)) +
+              '. Записи никуда не делись — они все на месте. Пока подписка не продлена, ' +
+              'новые цели, списки и заметки заводить нельзя, а Syn отвечает по бесплатной норме.'
+            : 'Задачи без ограничений. Дальше: ' + FREE_LIMITS.goals + ' цели, ' +
+              FREE_LIMITS.lists + ' списка, ' + FREE_LIMITS.notes + ' заметки, ' +
+              'по одному режиму помодоро и звуку медитации.') + '</p>' +
       '</div>' +
     '</div>' +
-    (pro && S.pro.code ? '<div class="sub-code"><span class="lbl">Код подписки</span>' +
-      '<b class="mono">' + esc(S.pro.code) + '</b>' +
-      '<button class="btn sm soft" data-act="pro-copy">Скопировать</button></div>' : '') +
+    ((pro || истекла) && S.pro.code
+      ? '<div class="sub-code"><span class="lbl">Код подписки</span>' +
+        '<b class="mono">' + esc(S.pro.code) + '</b>' +
+        '<button class="btn sm soft" data-act="pro-copy">Скопировать</button></div>' : '') +
     '<div class="acts">' +
       (pro
         ? '<button class="btn sm soft" data-act="pro-refresh">Проверить</button>' +
           '<a class="btn sm soft" href="../account/">Управление и отмена</a>' +
           '<button class="btn sm soft" data-act="pro-forget">Отвязать</button>'
-        : '<button class="btn sm" data-act="pro-code">У меня есть код</button>') +
+        : истекла
+          // «Проверить» первым: если человек уже продлил на сайте, срок
+          // подтянется отсюда, и платить второй раз не придётся.
+          ? '<button class="btn sm" data-act="pro-refresh">Проверить продление</button>' +
+            '<a class="btn sm soft" href="../account/">Управление и оплата</a>' +
+            '<button class="btn sm soft" data-act="pro-forget">Отвязать код</button>'
+          : '<button class="btn sm" data-act="pro-code">У меня есть код</button>') +
     '</div>' +
   '</section>';
 
