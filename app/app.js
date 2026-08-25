@@ -90,6 +90,13 @@ function собратьНапоминания(){
     // Задачи со временем — о каждой в её час. Выполненные молчат.
     liveTasks().forEach(function(t){
       if (t.done) return;
+      /* Задача, у которой напоминание выключено вручную, молчит.
+
+         Общий переключатель в настройках — это «напоминать или нет вообще», а
+         человеку обычно нужно тоньше: про созвон напомни, про «купить молока»
+         не надо. Отсутствие поля значит «как у всех»: у задач, заведённых
+         раньше, поведение не меняется. */
+      if (t.remind === false) return;
       var когда = когдаЗадача(t) - (н.заранее || 0) * 60000;
       if (когда <= сейчас) return;
       /* Заголовок — само дело, второй строкой контекст. Сперва писал в обе
@@ -4637,7 +4644,19 @@ function itemRow(t, внутриЦели){
   if (t.time) meta.push('<span class="chip">' + esc(t.time) + '</span>');
   if (t.repeat) meta.push('<span class="chip rep">' + ICON.repeat +
     esc(repeatLabel(t.repeat, t)) + '</span>');
-  if (t.windowFrom && t.windowFrom.time) meta.push('<span class="chip">с ' + esc(t.windowFrom.time) + '</span>');
+  /* Окно выполнения одним чипом: «с 14:00 до 16:00».
+
+     Раньше показывалось только начало — «с 14:00», — а конец окна, который у
+     задачи тоже был, нигде не появлялся. Половина промежутка читается как
+     срок и вводит в заблуждение: «с двух» звучит как «в два», а человек имел
+     в виду «между двумя и четырьмя». */
+  if (t.windowFrom && t.windowFrom.time){
+    var окно = 'с ' + esc(t.windowFrom.time) +
+      (t.windowTo && t.windowTo.time ? ' до ' + esc(t.windowTo.time) : '');
+    meta.push('<span class="chip">' + окно + '</span>');
+  } else if (t.windowTo && t.windowTo.time){
+    meta.push('<span class="chip">до ' + esc(t.windowTo.time) + '</span>');
+  }
   // Отдельный чип срока «до …» убран: дата и время задачи уже стоят выше, а
   // «до 16 августа 10:00» рядом с ними — третий чип на ту же мысль. Сам дедлайн
   // остаётся в данных задачи, просто не дублируется на карточке.
@@ -10216,6 +10235,36 @@ function modalTask(t){
       '<div class="field"><label>Время срока</label>' +
         '<input class="inp" id="m-dl-time" type="time" value="' + esc(t.deadline && t.deadline.time || '') + '"></div>' +
     '</div>' +
+    /* Окно выполнения — «сделать между двумя и шестью».
+
+       Оно тут было наполовину: если Syn ставил окно голосом, чип «с 14:00»
+       на карточке появлялся, а выставить его руками было нечем. Половина
+       возможности хуже её отсутствия — про неё узнаёшь случайно и не можешь
+       повторить.
+
+       Отличается от срока по смыслу: срок — «не позже», окно — «не раньше и
+       не позже». Поэтому стоит отдельной строкой, а не рядом с ним. */
+    '<div class="row2">' +
+      '<div class="field"><label>Начать не раньше</label>' +
+        '<input class="inp" id="m-win-from" type="time" value="' +
+          esc(t.windowFrom && t.windowFrom.time || '') + '"></div>' +
+      '<div class="field"><label>Закончить не позже</label>' +
+        '<input class="inp" id="m-win-to" type="time" value="' +
+          esc(t.windowTo && t.windowTo.time || '') + '"></div>' +
+    '</div>' +
+    /* Напоминание у отдельной задачи.
+
+       В настройках есть общий переключатель «напоминать про задачи со
+       временем» — все сразу или никакие. А человеку обычно нужно наоборот:
+       про созвон напомни, про «купить молока» не надо. На айфоне это есть у
+       каждой задачи, в вебе не было вовсе.
+
+       Показываем только когда напоминать есть о чём: у задачи без времени
+       переключатель обещал бы то, чего не будет. */
+    (t.time && уведомленияДоступны()
+      ? строкаПереключателя('Напомнить об этой задаче', 'task-remind-toggle',
+          t.remind !== false, 'За сколько — в настройках напоминаний.')
+      : '') +
     /* Своё правило показывается только когда его выбрали: три поля, которые
        нужны одному человеку из десяти, не должны стоять в модалке у всех.
        Единица решает, что означают остальные поля, поэтому она первой. */
@@ -11386,6 +11435,17 @@ var ACTS = {
     var t = findTask(d.task);
     if (t) openModal(modalTask(t));
   },
+  /* Переключатель напоминания живёт внутри открытого окна задачи.
+
+     Своего сохранения не требует: значение читается при «Сохранить» вместе
+     с остальными полями. Здесь только перерисовываем сам переключатель,
+     чтобы он отзывался на нажатие. */
+  'task-remind-toggle': function(){
+    var кнопка = document.querySelector('[data-act="task-remind-toggle"]');
+    if (!кнопка) return;
+    var было = кнопка.getAttribute('aria-pressed') === 'true';
+    кнопка.setAttribute('aria-pressed', String(!было));
+  },
   'save-task': function(d){
     var t = findTask(d.task);
     if (!t) return;
@@ -11421,6 +11481,20 @@ var ACTS = {
     t.deadline = (dlDate || dlTime)
       ? { date: dlDate || isoOf(todayDate()), time: dlTime || null, hard: !!(t.deadline && t.deadline.hard) }
       : null;
+    /* Окно выполнения. Одно только «не позже» без «не раньше» — это уже срок,
+       и путать их нельзя: срок красит задачу просроченной, окно — нет. */
+    /* Напоминание: `false` значит «эту задачу не напоминать». Отсутствие поля
+       значит «как у всех» — так старые задачи не меняют поведения. */
+    var кнопкаНапоминания = document.querySelector('[data-act="task-remind-toggle"]');
+    if (кнопкаНапоминания){
+      t.remind = кнопкаНапоминания.getAttribute('aria-pressed') === 'true';
+    }
+
+    var winFrom = mval('m-win-from');
+    var winTo = mval('m-win-to');
+    t.windowFrom = winFrom ? { date: t.date || isoOf(todayDate()), time: winFrom } : null;
+    t.windowTo = winTo ? { date: t.date || isoOf(todayDate()), time: winTo } : null;
+
     var link = mval('m-goal');
     if (!link){ t.goalId = null; t.stageId = null; }
     else {
