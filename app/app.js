@@ -1212,8 +1212,24 @@ function daysInMonth(year, month){
 
 /// nextOccurrence(after:onOrAfter:) — шагает, пока не уйдёт за минимум, и
 /// прекращает, как только шаг перестал двигать дату (иначе вечный цикл).
+/// Единицы, которые движок умеет считать по-настоящему.
+var ЕДИНИЦЫ_ПОВТОРА = ['day', 'week', 'month'];
+
 function nextOccurrence(fromISO, rule, minISO){
   if (!rule) return null;
+
+  /* Незнакомая единица — это отсутствие повтора, а не месяц.
+
+     Ниже стоит расчёт по дням, по неделям, а всё остальное сваливается в
+     ветку месяца. Для «каждый год» это давало 29 февраля → 29 марта, а для
+     «каждые 30 минут» — прыжок на три года вперёд: тридцать «месяцев».
+
+     Через интерфейс такое правило не собрать, разбор фразы такие единицы
+     отсекает. Но правило приезжает ещё и из загруженной копии, а её мог
+     сделать другой клиент или другая версия — и тогда молчаливая чепуха
+     оказывается в чужом плане. Лучше не повторить вовсе, чем повторить в
+     2029 году. */
+  if (ЕДИНИЦЫ_ПОВТОРА.indexOf(rule.unit) < 0) return null;
   var candidate = dateOf(fromISO) || todayDate();
   var minimum = dateOf(minISO) || candidate;
   var steps = 512;
@@ -2811,19 +2827,48 @@ function finDueThisMonth(key){
   return rows;
 }
 
+/* Следующее списание.
+
+   Число месяца прибивается к исходному, а не считается от предыдущего шага.
+
+   Раньше здесь стояло setMonth(+1), и на коротком месяце оно молча
+   переполнялось: 31 января + месяц в JS даёт 3 марта, а не 28 февраля. Дальше
+   считалось уже от третьего числа — и подписка, списывающаяся 31-го, к
+   сентябрю показывала третье. Человек видел не ту дату, а «обязательные
+   платежи месяца» считались по уехавшей.
+
+   Повторы задач эту ловушку обходят уже давно: там число прижимается к
+   последнему дню короткого месяца. Здесь оставалось наоборот. */
 function finSubNext(sub){
   if (!sub.since) return '';
   var every = (FIN_EVERY[sub.every] || FIN_EVERY.month);
-  var step = every === FIN_EVERY.week ? 7 : 0;
-  var date = new Date(sub.since + 'T00:00:00');
+  var начало = new Date(sub.since + 'T00:00:00');
+  if (isNaN(начало)) return '';
   var now = new Date(isoOf(todayDate()) + 'T00:00:00');
-  var guard = 0;
-  while (date < now && guard++ < 400){
-    if (step) date.setDate(date.getDate() + step);
-    else if (every === FIN_EVERY.year) date.setFullYear(date.getFullYear() + 1);
-    else date.setMonth(date.getMonth() + 1);
+
+  if (every === FIN_EVERY.week){
+    var date = new Date(начало.getTime());
+    var guard = 0;
+    while (date < now && guard++ < 400) date.setDate(date.getDate() + 7);
+    return isoOf(date);
   }
-  return isoOf(date);
+
+  // Якорь — число из даты начала. Оно не меняется никогда, а к нему уже
+  // подбирается ближайший существующий день месяца.
+  var якорь = начало.getDate();
+  var шагМесяцев = every === FIN_EVERY.year ? 12 : 1;
+  var год = начало.getFullYear(), месяц = начало.getMonth();
+  var сборка = function(){
+    return new Date(год, месяц, Math.min(якорь, daysInMonth(год, месяц)));
+  };
+  var текущая = сборка(), охрана = 0;
+  while (текущая < now && охрана++ < 400){
+    месяц += шагМесяцев;
+    год += Math.floor(месяц / 12);
+    месяц = ((месяц % 12) + 12) % 12;
+    текущая = сборка();
+  }
+  return isoOf(текущая);
 }
 
 /* ---- экраны ---- */
@@ -8888,7 +8933,15 @@ function exportBackup(){
 /// Разбор загруженного файла. Чужой JSON — это данные, а не команда: берём
 /// только знакомые поля и проверяем, что это вообще состояние Synapse.
 function importBackup(text){
-  var parsed = JSON.parse(text);
+  /* Разбор в своей обёртке: человеку нельзя показывать «Unexpected end of
+     JSON input». Это сообщение браузера самому себе, а не объяснение — из
+     него не следует ни что случилось, ни что делать. */
+  var parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Файл повреждён или это не копия Synapse');
+  }
   if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.tasks)){
     throw new Error('Это не копия Synapse');
   }
