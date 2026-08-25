@@ -4537,6 +4537,19 @@ function vTasks(){
   for (var i = 0; i < BUCKETS.length; i++){
     var b = BUCKETS[i];
     var mine = liveTasks().filter(function(t){ return t.bucket === b.id; });
+    /* Выполненные — вниз своего блока.
+
+       Отмеченная задача оставалась ровно там, где стояла, и список на глазах
+       превращался в чересполосицу: сделанное вперемешку с несделанным. Чтобы
+       понять, что осталось, приходилось перечитывать блок целиком и пропускать
+       зачёркнутое — то есть делать глазами работу, которую должен делать
+       список.
+
+       Сортировка устойчивая: внутри «сделанных» и «несделанных» порядок
+       остаётся тем, который человек выставил руками. Перетаскивание от этого
+       не страдает — место вставки считается по соседней задаче, а не по
+       номеру в массиве. */
+    mine.sort(function(a, b){ return (a.done ? 1 : 0) - (b.done ? 1 : 0); });
     var closed = !!S.closed[b.id];
 
     // Пустой блок — тот же самый блок, только без строк. Отдельной вёрстки у
@@ -8254,6 +8267,19 @@ function proActivate(code){
    Поэтому ищем в четыре захода, от строгого к терпимому. Каждый следующий
    срабатывает только когда предыдущий ничего не дал, и последний требует
    явного перевеса — угадывать задачу наугад хуже, чем честно не найти. */
+/* Как модель назвала задачу, которую просит изменить.
+
+   Договор говорит `target`, но модель кладёт название и в `title`, и в `name` —
+   особенно когда придумывает вид действия сама. Пятнадцать мест читали только
+   `target`, получали пустоту и отвечали «не нашёл задачу «»» — с пустыми
+   кавычками, потому что и подставить было нечего.
+
+   Приложение при этом честно сообщало, что команду выполнить не смогло, и
+   выглядело это как поломка ассистента, хотя он всё разобрал правильно. */
+function synTaskName(a){
+  return String((a && (a.target || a.title || a.name)) || '').trim();
+}
+
 function synFindTask(target){
   var needle = String(target || '').toLowerCase().trim();
   if (!needle) return null;
@@ -8581,9 +8607,18 @@ synAct('create_task create_task_for_goal', function(a, done, skipped){
   done.push('создана задача «' + fresh.title + '»');
 });
 
-synAct('move_task set_task_schedule', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+/* update_task — то же самое, что move_task, только другим словом.
+
+   В договоре с моделью такого вида нет, она его придумывает сама, и довольно
+   часто: когда просьбу можно понять как «поправь задачу», а не «перенеси».
+   Веб вида не знал, действие уходило в skipped, и человек получал сообщение о
+   том, что команда не выполнена, — про перенос, который модель разобрала
+   правильно.
+
+   Спорить тут не о чем: понять её однозначно можно, значит, надо понять. */
+synAct('move_task set_task_schedule update_task', function(a, done, skipped){
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var when = synSplitDateTime(a.datetime || a.date);
   if (!when.date && !when.time && a.bucket && bucketTitle(a.bucket)){
     task.bucket = a.bucket;
@@ -8598,8 +8633,8 @@ synAct('move_task set_task_schedule', function(a, done, skipped){
 });
 
 synAct('clear_task_schedule', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   task.time = null;
   task.bucket = 'later';
   task.date = dateForBucket('later');
@@ -8607,8 +8642,8 @@ synAct('clear_task_schedule', function(a, done, skipped){
 });
 
 synAct('set_task_repeat', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var made = synRepeat(a);
   if (!made) return skipped.push('такой повтор в вебе не выражается');
   task.repeat = made.repeat;
@@ -8617,8 +8652,8 @@ synAct('set_task_repeat', function(a, done, skipped){
 });
 
 synAct('clear_task_repeat', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   task.repeat = '';
   task.rule = null;
   task.series = null;
@@ -8626,8 +8661,8 @@ synAct('clear_task_repeat', function(a, done, skipped){
 });
 
 synAct('set_task_deadline', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var deadline = synDeadline(a);
   if (!deadline) return skipped.push('не понял срок для «' + task.title + '»');
   task.deadline = deadline;
@@ -8635,22 +8670,22 @@ synAct('set_task_deadline', function(a, done, skipped){
 });
 
 synAct('clear_task_deadline', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   task.deadline = null;
   done.push('снят срок у «' + task.title + '»');
 });
 
 synAct('rename_task', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   task.title = String(a.newTitle || a.title || task.title);
   done.push('переименована в «' + task.title + '»');
 });
 
 synAct('delete_task', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   // В корзину, а не в никуда: то же правило, что у кнопки на карточке. Ошибка
   // ассистента не должна стоить работы дороже, чем ошибка пальца.
   trashPut('task', task);
@@ -8659,8 +8694,8 @@ synAct('delete_task', function(a, done, skipped){
 });
 
 synAct('complete_task mark_task_done reopen_task uncomplete_task', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var closing = a.kind === 'complete_task' || a.kind === 'mark_task_done';
   task.done = closing;
   // Та же логика, что у галочки на карточке: закрытая повторяющаяся задача
@@ -8694,8 +8729,8 @@ synAct('restore_task', function(a, done, skipped){
 });
 
 synAct('update_task_note append_task_note research_task_note', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var note = String(a.note || a.value || '');
   /* Пустое описание у update_task_note — это «сотри описание», законная
      просьба. Раньше отказывали всем трём видам одинаково, и «убери описание
@@ -8714,8 +8749,8 @@ synAct('update_task_note append_task_note research_task_note', function(a, done,
 });
 
 synAct('breakdown_task', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var items = a.subtasks || a.items || [];
   if (!items.length) return skipped.push('нечего добавить в «' + task.title + '»');
   items.forEach(function(item){
@@ -8725,8 +8760,8 @@ synAct('breakdown_task', function(a, done, skipped){
 });
 
 synAct('add_subtask', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var title = String(a.itemTitle || a.title || '').trim();
   if (!title) return skipped.push('пустой подпункт для «' + task.title + '»');
   task.subtasks.push({ id: uid(), title: title, done: false });
@@ -8734,8 +8769,8 @@ synAct('add_subtask', function(a, done, skipped){
 });
 
 synAct('remove_subtask rename_subtask toggle_subtask', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var sub = synFindBy(task.subtasks, a.itemTitle || a.subtaskTitle || a.value);
   if (!sub) return skipped.push('в «' + task.title + '» нет подпункта «' + (a.itemTitle || '') + '»');
 
@@ -8754,8 +8789,8 @@ synAct('remove_subtask rename_subtask toggle_subtask', function(a, done, skipped
 });
 
 synAct('attach_task_to_goal link_task_to_goal', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var goal = synFindGoal(a.goalTitle || a.value);
   if (!goal) return skipped.push('не нашёл цель «' + (a.goalTitle || '') + '»');
   task.goalId = goal.id;
@@ -8765,8 +8800,8 @@ synAct('attach_task_to_goal link_task_to_goal', function(a, done, skipped){
 });
 
 synAct('detach_task_from_goal unlink_task_from_goal', function(a, done, skipped){
-  var task = synFindTask(a.target);
-  if (!task) return skipped.push('не нашёл задачу «' + (a.target || '') + '»');
+  var task = synFindTask(synTaskName(a));
+  if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   task.goalId = null;
   task.stageId = null;
   done.push('«' + task.title + '» отвязана от цели');
