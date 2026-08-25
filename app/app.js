@@ -1245,7 +1245,35 @@ function nextOccurrence(fromISO, rule, minISO){
 /// Следующее повторение той же серии. Возвращает созданную задачу или null.
 function spawnNextOccurrence(task){
   var base = task.date || isoOf(todayDate());
-  var next = nextOccurrence(base, taskRule(task), isoOf(addDays(dateOf(base) || todayDate(), 1)));
+
+  /* Число месяца запоминается на первом повторении и едет с серией дальше.
+
+     Без этого «каждый месяц 31-го» превращалось в «каждый месяц 28-го»
+     навсегда. Правило без явного числа берёт его из даты текущего
+     повторения. В феврале 31-е прижимается к 28-му — это верно и так и
+     надо, — но следующее повторение создаётся уже с датой 28 февраля, и
+     число берётся из неё. Февраль укорачивал не одну дату, а всю серию:
+     31 января давало 28, 28, 28, 28 вместо 28, 31, 30, 31.
+
+     Ровно то же нашлось и в приложении на айфоне, и лечится там так же —
+     число фиксируется, пока оно ещё известно. */
+  var правило = taskRule(task);
+  var якорь = task.monthAnchor || null;
+  if (правило && правило.unit === 'month' && !(правило.monthlyDays && правило.monthlyDays.length)){
+    if (!якорь){
+      var д = dateOf(base);
+      якорь = д ? д.getDate() : null;
+    }
+    if (якорь){
+      // Копия правила, а не правка общего пресета: пресет один на все задачи.
+      правило = { unit: правило.unit, interval: правило.interval,
+                  weekdaysOnly: правило.weekdaysOnly,
+                  weeklyWeekdays: правило.weeklyWeekdays,
+                  monthlyDays: [якорь] };
+    }
+  }
+
+  var next = nextOccurrence(base, правило, isoOf(addDays(dateOf(base) || todayDate(), 1)));
   if (!next) return null;
 
   var series = task.series || task.id;
@@ -1260,6 +1288,9 @@ function spawnNextOccurrence(task){
     note: task.note, time: task.time, repeat: task.repeat, rule: task.rule || null, series: series,
     deadline: task.deadline || null, windowFrom: task.windowFrom || null,
     hasExplicitDate: task.hasExplicitDate, hasExplicitTime: task.hasExplicitTime,
+    // Якорь едет с серией: иначе следующее повторение снова возьмёт число из
+    // прижатой даты и серия опять сядет на 28-е.
+    monthAnchor: якорь,
     goalId: task.goalId, stageId: task.stageId,
     subtasks: task.subtasks.map(function(s){ return { id: uid(), title: s.title, done: false }; })
   };
@@ -9252,15 +9283,34 @@ function modalMove(task){
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
+/* Что делать с задачами удаляемой цели — решает человек.
+
+   Раньше решали за него: задачи всегда оставались и просто теряли связь. Для
+   «выучить английский» это верно — «прочитать 20 страниц» останется делом. А
+   для цели, от которой человек отказался, её задачи по одной всплывают в
+   списке ещё неделю, и каждую надо ловить руками. Причём именно во втором
+   случае цель и удаляют чаще.
+
+   Две кнопки вместо одной, потому что верного ответа на двоих нет. Отдельно
+   названо число задач: «удалить 14 задач» и «удалить 1 задачу» — решения
+   разного веса. */
 function modalKillGoal(goal){
   var count = tasksOfGoal(goal.id).length;
+  if (!count){
+    return '<h3>Удалить цель?</h3>' +
+      '<p class="s">' + esc(goal.title) + '</p>' +
+      '<p class="s">Задач у цели нет. Саму цель вернуть будет нельзя.</p>' +
+      '<button class="btn full" data-act="kill-goal-confirm" data-goal="' + goal.id + '">Удалить цель</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+  }
   return '<h3>Удалить цель?</h3>' +
     '<p class="s">' + esc(goal.title) + '</p>' +
-    (count
-      ? '<p class="s">У цели ' + taskCount(count) + '. Они останутся в списке, но потеряют связь с целью.</p>'
-      : '<p class="s">Задач у цели нет.</p>') +
-    '<p class="s">Саму цель вернуть будет нельзя.</p>' +
-    '<button class="btn full" data-act="kill-goal-confirm" data-goal="' + goal.id + '">Удалить цель</button>' +
+    '<p class="s">У цели ' + taskCount(count) + '. Что с ними сделать?</p>' +
+    '<button class="btn full" data-act="kill-goal-confirm" data-goal="' + goal.id + '">' +
+      'Оставить задачи в списке</button>' +
+    '<button class="btn full soft" data-act="kill-goal-confirm" data-goal="' + goal.id + '" data-tasks="1" ' +
+      'style="margin-top:8px">Удалить вместе с задачами</button>' +
+    '<p class="s" style="margin-top:10px">Задачи уйдут в корзину — оттуда их можно вернуть 30 дней. Саму цель вернуть будет нельзя.</p>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
@@ -10529,6 +10579,18 @@ var ACTS = {
   'kill-goal-do': function(d){
     var goal = findGoal(d.goal);
     if (!goal) return;
+    /* Человек выбрал удалить задачи вместе с целью.
+
+       В корзину, а не насовсем: решение принимается в одно нажатие, а
+       передумать через минуту — обычное дело. Тридцать дней на возврат тут те
+       же, что и у задачи, удалённой поодиночке. */
+    if (d.tasks){
+      var свои = S.tasks.filter(function(t){ return t.goalId === d.goal; });
+      for (var i = 0; i < свои.length; i++) trashPut('task', свои[i]);
+      var убрать = {};
+      for (var j = 0; j < свои.length; j++) убрать[свои[j].id] = true;
+      S.tasks = S.tasks.filter(function(t){ return !убрать[t.id]; });
+    }
     // Вместе с целью её задачи не удаляются, а отвязываются: задача остаётся в
     // своём блоке дня, потому что она всё ещё дело, которое надо сделать.
     // Связи запоминаем, чтобы восстановление вернуло не только цель.
