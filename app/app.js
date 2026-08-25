@@ -301,7 +301,8 @@ function seed(){
     lists: [],
     notes: [],
     trash: [],
-    pomodoro: { focus: 25, shortBreak: 5, longBreak: 15, mode: 'focus', doneToday: 0, goal: 0 },
+    // endsAt — момент окончания в миллисекундах; 0 значит «не запущен».
+    pomodoro: { focus: 25, shortBreak: 5, longBreak: 15, mode: 'focus', doneToday: 0, goal: 0, endsAt: 0 },
     meditation: { minutes: 10, sound: 'Дождь', doneTotal: 0, totalMinutes: 0, volume: 0.7 },
     // Финансы стартуют пустыми, как и всё остальное: чужие траты в примере
     // читаются как свои и портят первую же сводку.
@@ -6024,24 +6025,86 @@ function mmss(sec){
   return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
 }
 
+/* Помодоро считает время, а не свои тики.
+
+   Здесь стояло remaining -= 1 раз в секунду. Пока вкладка открыта, это
+   работает; стоит уйти на другую — браузер придушивает таймеры до одного
+   срабатывания в минуту, и двадцатипятиминутный помидор растягивается на
+   сутки. То же на телефоне: свёрнутое приложение таймеры просто
+   останавливает.
+
+   А человек уходит из вкладки всегда — в этом весь смысл помодоро: он не
+   сидит и не смотрит на часы, он работает.
+
+   Теперь запоминается момент окончания, а остаток каждый раз вычисляется от
+   часов. Придушенный таймер портит только плавность цифры на экране, но не
+   сам счёт: вернулся через час — помидор закрыт, как и должно быть.
+
+   Момент окончания лежит в состоянии, поэтому переживает и перезагрузку
+   страницы: раньше она сбрасывала счёт молча. */
+function pomoЗавершить(){
+  stopTicker();
+  remaining = 0;
+  S.pomodoro.endsAt = 0;
+  if (S.pomodoro.mode === 'focus') S.pomodoro.doneToday += 1;
+  commit('Помидор закрыт');
+}
+
+/// Остаток по часам. null — таймер не запущен.
+function pomoОстаток(){
+  if (!S.pomodoro.endsAt) return null;
+  return Math.max(0, Math.ceil((S.pomodoro.endsAt - Date.now()) / 1000));
+}
+
 function startTicker(){
   stopTicker();
+  if (remaining === null) remaining = S.pomodoro[modeOf().key] * 60;
+  S.pomodoro.endsAt = Date.now() + remaining * 1000;
+  save();
   ticker = setInterval(function(){
-    remaining = Math.max(0, remaining - 1);
+    var осталось = pomoОстаток();
+    if (осталось === null) return stopTicker();
+    remaining = осталось;
     var face = $('clockface');
     if (face) face.textContent = mmss(remaining);
-    if (remaining === 0){
-      stopTicker();
-      if (S.pomodoro.mode === 'focus') S.pomodoro.doneToday += 1;
-      commit('Помидор закрыт');
-    }
+    if (remaining === 0) pomoЗавершить();
   }, 1000);
 }
 
 function stopTicker(){
   if (ticker) clearInterval(ticker);
   ticker = null;
+  if (!S.pomodoro) return;
+
+  /* Остаток снимается с часов, а не берётся из последнего тика.
+
+     Тик обновляет цифру раз в секунду, и в двух случаях она успевает
+     устареть: если паузу нажали в первую же секунду и если вкладку душили.
+     Взяв её как есть, пауза дарила бы человеку минуты, которых он не работал.
+
+     Берём остаток по моменту окончания — и только потом стираем сам момент. */
+  var осталось = pomoОстаток();
+  if (осталось !== null) remaining = осталось;
+  S.pomodoro.endsAt = 0;
 }
+
+/* Возврат во вкладку. Пока её не было видно, время шло.
+
+   Без этой сверки человек, вернувшийся через час, увидел бы застывшие цифры
+   и решил, что таймер сломан. */
+function pomoСверить(){
+  var осталось = pomoОстаток();
+  if (осталось === null) return;
+  remaining = осталось;
+  if (осталось === 0){ pomoЗавершить(); return; }
+  var face = $('clockface');
+  if (face) face.textContent = mmss(remaining);
+  if (!ticker) startTicker();
+}
+
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden) pomoСверить();
+});
 
 /* ---- медитация ---- */
 
@@ -11994,6 +12057,12 @@ function сверитьПодписку(){
   }
 })();
 применитьПлотность();
+
+/* Помидор, запущенный до перезагрузки, продолжается.
+
+   Момент окончания лежит в состоянии, поэтому страницу можно закрыть и
+   открыть заново — счёт не собьётся. */
+pomoСверить();
 
 /* Ручка файла переживает перезагрузку, разрешение — тоже.
 
