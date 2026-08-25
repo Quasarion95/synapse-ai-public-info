@@ -2292,3 +2292,6 @@ html[data-dense="1"] .titleline{gap:6px}
 
 /* Просроченная копилка: срок ушёл, и совета «как успеть» больше нет. */
 .jar .sub.late{color:var(--danger)}
+
+/* Просроченный долг: срок в прошлом, и это должно быть видно. */
+.dr-n .late{color:var(--danger); font-weight:600}
