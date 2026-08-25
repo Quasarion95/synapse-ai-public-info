@@ -2325,3 +2325,13 @@ html[data-dense="1"] .titleline{gap:6px}
 
 /* Просроченный долг: срок в прошлом, и это должно быть видно. */
 .dr-n .late{color:var(--danger); font-weight:600}
+
+/* «Прослушать отчёт» — своя кнопка под карточкой фокуса, не третья в ряду
+   мелких. Голос здесь главное действие, а не приложение к остальным. */
+.btn.full.listen{
+  margin-top:12px; display:flex; align-items:center; justify-content:center; gap:9px;
+  background:var(--panel-strong); color:var(--fg); border:1px solid var(--stroke);
+  font-weight:600;
+}
+.btn.full.listen:hover{border-color:var(--accent)}
+.listen-ic{font-size:12px; line-height:1}

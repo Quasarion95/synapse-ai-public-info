@@ -4950,15 +4950,23 @@ function vFocusCard(today, todayDone, overdue, withTime){
     '</div>' +
     (brief && brief.main ? '<p class="focus-main"><span>Главное</span>' + esc(brief.main) + '</p>' : '') +
     (отказ ? '<p class="err" style="margin-top:12px">' + esc(отказ) + '</p>' : '') +
+    /* Прослушать — отдельной широкой кнопкой под остальным.
+
+       Голос — единственное, ради чего этот экран стоит открыть за рулём или
+       пока одеваешься, а кнопка стояла третьей в ряду мелких, между «обновить»
+       и временем сборки. Теперь она своя, во всю ширину, и названа тем, что
+       делает: не «прослушать» вообще, а «прослушать отчёт». */
     '<div class="acts">' +
       '<button class="btn sm" data-act="briefing"' + (BRIEFING.busy ? ' disabled' : '') + '>' +
         (BRIEFING.busy ? 'Syn собирает…' : brief ? 'Обновить брифинг' : 'Собрать брифинг') + '</button>' +
-      (brief && speechSupported()
-        ? '<button class="btn sm soft" data-act="briefing-say"' + (speech.busy ? ' disabled' : '') + '>' +
-          (speech.busy ? 'Готовим голос…' : speech.on ? 'Остановить' : 'Прослушать') + '</button>'
-        : '') +
       (brief ? '<span class="hint" style="align-self:center">' + esc(brief.at) + '</span>' : '') +
     '</div>' +
+    (brief && speechSupported()
+      ? '<button class="btn full listen" data-act="briefing-say"' + (speech.busy ? ' disabled' : '') + '>' +
+          '<span class="listen-ic">' + (speech.on ? ICON.stop || '■' : '▶') + '</span>' +
+          (speech.busy ? 'Готовлю голос…' : speech.on ? 'Остановить' : 'Прослушать отчёт') +
+        '</button>'
+      : '') +
     (brief ? '' : '<p class="hint">Пока это сводка по вашим задачам. Брифинг соберёт Syn — он посмотрит на день целиком и скажет, с чего начать. Один запрос из дневной нормы.</p>') +
   '</section>';
 }
