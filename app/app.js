@@ -6920,13 +6920,16 @@ function телоДанных(){
 
   html += '<section class="card">' +
     '<h3>Резервная копия</h3>' +
-    '<p class="sub">Один файл со всем: задачи, цели, списки, заметки, настройки. Им же переносят данные в другой браузер или на другое устройство.</p>' +
+    '<p class="sub">Один файл со всем: задачи, цели, списки, заметки, настройки. Им же переносят данные в другой браузер.</p>' +
     '<div class="acts">' +
       '<button class="btn sm" data-act="export">Сохранить копию</button>' +
       '<button class="btn sm soft" data-act="import">Загрузить копию</button>' +
     '</div>' +
-    // Про синхронизацию — прямо, без обещаний.
-    '<p class="hint">Автоматической синхронизации с приложением нет. Данные приложения лежат в приватной базе iCloud, а читать её из браузера можно только после входа Apple ID прямо здесь — этого мы не делаем. Файл — единственный честный способ перенести данные сегодня.</p>' +
+    /* Про перенос с телефона — точно, потому что он работает только в одну
+       сторону. Раньше здесь стояло общее «переносят на другое устройство», и
+       человек, сохранивший копию на айфоне, получал в браузере «Это не копия
+       Synapse» — про файл, который Synapse же и сделал. */
+    '<p class="hint">Копию с айфона сюда загрузить можно: перенесутся задачи, цели, списки и заметки. Финансы, помодоро и память Syn останутся на телефоне. Обратно — из браузера в приложение — файл не читается, и автоматической синхронизации между ними нет.</p>' +
   '</section>';
 
   html += '<p class="lbl">Содержимое</p>' +
@@ -9179,6 +9182,102 @@ function exportBackup(){
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 }
 
+/* Копия, сделанная приложением на айфоне.
+
+   Форматы у двух Synapse разные: браузер сохраняет своё состояние как есть,
+   приложение заворачивает снимок в конверт со схемой и версией. Пока браузер
+   знал только про свой формат, файл с айфона он отвергал словами «Это не копия
+   Synapse» — про файл, который Synapse же и создал. Человек при этом делал
+   ровно то, что написано в настройках: «Им же переносят данные на другое
+   устройство».
+
+   Поэтому конверт разбирается здесь. Совпадений между моделями больше, чем
+   расхождений: блоки дня называются одинаково, статусы этапов тоже,
+   подзадачи отличаются только именем поля. Что не переносится — переносить
+   некуда: сфера задачи, окна выполнения, финансы и память Syn живут по
+   разным правилам, и подделывать их значило бы врать второй раз.
+
+   Обратной дороги — из браузера в приложение — эта функция не даёт: там
+   строгий разбор по типам, и подсунуть ему веб-файл нельзя. Так и сказано
+   в настройках. */
+function изКопииПриложения(конверт){
+  var снимок = конверт.workspace || {};
+  var деньИВремя = function(iso){
+    if (!iso) return { date: null, time: null };
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return { date: null, time: null };
+    var два = function(n){ return (n < 10 ? '0' : '') + n; };
+    return {
+      date: d.getFullYear() + '-' + два(d.getMonth() + 1) + '-' + два(d.getDate()),
+      time: два(d.getHours()) + ':' + два(d.getMinutes())
+    };
+  };
+
+  var задачи = (снимок.tasks || []).map(function(t){
+    var когда = деньИВремя(t.scheduledTime);
+    return {
+      id: String(t.id || uid()),
+      title: String(t.title || ''),
+      note: String(t.note || ''),
+      bucket: t.bucket || (когда.date ? bucketForDate(когда.date) : 'later'),
+      date: когда.date,
+      // Время показываем только если человек его действительно ставил:
+      // иначе у каждой задачи появится «00:00», которого он не писал.
+      time: t.hasExplicitTime ? когда.time : null,
+      done: !!t.isDone,
+      repeat: '', rule: null, series: null,
+      goalId: t.goalID ? String(t.goalID) : null,
+      stageId: t.goalStageID ? String(t.goalStageID) : null,
+      subtasks: (t.subtasks || []).map(function(s){
+        return { id: String(s.id || uid()), title: String(s.title || ''), done: !!s.isDone };
+      })
+    };
+  });
+
+  var цели = (снимок.goals || []).map(function(g){
+    return {
+      id: String(g.id || uid()),
+      title: String(g.title || ''),
+      purpose: String(g.purpose || ''),
+      horizon: String(g.horizon || ''),
+      sphere: String(g.sphere || ''),
+      pinned: !!g.isPinned,
+      stages: (g.stages || []).map(function(st){
+        return { id: String(st.id || uid()), title: String(st.title || ''),
+                 detail: String(st.detail || ''), status: st.status || 'planned',
+                 targetDate: st.targetDate ? деньИВремя(st.targetDate).date : '' };
+      })
+    };
+  });
+
+  var списки = (снимок.customLists || []).map(function(l){
+    return {
+      id: String(l.id || uid()),
+      title: String(l.title || ''),
+      note: String(l.note || ''),
+      items: (l.items || []).map(function(i){
+        return { id: String(i.id || uid()), title: String(i.title || ''), done: !!i.isDone };
+      })
+    };
+  });
+
+  // Заметки на айфоне разложены по папкам, а в браузере папок нет. Складываем
+  // все в общий список, а название папки дописываем к заголовку — иначе три
+  // «Идеи» из трёх папок станут неразличимы.
+  var заметки = [];
+  (снимок.noteFolders || []).forEach(function(f){
+    (f.notes || []).forEach(function(n){
+      заметки.push({
+        id: String(n.id || uid()),
+        title: (f.title ? f.title + ' · ' : '') + String(n.title || ''),
+        body: String(n.body || '')
+      });
+    });
+  });
+
+  return { tasks: задачи, goals: цели, lists: списки, notes: заметки };
+}
+
 /// Разбор загруженного файла. Чужой JSON — это данные, а не команда: берём
 /// только знакомые поля и проверяем, что это вообще состояние Synapse.
 function importBackup(text){
@@ -9191,7 +9290,15 @@ function importBackup(text){
   } catch (e) {
     throw new Error('Файл повреждён или это не копия Synapse');
   }
-  if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.tasks)){
+  if (!parsed || typeof parsed !== 'object'){
+    throw new Error('Это не копия Synapse');
+  }
+  var изПриложения = false;
+  if (parsed.schema === 'synapse.workspace.backup'){
+    parsed = изКопииПриложения(parsed);
+    изПриложения = true;
+  }
+  if (!Array.isArray(parsed.tasks)){
     throw new Error('Это не копия Synapse');
   }
   var fresh = seed();
@@ -9205,6 +9312,7 @@ function importBackup(text){
   fresh.lastOpened = isoOf(todayDate());
   S = fresh;
   save();
+  return изПриложения;
 }
 
 /* ============ МОДАЛКА ============ */
@@ -10772,9 +10880,14 @@ var ACTS = {
   'import-confirm': function(){
     closeModal();
     try {
-      importBackup(pendingImport);
+      var сТелефона = importBackup(pendingImport);
       pendingImport = '';
-      commit('Данные загружены из копии');
+      // Что именно перенеслось — сказать сразу. Из приложения приходит не всё:
+      // финансы, помодоро и память Syn остаются на телефоне, и узнать об этом
+      // лучше здесь, чем открыв пустой раздел «Мои финансы».
+      commit(сТелефона
+        ? 'Перенесено с телефона: задачи, цели, списки и заметки'
+        : 'Данные загружены из копии');
     } catch (e) {
       pendingImport = '';
       commit('Не получилось: ' + (e && e.message ? e.message : 'файл не читается'));
