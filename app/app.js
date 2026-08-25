@@ -377,12 +377,106 @@ function demoState(){
   return base;
 }
 
+/* Приведение записей к рабочему виду.
+
+   Приложение читает поля задач и целей без оглядки: `t.subtasks.filter(...)`,
+   `g.stages.map(...)`. Пока данные приходят из своего же хранилища, это верно —
+   мы сами их и записали. Но данные приходят ещё из двух мест, и там гарантии
+   нет: копия, сохранённая старой версией, где половины полей ещё не было, и
+   файл, который человек правил руками или взял не от нас.
+
+   Что при этом происходило: файл принимался, приложение открывалось на
+   «Профиле» и выглядело целым, а «Задачи» показывали пустой белый экран —
+   разбор падал на первой же задаче без subtasks. Перезагрузка не помогала:
+   сломанные данные уже лежали в хранилище. Выйти можно было только стерев
+   всё, то есть потеряв ровно то, что человек переносил.
+
+   Поэтому все четыре вида записей проходят здесь через одни и те же
+   умолчания — и при обычной загрузке, и при импорте. Дешевле, чем проверять
+   каждое поле в каждом месте отрисовки, и надёжнее: место отрисовки легко
+   забыть, а эта воронка одна. */
+function починитьЗаписи(данные){
+  if (!данные || typeof данные !== 'object') return данные;
+
+  данные.tasks = (Array.isArray(данные.tasks) ? данные.tasks : []).filter(Boolean).map(function(t){
+    if (!t.id) t.id = uid();
+    t.title = String(t.title == null ? '' : t.title);
+    t.bucket = t.bucket || (t.date ? bucketForDate(t.date) : 'later');
+    if (t.date === undefined) t.date = null;
+    t.done = !!t.done;
+    t.note = String(t.note == null ? '' : t.note);
+    if (t.time === undefined) t.time = null;
+    t.repeat = t.repeat || '';
+    if (t.rule === undefined) t.rule = null;
+    if (t.series === undefined) t.series = null;
+    if (t.goalId === undefined) t.goalId = null;
+    if (t.stageId === undefined) t.stageId = null;
+    t.subtasks = (Array.isArray(t.subtasks) ? t.subtasks : []).filter(Boolean).map(function(s){
+      return { id: s.id || uid(), title: String(s && s.title == null ? '' : s.title), done: !!(s && s.done) };
+    });
+    return t;
+  });
+
+  данные.goals = (Array.isArray(данные.goals) ? данные.goals : []).filter(Boolean).map(function(g){
+    if (!g.id) g.id = uid();
+    g.title = String(g.title == null ? '' : g.title);
+    g.purpose = String(g.purpose == null ? '' : g.purpose);
+    g.sphere = g.sphere || '';
+    g.horizon = g.horizon || '';
+    g.pinned = !!g.pinned;
+    g.stages = (Array.isArray(g.stages) ? g.stages : []).filter(Boolean).map(function(st){
+      return { id: st.id || uid(), title: String(st.title == null ? '' : st.title),
+               detail: String(st.detail == null ? '' : st.detail),
+               status: st.status || 'planned',
+               targetDate: st.targetDate || '' };
+    });
+    return g;
+  });
+
+  данные.lists = (Array.isArray(данные.lists) ? данные.lists : []).filter(Boolean).map(function(l){
+    if (!l.id) l.id = uid();
+    l.title = String(l.title == null ? '' : l.title);
+    l.note = String(l.note == null ? '' : l.note);
+    l.items = (Array.isArray(l.items) ? l.items : []).filter(Boolean).map(function(i){
+      return { id: i.id || uid(), title: String(i && i.title == null ? '' : i.title), done: !!(i && i.done) };
+    });
+    return l;
+  });
+
+  данные.notes = (Array.isArray(данные.notes) ? данные.notes : []).filter(Boolean).map(function(n){
+    if (!n.id) n.id = uid();
+    n.title = String(n.title == null ? '' : n.title);
+    n.body = String(n.body == null ? '' : n.body);
+    return n;
+  });
+
+  /* Корзина хранит те же записи целиком, и её содержимое возвращается прямо
+     в рабочие списки. Значит, чинить надо и там — иначе сломанная запись
+     просто ждёт нажатия «Вернуть». */
+  var ПОЛЕ_ВИДА = { task: 'tasks', goal: 'goals', list: 'lists', note: 'notes' };
+  данные.trash = (Array.isArray(данные.trash) ? данные.trash : []).filter(function(и){
+    return и && и.data && ПОЛЕ_ВИДА[и.kind];
+  }).map(function(и){
+    var коробка = { tasks: [], goals: [], lists: [], notes: [] };
+    var поле = ПОЛЕ_ВИДА[и.kind];
+    коробка[поле] = [и.data];
+    починитьЗаписи(коробка);
+    и.data = коробка[поле][0];
+    и.at = typeof и.at === 'number' ? и.at : Date.now();
+    и.title = String(и.title == null ? '' : и.title);
+    return и;
+  }).filter(function(и){ return !!и.data; });
+
+  return данные;
+}
+
 function load(){
   try {
     var raw = localStorage.getItem(KEY);
     if (!raw) return seed();
     var parsed = JSON.parse(raw);
     if (!parsed || parsed.version !== 2 || !parsed.tasks) return seed();
+    починитьЗаписи(parsed);
     // Поля, которых могло не быть в раньше сохранённом состоянии.
     parsed.drag = null;
     // Поле auth осталось у тех, кто открывал прошлые версии. Не читаем и не
@@ -2359,6 +2453,15 @@ function trashRestore(id){
     S.tasks.push(task);
   } else if (item.kind === 'goal'){
     S.goals.push(item.data);
+    // Задачи, удалённые вместе с целью, лежат внутри этой же записи.
+    var свои = (item.extra && item.extra.tasks) || [];
+    var естьID = {};
+    for (var k = 0; k < S.tasks.length; k++) естьID[S.tasks[k].id] = true;
+    for (var si = 0; si < свои.length; si++){
+      if (естьID[свои[si].id]) continue;
+      S.tasks.push(свои[si]);
+      естьID[свои[si].id] = true;
+    }
     var links = (item.extra && item.extra.taskIDs) || [];
     S.tasks.forEach(function(t){
       for (var i = 0; i < links.length; i++){
@@ -4223,13 +4326,20 @@ function vTrash(){
     S.trash.map(function(item){
       var kind = TRASH_KINDS[item.kind] || { title: 'Запись' };
       var left = trashDaysLeft(item);
+      /* Сколько задач вернётся вместе с целью. Без этого строка «Цель ·
+         Английский» не отличается от той, у которой задачи остались в списке,
+         и человек не знает, что именно вернёт нажатие. */
+      var внутри = (item.extra && item.extra.tasks || []).length;
+      var сНими = внутри
+        ? ' · с ' + внутри + ' ' + plural(внутри, 'задачей', 'задачами', 'задачами')
+        : '';
       /* Тип и срок — в одну строку с названием, а не под ним: так запись
          занимает один ряд вместо трёх, и на экран их влезает вдесятеро
          больше. Именно за этим в корзину и приходят — окинуть взглядом. */
       return '<article class="trashrow">' +
         '<div class="trashrow-t">' +
           '<b>' + esc(item.title) + '</b>' +
-          '<span class="sub">' + esc(kind.title) + ' · ' +
+          '<span class="sub">' + esc(kind.title) + сНими + ' · ' +
             (left ? left + ' ' + plural(left, 'день', 'дня', 'дней') : 'сегодня') +
           '</span>' +
         '</div>' +
@@ -9085,10 +9195,12 @@ function importBackup(text){
     throw new Error('Это не копия Synapse');
   }
   var fresh = seed();
-  var fields = ['tasks', 'goals', 'lists', 'notes', 'pomodoro', 'meditation', 'palette', 'theme', 'closed', 'open'];
+  var fields = ['tasks', 'goals', 'lists', 'notes', 'pomodoro', 'meditation', 'palette', 'theme', 'closed', 'open', 'trash'];
   for (var i = 0; i < fields.length; i++){
     if (parsed[fields[i]] !== undefined) fresh[fields[i]] = parsed[fields[i]];
   }
+  // Файл мог быть сохранён версией, в которой части полей ещё не существовало.
+  починитьЗаписи(fresh);
   fresh.view = 'profile';
   fresh.lastOpened = isoOf(todayDate());
   S = fresh;
@@ -10699,24 +10811,36 @@ var ACTS = {
        В корзину, а не насовсем: решение принимается в одно нажатие, а
        передумать через минуту — обычное дело. Тридцать дней на возврат тут те
        же, что и у задачи, удалённой поодиночке. */
+    /* Одно удаление — одна запись в корзине.
+
+       Раньше цель с двумя задачами оставляла три отдельные строки, и чтобы
+       отменить одно нажатие, приходилось нажать «Вернуть» трижды, угадав
+       порядок. Возврат должен стоить ровно столько же действий, сколько
+       стоило удаление, — иначе корзина перестаёт быть страховкой.
+
+       Теперь задачи уезжают внутри записи цели, в extra.tasks, и возвращаются
+       вместе с ней. Связь с этапом при этом не теряется: сами объекты задач
+       сохранены целиком, вместе со своим stageId. */
+    var удалённые = [];
     if (d.tasks){
-      var свои = S.tasks.filter(function(t){ return t.goalId === d.goal; });
-      for (var i = 0; i < свои.length; i++) trashPut('task', свои[i]);
+      удалённые = S.tasks.filter(function(t){ return t.goalId === d.goal; });
       var убрать = {};
-      for (var j = 0; j < свои.length; j++) убрать[свои[j].id] = true;
+      for (var j = 0; j < удалённые.length; j++) убрать[удалённые[j].id] = true;
       S.tasks = S.tasks.filter(function(t){ return !убрать[t.id]; });
     }
-    // Вместе с целью её задачи не удаляются, а отвязываются: задача остаётся в
-    // своём блоке дня, потому что она всё ещё дело, которое надо сделать.
+    // Оставшиеся задачи не удаляются, а отвязываются: задача остаётся в своём
+    // блоке дня, потому что она всё ещё дело, которое надо сделать.
     // Связи запоминаем, чтобы восстановление вернуло не только цель.
     var links = S.tasks.filter(function(t){ return t.goalId === d.goal; })
       .map(function(t){ return { id: t.id, stageId: t.stageId }; });
-    trashPut('goal', goal, { taskIDs: links });
+    trashPut('goal', goal, { taskIDs: links, tasks: удалённые });
     S.goals = S.goals.filter(function(g){ return g.id !== d.goal; });
     S.tasks.forEach(function(t){ if (t.goalId === d.goal){ t.goalId = null; t.stageId = null; } });
     S.activeGoal = null;
     S.view = 'goals';
-    commit('Цель в корзине, её задачи остались');
+    commit(удалённые.length
+      ? 'Цель и ' + удалённые.length + ' ' + plural(удалённые.length, 'задача', 'задачи', 'задач') + ' в корзине'
+      : 'Цель в корзине, её задачи остались');
   },
   'new-stage': function(d){ openModal(modalStage(d.goal)); },
   'save-stage': function(d){
