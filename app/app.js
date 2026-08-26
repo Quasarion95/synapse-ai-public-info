@@ -10252,12 +10252,20 @@ function foldModalActions(){
   var footer = document.createElement('div');
   footer.className = 'modal-foot';
 
-  // Берём с конца: подвал — это то, что идёт после полей, а не любая кнопка
-  // действия, встреченная в середине формы.
+  /* Берём с конца: подвал — это то, что идёт после полей, а не любая кнопка
+     действия, встреченная в середине формы.
+
+     Главное действие узнаётся по классам, а не по тегу. Раньше здесь стояло
+     `tagName === 'BUTTON'`, и когда «Оформить подписку» стало ссылкой (ей
+     нужен href, чтобы приложение отдало адрес системе), в подвал она уже не
+     попадала: туда уезжал только ряд «.acts», а ссылка оставалась в
+     прокручиваемой части — и липкий подвал наезжал на неё сверху. На большом
+     экране это было незаметно, на телефоне окно ниже, и нажатие приходилось в
+     подвал вместо ссылки. Со стороны — «кнопка не работает». */
   while (box.lastElementChild){
     var last = box.lastElementChild;
     var подвальный = last.classList.contains('acts') ||
-      (last.tagName === 'BUTTON' && last.classList.contains('full'));
+      (last.classList.contains('btn') && last.classList.contains('full'));
     if (!подвальный) break;
     footer.insertBefore(last, footer.firstChild);
   }
