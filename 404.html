@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Страница не найдена — Synapse</title>
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="/screens/mark.png">
+    <link rel="stylesheet" href="/fonts/fonts.css">
+    <link rel="stylesheet" href="/landing.css">
+    <meta name="theme-color" content="#7854f2">
+    <style>
+      /* Отдельная страница, а не кусок лендинга: ей нужен только центр экрана.
+         Стили берём общие, чтобы шрифт, цвета и тема совпадали с сайтом. */
+      .lost {
+        min-height: 100svh; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 18px;
+        text-align: center; padding: 32px 24px;
+      }
+      .lost-code {
+        font-family: var(--font-display); font-size: 88px; line-height: 1;
+        font-weight: 800; letter-spacing: -2px; color: var(--accent-strong);
+      }
+      .lost h1 { font-size: 26px; line-height: 1.2; margin: 0; }
+      .lost p { max-width: 34em; color: var(--muted, #6f684f); margin: 0; }
+      .lost .cta { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <main class="lost">
+      <div class="lost-code">404</div>
+      <h1>Такой страницы нет</h1>
+      <p>Возможно, в адресе опечатка или страница переехала.
+         Всё, что было, никуда не делось — записи хранятся в вашем браузере
+         и на вашем устройстве.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="/app/">Открыть Synapse</a>
+        <a class="btn btn-store" href="/">На главную</a>
+        <a class="btn btn-store" href="/support/">Поддержка</a>
+      </div>
+    </main>
+  </body>
+</html>
