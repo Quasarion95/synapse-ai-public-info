@@ -2483,3 +2483,18 @@ html[data-dense="1"] .titleline{gap:6px}
   .syn-msg{max-width:94%; font-size:13.5px}
   .syn-quota{font-size:11.5px; margin-top:6px}
 }
+
+
+/* Шапка с четырьмя кнопками на узком экране.
+
+   Значок валюты добавился четвёртой кнопкой, и на телефоне названию перестало
+   хватать места: «Synapse AI» обрезалось в «Syna…». Уменьшаем кнопки и зазоры
+   там, где экран узкий, — четыре кружка по 34 точки с шагом 6 оставляют
+   названию всю нужную ширину, а палец по ним попадает по-прежнему. */
+@media (max-width:430px){
+  .top-acts{gap:6px}
+  .top-acts .iconbtn{width:34px; height:34px}
+  .top-acts .iconbtn .nav-ic{width:17px; height:17px}
+  .iconbtn.cur .cur-sign{font-size:15px}
+  .iconbtn.lang .lang-code{font-size:11px}
+}

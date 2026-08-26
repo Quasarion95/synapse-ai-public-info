@@ -295,6 +295,10 @@ public class MainActivity extends AppCompatActivity {
         напоминания = new NotifyBridge(this);
         web.addJavascriptInterface(напоминания, "AndroidNotify");
 
+        /* Сохранение копии. Без этого моста кнопка «Сохранить копию» в
+           приложении не делала ничего: WebView не умеет загрузок. */
+        web.addJavascriptInterface(new ФайлыBridge(this), "AndroidFiles");
+
         setContentView(web);
 
         /* Кнопка «назад» ходит по разделам, а не закрывает приложение.

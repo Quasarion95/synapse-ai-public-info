@@ -10003,6 +10003,18 @@ function exportBackup(){
 /// Запасной путь: обычная загрузка. Папку выбирает браузер, поэтому говорим,
 /// куда смотреть.
 function скачатьФайлом(payload, имя){
+  /* В приложении файл пишет система, а не браузер.
+
+     WebView не умеет загрузок вовсе: ссылка с download молча ничего не делает,
+     и «Сохранить копию» выглядела сломанной — человек жал, ждал файл, а его не
+     было. Мост отдаёт готовый текст наружу, а Android кладёт его в «Загрузки». */
+  if (window.AndroidFiles && typeof window.AndroidFiles.save === 'function'){
+    var куда = '';
+    try { куда = window.AndroidFiles.save(имя, payload) || ''; } catch (e) { куда = ''; }
+    if (куда) return 'Копия сохранена: ' + имя + ' → ' + куда;
+    return 'Не получилось сохранить копию. Попробуйте ещё раз.';
+  }
+
   var blob = new Blob([payload], { type: 'application/json' });
   var url = URL.createObjectURL(blob);
   var link = document.createElement('a');
