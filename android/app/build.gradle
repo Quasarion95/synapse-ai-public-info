@@ -76,6 +76,9 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.webkit:webkit:1.11.0'   // ради WebViewAssetLoader
     implementation 'androidx.activity:activity:1.9.2'
+    // Custom Tabs: оплата открывается вкладкой поверх приложения — с адресом и
+    // замком в строке, но без выхода из Synapse. См. MainActivity.открытьСнаружи.
+    implementation 'androidx.browser:browser:1.8.0'
 }
 
 /* Забираем веб-версию перед сборкой.

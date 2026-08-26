@@ -1269,12 +1269,25 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    лента сверху, строка снизу, микрофон рядом со стрелкой. Высота ленты
    фиксирована и прокручивается сама — иначе длинный разговор растягивал бы
    окно на весь экран и кнопка отправки уезжала бы за край. */
-.syn-win{display:flex; flex-direction:column; min-height:0}
-.syn-top{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px}
-.syn-top h3{margin:0}
+/* Окно ассистента на телефоне.
 
-.syn-log{flex:1; min-height:120px; max-height:46vh; overflow-y:auto; overscroll-behavior:contain;
-  display:flex; flex-direction:column; gap:8px; padding:2px 2px 4px; margin-bottom:12px}
+   На узком экране оно выходило тесным до неработоспособности: заголовок
+   «Ассистент Syn» переносился на две строки, а строке ввода после микрофона
+   и стрелки оставалось меньше двухсот точек — подсказка «Перенеси урок на
+   субботу» ложилась в три строки. С открытой клавиатурой было хуже: высота
+   лога считалась от vh, то есть от всего экрана, а клавиатура забирала
+   половину — переписка уезжала под неё.
+
+   Поэтому здесь всё считается от dvh (живой высоты, без клавиатуры), поля
+   ужаты, а кнопки уменьшены до 38 точек — рука по ним попадает, а место
+   остаётся строке. */
+.syn-win{display:flex; flex-direction:column; min-height:0}
+.syn-top{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px}
+.syn-top h3{margin:0; font-size:18px; white-space:nowrap}
+.syn-top .btn{flex:none}
+
+.syn-log{flex:1; min-height:100px; max-height:min(46vh, 44dvh); overflow-y:auto; overscroll-behavior:contain;
+  display:flex; flex-direction:column; gap:8px; padding:2px 2px 4px; margin-bottom:10px}
 .syn-empty{font-size:13.5px; color:var(--fg-2); line-height:1.5; padding:6px 2px}
 
 /* Переносы строк в ответе сохраняются.
@@ -1299,9 +1312,9 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .syn-did.off li{color:var(--fg-3)}
 .syn-did.off li::before{background:var(--fg-3)}
 
-.syn-bar{display:flex; align-items:flex-end; gap:8px}
-.syn-bar textarea{flex:1; resize:none; min-height:44px; max-height:120px; padding:11px 12px}
-.syn-mic,.syn-go{flex:none; width:44px; height:44px; border-radius:999px; display:grid; place-items:center}
+.syn-bar{display:flex; align-items:flex-end; gap:6px}
+.syn-bar textarea{flex:1; min-width:0; resize:none; min-height:42px; max-height:120px; padding:10px 12px}
+.syn-mic,.syn-go{flex:none; width:42px; height:42px; border-radius:999px; display:grid; place-items:center}
 .syn-mic{background:var(--soft); color:var(--fg-2)}
 .syn-mic svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 .syn-mic:hover{color:var(--fg)}
@@ -2456,3 +2469,17 @@ html[data-dense="1"] .titleline{gap:6px}
 .curcell.on{background:var(--fg); color:var(--bg)}
 .curcell.on .cc-name{color:var(--bg); opacity:.75}
 @media (max-width:420px){ .curgrid{grid-template-columns:repeat(3, 1fr)} }
+
+
+/* На телефоне окну ассистента нужен каждый миллиметр ширины: поля модалки
+   съедали по 24 точки с каждой стороны, и строке ввода оставалось меньше
+   двухсот. */
+@media (max-width:560px){
+  .modal-in{padding:16px}
+  .syn-top h3{font-size:17px}
+  .syn-mic,.syn-go{width:38px; height:38px}
+  .syn-mic svg{width:18px; height:18px}
+  .syn-go{font-size:16px}
+  .syn-msg{max-width:94%; font-size:13.5px}
+  .syn-quota{font-size:11.5px; margin-top:6px}
+}

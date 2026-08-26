@@ -42,6 +42,20 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+
+        <!-- И браузер тоже надо объявить, иначе его для нас не существует.
+
+             С Android 11 приложение видит чужие только через этот список.
+             targetSdk у нас 34, браузер объявлен не был — и startActivity на
+             https-ссылку падал с ActivityNotFoundException. Ловилось оно
+             молча, поэтому «Оформить подписку» просто ничего не делала: ни
+             перехода, ни ошибки. Ровно та поломка, о которой сказал
+             пользователь. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
 
     <application

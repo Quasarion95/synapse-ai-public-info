@@ -227,12 +227,7 @@ public class MainActivity extends AppCompatActivity {
                         && url.getPath() != null && url.getPath().startsWith("/app/");
                 if (наше) return false;
 
-                try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, url));
-                } catch (Exception ignored) {
-                    // Открыть нечем — молча остаёмся на месте. Падать из-за
-                    // ссылки на приложение, которого нет на телефоне, нельзя.
-                }
+                открытьСнаружи(url);
                 return true;
             }
         });
@@ -358,6 +353,60 @@ public class MainActivity extends AppCompatActivity {
         web.evaluateJavascript(
                 "window.activateFromLink && window.activateFromLink("
                         + org.json.JSONObject.quote(один) + ")", null);
+    }
+
+    /**
+     * Чужая страница — оплата, поддержка, Telegram — открывается снаружи.
+     *
+     * Три попытки подряд, и это не перестраховка ради перестраховки: каждая
+     * закрывает случай, на котором мы уже обожглись.
+     *
+     * Сначала вкладка поверх приложения (Custom Tab). Человек видит адрес и
+     * замок — на странице оплаты это единственный способ убедиться, что деньги
+     * вводятся не в чужое окно, — но остаётся внутри Synapse, и «назад»
+     * возвращает туда, откуда он ушёл.
+     *
+     * Если вкладку показать нечем — обычный переход в браузер.
+     *
+     * Если и браузера нет, страница открывается в самом приложении. Это худший
+     * из трёх вариантов: адресной строки не будет. Но он несравнимо лучше того,
+     * что было: startActivity падал с ActivityNotFoundException (браузер не был
+     * объявлен в queries), исключение ловилось молча — и кнопка «Оформить
+     * подписку» не делала ровным счётом ничего. Молчание здесь — самое дорогое
+     * из возможных поведений: человек хотел заплатить и не смог.
+     */
+    private void открытьСнаружи(Uri url) {
+        try {
+            androidx.browser.customtabs.CustomTabsIntent вкладка =
+                    new androidx.browser.customtabs.CustomTabsIntent.Builder()
+                            .setShowTitle(true)
+                            .build();
+            вкладка.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+            вкладка.launchUrl(this, url);
+            return;
+        } catch (Exception ignored) {
+            // Вкладку показать нечем — пробуем браузер.
+        }
+
+        try {
+            /* Новая задача — обязательно.
+
+               Без этого флага вторая ссылка подряд уходила в ту же задачу, где
+               уже стоит браузер с той же страницей, и система считала, что
+               показывать нечего: первое нажатие открывало оплату, второе не
+               делало ничего, пока приложение не перезапустят. Ровно на это и
+               пожаловался владелец. */
+            Intent наружу = new Intent(Intent.ACTION_VIEW, url);
+            наружу.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+            startActivity(наружу);
+            return;
+        } catch (Exception ignored) {
+            // Браузера на устройстве нет либо система его от нас прячет.
+        }
+
+        if (web != null) web.loadUrl(url.toString());
     }
 
     /** Из «"rgb(245, 241, 232)"» — в цвет. null, если строка не та. */
