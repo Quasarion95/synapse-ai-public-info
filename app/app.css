@@ -239,7 +239,18 @@ h1.page{font-size:clamp(28px,7vw,38px); margin:2px 0 20px}
 /* ============ ФОРМЫ ============ */
 .field{margin-bottom:16px}
 .field label{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--fg-3); display:block; margin-bottom:8px}
-.inp{width:100%; border:0; background:var(--soft); border-radius:var(--r-md); padding:13px 15px; font-size:15.5px}
+/* Геометрия поля живёт в переменных, а не в числах по месту.
+
+   Поле даты — это <input> внутри обёртки: обёртка несла те же отступы, чтобы
+   подпись поверх неё их унаследовала, — и заодно вдавливала само поле внутрь
+   на 15 пикселей с каждой стороны. В модалке подписки оно выходило заметно
+   уже соседних полей: «Название» во всю ширину, «Дата списания» с уступами.
+   Теперь отступы объявлены один раз, обёртка их не добавляет, а подпись
+   берёт из тех же переменных. Узкие места (строка в финансах, телефон)
+   переопределяют переменные на контейнере — и поле с подписью едут вместе. */
+:root{--inp-py:13px; --inp-px:15px; --inp-fs:15.5px}
+.inp{width:100%; border:0; background:var(--soft); border-radius:var(--r-md);
+  padding:var(--inp-py) var(--inp-px); font-size:var(--inp-fs)}
 .inp:focus{outline:0; box-shadow:0 0 0 2px var(--fg) inset}
 textarea.inp{resize:vertical; min-height:74px; line-height:1.45}
 select.inp{appearance:none}
@@ -255,7 +266,8 @@ select.inp{appearance:none}
 .radio.pal .sw{width:19px; height:19px; border-radius:999px; display:grid; place-items:center; border:1px solid rgba(128,128,128,.35); flex:none}
 .radio.pal .sw i{width:8px; height:8px; border-radius:999px; display:block}
 .rowadd{display:flex; gap:7px; align-items:center; margin-top:8px}
-.rowadd .inp{flex:1; min-width:0; padding:8px 12px; font-size:14px; border-radius:var(--r-sm)}
+.rowadd{--inp-py:8px; --inp-px:12px; --inp-fs:14px}
+.rowadd .inp{flex:1; min-width:0; border-radius:var(--r-sm)}
 .rowadd .btn{flex:none; padding:8px 15px; font-size:13.5px}
 
 /* ============ ЗАДАЧИ ============ */
@@ -572,7 +584,7 @@ select.inp{appearance:none}
    него. Сетку теперь несёт само лицо, а строка становится простым блоком. */
 .payrow.swipe{display:block; padding:0}
 .payrow.swipe > .swipe-face{display:grid;
-  grid-template-columns:minmax(0,1fr) 92px 100px auto;
+  grid-template-columns:minmax(0,1fr) 92px 100px var(--pay-act);
   align-items:center; gap:10px; padding:10px var(--fin-pad, 18px)}
 .debtrow.swipe{padding:0}
 .debtrow.swipe > .swipe-face{padding:11px 13px}
@@ -1727,8 +1739,9 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    к строке, а не вторая форма. */
 .finwhen{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px}
 .finwhen label{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--fg-3)}
-.finwhen .inp{width:auto; flex:0 1 auto; padding:7px 10px; font-size:13px}
-.finwhen .datefield{width:auto; padding:7px 10px; font-size:13px}
+.finwhen{--inp-py:7px; --inp-px:10px; --inp-fs:13px}
+.finwhen .inp{width:auto; flex:0 1 auto}
+.finwhen .datefield{width:auto}
 /* Строка с датой не должна упираться в карточку под ней. */
 .finwhen{margin-bottom:14px}
 
@@ -1788,10 +1801,13 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 /* Кнопка «Оплатить» в строке платежа: не значок, а слово — это действие
    месяца, и прятать его в иконку рядом с крестиком нельзя. Оплаченное
    становится галочкой и гаснет вместе со строкой. */
-.fr-pay{flex:none; padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:600;
+/* Одна ширина в обоих состояниях: «Оплатить» и галка после оплаты. Раньше
+   галка была кружком вдвое уже кнопки, и соседние строки разъезжались. */
+.fr-pay{flex:none; min-width:88px; text-align:center; white-space:nowrap;
+  padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:600;
   background:var(--fg); color:var(--bg); white-space:nowrap}
 .fr-pay:hover{opacity:.85}
-.fr-pay.on{width:28px; padding:0; height:28px; display:grid; place-items:center;
+.fr-pay.on{width:88px; padding:0; height:28px; display:grid; place-items:center;
   background:var(--ok); color:#fff; font-size:14px}
 
 /* Шаблоны платежей по группам. Каждая — своя строка с прокруткой вбок; весь
@@ -1810,7 +1826,17 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    вычитывают из строки. Кнопки — последней колонкой, по наведению. */
 .paytable{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
   box-shadow:var(--shadow); overflow:hidden}
-.payhead, .payrow{display:grid; grid-template-columns:minmax(0,1fr) 92px 100px auto;
+/* Ширина колонки кнопок задана числом, а не по содержимому.
+
+   Шапка и каждая строка — отдельные сетки: они не могут договориться о
+   ширине последней колонки, а `auto` меряет её по своему содержимому. У
+   шапки там пусто, у оплаченной подписки кружок с галкой, у неоплаченной
+   широкая кнопка «Оплатить» — и суммы в каждой строке вставали на своё
+   место. «В месяц» и «В год» не попадали ни под шапку, ни друг под друга.
+   Теперь колонка фиксированной ширины, а кнопки внутри неё прижаты вправо. */
+.paytable{--pay-act:180px}
+.payhead, .payrow{display:grid;
+  grid-template-columns:minmax(0,1fr) 92px 100px var(--pay-act);
   align-items:center; gap:10px; padding:10px var(--fin-pad, 18px)}
 .payhead{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;
   color:var(--fg-3); font-weight:600; background:var(--soft); padding-top:8px; padding-bottom:8px}
@@ -1835,9 +1861,19 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   /* Прячем колонку по классу, а не по порядку: nth-of-type считает среди
      всех span подряд, и под нож попадала колонка «в месяц» — в шапке
      оставалась её подпись, а под ней стояли годовые суммы. */
-  .payhead, .payrow{grid-template-columns:minmax(0,1fr) 84px auto; gap:8px}
+  .payhead, .payrow,
+  .payrow.swipe > .swipe-face{grid-template-columns:minmax(0,1fr) 84px var(--pay-act); gap:8px}
   .payhead .year, .payrow .pr-v.year{display:none}
-  .fr-pay{padding:5px 9px; font-size:11.5px}
+  .fr-pay{min-width:72px; padding:5px 9px; font-size:11.5px}
+  .fr-pay.on{width:72px}
+}
+
+/* Пальцем правка и удаление уезжают в свайп, и в строке остаются две кнопки
+   вместо четырёх — колонке хватает вдвое меньшей ширины. Условие про палец
+   обязательно: в узком окне обычного браузера кнопки по-прежнему все четыре,
+   и по 104 пикселям они бы вылезли за край. */
+@media (max-width:560px) and (hover:none) and (pointer:coarse){
+  .paytable{--pay-act:104px}
   .pr-t{font-size:13.5px}
   .payhead, .payrow{padding-left:12px; padding-right:12px}
 }
@@ -1897,8 +1933,11 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   .rowadd .inp, .finwhen .inp, .say input, .inp-sum{
     font-size:16px;
   }
-  .finwhen .inp{padding:8px 11px}
-  .rowadd .inp{padding:9px 12px}
+  /* Кегль 16 — чтобы Safari не приближал страницу при вводе. Подписи поверх
+     поля даты берут его из той же переменной. */
+  :root, .rowadd, .finwhen{--inp-fs:16px}
+  .finwhen{--inp-py:8px; --inp-px:11px}
+  .rowadd{--inp-py:9px; --inp-px:12px}
 }
 
 /* Знак сервиса: фирменный цвет и буква. Не эмодзи и не чужой логотип —
@@ -2359,7 +2398,7 @@ html[data-dense="1"] .titleline{gap:6px}
 /* Обёртка повторяет отступы и шрифт поля, чтобы подпись их унаследовала.
    Значения общие, а частные случаи (как узкое поле в финансах) переопределяют
    их на обёртке — и подпись едет следом, без отдельной правки. */
-.datefield{position:relative; display:block; padding:13px 15px; font-size:15.5px}
+.datefield{position:relative; display:block}
 .datefield .inp{color:transparent}
 .datefield .inp::-webkit-datetime-edit{color:transparent}
 /* Подпись повторяет геометрию самого поля, а не подгоняется числами.
@@ -2371,8 +2410,8 @@ html[data-dense="1"] .titleline{gap:6px}
    поле ни стояло, подпись встанет ровно поверх его собственного текста. */
 .datefield .datetext{
   position:absolute; inset:0; display:flex; align-items:center;
-  padding:inherit; pointer-events:none;
-  font-size:inherit; color:var(--fg);
+  padding:var(--inp-py) var(--inp-px); pointer-events:none;
+  font-size:var(--inp-fs); color:var(--fg);
   /* Место справа под родной значок календаря: без него длинная дата
      подъезжала к нему вплотную. */
   padding-right:34px; white-space:nowrap; overflow:hidden;
