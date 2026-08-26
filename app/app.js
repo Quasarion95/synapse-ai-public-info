@@ -501,6 +501,8 @@ function load(){
       parsed.tourDone = (parsed.tasks && parsed.tasks.length > 0) || (parsed.goals && parsed.goals.length > 0);
     }
     if (!parsed.palette) parsed.palette = 'paper';
+    // Валюта: рубль по умолчанию, но выбор человека переживает обновления.
+    if (!parsed.currency) parsed.currency = 'rub';
     // «Как в системе» больше нет: тема теперь решение человека, а не среды.
     // Тем, у кого стояла системная, ставим ту, которую они и видели.
     if (parsed.theme !== 'light' && parsed.theme !== 'dark') parsed.theme = systemPrefersDark() ? 'dark' : 'light';
@@ -929,6 +931,55 @@ var MONTH_NAMES = ['января','февраля','марта','апреля','
    и как февраль позапрошлого. У копилки со сроком и у долга это разница
    между «успею» и «давно просрочено», а у платежа — между «через полгода» и
    «год назад». В своём году год не пишем: он там лишний шум. */
+/* Поле даты, которое показывает дату по-нашему.
+
+   Браузер рисует <input type="date"> по языку системы, и на телефоне с
+   английской локалью человек видит «08/27/2026». Жалоба живого человека:
+   «Я не знаю, кому нравится такой формат. Не встречала пока таких людей».
+   Управлять этим из вёрстки нельзя — ни атрибутом lang, ни стилями.
+
+   Поэтому родное поле остаётся (ради календаря, который на телефоне удобнее
+   любого своего), но его текст прячется, а поверх рисуется наш: «27.08.2026».
+   Нажатие проходит насквозь и открывает тот же календарь. Пустое поле
+   показывает подсказку, а не пустоту, — иначе непонятно, поле это или полоска.
+
+   Значение внутри по-прежнему ISO: ничего в остальном коде менять не нужно. */
+function полеДаты(id, значение, ещё){
+  var текст = значение ? датаТочками(значение) : 'дд.мм.гггг';
+  return '<span class="datefield' + (значение ? '' : ' empty') + '">' +
+    '<input class="inp" type="date" id="' + id + '" value="' + esc(значение || '') + '"' +
+      (ещё || '') + '>' +
+    '<span class="datetext" aria-hidden="true">' + esc(текст) + '</span>' +
+  '</span>';
+}
+
+/* Текст поверх поля обновляется вместе со значением.
+
+   Слушаем на документе, а не на каждом поле: модалки перерисовываются целиком,
+   и обработчик на самом поле умирал бы вместе с ним. */
+document.addEventListener('change', function(событие){
+  var поле = событие.target;
+  if (!поле || poleTypeIsDate(поле) !== true) return;
+  var обёртка = поле.closest('.datefield');
+  if (!обёртка) return;
+  var подпись = обёртка.querySelector('.datetext');
+  if (!подпись) return;
+  подпись.textContent = поле.value ? датаТочками(поле.value) : 'дд.мм.гггг';
+  обёртка.classList.toggle('empty', !поле.value);
+});
+
+function poleTypeIsDate(поле){
+  return поле.tagName === 'INPUT' && поле.getAttribute('type') === 'date';
+}
+
+/// «2026-08-27» → «27.08.2026». Формат, который в России читают все.
+function датаТочками(iso){
+  var d = dateOf(iso);
+  if (!d) return '';
+  var два = function(n){ return (n < 10 ? '0' : '') + n; };
+  return два(d.getDate()) + '.' + два(d.getMonth() + 1) + '.' + d.getFullYear();
+}
+
 function humanDate(iso){
   var d = dateOf(iso);
   if (!d) return '';
@@ -2570,13 +2621,42 @@ function finTint(cat, alpha){
    0.30000000000000004, и на третьей сотне операций итог месяца разъезжается
    с суммой строк на рубль — ровно то место, где человек перестаёт верить
    всему разделу. */
+/* Валюта. Рубль был зашит намертво.
+
+   Жалоба живого человека: «Финансы. Там только рубли. Не у всех есть рубли.
+   Можно вообще без названия валюты даже сделать». Справедливо: приложением
+   пользуются не только в России, а раздел о деньгах, который считает чужие
+   деньги рублями, читается как чужой.
+
+   Сами суммы храним как хранили — целым числом мелких единиц. Пересчёта по
+   курсу здесь нет и не будет: это не обменник, а личный учёт, и человек
+   вводит суммы в той валюте, в которой живёт. Меняется только значок. */
+var ВАЛЮТЫ = [
+  { id: 'rub',  знак: '₽',  title: 'Рубль' },
+  { id: 'kzt',  знак: '₸',  title: 'Тенге' },
+  { id: 'uah',  знак: '₴',  title: 'Гривна' },
+  { id: 'byn',  знак: 'Br', title: 'Белорусский рубль' },
+  { id: 'kgs',  знак: 'с',  title: 'Сом' },
+  { id: 'usd',  знак: '$',  title: 'Доллар' },
+  { id: 'eur',  знак: '€',  title: 'Евро' },
+  // Ровно то, что человек и предложил: считать без подписи вовсе.
+  { id: 'none', знак: '',   title: 'Без значка' }
+];
+
+function валютаЗнак(){
+  var id = (S && S.currency) || 'rub';
+  for (var i = 0; i < ВАЛЮТЫ.length; i++) if (ВАЛЮТЫ[i].id === id) return ВАЛЮТЫ[i].знак;
+  return '₽';
+}
+
 function finMoney(kopecks, opts){
   opts = opts || {};
   var negative = kopecks < 0;
   var whole = Math.round(Math.abs(kopecks) / 100);
   var text = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   if (opts.kop && Math.abs(kopecks) % 100) text += ',' + ('0' + Math.abs(kopecks) % 100).slice(-2);
-  return (negative ? '−' : (opts.plus ? '+' : '')) + text + ' ₽';
+  var знак = валютаЗнак();
+  return (negative ? '−' : (opts.plus ? '+' : '')) + text + (знак ? ' ' + знак : '');
 }
 
 /* Разбор строки: «кофе 350», «350 кофе», «зарплата 90 000», «такси 1.5к».
@@ -3300,7 +3380,7 @@ function vFinOps(){
   // раздувала бы на треть. Сама строка ввода уехала вниз экрана (vFinComposer).
   html += '<div class="finwhen">' +
       '<label for="findate">Дата</label>' +
-      '<input class="inp" type="date" id="findate" value="' + esc(S.finDate || isoOf(todayDate())) + '">' +
+      полеДаты('findate', S.finDate || isoOf(todayDate())) +
     '</div>';
 
   if (!S.finance.ops.length){
@@ -4095,7 +4175,7 @@ function modalSubEdit(sub){
         '</select></div>' +
     '</div>' +
     '<div class="field"><label for="m-due">Дата списания</label>' +
-      '<input class="inp" id="m-due" type="date" value="' + esc(sub.since || '') + '"></div>' +
+      полеДаты('m-due', sub.since || '') + '</div>' +
     // Вид оставлен только в правке: он решает, в какой таблице строка стоит,
     // и нужен, чтобы поправить промах. При заведении его задаёт кнопка.
     '<div class="field"><label for="m-duty">Куда относится</label>' +
@@ -4201,7 +4281,7 @@ function modalDebt(){
       '<input class="inp" id="m-amount" placeholder="15 000"></div>' +
     '<div class="field"><label for="m-due" id="m-due-label">' +
       (mine ? 'Когда вернуть' : 'Когда должны вернуть') + '</label>' +
-      '<input class="inp" id="m-due" type="date"></div>' +
+      полеДаты('m-due', '') + '</div>' +
     '<div class="field"><label for="m-note">Заметка</label>' +
       '<input class="inp" id="m-note" placeholder="Необязательно"></div>' +
     '<label class="check"><input type="checkbox" id="m-remind">' +
@@ -4253,7 +4333,7 @@ function modalOp(op){
       '<input class="inp" id="m-amount" value="' + Math.round(op.amount / 100) + '"></div>' +
     '<div class="field"><label for="m-cat">Категория</label>' + finCatSelect('m-cat', op.cat) + '</div>' +
     '<div class="field"><label for="m-due">Дата</label>' +
-      '<input class="inp" id="m-due" type="date" value="' + esc(op.date) + '"></div>' +
+      полеДаты('m-due', op.date) + '</div>' +
     '<button class="btn full" data-act="fin-op-save" data-op="' + op.id + '">Сохранить</button>' +
     '<div class="acts">' +
       '<button class="btn sm soft" data-act="fin-op-kill" data-op="' + op.id + '">Удалить</button>' +
@@ -4284,8 +4364,7 @@ function modalRecurring(rule){
         '<option value="year"' + (!fresh && rule.every === 'year' ? ' selected' : '') + '>Раз в год</option>' +
       '</select></div>' +
     '<div class="field"><label for="m-due">С какого числа</label>' +
-      '<input class="inp" id="m-due" type="date" value="' +
-        esc(fresh ? isoOf(todayDate()) : rule.since) + '"></div>' +
+      полеДаты('m-due', fresh ? isoOf(todayDate()) : rule.since) + '</div>' +
     '<button class="btn full" data-act="fin-rec-save"' + (fresh ? '' : ' data-rec="' + rule.id + '"') + '>' +
       (fresh ? 'Записать' : 'Сохранить') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
@@ -4302,7 +4381,7 @@ function modalJar(jar){
       '<input class="inp" id="m-amount" value="' + (fresh ? '' : Math.round(jar.target / 100)) +
         '" placeholder="120 000"></div>' +
     '<div class="field"><label for="m-due">К какому числу</label>' +
-      '<input class="inp" id="m-due" type="date" value="' + esc(fresh ? '' : (jar.due || '')) + '"></div>' +
+      полеДаты('m-due', fresh ? '' : (jar.due || '')) + '</div>' +
     // Привязка к цели: копилка становится её этапом и закрывается сама, когда
     // сумма собрана.
     (goals.length ? '<div class="field"><label for="m-goal">Этап какой цели</label>' +
@@ -4345,7 +4424,7 @@ function modalSub(sub){
           '</select></div>' +
       '</div>' +
       '<div class="field"><label for="m-due">Дата списания</label>' +
-        '<input class="inp" id="m-due" type="date" value="' + esc(isoOf(todayDate())) + '"></div>' +
+        полеДаты('m-due', isoOf(todayDate())) + '</div>' +
       '<button class="btn full" data-act="fin-sub-save">Записать</button>' +
     '</div>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Закрыть</button></div>';
@@ -7013,6 +7092,19 @@ function vSettings(){
 
      «Показать обучение заново» уехало отсюда вовсе: к данным оно не
      относится, стояло рядом с автосохранением по случайности. */
+  /* Валюта — своей группой, а не внутри «Вида».
+
+     Это не оформление: от неё зависит, как читается весь раздел денег. Живая
+     жалоба: «Там только рубли. Не у всех есть рубли». */
+  html += группаНастроек('Деньги',
+    '<div class="setline"><span class="sl-text"><b>Валюта</b>' +
+      '<i>Значок рядом с суммами. Пересчёта по курсу нет — суммы вы вводите сами</i></span></div>' +
+    '<div class="radios">' + ВАЛЮТЫ.map(function(в){
+      return '<button class="radio" data-act="set-currency" data-id="' + в.id + '"' +
+        ' aria-pressed="' + ((S.currency || 'rub') === в.id) + '">' +
+        esc(в.знак ? в.знак + ' ' + в.title : в.title) + '</button>';
+    }).join('') + '</div>');
+
   html += группаНастроек('Данные', телоДанных(), true);
 
   html += группаНастроек('Обучение',
@@ -10176,7 +10268,7 @@ function modalGoal(goal, draftTitle){
        (horizon и targetDate), и путать их нельзя: цель без даты нормальна,
        цель без «зачем» — нет. */
     '<div class="field"><label for="m-target">Дата цели <span class="opt">по желанию</span></label>' +
-      '<input class="inp" id="m-target" type="date" value="' + esc(g.targetDate || '') + '"></div>' +
+      полеДаты('m-target', g.targetDate || '') + '</div>' +
     '<button class="btn full" data-act="save-goal"' + (goal ? ' data-goal="' + goal.id + '"' : '') + '>' +
       (fresh ? 'Создать цель' : 'Сохранить') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
@@ -10190,7 +10282,7 @@ function modalStage(goalId, stage){
     '<div class="field"><label>Описание</label><input class="inp" id="m-detail" value="' + esc(st.detail) + '" placeholder="Если нужен контекст, добавь его сюда"></div>' +
     // У этапа своя дата: «сдать экзамен к 15 мая» — это срок шага, а не цели.
     '<div class="field"><label>Дата этапа <span class="opt">по желанию</span></label>' +
-      '<input class="inp" id="m-target" type="date" value="' + esc(st.targetDate || '') + '"></div>' +
+      полеДаты('m-target', st.targetDate || '') + '</div>' +
     '<button class="btn full" data-act="save-stage" data-goal="' + goalId + '"' +
       (stage ? ' data-stage="' + stage.id + '"' : '') + '>' +
       (stage ? 'Сохранить' : 'Создать этап') + '</button>' +
@@ -10213,8 +10305,18 @@ function modalTask(t){
   return '<h3>Редактировать задачу</h3>' +
     '<div class="field"><label>Название</label><input class="inp" id="m-title" value="' + esc(t.title) + '"></div>' +
     '<div class="field"><label>Описание</label><textarea class="inp" id="m-note" placeholder="Комментарий к задаче">' + esc(t.note) + '</textarea></div>' +
+    /* «Когда делать», а не «Блок».
+
+       Жалоба живого человека: «Я хотела перенести задачу на завтра вручную.
+       Оказалось, что нет такой опции». Опция была — вот она, — но называлась
+       словом из нашего словаря, а не из её. «Блок» человек читает как что-то
+       техническое и проходит мимо, а ищет он именно «когда».
+
+       Стоит вторым полем, сразу после названия: это самое частое, что в
+       задаче меняют. Раньше оно было третьим и на телефоне уезжало под сгиб —
+       вместе с ответом на её вопрос. */
     '<div class="row2">' +
-      '<div class="field"><label>Блок</label><select class="inp" id="m-bucket">' +
+      '<div class="field"><label>Когда делать</label><select class="inp" id="m-bucket">' +
         BUCKETS.map(function(b){
           return '<option value="' + b.id + '"' + (t.bucket === b.id ? ' selected' : '') + '>' + b.title + '</option>';
         }).join('') + '</select></div>' +
@@ -10231,10 +10333,24 @@ function modalTask(t){
     '</div>' +
     '<div class="row2">' +
       '<div class="field"><label>Крайний срок</label>' +
-        '<input class="inp" id="m-dl-date" type="date" value="' + esc(t.deadline && t.deadline.date || '') + '"></div>' +
+        полеДаты('m-dl-date', t.deadline && t.deadline.date || '') + '</div>' +
       '<div class="field"><label>Время срока</label>' +
         '<input class="inp" id="m-dl-time" type="time" value="' + esc(t.deadline && t.deadline.time || '') + '"></div>' +
     '</div>' +
+    /* Срок и день — разные вещи, и это надо сказать вслух.
+
+       Человек поставил крайний срок на послезавтра и ждал, что задача туда и
+       переедет. Она осталась в «Сегодня»: срок отвечает на «до когда», а день
+       на «когда делать». Разница верная, но неочевидная — если о ней не
+       сказать, выглядит как поломка.
+
+       Показываем подсказку только когда срок вообще стоит: пустому полю
+       объяснять нечего. */
+    (t.deadline && t.deadline.date
+      ? '<p class="fieldhint">Срок не переносит задачу — он только помечает её ' +
+        'просроченной, когда день пройдёт. Чтобы задача переехала, поменяйте ' +
+        '«Когда делать».</p>'
+      : '') +
     /* Окно выполнения — «сделать между двумя и шестью».
 
        Оно тут было наполовину: если Syn ставил окно голосом, чип «с 14:00»
@@ -10774,6 +10890,13 @@ var ACTS = {
   'set-theme': function(d){ S.theme = d.theme; commit(); },
   'autobackup-on': function(){ автокопияВключить(); },
   'autobackup-off': function(){ автокопияВыключить(); },
+  'set-currency': function(d){
+    S.currency = d.id || 'rub';
+    var выбранная = ВАЛЮТЫ.filter(function(в){ return в.id === S.currency; })[0];
+    commit(выбранная && выбранная.знак
+      ? 'Суммы теперь с «' + выбранная.знак + '»'
+      : 'Суммы теперь без значка валюты');
+  },
   'set-startview': function(d){
     S.startView = d.id || 'tasks';
     // Нажали по погашенному выбору — значит, человек хочет именно этот раздел,
