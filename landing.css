@@ -503,6 +503,9 @@ a { color: var(--accent-strong); }
 
 .eyebrow {
   font-family: var(--font-display);
+  /* Плашка переносится по смыслу, а не по остатку строки: без этого
+     «на базе ИИ» разрывалось так, что «ИИ» повисало одно на второй строке. */
+  text-wrap: balance;
   display: inline-block;
   padding: 5px 12px;
   border-radius: 999px;
