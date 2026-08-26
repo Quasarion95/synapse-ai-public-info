@@ -1728,6 +1728,9 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .finwhen{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px}
 .finwhen label{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--fg-3)}
 .finwhen .inp{width:auto; flex:0 1 auto; padding:7px 10px; font-size:13px}
+.finwhen .datefield{width:auto; padding:7px 10px; font-size:13px}
+/* Строка с датой не должна упираться в карточку под ней. */
+.finwhen{margin-bottom:14px}
 
 /* Конверт: заголовок, полоса, остаток. Перерасход красным по всей строке —
    это то место, ради которого раздел и заведён. */
@@ -2353,12 +2356,26 @@ html[data-dense="1"] .titleline{gap:6px}
 
    Родное поле остаётся ради календаря: на телефоне он удобнее любого своего.
    Нажатие проходит насквозь, потому что наш текст ничего не ловит. */
-.datefield{position:relative; display:block}
+/* Обёртка повторяет отступы и шрифт поля, чтобы подпись их унаследовала.
+   Значения общие, а частные случаи (как узкое поле в финансах) переопределяют
+   их на обёртке — и подпись едет следом, без отдельной правки. */
+.datefield{position:relative; display:block; padding:13px 15px; font-size:15.5px}
 .datefield .inp{color:transparent}
 .datefield .inp::-webkit-datetime-edit{color:transparent}
+/* Подпись повторяет геометрию самого поля, а не подгоняется числами.
+
+   Сначала здесь стояли «left:12px» и свой размер шрифта — и то и другое
+   разошлось с полем: у него отступ 11 или 15 в зависимости от места, а шрифт
+   на полтора пункта крупнее. Текст висел не на своей строке и читался мельче
+   соседних полей. Наследование от родителя это чинит раз и навсегда: где бы
+   поле ни стояло, подпись встанет ровно поверх его собственного текста. */
 .datefield .datetext{
-  position:absolute; left:12px; top:50%; transform:translateY(-50%);
-  pointer-events:none; font-size:14.5px; color:var(--fg);
+  position:absolute; inset:0; display:flex; align-items:center;
+  padding:inherit; pointer-events:none;
+  font-size:inherit; color:var(--fg);
+  /* Место справа под родной значок календаря: без него длинная дата
+     подъезжала к нему вплотную. */
+  padding-right:34px; white-space:nowrap; overflow:hidden;
 }
 .datefield.empty .datetext{color:var(--fg-3)}
 /* Значок календаря родной — его не прячем, по нему и нажимают. */
