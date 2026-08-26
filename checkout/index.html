@@ -339,9 +339,11 @@
       } catch (error) {}
 
       var PLANS = {
-        "pro.weekly":  { title: "Неделя", price: 149,  days: 7,   every: "каждые 7 дней",   note: "Попробовать без длинного обязательства.", tag: "" },
-        "pro.monthly": { title: "Месяц",  price: 590,  days: 30,  every: "каждые 30 дней",  note: "Основной тариф.",                        tag: "" },
-        "pro.yearly":  { title: "Год",    price: 4990, days: 365, every: "каждые 365 дней", note: "Примерно 416 ₽ в месяц.",                tag: "выгодно" }
+        // Пояснений у тарифов нет: цена и период говорят всё, а уговоры на
+        // ценнике только удлиняют страницу — на телефоне выбор уезжал под сгиб.
+        "pro.weekly":  { title: "Неделя", price: 149,  days: 7,   every: "каждые 7 дней",   note: "раз в неделю", tag: "" },
+        "pro.monthly": { title: "Месяц",  price: 590,  days: 30,  every: "каждые 30 дней",  note: "раз в месяц",  tag: "" },
+        "pro.yearly":  { title: "Год",    price: 4990, days: 365, every: "каждые 365 дней", note: "раз в год",    tag: "выгодно" }
       };
 
       var money = function (value) {

@@ -7554,9 +7554,9 @@ function vAbout(){
    PLANS в checkout/index.html — они уезжают в ссылку параметром plan, и
    страница открывается с уже выбранным тарифом. */
 var PLANS = [
-  { id: 'pro.weekly',  title: 'Неделя', price: '149 ₽',   note: 'Попробовать без длинного обязательства.' },
-  { id: 'pro.monthly', title: 'Месяц',  price: '590 ₽',   note: 'Основной тариф.', main: true },
-  { id: 'pro.yearly',  title: 'Год',    price: '4 990 ₽', note: 'Примерно 416 ₽ в месяц.', tag: 'выгодно' }
+  { id: 'pro.weekly',  title: 'Неделя', price: '149 ₽' },
+  { id: 'pro.monthly', title: 'Месяц',  price: '590 ₽', main: true },
+  { id: 'pro.yearly',  title: 'Год',    price: '4 990 ₽', tag: 'выгодно' }
 ];
 
 function planTitle(id){
@@ -7631,7 +7631,6 @@ function vSubscription(){
             (plan.tag ? '<span class="plantag">' + esc(plan.tag) + '</span>' : '') +
             '<b class="planname">' + esc(plan.title) + '</b>' +
             '<span class="planprice">' + esc(plan.price) + '</span>' +
-            '<span class="plannote">' + esc(plan.note) + '</span>' +
             '<span class="planbuy">Оформить</span>' +
           '</a>';
         }).join('') +
@@ -8340,7 +8339,7 @@ function modalSynPaywall(){
       '<b>' + неделя + '</b><span>за неделю, чтобы попробовать</span>' +
       '<b>' + месяц + '</b><span>за месяц</span>' +
     '</div>' +
-    '<button class="btn full" data-act="go" data-view="subscription">Подключить Pro</button>' +
+    кнопкаОплаты() +
     '<div class="acts pair">' +
       '<button class="btn soft" data-act="pro-code">У меня есть код</button>' +
       '<button class="btn soft" data-act="close-modal">Закрыть</button>' +
@@ -10561,17 +10560,35 @@ function modalLookPaywall(что){
     '<p class="s">Первое из каждого набора открыто всем, остальное входит в Synapse Pro ' +
       'вместе с ассистентом и его брифингами.</p>' +
     '<div class="paywall-price">' +
-      '<b>' + planPrice('pro.weekly') + '</b><span>за неделю, чтобы попробовать</span>' +
-      '<b>' + planPrice('pro.monthly') + '</b><span>за месяц</span>' +
-      // Год показываем всегда: без него человек видит только «дорого в
-      // пересчёте» и не знает, что есть тариф вдвое дешевле помесячного.
-      '<b>' + planPrice('pro.yearly') + '</b><span>за год — 416 ₽ в месяц</span>' +
+      ценникиPro() +
     '</div>' +
-    '<button class="btn full" data-act="go" data-view="subscription">Подключить Pro</button>' +
+    кнопкаОплаты() +
     '<div class="acts pair">' +
       '<button class="btn soft" data-act="pro-code">У меня есть код</button>' +
       '<button class="btn soft" data-act="close-modal">Закрыть</button>' +
     '</div>';
+}
+
+/* Кнопка, ведущая на оплату, а не на ещё один экран.
+
+   Раньше здесь стояло «Подключить Pro» с переходом в раздел «Моя подписка»:
+   человек жал, окно закрывалось, открывался экран с теми же ценами — и надо
+   было выбирать тариф второй раз. Со стороны это читалось как «кнопка не
+   работает», о чём и сказал владелец. Теперь она открывает страницу оплаты
+   сразу; тариф на ней уже выбран месячный, его же можно поменять там. */
+function кнопкаОплаты(){
+  return '<a class="btn full" href="../checkout/">Оформить подписку</a>';
+}
+
+/* Три цены без пояснений.
+
+   Было «149 ₽ за неделю, чтобы попробовать» и «4 990 ₽ за год — 416 ₽ в
+   месяц». Владелец: «убери описание из каждого». Цена и период — всё, что
+   нужно, чтобы выбрать; уговоры на ценнике только удлиняют окно. */
+function ценникиPro(){
+  return '<b>' + planPrice('pro.weekly') + '</b><span>раз в неделю</span>' +
+    '<b>' + planPrice('pro.monthly') + '</b><span>раз в месяц</span>' +
+    '<b>' + planPrice('pro.yearly') + '</b><span>раз в год</span>';
 }
 
 function modalPaywall(kind){
@@ -10582,11 +10599,9 @@ function modalPaywall(kind){
     '<p class="s">' + esc(limitReason(kind)) + ' В Synapse Pro их сколько угодно — ' +
       'вместе с ассистентом, брифингами и памятью между разговорами.</p>' +
     '<div class="paywall-price">' +
-      '<b>' + planPrice('pro.weekly') + '</b><span>за неделю, чтобы попробовать</span>' +
-      '<b>' + planPrice('pro.monthly') + '</b><span>за месяц</span>' +
-      '<b>' + planPrice('pro.yearly') + '</b><span>за год — 416 ₽ в месяц</span>' +
+      ценникиPro() +
     '</div>' +
-    '<button class="btn full" data-act="go" data-view="subscription">Подключить Pro</button>' +
+    кнопкаОплаты() +
     '<div class="acts pair">' +
       '<button class="btn soft" data-act="pro-code">У меня есть код</button>' +
       '<button class="btn soft" data-act="close-modal">Закрыть</button>' +
