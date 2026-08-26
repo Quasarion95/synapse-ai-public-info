@@ -7580,13 +7580,43 @@ function подпискаИстекла(){
   return !!до && до < Date.now();
 }
 
+/* Три карточки тарифов. Каждая — ссылка на оплату целиком, а не кнопка
+   внутри: палец попадает в любую точку карточки, а не только в слово
+   «Оформить». */
+function тарифыБлок(){
+  return '<p class="lbl">Тарифы</p>' +
+    '<div class="plancards">' +
+      PLANS.map(function(plan){
+        return '<a class="plancard' + (plan.main ? ' main' : '') + '" href="../checkout/?plan=' + plan.id + '">' +
+          (plan.tag ? '<span class="plantag">' + esc(plan.tag) + '</span>' : '') +
+          '<b class="planname">' + esc(plan.title) + '</b>' +
+          '<span class="planprice">' + esc(plan.price) + '</span>' +
+          '<span class="planbuy">Оформить</span>' +
+        '</a>';
+      }).join('') +
+    '</div>' +
+    '<p class="hint">Оплата проходит на сайте — карта или СБП.</p>';
+}
+
 function vSubscription(){
   var pro = isPro();
   var истекла = !pro && подпискаИстекла();
   var html = '';
 
-  /* Состояние — первым, до цен. Человек, который уже платит, приходит сюда
-     посмотреть срок и код, а не выбирать тариф заново. */
+  /* Тарифы — первым, если человек ещё не платит.
+
+     Раньше экран начинался с карточки состояния: «Бесплатный доступ», список
+     того, чего нельзя, и кнопка «У меня есть код». Цены стояли ниже, за
+     сгибом, а первое, что предлагалось нажать, — ввод кода, которого у
+     пришедшего покупать нет. Человек, открывший «Мою подписку», чаще всего
+     пришёл именно платить; ему и должно попасться первым то, чем платят.
+
+     У платящего порядок обратный: он приходит посмотреть срок и код, и цены
+     ему показывать незачем — там их и нет вовсе. */
+  if (!pro){
+    html += тарифыБлок();
+  }
+
   html += '<section class="card sub-state' + (pro ? ' on' : '') + '">' +
     '<div class="sub-head">' +
       '<span class="sub-mark" aria-hidden="true">' + (pro ? ICON.pro : ICON.lock) + '</span>' +
@@ -7619,23 +7649,20 @@ function vSubscription(){
           ? '<button class="btn sm" data-act="pro-refresh">Проверить продление</button>' +
             '<a class="btn sm soft" href="../account/">Управление и оплата</a>' +
             '<button class="btn sm soft" data-act="pro-forget">Отвязать код</button>'
-          : '<button class="btn sm" data-act="pro-code">У меня есть код</button>') +
+          : '') +
     '</div>' +
   '</section>';
 
+  /* Код — после цен, отдельной негромкой строкой.
+
+     Он нужен тем, кто уже заплатил на сайте и вернулся включить подписку:
+     таких меньшинство, и они знают, что ищут. Стоять выше цен ему незачем. */
   if (!pro){
-    html += '<p class="lbl">Тарифы</p>' +
-      '<div class="plancards">' +
-        PLANS.map(function(plan){
-          return '<a class="plancard' + (plan.main ? ' main' : '') + '" href="../checkout/?plan=' + plan.id + '">' +
-            (plan.tag ? '<span class="plantag">' + esc(plan.tag) + '</span>' : '') +
-            '<b class="planname">' + esc(plan.title) + '</b>' +
-            '<span class="planprice">' + esc(plan.price) + '</span>' +
-            '<span class="planbuy">Оформить</span>' +
-          '</a>';
-        }).join('') +
-      '</div>' +
-      '<p class="hint">Оплата проходит на сайте, после неё придёт код. Он включает Pro и здесь, и на телефоне.</p>';
+    html += '<section class="card sub-code-row">' +
+      '<span class="sl-text"><b>Уже оплатили?</b>' +
+        '<i>Код приходит после оплаты — он включает Pro и здесь, и на телефоне</i></span>' +
+      '<button class="btn sm soft" data-act="pro-code">Ввести код</button>' +
+    '</section>';
   }
 
   html += '<p class="lbl">Что входит</p>' +
