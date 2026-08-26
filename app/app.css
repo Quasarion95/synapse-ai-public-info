@@ -1277,8 +1277,17 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   display:flex; flex-direction:column; gap:8px; padding:2px 2px 4px; margin-bottom:12px}
 .syn-empty{font-size:13.5px; color:var(--fg-2); line-height:1.5; padding:6px 2px}
 
+/* Переносы строк в ответе сохраняются.
+
+   Syn отвечает абзацами и нумерованными списками — «разложил на три этапа:»,
+   и следом три пункта с новой строки. Текст экранировался и вставлялся как
+   есть, а HTML переносы игнорирует: список склеивался в сплошную стену, и
+   конец одного предложения прирастал к началу следующего — «говорить
+   страшнее, чем читать Первый этап отметил закрытым». pre-wrap оставляет
+   переносы автора и по-прежнему переносит длинные строки сам. */
 .syn-msg{max-width:88%; font-size:14px; line-height:1.45; padding:9px 12px; border-radius:14px;
-  background:var(--soft); color:var(--fg); align-self:flex-start}
+  background:var(--soft); color:var(--fg); align-self:flex-start;
+  white-space:pre-wrap; overflow-wrap:anywhere}
 .syn-msg.mine{align-self:flex-end; background:var(--accent-soft); color:var(--fg)}
 .syn-msg.wait{color:var(--fg-3)}
 
