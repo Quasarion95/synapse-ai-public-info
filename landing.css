@@ -459,6 +459,16 @@ a { color: var(--accent-strong); }
   box-shadow: 0 8px 20px rgba(27, 31, 28, 0.08);
 }
 
+/* RuStore: та же карточка-кнопка, что у Telegram, но со своим знаком.
+   Значок цветной и остаётся собой в обеих темах — currentColor ему не нужен. */
+.btn-rustore {
+  background: var(--surface);
+  border: 1px solid var(--stroke-strong);
+  color: var(--text);
+  box-shadow: 0 8px 20px rgba(27, 31, 28, 0.08);
+}
+.btn-rustore .ico { border-radius: 5px; }
+
 .btn-small.btn-tg {
   padding: 8px 15px;
   box-shadow: none;

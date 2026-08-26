@@ -7555,6 +7555,17 @@ function vAbout(){
 
   html += '<p class="lbl">Документы и помощь</p>' +
     '<a class="setrow" href="../"><span>Сайт Synapse</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
+    /* Ссылки на магазины — только из браузера.
+
+       Внутри приложения звать в магазин, откуда его и поставили, незачем: там
+       эта строка ведёт человека по кругу. А в браузере она отвечает на живой
+       вопрос «а на телефон есть?» — до этого ответа не было нигде, кроме
+       первого экрана сайта. */
+    (inApp() ? '' :
+      '<a class="setrow" href="https://apps.apple.com/ru/app/synapse-ai/id6796978134">' +
+        '<span>Приложение для iPhone</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
+      '<a class="setrow" href="https://www.rustore.ru/catalog/app/ru.synapseapp.app">' +
+        '<span>Приложение для Android</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>') +
     '<a class="setrow" href="../support/"><span>Поддержка</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
     '<a class="setrow" href="../privacy/"><span>Политика конфиденциальности</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
     '<a class="setrow" href="../terms/"><span>Пользовательское соглашение</span><span class="arrow">' + NAV_ICONS.chevron + '</span></a>' +
