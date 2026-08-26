@@ -173,6 +173,9 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 .iconbtn{width:38px; height:38px; border-radius:999px; background:var(--card); border:1px solid var(--stroke); box-shadow:var(--shadow); display:grid; place-items:center; font-size:15px; flex:none}
 .iconbtn .nav-ic{width:19px; height:19px}
 .iconbtn.on{background:var(--fg); color:var(--bg)}
+/* Значок валюты в шапке. Кегль крупнее подписи языка: «₽» и «€» — одиночные
+   знаки, и в общем размере они выглядели мелкой соринкой рядом с «RU». */
+.iconbtn.cur .cur-sign{font-size:17px; font-weight:700; line-height:1}
 
 /* Снизу оставлено место под таб-бар и строку ввода, иначе они накрывают
    последнюю карточку. */
@@ -1742,6 +1745,13 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .finwhen{--inp-py:7px; --inp-px:10px; --inp-fs:13px}
 .finwhen .inp{width:auto; flex:0 1 auto}
 .finwhen .datefield{width:auto}
+/* Дата — по центру поля.
+
+   Поле узкое, но не по тексту: ширину задаёт родной <input type="date">, и
+   после «25.08.2026» до значка календаря оставалась пустая треть — надпись
+   висела в левом углу вместо середины. Отступ слева повторяет тот, что
+   зарезервирован справа под значок, и текст встаёт ровно посередине. */
+.finwhen .datefield .datetext{justify-content:center; padding-left:34px}
 /* Строка с датой не должна упираться в карточку под ней. */
 .finwhen{margin-bottom:14px}
 
@@ -2422,3 +2432,18 @@ html[data-dense="1"] .titleline{gap:6px}
 
 /* Пояснение под полем: тихое, но на своём месте — сразу под тем, о чём оно. */
 .fieldhint{margin:-6px 0 12px; font-size:12.5px; color:var(--fg-3); line-height:1.4}
+
+
+/* ---- выбор валюты ---- */
+/* Плитками, а не строчкой кнопок: знак крупный, под ним название. Значок и
+   есть то, что человек будет видеть в приложении каждый день, — он и должен
+   быть главным в выборе. */
+.curgrid{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:14px 0 4px}
+.curcell{display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px; padding:12px 6px; border-radius:var(--r-md); background:var(--soft);
+  border:1px solid transparent; text-align:center}
+.curcell .cc-sign{font-size:20px; font-weight:700; line-height:1}
+.curcell .cc-name{font-size:10.5px; color:var(--fg-3); line-height:1.2}
+.curcell.on{background:var(--fg); color:var(--bg)}
+.curcell.on .cc-name{color:var(--bg); opacity:.75}
+@media (max-width:420px){ .curgrid{grid-template-columns:repeat(3, 1fr)} }
