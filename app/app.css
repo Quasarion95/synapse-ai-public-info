@@ -226,6 +226,9 @@ h1.page{font-size:clamp(28px,7vw,38px); margin:2px 0 20px}
    ссылку подчёркивает — на кнопке подчёркивание выдаёт подмену и выглядит
    ошибкой вёрстки. */
 a.btn{text-decoration:none}
+/* Кнопка, после которой ничего не вернуть: «Стереть навсегда» в корзине.
+   Цвет тот же, которым помечено удаление в свайпе, — чтобы рука узнавала. */
+.btn.danger{background:var(--danger); color:var(--on-danger,#fff)}
 .btn.soft{background:var(--card); color:var(--fg); border:1px solid var(--stroke); box-shadow:var(--shadow)}
 .btn.full{display:flex; width:100%}
 .btn.sm{padding:9px 16px; font-size:13.5px}

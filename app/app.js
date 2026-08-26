@@ -4293,19 +4293,48 @@ function finJar(id){
   return null;
 }
 
-/* Отложить и снять — одним обработчиком: разница только в знаке. Копилка не
-   уходит в минус и не переполняется выше цели молча — лишнее просто не
-   принимается, чтобы «отложено» всегда совпадало с тем, что есть. */
+/* Отложить и снять — своим окном, а не системным prompt.
+
+   Раньше здесь стоял браузерный prompt, и в приложении он выглядел так:
+   серая коробка с надписью «The page at "https://synapseapp.ru" says». Своё
+   приложение, где половина людей вообще не знает, что внутри веб-страница,
+   вдруг говорит по-английски и показывает адрес сайта — это читается как
+   чужое окно, а то и как обман. Пользователь прислал снимок именно с ним.
+
+   Заодно prompt блокирует страницу целиком и не знает ни нашей темы, ни
+   нашего языка, ни клавиатуры для чисел. */
 function finJarMove(id, sign){
   var jar = finJar(id);
   if (!jar) return;
-  var answer = prompt(sign > 0 ? 'Сколько отложить?' : 'Сколько снять?', '');
-  if (answer === null) return;
-  var parsed = finParse(answer, 'spend');
-  if (!parsed) return;
-  jar.saved = Math.max(0, (jar.saved || 0) + parsed.amount * sign);
+  openModal(modalJarMove(jar, sign));
+}
+
+function modalJarMove(jar, sign){
+  var кладём = sign > 0;
+  var осталось = Math.max(0, (jar.target || 0) - (jar.saved || 0));
+  return '<h3>' + (кладём ? 'Отложить в копилку' : 'Снять из копилки') + '</h3>' +
+    '<p class="s">' + esc(jar.title) + ' · ' + finMoney(jar.saved || 0) +
+      (jar.target ? ' из ' + finMoney(jar.target) : '') + '</p>' +
+    '<div class="field"><label for="m-amount">Сколько</label>' +
+      '<input class="inp" id="m-amount" inputmode="numeric" placeholder="' +
+      (кладём ? '5 000' : 'можно частью') + '"></div>' +
+    (кладём && осталось ?
+      '<div class="acts center" style="margin:0 0 14px">' +
+        '<button class="btn sm soft" data-act="fin-jar-move-rest" data-jar="' + jar.id + '">' +
+          'До цели — ' + finMoney(осталось) + '</button></div>' : '') +
+    '<button class="btn full" data-act="fin-jar-move-save" data-jar="' + jar.id +
+      '" data-sign="' + (кладём ? '1' : '-1') + '">' +
+      (кладём ? 'Отложить' : 'Снять') + '</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
+/// Общее для обеих кнопок окна: положить или снять и сказать, что вышло.
+function finJarApply(jar, sign, amount){
+  if (!jar || !amount) return;
+  closeModal();
+  jar.saved = Math.max(0, (jar.saved || 0) + amount * sign);
   finSyncJarStages();
-  commit(sign > 0 ? 'Отложено ' + finMoney(parsed.amount) : 'Снято ' + finMoney(parsed.amount));
+  commit(sign > 0 ? 'Отложено ' + finMoney(amount) : 'Снято ' + finMoney(amount));
 }
 
 /* ---- окна ввода ---- */
@@ -4328,6 +4357,23 @@ function modalDebtPay(debt){
       '<button class="btn sm soft" data-act="fin-debt-pay-all" data-debt="' + debt.id + '">' +
         'Всё сразу — ' + finMoney(left) + '</button></div>' +
     '<button class="btn full" data-act="fin-debt-pay-save" data-debt="' + debt.id + '">Записать</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
+}
+
+/* Сколько заплатили за подписку.
+
+   Сумма подставляется из прошлых оплат: у большинства платежей она из месяца
+   в месяц одна и та же, и человеку остаётся нажать «Записать». У квартплаты
+   она каждый раз своя — поле открыто. */
+function modalSubPay(sub){
+  var обычно = finSubTypical(sub);
+  return '<h3>Отметить оплату</h3>' +
+    '<p class="s">' + esc(sub.title) +
+      (обычно ? ' · обычно ' + finMoney(обычно) : '') + '</p>' +
+    '<div class="field"><label for="m-amount">Сколько заплатили</label>' +
+      '<input class="inp" id="m-amount" inputmode="numeric" value="' +
+      (обычно ? esc(String(Math.round(обычно / 100))) : '') + '" placeholder="600"></div>' +
+    '<button class="btn full" data-act="fin-sub-pay-save" data-sub="' + sub.id + '">Записать</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
 
@@ -11428,6 +11474,18 @@ var ACTS = {
   },
   'fin-jar-put': function(d){ finJarMove(d.jar, 1); },
   'fin-jar-take': function(d){ finJarMove(d.jar, -1); },
+  'fin-jar-move-save': function(d){
+    var jar = finJar(d.jar);
+    if (!jar) return;
+    var parsed = finParse(mval('m-amount'), 'spend');
+    if (!parsed) return fieldError('m-amount', 'Сколько? Одним числом.');
+    finJarApply(jar, Number(d.sign) < 0 ? -1 : 1, parsed.amount);
+  },
+  'fin-jar-move-rest': function(d){
+    var jar = finJar(d.jar);
+    if (!jar) return;
+    finJarApply(jar, 1, Math.max(0, (jar.target || 0) - (jar.saved || 0)));
+  },
   'fin-jar-kill': function(d){
     S.finance.jars = S.finance.jars.filter(function(x){ return x.id !== d.jar; });
     commit('Копилка удалена');
@@ -11557,12 +11615,18 @@ var ACTS = {
       return commit('Отметка снята');
     }
 
-    var typical = finSubTypical(sub);
-    var answer = prompt('Сколько заплатили за «' + sub.title + '»?',
-      typical ? String(Math.round(typical / 100)) : '');
-    if (answer === null) return;
-    var parsed = finParse(answer, 'spend');
-    if (!parsed) return toast('Нужна сумма одним числом');
+    // Сумму спрашиваем своим окном: системный prompt показывал в приложении
+    // «The page at "https://synapseapp.ru" says» — см. modalJarMove.
+    openModal(modalSubPay(sub));
+  },
+  'fin-sub-pay-save': function(d){
+    var sub = finSub(d.sub);
+    if (!sub) return;
+    var key = finShownMonth();
+    if (!sub.paid) sub.paid = {};
+    var parsed = finParse(mval('m-amount'), 'spend');
+    if (!parsed) return fieldError('m-amount', 'Сколько заплатили? Одним числом.');
+    closeModal();
 
     /* Платёж становится обычной тратой в ленте — иначе его не видно ни в
        сводке, ни в конвертах, ни в аналитике, и раздел платежей живёт сам по
@@ -11615,15 +11679,22 @@ var ACTS = {
   'trash-empty': function(){
     if (!S.trash.length) return;
     var count = S.trash.length;
-    // Стирание насовсем — единственное действие во всём сервисе, которое
-    // нечем отменить: спрашиваем, и с числом, чтобы человек видел объём.
-    // Системное окно рисует браузер, наш перевод разметки до него не доходит —
-    // собираем текст сразу на нужном языке.
-    var question = SynI18n.isEnglish()
-      ? 'Erase ' + count + ' item' + (count === 1 ? '' : 's') + ' permanently? This cannot be undone.'
-      : 'Стереть навсегда ' + count + ' ' +
-        plural(count, 'запись', 'записи', 'записей') + '? Вернуть их будет нельзя.';
-    if (!confirm(question)) return;
+    /* Стирание насовсем — единственное действие во всём сервисе, которое
+       нечем отменить: спрашиваем, и с числом, чтобы человек видел объём.
+
+       Своим окном, а не системным confirm: тот в приложении представляется
+       адресом сайта и по-английски, будто спрашивает кто-то посторонний. */
+    openModal(
+      '<h3>Стереть навсегда?</h3>' +
+      '<p class="s">' + count + ' ' + plural(count, 'запись', 'записи', 'записей') +
+        ' будет стёрто без возможности вернуть.</p>' +
+      '<button class="btn full danger" data-act="trash-empty-confirm">Стереть навсегда</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+  },
+  'trash-empty-confirm': function(){
+    var count = S.trash.length;
+    closeModal();
+    if (!count) return;
     S.trash = [];
     commit('Корзина пуста: стёрто ' + count);
   },
