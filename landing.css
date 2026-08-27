@@ -587,7 +587,17 @@ a { color: var(--accent-strong); }
   margin-top: 28px;
 }
 
-.cta-center { justify-content: center; }
+/* Ряд под центрированным заголовком тоже центрируется.
+
+   Пока ряд был горизонтальным, хватало justify-content: center. Ряд стал
+   вертикальным — и это свойство стало управлять вертикалью, а кнопка осталась
+   прижатой к левому краю под центрированным текстом. Центрируем сам столбец
+   и его содержимое. */
+.cta-center {
+  align-items: center;
+  margin-inline: auto;
+  justify-content: center;
+}
 
 
 /* Макет выходит в правое поле страницы.
@@ -707,26 +717,21 @@ a { color: var(--accent-strong); }
   font-weight: 700;
 }
 
-/* Восемь возможностей одного веса — это стена, в которой не читается ни одна.
-   Две первые ведут: они про то, чем продукт отличается от списка дел, и стоят
-   во всю ширину полосы. Остальные шесть — перечисление, и выглядеть должны как
-   перечисление. */
-.feature-lead {
-  grid-column: span 2;
-  border-top: 1px solid var(--stroke);
-  padding-top: 18px;
+/* Подзаголовок держит две строки, даже если занял одну.
+
+   Иначе в ряду из четырёх карточек текст начинается на разной высоте: у
+   «Ассистента Syn» сразу, у «Дней, а не бесконечного списка» — строкой ниже.
+   Глаз читает это как перекос, хотя карточки стоят ровно. Резервируем две
+   строки, и абзацы во всём ряду начинаются на одной линии. */
+.grid .feature h3 {
+  min-height: 2.6em;
+  line-height: 1.3;
+  display: flex;
+  align-items: flex-start;
 }
 
-.feature-lead h3 {
-  font-size: 21px;
-  letter-spacing: -0.02em;
-  margin-bottom: 10px;
-}
-
-.feature-lead p { font-size: 15.5px; }
 
 @media (max-width: 1000px) {
-  .feature-lead { grid-column: span 1; }
 }
 
 .card p, .feature p {
