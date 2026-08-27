@@ -35,6 +35,16 @@
   --olive: #5c6857;           /* вторичный брендовый, обычный прогресс */
   --brass: #9a8052;           /* микроакцент: номера, тонкие линии, бейджи, цены */
   --brass-light: #c2a876;     /* та же латунь, но читаемая на тёмном лесу */
+
+  /* Краски для карточки годового тарифа. Она залита цветом --forest, а он
+     в тёмной теме светлеет до шалфейного — то есть карточка меняет не оттенок,
+     а сторону: из тёмной становится светлой. Белый текст, годный в светлой
+     теме, в тёмной падал до контраста 2.5, а цена — до 1.38. Поэтому у неё
+     свой набор красок, который переворачивается вместе с фоном. */
+  --ink-on-forest: #ffffff;
+  --ink-on-forest-soft: rgba(255, 255, 255, 0.86);
+  --brass-on-forest: var(--brass-light);
+  --tick-on-forest: rgba(255, 255, 255, 0.22);
   --burgundy: #6a3f3b;        /* редкий эмоциональный акцент и ошибки */
 
   /* Поверхности */
@@ -101,6 +111,14 @@
     --olive: #8c9a86;
     --brass: #b19a6c;
     --brass-light: #c9b489;
+
+    /* Карточка годового тарифа здесь светлая, поэтому краски тёмные.
+       Латунь берём глубокую: цена крупная, ей хватает порога 3, и бронзовый
+       тон сохраняет характер, тогда как светлая латунь на шалфейном исчезает. */
+    --ink-on-forest: #16201a;
+    --ink-on-forest-soft: rgba(22, 32, 26, 0.86);
+    --brass-on-forest: #57431a;
+    --tick-on-forest: rgba(22, 32, 26, 0.20);
     --burgundy: #b98782;
 
     --bg: #1d2420;
@@ -148,6 +166,14 @@
     --olive: #8c9a86;
     --brass: #b19a6c;
     --brass-light: #c9b489;
+
+    /* Карточка годового тарифа здесь светлая, поэтому краски тёмные.
+       Латунь берём глубокую: цена крупная, ей хватает порога 3, и бронзовый
+       тон сохраняет характер, тогда как светлая латунь на шалфейном исчезает. */
+    --ink-on-forest: #16201a;
+    --ink-on-forest-soft: rgba(22, 32, 26, 0.86);
+    --brass-on-forest: #57431a;
+    --tick-on-forest: rgba(22, 32, 26, 0.20);
     --burgundy: #b98782;
 
     --bg: #1d2420;
@@ -1238,7 +1264,7 @@ a { color: var(--accent-strong); }
 .plan-hero {
   background: var(--forest);
   border-color: transparent;
-  color: var(--text-on-dark);
+  color: var(--ink-on-forest);
   box-shadow: 0 26px 60px rgba(27, 31, 28, 0.20);
 }
 
@@ -1254,7 +1280,11 @@ a { color: var(--accent-strong); }
   padding: 7px 16px;
   border-radius: 999px;
   background: var(--brass);
-  color: var(--bg);
+  /* Почти чёрным, а не фоновым: в светлой теме кремовый на латуни давал 3.34,
+     а это мелкий жирный текст — ему порога для крупного не полагается.
+     Одна краска на обе темы: латунь в тёмной светлее, и тёмный текст выигрывает
+     и там. */
+  color: #101711;
   text-align: center;
   font-family: var(--font-display);
   font-weight: 800;
@@ -1280,7 +1310,7 @@ a { color: var(--accent-strong); }
   color: var(--accent-strong);
 }
 
-.plan-hero .plan-kicker { color: rgba(255, 255, 255, 0.86); }
+.plan-hero .plan-kicker { color: var(--ink-on-forest-soft); }
 
 /* Цена — латунью, как бейдж. Это единственная цифра на странице, ради которой
    человек сюда пришёл, и она из того же металла, что и пометка о выгоде: цена
@@ -1298,7 +1328,7 @@ a { color: var(--accent-strong); }
 }
 
 /* На тёмной карточке та же латунь тонет — там она светлее на два тона. */
-.plan-hero .plan-price { color: var(--brass-light); }
+.plan-hero .plan-price { color: var(--brass-on-forest); }
 
 .plan-unit {
   font-size: 19px;
@@ -1315,7 +1345,7 @@ a { color: var(--accent-strong); }
   color: var(--muted);
 }
 
-.plan-hero .plan-per { color: rgba(255, 255, 255, 0.82); }
+.plan-hero .plan-per { color: var(--ink-on-forest-soft); }
 
 .plan-list {
   margin: 18px 0 22px;
@@ -1328,7 +1358,7 @@ a { color: var(--accent-strong); }
   color: var(--muted);
 }
 
-.plan-hero .plan-list { color: rgba(255, 255, 255, 0.92); }
+.plan-hero .plan-list { color: var(--ink-on-forest); }
 
 .plan-list li {
   position: relative;
@@ -1336,7 +1366,7 @@ a { color: var(--accent-strong); }
 }
 
 .plan-list b { color: var(--text); font-weight: 700; }
-.plan-hero .plan-list b { color: var(--text-on-dark); }
+.plan-hero .plan-list b { color: var(--ink-on-forest); }
 
 /* A tick in a soft disc — the same shape language as the icon chips above,
    and far more legible at a glance than a bullet. */
@@ -1356,9 +1386,21 @@ a { color: var(--accent-strong); }
   color: var(--accent-strong);
 }
 
+/* Годовой тариф стоит внутри полосы, а полоса красит все свои p и li
+   приглушённым серым — он рассчитан на светлый фон секции. На тёмно-зелёной
+   карточке этот серый давал контраст 2.04: пункты и строка про отмену
+   читались как выцветшие. Побороть его цветом на списке нельзя — правило
+   полосы попадает прямо в li, а прямое попадание всегда сильнее
+   унаследованного. Поэтому здесь адресуемся к тем же элементам.
+
+   Белым, а не почти белым: это единственная тёмная карточка на странице, и
+   строка про отмену — та, которую человек ищет глазами перед оплатой. */
+.plan-hero .plan-list li,
+.plan-hero .plan-note { color: var(--ink-on-forest); }
+
 .plan-hero .plan-list li::before {
-  background: rgba(255, 255, 255, 0.22);
-  color: var(--text-on-dark);
+  background: var(--tick-on-forest);
+  color: var(--ink-on-forest);
 }
 
 .btn-plan {
@@ -1375,7 +1417,9 @@ a { color: var(--accent-strong); }
    тёмно-зелёном фоне и главный призыв страницы просто исчезал. */
 .btn-plan-primary {
   background: #ffffff;
-  color: var(--forest-deep);
+  /* Краска светлой темы намеренно жёстко: подложка кнопки белая в обеих
+     темах, а --forest-deep в тёмной светлеет и даёт на белом 3.69. */
+  color: #1d2a23;
   box-shadow: 0 14px 32px rgba(23, 33, 27, 0.28);
 }
 
@@ -1390,9 +1434,6 @@ a { color: var(--accent-strong); }
   bottom: 18px;
   margin: 0;
   font-size: 12.5px;
-  /* Было 78% белого — 4.3 на лесу, ниже порога для текста такого кегля. Это
-     строка про отмену подписки: именно её человек ищет глазами перед тем, как
-     заплатить, и именно она обязана читаться без усилия. */
   color: var(--muted-on-dark);
 }
 
