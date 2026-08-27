@@ -1241,10 +1241,18 @@ a { color: var(--accent-strong); }
 
    Запасное значение на первой строке — для браузеров без color-mix: там
    карточка просто останется как недельная, и лесенка не сломается. */
+/* На плотном фоне приглушённый текст перестаёт читаться: подпись под ценой и
+   пункты списка написаны серым, рассчитанным на почти белую карточку. Здесь
+   они берут основную краску — иначе карточка выглядит выцветшей. */
+.plan-step .plan-per,
+.plan-step .plan-list li,
+.plan-step .plan-kicker { color: var(--text); }
+.plan-step .plan-list li.off { color: var(--muted); }
+
 .plan-step {
   background: var(--bg);
-  background: color-mix(in oklab, var(--bg) 93%, var(--forest));
-  border-color: color-mix(in oklab, var(--stroke-strong) 80%, var(--forest));
+  background: color-mix(in oklab, var(--bg) 68%, var(--forest));
+  border-color: color-mix(in oklab, var(--stroke-strong) 40%, var(--forest));
 }
 
 /* Годовой — визуальный герой, и единственный тариф с тёмной заливкой.
