@@ -7618,6 +7618,9 @@ var PLANS = [
 
 function planTitle(id){
   for (var i = 0; i < PLANS.length; i++) if (PLANS[i].id === id) return PLANS[i].title;
+  /* Служебный тариф владельца: на витрине его нет и быть не должно, но
+     показать «admin» как название — значит показать поломку. */
+  if (id === 'admin') return 'Служебный';
   return id;
 }
 
