@@ -1,0 +1,16 @@
+/* ============ УБЫВАЮЩЕЕ ВРЕМЯ ПОМОДОРО — только веб ============
+
+   Холст рисует web/pomodoro-timer.js: уровень цвета режима, который
+   опускается вместе с отсчётом, и фитиль под цифрами. Холст под содержимым и
+   не ловит нажатий — режимы и кнопки работают как работали. */
+.card.pomo-live{position:relative; overflow:hidden; isolation:isolate; padding-top:30px; padding-bottom:24px}
+.pomo-live-canvas{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0}
+.card.pomo-live > :not(.pomo-live-canvas){position:relative; z-index:1}
+
+/* Место под фитилём: он идёт между цифрами и подписью режима. */
+.card.pomo-live .phase{margin-top:24px}
+
+/* Карточки режимов стоят «в воде» — чуть плотнее, чтобы надписи на них
+   читались и над цветом. */
+.card.pomo-live .mode:not([aria-pressed="true"]){background:color-mix(in srgb, var(--soft) 82%, transparent);
+  backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px)}
