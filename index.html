@@ -45,6 +45,25 @@
     <noscript><div><img src="https://mc.yandex.ru/watch/111833170" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
     <!-- /Yandex.Metrika counter -->
       <script src="./theme.js"></script>
+      <script>
+      /* Партнёрская ссылка ведёт сюда, на главную (…/?promo=КОД). Закрепляем код
+         в тот же localStorage, что читает страница оплаты (ключ synapse.promo,
+         30 дней), и сразу убираем из адреса. Так партнёр не теряет человека,
+         даже если тот сперва пошёл смотреть приложение, а купил через неделю. */
+      (function(){
+        try{
+          var raw = new URLSearchParams(location.search).get("promo");
+          if(!raw) return;
+          var code = String(raw).toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,24);
+          if(code){
+            localStorage.setItem("synapse.promo", JSON.stringify({ code: code, at: Date.now() }));
+          }
+          if(window.history && window.history.replaceState){
+            window.history.replaceState({}, "", location.pathname);
+          }
+        }catch(e){}
+      })();
+      </script>
   </head>
   <body>
     <header class="nav">
@@ -186,7 +205,6 @@
       </section>
 
       <section class="section" id="different">
-        <p class="section-eyebrow">Отличия</p>
         <h2 class="section-title">Три вещи, которых нет ни в одном списке дел</h2>
         <div class="cards">
           <article class="card">
@@ -217,7 +235,6 @@
       </section>
 
       <section class="section screens">
-        <p class="section-eyebrow">Как это выглядит</p>
         <h2 class="section-title">День, цель и путь — в одном месте</h2>
         <div class="shots">
           <figure>
@@ -268,7 +285,6 @@
            выглядела недособранной. Теперь все карточки равны, а текст в
            каждой — одна фраза: столбцы не разъезжаются по высоте. -->
       <section class="section" id="features">
-        <p class="section-eyebrow">Инструменты</p>
         <h2 class="section-title">Что входит в систему</h2>
         <div class="grid">
           <div class="feature">
@@ -314,7 +330,6 @@
            Человеку на витрине нужен ответ «мои записи у меня», а подробности
            — в политике, ссылка на неё тут же. -->
       <section class="section band" id="privacy">
-        <p class="section-eyebrow">Данные</p>
         <h2 class="section-title">Про данные — честно</h2>
         <div class="grid">
           <div class="feature">
@@ -330,15 +345,14 @@
             <p>Никаких рекламных SDK и слежки за вами. Данные мы не продаём.</p>
           </div>
           <div class="feature">
-            <h3>Копия — одним файлом</h3>
-            <p>«Настройки → Данные» сохраняют всё в один файл. Им же записи переезжают на другое устройство.</p>
+            <h3>Синхронизация — зашифрованная</h3>
+            <p>Между устройствами записи переносит синхронизация: уходит на сервер зашифрованной, ключ только у вас. Или одним файлом в «Настройки → Данные».</p>
           </div>
         </div>
         <p class="hint">Подробности — в <a href="./privacy/">политике конфиденциальности</a>.</p>
       </section>
 
       <section class="section band" id="pricing">
-        <p class="section-eyebrow">Тарифы</p>
         <h2 class="section-title">Система бесплатная.<br>Платный — ассистент</h2>
 
         <div class="plans">

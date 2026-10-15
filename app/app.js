@@ -305,6 +305,8 @@ function seed(){
     activeGoal: null,
     activeList: null,
     activeNote: null,
+    listView: 'board',
+    listsExpanded: [],
     tasks: [],
     goals: [],
     lists: [],
@@ -619,6 +621,7 @@ function save(){
       pendingToast = 'Не удалось сохранить: браузер не даёт записать данные';
     }
   }
+  if (typeof syncScheduleAutoPush === 'function') syncScheduleAutoPush();
 }
 
 var S = load();
@@ -637,7 +640,16 @@ function rolloverIfNeeded(){
   var moved = 0, archived = 0;
   for (var i = 0; i < S.tasks.length; i++){
     var t = S.tasks[i];
-    if (!t.date) continue;
+    if (!t.date){
+      // Выполненное без даты («На неделе» / «Потом») тоже уходит в архив на
+      // перекате. Раньше эта строка пропускала такие задачи целиком, и
+      // отмеченные галочкой из этих блоков не исчезали НИКОГДА — копились
+      // зачёркнутыми день за днём. Rollover — это первое открытие нового дня,
+      // значит всё, что уже отмечено, было отмечено раньше сегодня; так что
+      // прячем по тому же правилу «наутро», что и датированное.
+      if (t.done && !t.archived){ t.archived = true; archived += 1; }
+      continue;
+    }
 
     /* Блок пересчитывается из даты при каждой смене суток.
 
@@ -2273,11 +2285,35 @@ function applyTheme(){
      В тёмных темах он светлый — янтарь на почти чёрном, — и белые буквы на
      нём давали контраст 2,0 при норме 4,5. Так было во всех палитрах и до
      появления новых: кнопку просто никто не смотрел в тёмной теме. */
-  root.setProperty('--on-danger', rgbToLab(c.focusOrange)[0] > 62 ? '#101010' : '#FFFFFF');
   root.setProperty('--accent-warm', rgb(c.accentWarm));
   root.setProperty('--focus-green', rgb(c.focusGreen));
   root.setProperty('--focus-blue', rgb(c.focusBlue));
-  root.setProperty('--danger', rgb(c.focusOrange));
+  /* Тревожный цвет — настоящий красный, а не янтарь.
+
+     Раньше `--danger` подменялся `focusOrange` (тёплый коричневатый), общий на
+     все палитры. На спокойной бежевой теме он сливался с текстом, и «я должен»,
+     просрочка, минус на балансе не читались опасностью — всё выглядело одним
+     тоном. В iOS ровно эти места залиты системным красным. Возвращаем красный и
+     сюда, тёпло-кирпичный, чтобы не резал, но отделялся; в тёмной теме — светлее
+     для контраста. Мягкое предупреждение остаётся за `--warn` (accentWarm).
+     `focusOrange` живёт своей `--danger`-независимой переменной ниже. */
+  var dangerRGB = c.dark ? [240, 132, 122] : [176, 57, 49];
+  root.setProperty('--danger', rgb(dangerRGB));
+  root.setProperty('--on-danger', rgbToLab(dangerRGB)[0] > 62 ? '#101010' : '#FFFFFF');
+  root.setProperty('--focus-orange', rgb(c.focusOrange));
+  /* Живая зелёная и красная ДЛЯ ЗНАЧЕНИЙ (деньги, статусы), отдельные от --ok
+     и --mark. Родная focusGreen (63,107,82) по светлоте почти как тёмный текст —
+     как цвет числа она читается «тёмным», а не «зелёным», и таблички сливались.
+     Здесь берём светлее и насыщеннее, ровно чтобы «плюс» и «минус» считывались
+     мгновенно; в тёмной теме — ещё светлее для контраста. Галочки и прочие --ok
+     не трогаем: их владелец намеренно держит приглушёнными. */
+  root.setProperty('--pos', c.dark ? 'rgb(112,201,151)' : 'rgb(38,132,86)');
+  root.setProperty('--neg', rgb(dangerRGB));
+  /* Янтарный «внимание» — тоже живее родного accentWarm. accentWarm (138,110,53)
+     на тёплых палитрах почти неотличим от вторичного текста, и «В работе»,
+     «я должен», «не выполнено» не читались как сигнал. Берём насыщенный янтарь;
+     в тёмной теме — светлее. --accent-warm оставляем как есть для декора. */
+  root.setProperty('--warn', c.dark ? 'rgb(232,184,92)' : 'rgb(198,128,26)');
 
   // Начертание и размер — из тех же трёх вариантов, что в приложении.
   // Размер меняется одним множителем на корне, поэтому вся вёрстка, набранная
@@ -2467,8 +2503,8 @@ function bar(value, total, caption){
     '<div class="bar"><i style="width:' + p + '%"></i></div>';
 }
 
-function cnt(value, label){
-  return '<div class="cnt"><span class="v">' + esc(value) + '</span><span class="l">' + esc(label) + '</span></div>';
+function cnt(value, label, tone){
+  return '<div class="cnt' + (tone ? ' cnt--' + tone : '') + '"><span class="v">' + esc(value) + '</span><span class="l">' + esc(label) + '</span></div>';
 }
 
 /* ============ КОРЗИНА ============ */
@@ -3270,11 +3306,12 @@ function vFinSummary(){
 
   html += '<div class="fintiles summary">' +
     // Плитка открывает правку остатка: число меняют там же, где на него смотрят.
-    '<button class="fintile' + (free < 0 ? ' bad' : '') + '" data-act="fin-opening">' +
+    // Цвет по смыслу: плюс — зелёный, минус — красный, ноль — нейтральный.
+    '<button class="fintile' + (free < 0 ? ' bad' : (free > 0 ? ' good' : '')) + '" data-act="fin-opening">' +
       '<span>Свободно</span><b>' + finMoney(free) + '</b></button>' +
-    finTile('Отложено', finMoney(finSaved()), '') +
+    finTile('Отложено', finMoney(finSaved()), finSaved() > 0 ? 'good' : '') +
     finTile('Я должен', finMoney(debts.owe), debts.owe ? 'warn' : '') +
-    finTile('Мне должны', finMoney(debts.owed), '') +
+    finTile('Мне должны', finMoney(debts.owed), debts.owed ? 'good' : '') +
   '</div>';
 
   /* Обязательные платежи — одной строкой с суммой, а не списком.
@@ -3517,7 +3554,7 @@ function vFinBudgets(){
   html += '<div class="fintiles">' +
     finTile('Разложено', finMoney(plan), '') +
     finTile('Потрачено', finMoney(spent), '') +
-    finTile('Осталось', finMoney(plan - spent), plan - spent < 0 ? 'bad' : '') +
+    finTile('Осталось', finMoney(plan - spent), plan - spent < 0 ? 'bad' : (plan - spent > 0 ? 'good' : '')) +
   '</div>';
 
   html += '<div class="sublist">' + rows.map(function(row){
@@ -3530,7 +3567,7 @@ function vFinBudgets(){
       '</div>' +
       '<div class="bar slim"><i style="width:' + row.share + '%' +
         (row.left < 0 ? ';background:var(--crit)' : '') + '"></i></div>' +
-      '<div class="env-f">' + (row.left < 0
+      '<div class="env-f' + (row.left > 0 ? ' env-f--left' : '') + '">' + (row.left < 0
         ? 'перерасход ' + finMoney(-row.left)
         : 'осталось ' + finMoney(row.left)) + '</div>' +
     '</div>';
@@ -3563,11 +3600,11 @@ function vFinChart(inline){
 
   html += '<div class="fintiles">' +
     finTile('Потрачено', finMoney(now.spent), '') +
-    finTile('Заработано', finMoney(now.earned), '') +
+    finTile('Заработано', finMoney(now.earned), now.earned > 0 ? 'good' : '') +
     finTile('Разница', finMoney(now.earned - now.spent, { plus: now.earned > now.spent }),
-      now.earned < now.spent ? 'bad' : '') +
+      now.earned < now.spent ? 'bad' : (now.earned > now.spent ? 'good' : '')) +
     finTile('К прошлому', prev.spent ? (diff > 0 ? '+' : diff < 0 ? '−' : '') + pctText : '—',
-      prev.spent && diff > 0 ? 'warn' : '') +
+      prev.spent && diff > 0 ? 'warn' : (prev.spent && diff < 0 ? 'good' : '')) +
   '</div>';
 
   // Полугодие столбиками: тренд виден формой, а не колонкой чисел.
@@ -3648,8 +3685,8 @@ function vFinDebts(){
   if (S.finance.debts.length){
     html += '<div class="fintiles">' +
       finTile('Я должен', finMoney(sums.owe), sums.owe ? 'warn' : '') +
-      finTile('Мне должны', finMoney(sums.owed), '') +
-      finTile('Итого', finMoney(sums.net, { plus: sums.net > 0 }), sums.net < 0 ? 'bad' : '') +
+      finTile('Мне должны', finMoney(sums.owed), sums.owed ? 'good' : '') +
+      finTile('Итого', finMoney(sums.net, { plus: sums.net > 0 }), sums.net < 0 ? 'bad' : (sums.net > 0 ? 'good' : '')) +
     '</div>';
   }
 
@@ -3681,7 +3718,7 @@ function vFinDebts(){
         '</div>' : '') +
       '<div class="dr-main' + (touchUI() ? ' swipe-face' : '') + '">' +
         '<span class="dr-t">' + esc(d.who) +
-          '<span class="dr-n">' + (d.mine ? 'я должен' : 'мне должны') +
+          '<span class="dr-n dr-n--' + (d.mine ? 'mine' : 'owed') + '">' + (d.mine ? 'я должен' : 'мне должны') +
             /* Прошедший срок называем прошедшим.
 
                Долг с датой четырёхмесячной давности писал «до 27 апреля» —
@@ -3698,7 +3735,7 @@ function vFinDebts(){
             // ровно то же, занимает ту же строку и не добавляет третьей.
             (d.paid ? ' · отдал ' + finMoney(d.paid, {}) + ' из ' + finMoney(d.amount) : '') +
           '</span></span>' +
-        '<span class="dr-v' + (d.closed ? ' closed' : '') + '">' +
+        '<span class="dr-v' + (d.closed ? ' closed' : ' dr-v--' + (d.mine ? 'mine' : 'owed')) + '">' +
           (d.closed ? 'закрыт' : finMoney(left)) + '</span>' +
         '<span class="dr-a">' +
           (d.closed
@@ -5072,8 +5109,8 @@ function vFocus(){
 
   html += '<div class="counts">' +
     cnt(String(today.length), 'намечено на день') +
-    cnt(String(todayDone), 'сделано за день') +
-    cnt(String(left), 'не выполнено всего') +
+    cnt(String(todayDone), 'сделано за день', todayDone > 0 ? 'good' : '') +
+    cnt(String(left), 'не выполнено всего', left > 0 ? 'warn' : '') +
     cnt(String(S.pomodoro.doneToday), 'сессий фокуса') +
   '</div>';
 
@@ -5092,7 +5129,7 @@ function vFocus(){
     html += '<p class="lbl">Требуют внимания</p><section class="card"><div class="lines">' +
       attention.map(function(g){
         return '<button class="line" data-act="open-goal" data-goal="' + g.id + '">' +
-          '<span>' + esc(g.title) + '</span><span class="chip">без задач</span></button>';
+          '<span>' + esc(g.title) + '</span><span class="chip warn">без задач</span></button>';
       }).join('') + '</div></section>';
   }
 
@@ -5118,12 +5155,12 @@ function vFocusCard(today, todayDone, overdue, withTime){
   }
   if (overdue){
     lines.push(['ПРОСРОЧЕНО', taskCount(overdue) + ' ' +
-      plural(overdue, 'ждёт', 'ждут', 'ждут') + ' с прошлых дней.']);
+      plural(overdue, 'ждёт', 'ждут', 'ждут') + ' с прошлых дней.', 'neg']);
   }
   var stale = S.goals.filter(function(g){ return !tasksOfGoal(g.id).length; });
   if (stale.length){
     lines.push(['ЦЕЛИ', stale.length + ' ' + plural(stale.length, 'цель стоит', 'цели стоят', 'целей стоят') +
-      ' без единой задачи.']);
+      ' без единой задачи.', 'warn']);
   }
 
   /* Брифинг вытесняет сводку, а не встаёт рядом. Сводка — заготовка на случай,
@@ -5151,11 +5188,11 @@ function vFocusCard(today, todayDone, overdue, withTime){
             ? 'Сегодня в фокусе ' + taskCount(today.length)
             : 'Можно задать спокойный ритм') + '</p>' +
       '</div>' +
-      '<div class="focus-p"><b>' + percent + '%</b><span>Прогресс дня</span></div>' +
+      '<div class="focus-p' + (percent >= 100 ? ' focus-p--done' : '') + '"><b>' + percent + '%</b><span>Прогресс дня</span></div>' +
     '</div>' +
     '<div class="focus-lines">' +
       shown.map(function(l){
-        return '<div class="fl"><span class="fll">' + esc(l[0]) + '</span>' +
+        return '<div class="fl"><span class="fll' + (l[2] ? ' fll--' + l[2] : '') + '">' + esc(l[0]) + '</span>' +
           '<span class="flt">' + esc(l[1]) + '</span></div>';
       }).join('') +
     '</div>' +
@@ -5870,7 +5907,7 @@ function vGoals(){
       (touchUI() ? '<div class="swipe-face gc-face">' : '') +
       '<button class="goalcard-h" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
         '<span class="gt">' + esc(g.title) + '</span>' +
-        '<span class="gp mono">' + pct(p.done, p.total) + '%</span>' +
+        '<span class="gp mono' + (p.total && p.done >= p.total ? ' gp--done' : '') + '">' + pct(p.done, p.total) + '%</span>' +
         '<span class="car">⌄</span>' +
       '</button>' +
       '<div class="bar slim"><i style="width:' + pct(p.done, p.total) + '%"></i></div>' +
@@ -5912,7 +5949,7 @@ function stageBlock(g, st, номер){
     '<div class="stage-h">' +
       '<button class="box' + (st.status === 'done' ? ' on' : '') + '" data-act="stage-toggle" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Готово">✓</button>' +
       '<span class="t">' + esc(st.title) + '</span>' +
-      '<span class="status">' + STATUS[st.status] + '</span>' +
+      '<span class="status status--' + st.status + '">' + STATUS[st.status] + '</span>' +
       '<button class="kill" data-act="edit-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Править этап" title="Править">' + ICON.edit + '</button>' +
       '<button class="kill" data-act="kill-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Удалить этап">✕</button>' +
     '</div>' +
@@ -6461,32 +6498,144 @@ function mmTree(cx, cy){
 
 /* ---- списки ---- */
 
+/* Один пункт списка — общий для всех видов (столбик, доска, гармошка): галочка,
+   правка по нажатию на текст, удаление. */
+function listItemLine(l, it){
+  if (S.editItem === it.id){
+    return '<div class="line editing">' +
+      '<button class="box' + (it.done ? ' on' : '') + '" data-act="item-toggle" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Готово">✓</button>' +
+      '<input class="inp" type="text" data-itemedit="' + it.id + '" data-list="' + l.id + '" value="' + esc(it.title) + '" autocomplete="off">' +
+      '<button class="kill" data-act="item-save" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Сохранить">✓</button>' +
+    '</div>';
+  }
+  return '<div class="line' + (it.done ? ' on' : '') + '">' +
+    '<button class="box' + (it.done ? ' on' : '') + '" data-act="item-toggle" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Готово">✓</button>' +
+    '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить">' + esc(it.title) + '</span>' +
+    '<button class="kill" data-act="item-kill" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Удалить">✕</button>' +
+  '</div>';
+}
+function listAddRow(l){
+  return '<div class="rowadd">' +
+    '<input class="inp" type="text" placeholder="Новый пункт" data-itemadd="' + l.id + '" autocomplete="off">' +
+    '<button class="btn sm" data-act="item-add" data-list="' + l.id + '" aria-label="Добавить пункт">Добавить</button>' +
+  '</div>';
+}
+function listItemsHtml(l){
+  return l.items.length
+    ? '<div class="lines">' + l.items.map(function(it){ return listItemLine(l, it); }).join('') + '</div>'
+    : '<p class="sub" style="margin:0 0 6px">Пусто</p>';
+}
+function listProgress(l){
+  var d = l.items.filter(function(x){ return x.done; }).length;
+  return { done: d, total: l.items.length, full: l.items.length && d >= l.items.length };
+}
+
+var LIST_VIEWS = [
+  { id: 'board', title: 'Доска' },
+  { id: 'grid',  title: 'Плитки' },
+  { id: 'acc',   title: 'Гармошка' },
+  { id: 'stack', title: 'Столбик' }
+];
+function listView(){ return S.listView || 'board'; }
+
+function listViewBar(){
+  return '<div class="listbar">' +
+    '<div class="listseg">' + LIST_VIEWS.map(function(v){
+      return '<button class="lv-btn' + (listView() === v.id ? ' on' : '') + '" data-act="set-listview" data-lview="' + v.id + '">' + v.title + '</button>';
+    }).join('') + '</div>' +
+    '<button class="btn sm" data-act="new-list">+ Новый список</button>' +
+  '</div>';
+}
+
 function vLists(){
-  var html = '';
   if (!S.lists.length){
-    return html + blank(NAV_ICONS.lists, 'Списков пока нет',
+    return blank(NAV_ICONS.lists, 'Списков пока нет',
       'Список — это то, что отмечают галочками и не тащат в задачи: покупки, сборы, чек-лист поездки.',
       'new-list', 'Новый список');
   }
-  html += '<div class="acts" style="margin:0 0 16px"><button class="btn" data-act="new-list">+ Новый список</button></div>';
-  for (var i = 0; i < S.lists.length; i++){
-    var l = S.lists[i];
-    var d = l.items.filter(function(x){ return x.done; }).length;
-    // Не одна большая кнопка, а карточка с кнопкой внутри: переименовать и
-    // удалить теперь можно прямо отсюда, не заходя внутрь. Кнопку в кнопку
-    // браузер не пускает, поэтому обёртка — обычный article.
-    html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-list="' + l.id + '">' +
-      '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-list" data-list="' + l.id + '">' +
-        '<h3>' + esc(l.title) + '</h3>' +
-        '<p class="sub">Готово ' + d + ' из ' + l.items.length + '</p>' +
-        '<div style="margin-top:12px"><div class="bar slim"><i style="width:' + pct(d, l.items.length) + '%"></i></div></div>' +
-      '</button>' +
-      '<div class="side">' +
-        '<button data-act="rename-list" data-list="' + l.id + '" aria-label="Переименовать список" title="Переименовать">' + ICON.edit + '</button>' +
-        '<button class="kill" data-act="kill-list" data-list="' + l.id + '" aria-label="Удалить список">' + ICON.kill + '</button>' +
-      '</div>' +
-    '</article>';
+  var view = listView();
+  var html = listViewBar();
+
+  // Столбик — прежний вид: крупные карточки одна под другой, клик уводит внутрь.
+  if (view === 'stack'){
+    for (var i = 0; i < S.lists.length; i++){
+      var l = S.lists[i];
+      var p = listProgress(l);
+      html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-list="' + l.id + '">' +
+        '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-list" data-list="' + l.id + '">' +
+          '<h3>' + esc(l.title) + '</h3>' +
+          '<p class="sub' + (p.full ? ' sub--done' : '') + '">Готово ' + p.done + ' из ' + p.total + '</p>' +
+          '<div style="margin-top:12px"><div class="bar slim"><i style="width:' + pct(p.done, p.total) + '%"></i></div></div>' +
+        '</button>' +
+        '<div class="side">' +
+          '<button data-act="rename-list" data-list="' + l.id + '" aria-label="Переименовать список" title="Переименовать">' + ICON.edit + '</button>' +
+          '<button class="kill" data-act="kill-list" data-list="' + l.id + '" aria-label="Удалить список">' + ICON.kill + '</button>' +
+        '</div>' +
+      '</article>';
+    }
+    return html;
   }
+
+  // Плитки — компактная сетка обзора, клик открывает список.
+  if (view === 'grid'){
+    html += '<div class="listgrid">' + S.lists.map(function(l){
+      var p = listProgress(l);
+      return '<article class="card row-card listtile" data-list="' + l.id + '">' +
+        '<button class="main" data-act="open-list" data-list="' + l.id + '">' +
+          '<h3>' + esc(l.title) + '</h3>' +
+          '<p class="sub' + (p.full ? ' sub--done' : '') + '">' + p.done + ' / ' + p.total + '</p>' +
+          '<div class="bar slim" style="margin-top:10px"><i style="width:' + pct(p.done, p.total) + '%"></i></div>' +
+        '</button>' +
+        '<div class="side">' +
+          '<button data-act="rename-list" data-list="' + l.id + '" aria-label="Переименовать" title="Переименовать">' + ICON.edit + '</button>' +
+          '<button class="kill" data-act="kill-list" data-list="' + l.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+        '</div>' +
+      '</article>';
+    }).join('') + '</div>';
+    return html;
+  }
+
+  // Гармошка — столбик, но каждый список раскрывается на месте.
+  if (view === 'acc'){
+    var openIds = S.listsExpanded || [];
+    html += '<div class="listacc">' + S.lists.map(function(l){
+      var p = listProgress(l);
+      var open = openIds.indexOf(l.id) !== -1;
+      return '<article class="card accitem' + (open ? ' open' : '') + '" data-list="' + l.id + '">' +
+        '<div class="acc-h">' +
+          '<button class="acc-toggle" data-act="list-acc" data-list="' + l.id + '" aria-expanded="' + open + '">' +
+            '<span class="car">⌄</span>' +
+            '<span class="acc-t">' + esc(l.title) + '</span>' +
+            '<span class="sub' + (p.full ? ' sub--done' : '') + '">' + p.done + ' / ' + p.total + '</span>' +
+          '</button>' +
+          '<div class="side">' +
+            '<button data-act="rename-list" data-list="' + l.id + '" aria-label="Переименовать список" title="Переименовать">' + ICON.edit + '</button>' +
+            '<button class="kill" data-act="kill-list" data-list="' + l.id + '" aria-label="Удалить список">' + ICON.kill + '</button>' +
+          '</div>' +
+        '</div>' +
+        (open ? '<div class="acc-body">' + listItemsHtml(l) + listAddRow(l) + '</div>' : '') +
+      '</article>';
+    }).join('') + '</div>';
+    return html;
+  }
+
+  // Доска (по умолчанию) — все списки колонками, пункты видно сразу, ничего не
+  // открывая. Контейнер прокручивается вбок, когда колонок больше, чем ширина.
+  html += '<div class="listboard">' + S.lists.map(function(l){
+    var p = listProgress(l);
+    return '<section class="listcol" data-list="' + l.id + '">' +
+      '<div class="listcol-h">' +
+        '<h3>' + esc(l.title) + '</h3>' +
+        '<span class="lc-count' + (p.full ? ' sub--done' : '') + '">' + p.done + '/' + p.total + '</span>' +
+        '<div class="side">' +
+          '<button data-act="rename-list" data-list="' + l.id + '" aria-label="Переименовать список" title="Переименовать">' + ICON.edit + '</button>' +
+          '<button class="kill" data-act="kill-list" data-list="' + l.id + '" aria-label="Удалить список">' + ICON.kill + '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="listcol-body">' + listItemsHtml(l) + '</div>' +
+      listAddRow(l) +
+    '</section>';
+  }).join('') + '</div>';
   return html;
 }
 
@@ -7474,6 +7623,8 @@ function vSettingsData(){
 function телоДанных(){
   var html = '';
 
+  html += разделСинхро();
+
   html += '<section class="card">' +
     '<h3>Резервная копия</h3>' +
     '<p class="sub">Один файл со всем: задачи, цели, списки, заметки, настройки. Им же переносят данные в другой браузер.</p>' +
@@ -7485,7 +7636,7 @@ function телоДанных(){
        сторону. Раньше здесь стояло общее «переносят на другое устройство», и
        человек, сохранивший копию на айфоне, получал в браузере «Это не копия
        Synapse» — про файл, который Synapse же и сделал. */
-    '<p class="hint">Копию с айфона сюда загрузить можно: перенесутся задачи, цели, списки и заметки. Финансы, помодоро и память Syn останутся на телефоне. Обратно — из браузера в приложение — файл не читается, и автоматической синхронизации между ними нет.</p>' +
+    '<p class="hint">Копию с айфона сюда загрузить можно: перенесутся задачи, цели, списки и заметки. Финансы, помодоро и память Syn останутся на телефоне. Обратно — из браузера в приложение — файл не читается; для переноса в обе стороны есть синхронизация устройств выше.</p>' +
   '</section>';
 
   // Автосохранение — сразу под ручной копией: это ответ на тот же вопрос,
@@ -7499,7 +7650,7 @@ function телоДанных(){
 
   html += '<section class="card" style="margin-top:14px">' +
     '<h3>Где лежат данные</h3>' +
-    '<p class="sub">Только в этом браузере, на этом устройстве. Копии на сервере нет: очистка данных сайта или режим инкогнито удалят задачи, цели и заметки безвозвратно.</p>' +
+    '<p class="sub">Только в этом браузере, на этом устройстве. Пока синхронизация устройств выключена, копии на сервере нет: очистка данных сайта или режим инкогнито удалят задачи, цели и заметки безвозвратно.</p>' +
   '</section>';
 
   return html;
@@ -7537,7 +7688,7 @@ function vAbout(){
     }).join('') + '</div></section>';
 
   html += '<p class="lbl">Где лежат записи</p><section class="card">' +
-    '<p class="sub">Только в этом браузере, на этом устройстве. Копии на сервере нет: очистка данных сайта или режим инкогнито удалят их безвозвратно. Копию можно сохранить файлом в разделе «Данные».</p>' +
+    '<p class="sub">Только в этом браузере, на этом устройстве. Пока синхронизация устройств выключена, копии на сервере нет: очистка данных сайта или режим инкогнито удалят их безвозвратно. Копию можно сохранить файлом в разделе «Данные».</p>' +
     '<p class="hint">К Syn уходит срез задач и целей — иначе он не знает, о чём его спрашивают. Сам срез не сохраняется, а вот разговор с ассистентом и его память лежат на сервере: без них он не помнил бы сказанное раньше. Стереть их можно в настройках.</p>' +
   '</section>';
 
@@ -7842,9 +7993,9 @@ var FREE_SYN_LIMIT = 20;
 /* Норма подписчика зависит от тарифа, и цифры здесь должны совпадать с
    PLAN_DAILY_AI_REQUESTS на сервере: считает он, а показываем мы. Разойдутся —
    человек увидит одно число, а упрётся в другое. */
-var PLAN_SYN_LIMITS = { 'pro.weekly': 50, 'pro.monthly': 50, 'pro.yearly': 100 };
+var PLAN_SYN_LIMITS = { 'pro.weekly': 180, 'pro.monthly': 180, 'pro.yearly': 500 };
 /// Норма для неизвестного тарифа: старая запись без поля plan.
-var PRO_SYN_LIMIT = 50;
+var PRO_SYN_LIMIT = 200;
 
 function proSynLimit(plan){
   return PLAN_SYN_LIMITS[plan] || PRO_SYN_LIMIT;
@@ -9178,6 +9329,39 @@ synAct('move_task set_task_schedule', function(a, done, skipped){
   done.push('перенесена «' + task.title + '»');
 });
 
+/* Массовый перенос по признаку. Отбор делает КЛИЕНТ (точно), а не модель:
+   filter=overdue — просроченные и перенесённые (carried); filter=incomplete —
+   все незавершённые. Сервер уже сводит «перенеси все просроченные/невыполненные»
+   к одному move_tasks, поэтому модель тут не решает, что брать. */
+synAct('move_tasks', function(a, done, skipped){
+  var f = String(a.filter || a.target || '').toLowerCase();
+  var incomplete = /incomplete|unfinished|undone|невыполн|не выполн|незакрыт|незаверш/.test(f);
+  var overdue = /overdue|missed|просроч|пропущ|горящ/.test(f);
+  var onlyIncomplete = incomplete && !overdue;
+  var when = synSplitDateTime(a.datetime || a.date);
+  var естьКуда = !!(when.date || when.time || (a.bucket && bucketTitle(a.bucket)));
+  if (!естьКуда) return skipped.push('не понял, на какое число переносить');
+
+  var targets = (S.tasks || []).filter(function(t){
+    if (t.done) return false;
+    if (onlyIncomplete) return true;
+    return isOverdue(t) || t.carried;   // просроченные / перенесённые с прошлых дней
+  });
+  if (!targets.length){
+    return skipped.push(onlyIncomplete ? 'невыполненных задач нет' : 'просроченных задач нет');
+  }
+  targets.forEach(function(task){
+    if (!when.date && !when.time && a.bucket && bucketTitle(a.bucket)){
+      task.bucket = a.bucket; task.date = dateForBucket(a.bucket);
+    }
+    if (when.date){ task.date = when.date; task.bucket = bucketForDate(when.date); }
+    if (when.time) task.time = when.time;
+    if (spansSeveralDays(task.bucket)) task.time = null;
+    task.carried = 0; task.carriedFrom = null;
+  });
+  done.push('перенесено ' + (onlyIncomplete ? 'невыполненных' : 'просроченных') + ' задач: ' + targets.length);
+});
+
 synAct('clear_task_schedule', function(a, done, skipped){
   var task = synFindTask(synTaskName(a));
   if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
@@ -9852,13 +10036,14 @@ function bucketForDate(iso){
 
 /* ============ ПЕРЕНОС ДАННЫХ ============ */
 
-/* Автоматической синхронизации с приложением здесь нет и в ближайшее время не
-   будет — и заглушку с надписью «синхронизировано» рисовать нельзя, она хуже
-   честного отсутствия. Что работает сегодня без всякого сервера — файл.
+/* Синхронизация устройств (по подписке — раздел «Синхронизация устройств» в
+   настройках) переносит записи между браузером, айфоном и Android через сервер
+   зашифрованными. Здесь — второй, бессерверный путь: файл. Он работает без
+   подписки и без сети и остаётся резервной копией.
 
    Выгрузка отдаёт всё состояние одним JSON, загрузка принимает его обратно.
    Это и перенос между браузерами и устройствами, и резервная копия — нужная
-   тем более остро, что данные живут только в localStorage. */
+   тем более остро, что без синхронизации данные живут только в localStorage. */
 
 /* ---------- автосохранение копии в файл ---------- */
 
@@ -12184,6 +12369,13 @@ var ACTS = {
     commit();
   },
   'open-list': function(d){ S.activeList = d.list; go('list'); },
+  'set-listview': function(d){ S.listView = d.lview || 'board'; save(); render(); },
+  'list-acc': function(d){
+    S.listsExpanded = S.listsExpanded || [];
+    var i = S.listsExpanded.indexOf(d.list);
+    if (i === -1) S.listsExpanded.push(d.list); else S.listsExpanded.splice(i, 1);
+    render();
+  },
   'rename-list': function(d){
     var list = findList(d.list);
     if (!list) return;
@@ -13504,3 +13696,224 @@ pomoСверить();
 });
 
 сверитьПодписку();
+
+/* ============ СИНХРОНИЗАЦИЯ УСТРОЙСТВ (Pro) ============
+   Кросс-платформенный перенос через наш сервер. Данные шифруются здесь
+   (sync-crypto.js), на сервер уходит только шифртекст; форму айфона собирает
+   sync-bridge.js. Первая версия несёт задачи/цели/списки/заметки — финансы,
+   помодоро и память Syn на этой стороне НЕ трогаются (иначе снимок с айфона,
+   где их в этой форме нет, стёр бы веб-финансы). Секреты — в localStorage
+   отдельными ключами, НЕ в S. */
+
+var SYNC = { code: '', status: '', busy: false, joinOpen: false };
+
+function syncStore(k){ return localStorage.getItem('synapse.sync.' + k); }
+function syncStoreSet(k, v){ if (v == null) localStorage.removeItem('synapse.sync.' + k); else localStorage.setItem('synapse.sync.' + k, v); }
+function syncEnabled(){ return syncStore('enabled') === '1'; }
+function syncToken(){ return syncStore('token'); }
+function syncDeviceID(){ var d = syncStore('deviceID'); if (!d){ d = 'web-' + Math.random().toString(36).slice(2); syncStoreSet('deviceID', d); } return d; }
+function syncDataKeyRaw(){ var b = syncStore('dataKey'); return b ? SynSyncCrypto.unb64(b) : null; }
+function syncEnsureDataKey(){ if (!syncStore('dataKey')) syncStoreSet('dataKey', SynSyncCrypto.b64(SynSyncCrypto.newDataKey())); }
+
+/* ---- сеть (переиспользуем synFetch/synSession) ---- */
+function syncApiEnable(){ return synSession().then(function(sess){ return synFetch('/v1/synapse/sync/enable', {}, sess); }).then(function(d){ syncStoreSet('token', d.token); syncStoreSet('syncID', d.syncID); return d; }); }
+function syncApiStorePair(lookup, wrapped){ return synFetch('/v1/synapse/sync/pair/issue', { pairLookup: lookup, wrappedKey: wrapped }, syncToken()); }
+function syncApiRedeem(lookup){ return synFetch('/v1/synapse/sync/pair/redeem', { pairLookup: lookup, installID: webInstallID() }); }
+// Токен синхро отвергнут (протух/сброшен) — не молчим и не бросаем синхро.
+// Перевыпускаем токен через enable (сервер по членству вернёт ТУ ЖЕ группу, не
+// отдельную копию) и повторяем один раз. Так синхро не обрывается на протухании.
+function syncAuthed(run){
+  return run().catch(function(e){
+    if (e && e.status === 401){
+      return syncApiEnable().then(function(){ return run(); });
+    }
+    throw e;
+  });
+}
+function syncApiPush(cipher, base){ return syncAuthed(function(){ var b = { snapshot: { cipher: cipher } }; if (base) b.baseUpdatedAt = base; return synFetch('/v1/synapse/sync/push', b, syncToken()); }); }
+function syncApiPull(){ return syncAuthed(function(){ return synFetch('/v1/synapse/sync/pull', {}, syncToken()); }); }
+function syncApiDelete(){ return synFetch('/v1/synapse/sync/delete', {}, syncToken()); }
+
+/* ---- шифр конверта: форма на проводе = PersistedEnvelope<WorkspaceSnapshot> ---- */
+function syncEncryptEnvelope(){
+  return SynSyncBridge.toSnapshot(S).then(function(snapshot){
+    var envelope = { value: snapshot, updatedAt: new Date().toISOString(), deviceID: syncDeviceID() };
+    return SynSyncCrypto.sealText(JSON.stringify(envelope), syncDataKeyRaw());
+  });
+}
+function syncDecryptEnvelope(cipher){
+  return SynSyncCrypto.openText(cipher, syncDataKeyRaw()).then(function(json){
+    if (!json) return null;
+    try { return JSON.parse(json); } catch (e){ return null; }
+  });
+}
+/* Применить пришедший снимок — ТОЛЬКО задачи/цели/списки/заметки. Финансы,
+   помодоро и прочее в этом браузере оставляем как есть. */
+function syncApplyEnvelope(envelope){
+  var conv = изКопииПриложения({ workspace: envelope.value });
+  S.tasks = conv.tasks; S.goals = conv.goals; S.lists = conv.lists; S.notes = conv.notes;
+  // Финансы: применяем, только если пришли; счета и правила регулярных у веба
+  // локальные — сохраняем их.
+  if (envelope.value && envelope.value.finance && typeof SynSyncBridge !== 'undefined'){
+    S.finance = SynSyncBridge.financeFromSnapshot(envelope.value.finance, S.finance);
+  }
+  // Корзина: задачные записи приходят в snapshot.trashedTasks (форма айфона).
+  // Конвертируем их тем же изКопииПриложения (как активные задачи), оборачиваем
+  // в записи корзины и заменяем задачные записи, СОХРАНЯЯ веб-локальные
+  // (цели/списки/заметки в корзине — их у айфона в снимке нет).
+  if (envelope.value && envelope.value.trashedTasks !== undefined){
+    var iosTrash = envelope.value.trashedTasks || [];
+    var convT = изКопииПриложения({ workspace: { tasks: iosTrash, goals: [], lists: [], notes: [] } });
+    var webTrashTasks = (convT && convT.tasks) || [];
+    var сохранённые = (S.trash || []).filter(function(e){ return e && e.kind !== 'task'; });
+    for (var ti = 0; ti < webTrashTasks.length; ti++){
+      var src = iosTrash[ti] || {};
+      var atMs = src.trashedAt ? new Date(src.trashedAt).getTime() : Date.now();
+      if (isNaN(atMs)) atMs = Date.now();
+      сохранённые.push({ id: uid(), kind: 'task', at: atMs,
+        title: String((webTrashTasks[ti] && webTrashTasks[ti].title) || 'Без названия'),
+        data: webTrashTasks[ti], extra: null });
+    }
+    сохранённые.sort(function(a, b){ return (b.at || 0) - (a.at || 0); });   // новые сверху
+    S.trash = сохранённые;
+  }
+  починитьЗаписи(S);
+  save();
+  syncLastHash = syncContentHash();   // применили чужое — не гнать его обратно
+  render();                            // показать подтянутое
+}
+
+/* ---- оркестровка ---- */
+function syncDo(promiseFn){
+  SYNC.busy = true; render();
+  return Promise.resolve().then(promiseFn).catch(function(e){
+    if (e && e.status === 402) SYNC.status = 'Синхронизация устройств доступна в Pro.';
+    else if (e && e.status === 401){ syncStoreSet('token', null); SYNC.status = 'Нужно включить синхронизацию заново.'; }
+    else if (e && e.status === 404) SYNC.status = 'Код не подошёл. Проверьте, что он введён целиком.';
+    else SYNC.status = (e && e.message) ? e.message : 'Не получилось. Попробуйте ещё раз.';
+  }).then(function(){ SYNC.busy = false; render(); });
+}
+function syncPullApply(){
+  return syncApiPull().then(function(d){
+    if (!d.snapshot || !d.snapshot.cipher) return;
+    if (d.updatedAt && d.updatedAt === syncStore('lastServerUpdatedAt')) return;   // сервер не менялся
+    // Есть местные правки, ещё не ушедшие на сервер? Не затираем — их отправит
+    // авто-пуш, расхождение разрулит push.
+    if (syncLastHash !== null && syncContentHash() !== syncLastHash) return;
+    return syncDecryptEnvelope(d.snapshot.cipher).then(function(env){
+      if (!env){ SYNC.status = 'Не удалось расшифровать данные с сервера. Свяжите устройство заново по коду.'; return; }
+      syncApplyEnvelope(env);
+      syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+    });
+  });
+}
+function syncPushCurrent(){
+  return syncEncryptEnvelope().then(function(cipher){
+    return syncApiPush(cipher, syncStore('lastServerUpdatedAt')).then(function(d){
+      syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+      syncLastHash = syncContentHash();
+    }).catch(function(e){
+      if (e && e.status === 409 && e.data){
+        // Наши правки побеждают: выкладываем поверх, база = версия сервера.
+        return syncEncryptEnvelope().then(function(cipher2){
+          return syncApiPush(cipher2, e.data.updatedAt);
+        }).then(function(d2){ syncStoreSet('lastServerUpdatedAt', d2.updatedAt || ''); syncLastHash = syncContentHash(); });
+      }
+      throw e;
+    });
+  });
+}
+
+function syncTurnOn(){ return syncDo(function(){ return syncApiEnable().then(function(){ syncEnsureDataKey(); syncStoreSet('enabled', '1'); return syncPullApply(); }).then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизация включена.'; }); }); }
+function syncTurnOff(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); SYNC.code = ''; SYNC.status = 'Синхронизация отключена. Данные в этом браузере остались.'; render(); }
+function syncShowCode(){ return syncDo(function(){ var ready = syncToken() ? Promise.resolve() : syncApiEnable().then(function(){ syncEnsureDataKey(); syncStoreSet('enabled', '1'); }); return ready.then(function(){ var code = SynSyncCrypto.newCode(); return SynSyncCrypto.wrap(syncDataKeyRaw(), code).then(function(wrapped){ return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiStorePair(lookup, wrapped); }).then(function(){ SYNC.code = code; SYNC.status = 'Введите этот код на другом устройстве — код живёт 10 минут.'; }); }); }); }); }
+function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete(code)){ SYNC.status = 'Код неполный. Проверьте, что ввели его целиком.'; return; } return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiRedeem(lookup); }).then(function(res){ return SynSyncCrypto.unwrap(res.wrappedKey, code).then(function(key){ if (!key){ SYNC.status = 'Код не подошёл.'; return; } syncStoreSet('dataKey', SynSyncCrypto.b64(key)); syncStoreSet('token', res.token); syncStoreSet('syncID', res.syncID); syncStoreSet('enabled', '1'); syncStoreSet('lastServerUpdatedAt', null); SYNC.joinOpen = false; return syncPullApply().then(function(){ SYNC.status = 'Устройство связано. Данные подтянуты.'; }); }); }); }); }
+function syncNow(){ return syncDo(function(){ return syncPullApply().then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизировано.'; }); }); }
+function syncDeleteRemote(){ return syncDo(function(){ return syncApiDelete().then(function(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('dataKey', null); syncStoreSet('lastServerUpdatedAt', null); SYNC.code = ''; SYNC.status = 'Копия с сервера удалена. Данные в браузере остались.'; }); }); }
+function syncPullOnLoad(){ if (syncEnabled() && syncToken() && syncDataKeyRaw()) syncDo(function(){ return syncPullApply(); }); }
+
+/* ---- экран в разделе «Данные» ---- */
+function разделСинхро(){
+  if (!SYNC) SYNC = { code: '', status: '', busy: false, joinOpen: false };
+  if (!isPro()){
+    return '<section class="card"><h3>Синхронизация устройств</h3>' +
+      '<p class="sub">Доступно в Pro. Переносит задачи, цели, списки и заметки между айфоном, вебом и андроидом — данные уходят зашифрованными, мы их не читаем.</p></section>';
+  }
+  var on = syncEnabled();
+  var h = '<section class="card"><h3>Синхронизация устройств</h3>' +
+    '<p class="sub">Данные уходят зашифрованными, мы их не читаем. Переносятся задачи, цели, списки и заметки.</p>' +
+    '<div class="acts">' +
+    (on ? '<button class="btn sm soft" data-act="sync-off">Отключить</button>'
+        : '<button class="btn sm" data-act="sync-on">Включить</button>') +
+    '</div>';
+  if (on){
+    h += '<div class="acts">' +
+      '<button class="btn sm" data-act="sync-code">Связать новое устройство</button>' +
+      '<button class="btn sm soft" data-act="sync-join-open">Ввести код</button>' +
+      '<button class="btn sm soft" data-act="sync-now">Синхронизировать сейчас</button>' +
+      '</div>';
+    if (SYNC.code) h += '<p class="hint">Код для связки (введите его на другом устройстве):</p>' +
+      '<p style="font-size:28px;font-weight:800;letter-spacing:3px;font-family:monospace">' + esc(SYNC.code) + '</p>';
+    if (SYNC.joinOpen) h += '<div class="acts" style="gap:8px">' +
+      '<input id="sync-code-input" placeholder="ABCD-EFGH" autocapitalize="characters" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line,#ccc);flex:1">' +
+      '<button class="btn sm" data-act="sync-join-do">Связать</button></div>';
+    h += '<div class="acts"><button class="btn sm soft" data-act="sync-delete">Удалить копию с сервера</button></div>';
+  }
+  if (SYNC.busy) h += '<p class="hint">Секунду…</p>';
+  if (SYNC.status) h += '<p class="hint">' + esc(SYNC.status) + '</p>';
+  h += '</section>';
+  return h;
+}
+
+/* Авто-синхронизация: отправляем при изменении (с задержкой), подтягиваем по
+   таймеру. Хэш содержимого гасит пинг-понг между двумя активными устройствами:
+   применил чужое → записал хэш → авто-отправка видит тот же хэш и молчит. */
+var syncLastHash = null;
+var syncAutoTimer = null;
+function syncContentHash(){
+  var f = S.finance || {};
+  // Корзина (только задачные записи — они синхронизируются) тоже входит в хэш:
+  // иначе удаление/восстановление/очистка не считались бы изменением, и авто-
+  // пуш их бы не отправлял, а входящий pull мог бы затереть местную корзину.
+  var tr = (S.trash || []).filter(function(e){ return e && e.kind === 'task'; })
+    .map(function(e){ return { i: e.data && e.data.id, a: e.at, d: !!(e.data && e.data.done) }; });
+  var str = JSON.stringify({ t: S.tasks||[], g: S.goals||[], l: S.lists||[], n: S.notes||[], tr: tr,
+    fo: f.ops||[], fd: f.debts||[], fj: f.jars||[], fs: f.subs||[], fb: f.budgets||{}, fc: f.cats||[], fop: f.opening||0 });
+  var h = 5381; for (var i = 0; i < str.length; i++){ h = ((h << 5) + h + str.charCodeAt(i)) >>> 0; }
+  return '' + h;
+}
+function syncAutoPush(){
+  if (!syncEnabled() || !syncToken() || !syncDataKeyRaw()) return;
+  if (syncContentHash() === syncLastHash) return;   // не менялось — молчим
+  syncPushCurrent().catch(function(){});            // тихо; ошибка — таймер повторит
+}
+function syncScheduleAutoPush(){
+  if (!syncEnabled()) return;
+  if (syncAutoTimer) clearTimeout(syncAutoTimer);
+  syncAutoTimer = setTimeout(syncAutoPush, 2500);
+}
+if (typeof document !== 'undefined' && !window.__syncVisHandler){
+  window.__syncVisHandler = true;
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden && syncEnabled() && syncToken() && syncDataKeyRaw()){
+      syncPullApply().catch(function(){});
+    }
+  });
+}
+if (typeof window !== 'undefined' && !window.__syncPullTimer){
+  window.__syncPullTimer = setInterval(function(){
+    if (syncEnabled() && syncToken() && syncDataKeyRaw() && !document.hidden){
+      syncPullApply().catch(function(){});
+    }
+  }, 25000);
+}
+
+ACTS['sync-on'] = function(){ syncTurnOn(); };
+ACTS['sync-off'] = function(){ syncTurnOff(); };
+ACTS['sync-code'] = function(){ syncShowCode(); };
+ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; render(); };
+ACTS['sync-join-do'] = function(){ var el = document.getElementById('sync-code-input'); syncJoin(el ? el.value : ''); };
+ACTS['sync-now'] = function(){ syncNow(); };
+ACTS['sync-delete'] = function(){ syncDeleteRemote(); };
+
+try { syncPullOnLoad(); } catch (e) {}

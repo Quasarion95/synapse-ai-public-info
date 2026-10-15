@@ -1084,8 +1084,13 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 
        Плюс 2×--pad в числителе — потому что у main своё внутреннее поле, и
        равнять надо видимые края текста, а не невидимые края блока. */
-    --col: clamp(700px, calc(100vw - var(--rail) - 3 * 28px), 1180px);
-    --gutter: max(28px, calc((100vw - var(--rail) - var(--col) + 2 * var(--pad)) / 3));
+    /* 100vw делим на --scale: размер шрифта задан через html{zoom},
+       а zoom не масштабирует vw. Без деления на маленьком шрифте (zoom 0.88)
+       вся раскладка ужималась к левому верхнему углу, оставляя пустоту справа —
+       меню липло к краю и не центрировалось. Деление считает раскладку под
+       «неувеличенную» ширину, и после zoom она ровно заполняет окно. */
+    --col: clamp(700px, calc(100vw / var(--scale, 1) - var(--rail) - 3 * 28px), 1180px);
+    --gutter: max(28px, calc((100vw / var(--scale, 1) - var(--rail) - var(--col) + 2 * var(--pad)) / 3));
   }
 
   body{
@@ -1642,8 +1647,9 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   color:var(--fg-3); font-weight:500}
 .fintile b{display:block; margin-top:5px; font-size:20px; letter-spacing:-.02em;
   font-variant-numeric:tabular-nums}
-.fintile.bad b{color:var(--crit)}
+.fintile.bad b{color:var(--neg,var(--crit))}
 .fintile.warn b{color:var(--warn)}
+.fintile.good b{color:var(--pos,var(--ok))}
 
 .finhead{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
   margin-bottom:12px}
@@ -1692,7 +1698,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .fr-c{font-size:11.5px; color:var(--fg-3); flex:none}
 .fr-v{font-size:13.5px; font-variant-numeric:tabular-nums; flex:none}
-.fr-v.up{color:var(--ok)}
+.fr-v.up{color:var(--pos,var(--ok))}
 .fr-x{width:26px; height:26px; border-radius:999px; display:grid; place-items:center;
   color:var(--fg-3); flex:none; font-size:13px}
 .fr-x:hover{background:var(--soft); color:var(--fg)}
@@ -1807,8 +1813,8 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .fc-b i{display:block; width:100%; border-radius:6px 6px 0 0; background:var(--soft-2)}
 .fincol.on .fc-b i{background:var(--accent)}
 .fc-t{font-size:11px; color:var(--fg-3)}
-.finline b.up-bad{color:var(--crit)}
-.finline b.down-ok{color:var(--ok)}
+.finline b.up-bad{color:var(--neg,var(--crit))}
+.finline b.down-ok{color:var(--pos,var(--ok))}
 
 /* «Ещё N бесплатно» рядом с кнопкой создания: предел называется до того, как
    в него упрутся, а не окном после нажатия. */
@@ -2515,3 +2521,86 @@ html[data-dense="1"] .titleline{gap:6px}
 .sub-code-row .sl-text b{font-size:14px}
 .sub-code-row .sl-text i{font-style:normal; font-size:12.5px; color:var(--fg-3); line-height:1.35}
 .sub-code-row .btn{flex:none}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Семантика статусов и значений: плюс/готово — зелёный (--pos), минус/просрочка
+   — красный (--neg/--crit), «внимание» — янтарный (--warn). Та же логика, что в
+   финансовых плитках, но распространённая на цели, этапы, фокус, долги,
+   конверты, копилки, платежи и списки. Приглушённый --ok (галочки, полосы)
+   намеренно не трогаем. Селекторы подобраны по специфичности так, чтобы
+   перекрыть монотонные исходные правила выше по файлу.
+   ───────────────────────────────────────────────────────────────────────── */
+/* Этапы цели: «В работе» — янтарный, «Готово» — зелёный (план — как был). */
+.status.status--active{color:var(--warn)}
+.status.status--done{color:var(--pos,var(--ok))}
+/* Долги по направлению: «я должен» — янтарный, «мне должны» — зелёный. */
+.dr-n--mine{color:var(--warn)}
+.dr-n--owed{color:var(--pos,var(--ok))}
+.dr-v--mine{color:var(--warn)}
+.dr-v--owed{color:var(--pos,var(--ok))}
+/* Конверт не в перерасходе: «осталось» — зелёным. */
+.env-f.env-f--left{color:var(--pos,var(--ok))}
+/* Копилка собрана: процент, сумма и «Собрано.» — зелёным. */
+.jar.full .sub, .jar.full .debt-sum b{color:var(--pos,var(--ok))}
+/* Оплаченный платёж: подпись «оплачено» — зелёным. */
+.payrow.paid .pr-n{color:var(--pos,var(--ok))}
+/* Счётчики фокуса: «сделано» — зелёный, «не выполнено» — янтарный. */
+.cnt.cnt--good .v{color:var(--pos,var(--ok))}
+.cnt.cnt--warn .v{color:var(--warn)}
+/* Чип «внимание» (цель без задач и т.п.). */
+.chip.warn{background:transparent; color:var(--warn); box-shadow:inset 0 0 0 1px var(--warn)}
+/* Задача, которую многократно переносили, — янтарным. */
+.item .chips .chip.carried{color:var(--warn)}
+/* Строки брифинга фокуса: «ПРОСРОЧЕНО» — красный, «ЦЕЛИ без задач» — янтарный. */
+.fll.fll--neg{color:var(--neg,var(--crit))}
+.fll.fll--warn{color:var(--warn)}
+/* День закрыт на 100% — прогресс зелёным. */
+.focus-p--done b{color:var(--pos,var(--ok))}
+/* Цель выполнена на 100% — процент зелёным. */
+.goalcard-h .gp--done{color:var(--pos,var(--ok))}
+/* Список выполнен целиком — «Готово N из N» зелёным. */
+.sub.sub--done{color:var(--pos,var(--ok))}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Списки: переключатель видов + доска / плитки / гармошка. Единое
+   пространство — видно всё сразу, отмечаешь и добавляешь не заходя внутрь.
+   ───────────────────────────────────────────────────────────────────────── */
+.listbar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin:0 0 16px}
+.listseg{display:inline-flex; gap:4px; padding:4px; background:var(--soft); border-radius:12px; flex-wrap:wrap}
+.lv-btn{flex:none; border:0; background:none; border-radius:9px; padding:7px 14px; font-size:13.5px; color:var(--fg-2); cursor:pointer}
+.lv-btn:hover{color:var(--fg)}
+.lv-btn.on{background:var(--card); color:var(--fg); font-weight:600; box-shadow:var(--shadow)}
+
+/* Доска — колонки заполняют ряд и переносятся ВНИЗ, не уезжают вправо за экран. */
+.listboard{display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start}
+.listcol{flex:1 1 280px; max-width:100%; background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:14px}
+.listcol-h{display:flex; align-items:center; gap:6px; margin-bottom:10px}
+.listcol-h h3{font-size:15px; margin:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lc-count{font-family:var(--mono); font-size:12px; color:var(--fg-3); flex:none; margin-right:2px}
+/* Переименовать/удалить список — тот же блок .side и те же круглые иконки, что
+   в столбике и плитках (здесь всегда видимы, свайпа нет). */
+.listcol-h .side, .acc-h .side{display:flex; gap:1px; flex:none; align-self:center}
+.listcol-h .side button, .acc-h .side button{width:30px; height:30px; border-radius:999px; display:grid; place-items:center; color:var(--fg-3)}
+.listcol-h .side button:hover, .acc-h .side button:hover{background:var(--soft); color:var(--fg)}
+.listcol-h .side button svg, .acc-h .side button svg{width:16px; height:16px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+.listcol .rowadd{margin-top:10px}
+@media (min-width:900px){ .listcol{max-width:calc(50% - 7px)} }
+@media (min-width:1300px){ .listcol{max-width:calc(33.333% - 10px)} }
+
+/* Плитки — сетка обзора, клик открывает список. */
+.listgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px}
+.listgrid .row-card{margin-bottom:0}
+.listtile h3{font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+/* Гармошка — раскрытие на месте, со страницы не уходишь. */
+.listacc{display:flex; flex-direction:column; gap:10px}
+.listacc .accitem{margin:0; padding:0; overflow:hidden}
+.acc-h{display:flex; align-items:center; gap:8px; padding:13px 16px}
+.acc-toggle{flex:1; display:flex; align-items:center; gap:10px; background:none; border:0; cursor:pointer; text-align:left; min-width:0; padding:0; color:inherit}
+.acc-toggle .car{font-size:18px; line-height:1; color:var(--fg-3); flex:none; transition:transform .18s ease}
+.accitem.open .acc-toggle .car{transform:rotate(180deg)}
+.acc-t{font-size:15px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
+.acc-toggle .sub{margin-left:auto; flex:none}
+.acc-h .kill{flex:none}
+.acc-body{padding:2px 16px 14px; border-top:1px solid var(--line)}
+.acc-body .lines{margin-top:10px}
