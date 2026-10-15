@@ -1039,14 +1039,55 @@
   }
 
   /* Перевод собранной разметки. Тронуты только видимый текст и читаемые
-     атрибуты — ни имена классов, ни data-атрибуты, ни обработчики. */
+     атрибуты — ни имена классов, ни data-атрибуты, ни обработчики.
+
+     И не то, что написал человек. Перевод по словарю не отличал подпись
+     интерфейса от записи: заметка «Работа» показывалась как «Focus», цель
+     «Дом» — как «Home», и первая же буква в поле сохраняла уже переведённый
+     текст поверх настоящего. Поэтому не трогаем содержимое <textarea> — там
+     всегда текст человека — и всё внутри элемента с translate="no" (так
+     помечены названия задач, целей, списков и заметок), включая его
+     собственные атрибуты: так же это слово понимает и браузер.
+
+     Атрибут ищем только после пробела: иначе data-title="…" принимался за
+     title и переводился. */
+  var VOID_TAGS = /^(area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)$/;
+
+  function trAttrs(tag) {
+    return tag.replace(/(\s)(placeholder|title|aria-label|alt)="([^"]*)"/g, function (m, sp, attr, value) {
+      return sp + attr + '="' + phrase(value) + '"';
+    });
+  }
+
   function tr(html) {
     if (lang !== 'en' || typeof html !== 'string' || !html) return html;
     if (html.indexOf('<') === -1) return phrase(html);
-    html = html.replace(/(placeholder|title|aria-label|alt)="([^"]*)"/g, function (m, attr, value) {
-      return attr + '="' + phrase(value) + '"';
-    });
-    return html.replace(/>([^<]+)</g, function (m, text) { return '>' + phrase(text) + '<'; });
+    // Чётные куски — текст между тегами, нечётные — сами теги.
+    var parts = html.split(/(<[^>]*>)/);
+    var skipTag = '', skipDepth = 0;
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i];
+      if (i % 2 === 0) {
+        // Текст до первого тега и после последнего не трогали и раньше.
+        if (!skipDepth && part && i > 0 && i < parts.length - 1) parts[i] = phrase(part);
+        continue;
+      }
+      var m = /^<(\/?)([a-zA-Z][\w-]*)/.exec(part);
+      if (!m) continue;   // комментарий, <!doctype> и прочее
+      var name = m[2].toLowerCase();
+      var closing = m[1] === '/';
+      var single = VOID_TAGS.test(name) || /\/>$/.test(part);
+      if (skipDepth) {
+        // Внутри «не переводить» считаем только вложенные теги того же имени.
+        if (name === skipTag && !single) skipDepth += closing ? -1 : 1;
+        continue;
+      }
+      if (closing) continue;
+      var keep = /\stranslate="no"/.test(part);
+      if (!keep) parts[i] = trAttrs(part);
+      if ((keep || name === 'textarea') && !single) { skipTag = name; skipDepth = 1; }
+    }
+    return parts.join('');
   }
 
   /* Заголовок вкладки и описание страницы. Браузер читает их из разметки ещё
