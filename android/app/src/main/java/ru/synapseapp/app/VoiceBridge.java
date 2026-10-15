@@ -156,6 +156,11 @@ public class VoiceBridge {
         return org.json.JSONObject.quote(s == null ? "" : s);
     }
 
+    /** Сказать странице, что слушать не дали. */
+    void отказ(String текст) {
+        событие("error", текст);
+    }
+
     void освободить() {
         if (recognizer != null) {
             recognizer.destroy();

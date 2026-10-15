@@ -56,10 +56,20 @@ public class NotifyBridge {
      * разрешены по умолчанию, а выключаются в настройках системы.
      */
     @JavascriptInterface
-    public void ask() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+    public boolean ask() {
+        /* false — системного окна не будет, и ответа ждать бесполезно.
+
+           Так бывает до Android 13 (разрешения нет, уведомления выключают в
+           настройках системы) и когда разрешение выдано, но уведомления
+           приложения всё равно отключены в настройках. Раньше в этих случаях
+           нажатие на переключатель не делало ничего; теперь страница знает,
+           что надо отправить человека в настройки. */
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false;
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) return false;
         activity.runOnUiThread(() -> ActivityCompat.requestPermissions(activity,
                 new String[]{Manifest.permission.POST_NOTIFICATIONS}, ЗАПРОС_УВЕДОМЛЕНИЙ));
+        return true;
     }
 
     /**
@@ -74,12 +84,33 @@ public class NotifyBridge {
      */
     @JavascriptInterface
     public void reschedule(String json) {
-        AlarmManager будильник = (AlarmManager) activity.getSystemService(Context.ALARM_SERVICE);
+        if (!permitted()) json = null;
+        поставитьВсе(activity, json);
+    }
+
+    /** Где лежит последний список: его заново ставит ПослеЗагрузки. */
+    private static final String ХРАНИЛИЩЕ = "synapse.reminders";
+    private static final String КЛЮЧ_СПИСОК = "список";
+
+    /**
+     * Снять прежние будильники и поставить список заново.
+     *
+     * Список заодно ложится в настройки приложения. После перезагрузки
+     * система забывает все будильники, а страница переставит их только когда
+     * человека откроет приложение — то есть утренний план после ночной
+     * перезагрузки не пришёл бы вовсе. Сохранённый список ставит обратно
+     * ПослеЗагрузки, без страницы.
+     */
+    static void поставитьВсе(Context context, String json) {
+        AlarmManager будильник = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (будильник == null) return;
 
-        for (int i = 0; i < ПРЕДЕЛ; i++) снять(будильник, i);
+        for (int i = 0; i < ПРЕДЕЛ; i++) снять(context, будильник, i);
 
-        if (!permitted() || json == null || json.isEmpty()) return;
+        context.getSharedPreferences(ХРАНИЛИЩЕ, Context.MODE_PRIVATE).edit()
+                .putString(КЛЮЧ_СПИСОК, json == null ? "" : json).apply();
+
+        if (json == null || json.isEmpty()) return;
 
         try {
             JSONArray список = new JSONArray(json);
@@ -87,17 +118,29 @@ public class NotifyBridge {
             for (int i = 0; i < список.length() && i < ПРЕДЕЛ; i++) {
                 JSONObject о = список.getJSONObject(i);
                 long когда = о.optLong("когда", 0);
-                // Прошедшее время не ставим: система выстрелила бы сразу, и
-                // человек получил бы напоминание о вчерашнем при первом входе.
-                if (когда <= сейчас) continue;
+                boolean ежедневно = о.optBoolean("ежедневно", false);
+                String текст = о.optString("текст", "");
+                String потом = о.optString("потом", текст);
 
-                Intent намерение = new Intent(activity, ПоказатьНапоминание.class);
+                /* Прошедшее разовое не ставим: система выстрелила бы сразу, и
+                   человек получил бы напоминание о вчерашнем при первом входе.
+                   Прошедшее ежедневное — двигаем на ближайший такой же час, но
+                   уже со словами без цифр: цифры считались в тот день. */
+                if (когда <= сейчас) {
+                    if (!ежедневно || когда <= 0) continue;
+                    когда = ПоказатьНапоминание.следующийРаз(когда, сейчас);
+                    текст = потом;
+                }
+
+                Intent намерение = new Intent(context, ПоказатьНапоминание.class);
                 намерение.putExtra(ПоказатьНапоминание.КЛЮЧ_НОМЕР, i);
                 намерение.putExtra(ПоказатьНапоминание.КЛЮЧ_ЗАГОЛОВОК, о.optString("заголовок", "Synapse"));
-                намерение.putExtra(ПоказатьНапоминание.КЛЮЧ_ТЕКСТ, о.optString("текст", ""));
-                намерение.putExtra(ПоказатьНапоминание.КЛЮЧ_ЕЖЕДНЕВНО, о.optBoolean("ежедневно", false));
+                намерение.putExtra(ПоказатьНапоминание.КЛЮЧ_ТЕКСТ, текст);
+                намерение.putExtra(ПоказатьНапоминание.КЛЮЧ_ПОТОМ, потом);
+                намерение.putExtra(ПоказатьНапоминание.КЛЮЧ_КОГДА, когда);
+                намерение.putExtra(ПоказатьНапоминание.КЛЮЧ_ЕЖЕДНЕВНО, ежедневно);
 
-                PendingIntent пи = PendingIntent.getBroadcast(activity, i, намерение,
+                PendingIntent пи = PendingIntent.getBroadcast(context, i, намерение,
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
                 ПоказатьНапоминание.поставить(будильник, когда, пи);
             }
@@ -107,9 +150,15 @@ public class NotifyBridge {
         }
     }
 
-    private void снять(AlarmManager будильник, int номер) {
-        Intent намерение = new Intent(activity, ПоказатьНапоминание.class);
-        PendingIntent пи = PendingIntent.getBroadcast(activity, номер, намерение,
+    /** Последний список, который присылала страница; пустая строка, если не было. */
+    static String сохранённый(Context context) {
+        return context.getSharedPreferences(ХРАНИЛИЩЕ, Context.MODE_PRIVATE)
+                .getString(КЛЮЧ_СПИСОК, "");
+    }
+
+    private static void снять(Context context, AlarmManager будильник, int номер) {
+        Intent намерение = new Intent(context, ПоказатьНапоминание.class);
+        PendingIntent пи = PendingIntent.getBroadcast(context, номер, намерение,
                 PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
         if (пи != null){ будильник.cancel(пи); пи.cancel(); }
     }

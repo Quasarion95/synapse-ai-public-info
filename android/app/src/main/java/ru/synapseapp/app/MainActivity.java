@@ -193,23 +193,8 @@ public class MainActivity extends AppCompatActivity {
                 // просто не существовало.
                 отдатьКодСтранице();
                 view.evaluateJavascript(
-                        "getComputedStyle(document.body).backgroundColor", value -> {
-                            Integer цвет = разобратьЦвет(value);
-                            if (цвет == null) return;
-                            getWindow().setBackgroundDrawable(new ColorDrawable(цвет));
-                            /* Тем же цветом красим и саму вьюху.
-
-                               У WebView свой фон, и он белый. Виден он в те
-                               мгновения, когда страница не закрывает всю
-                               площадь: при выезде клавиатуры высота меняется
-                               раньше, чем перерисовывается вёрстка, и снизу
-                               мелькает белая полоса. На светлой теме это
-                               незаметно, на любой другой — белый прямоугольник
-                               посреди окна, о котором и сказал тестировщик. */
-                            view.setBackgroundColor(цвет);
-                            new WindowInsetsControllerCompat(getWindow(), view)
-                                    .setAppearanceLightStatusBars(светлыйЛи(цвет));
-                        });
+                        "getComputedStyle(document.body).backgroundColor",
+                        value -> покрасить(разобратьЦвет(value)));
             }
 
             /**
@@ -299,6 +284,18 @@ public class MainActivity extends AppCompatActivity {
            приложении не делала ничего: WebView не умеет загрузок. */
         web.addJavascriptInterface(new ФайлыBridge(this), "AndroidFiles");
 
+        /* Смена темы внутри приложения. Цвет при загрузке страницы мы узнаём
+           сами, но тему человек меняет и потом — без этого моста полосы
+           оставались прежнего цвета до перезапуска. Методы моста зовутся не из
+           главного потока, поэтому окно красим через runOnUiThread. */
+        web.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public void paint(String css) {
+                Integer цвет = разобратьЦвет(css);
+                runOnUiThread(() -> покрасить(цвет));
+            }
+        }, "AndroidBars");
+
         setContentView(web);
 
         /* Кнопка «назад» ходит по разделам, а не закрывает приложение.
@@ -313,8 +310,16 @@ public class MainActivity extends AppCompatActivity {
                 if (web.canGoBack()) {
                     web.goBack();
                 } else {
+                    /* Выключаем себя только на один вызов и сразу включаем.
+
+                       С Android 12 «назад» на первом экране не закрывает
+                       приложение, а уводит его в фон — активность остаётся
+                       жива. Раньше обработчик так и оставался выключенным, и
+                       после возвращения первое же «назад» выкидывало человека
+                       из приложения посреди работы вместо шага по разделам. */
                     setEnabled(false);
                     getOnBackPressedDispatcher().onBackPressed();
+                    setEnabled(true);
                 }
             }
         });
@@ -372,9 +377,9 @@ public class MainActivity extends AppCompatActivity {
      *
      * Если вкладку показать нечем — обычный переход в браузер.
      *
-     * Если и браузера нет, страница открывается в самом приложении. Это худший
-     * из трёх вариантов: адресной строки не будет. Но он несравнимо лучше того,
-     * что было: startActivity падал с ActivityNotFoundException (браузер не был
+     * Если и браузера нет — говорим об этом прямо. Внутри приложения чужую
+     * страницу не открываем (почему — в конце метода). Молчать нельзя тоже:
+     * так уже было, startActivity падал с ActivityNotFoundException (браузер не был
      * объявлен в queries), исключение ловилось молча — и кнопка «Оформить
      * подписку» не делала ровным счётом ничего. Молчание здесь — самое дорогое
      * из возможных поведений: человек хотел заплатить и не смог.
@@ -410,7 +415,33 @@ public class MainActivity extends AppCompatActivity {
             // Браузера на устройстве нет либо система его от нас прячет.
         }
 
-        if (web != null) web.loadUrl(url.toString());
+        /* Чужую страницу внутрь не грузим.
+
+           Раньше третьей попыткой она открывалась в самом приложении. Но мосты
+           AndroidFiles, AndroidNotify и остальные видит любая страница в этом
+           окне — значит, чужой сайт получил бы право писать файлы в «Загрузки»
+           и ставить уведомления от нашего имени. Честнее сказать, что открыть
+           нечем: адрес можно скопировать и открыть вручную. */
+        android.widget.Toast.makeText(this,
+                "Не нашлось браузера, чтобы открыть ссылку: " + url.getHost(),
+                android.widget.Toast.LENGTH_LONG).show();
+    }
+
+    /** Окно, вьюха и значки полосы статуса — под цвет фона страницы. */
+    private void покрасить(Integer цвет) {
+        if (цвет == null || web == null) return;
+        getWindow().setBackgroundDrawable(new ColorDrawable(цвет));
+        /* Тем же цветом красим и саму вьюху.
+
+           У WebView свой фон, и он белый. Виден он в те мгновения, когда
+           страница не закрывает всю площадь: при выезде клавиатуры высота
+           меняется раньше, чем перерисовывается вёрстка, и снизу мелькает белая
+           полоса. На светлой теме это незаметно, на любой другой — белый
+           прямоугольник посреди окна, о котором и сказал тестировщик. */
+        web.setBackgroundColor(цвет);
+        WindowInsetsControllerCompat полосы = new WindowInsetsControllerCompat(getWindow(), web);
+        полосы.setAppearanceLightStatusBars(светлыйЛи(цвет));
+        полосы.setAppearanceLightNavigationBars(светлыйЛи(цвет));
     }
 
     /** Из «"rgb(245, 241, 232)"» — в цвет. null, если строка не та. */
@@ -452,7 +483,16 @@ public class MainActivity extends AppCompatActivity {
         if (code != VoiceBridge.ЗАПРОС_МИКРОФОНА) return;
         boolean дали = results.length > 0
                 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
-        if (дали && голос != null) голос.start();
+        if (голос == null) return;
+        if (дали) {
+            голос.start();
+        } else {
+            /* Отказ — вслух. Прежде он не порождал никакого события, и кнопка
+               микрофона после «Запретить» просто переставала что-либо делать.
+               После окончательного отказа система окно больше не показывает, и
+               единственный путь — настройки телефона. */
+            голос.отказ("Нет доступа к микрофону. Разрешить можно в настройках телефона: Приложения → Synapse AI → Разрешения.");
+        }
     }
 
     @Override

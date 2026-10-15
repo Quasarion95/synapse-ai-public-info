@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Записи задач живут в хранилище WebView. В резервную копию они попадают
-     вместе с ним: человек меняет телефон и не начинает с чистого листа. -->
+     вместе с ним: человек меняет телефон и не начинает с чистого листа.
+
+     Домен root, а не file. Хранилище WebView лежит в app_webview прямо в
+     папке данных приложения, а domain="file" означает её подпапку files/ —
+     раньше правило указывало на app_webview внутри files/, где ничего нет, и
+     задачи в копию не попадали. -->
 <full-backup-content>
     <include domain="database" path="." />
-    <include domain="file" path="app_webview" />
+    <include domain="root" path="app_webview" />
 </full-backup-content>

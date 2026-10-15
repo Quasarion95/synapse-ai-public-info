@@ -101,5 +101,19 @@
         <receiver
             android:name=".ПоказатьНапоминание"
             android:exported="false" />
-</application>
+
+        <!-- Ставит напоминания заново после перезагрузки: система забывает все
+             будильники при выключении. Разрешение RECEIVE_BOOT_COMPLETED выше
+             было объявлено с самого начала, а приёмника не было — и после
+             перезагрузки не приходило ничего, пока не откроешь приложение.
+             exported=true обязателен: иначе системная рассылка сюда не дойдёт;
+             чужие вызовы отсекает проверка действия внутри. -->
+        <receiver
+            android:name=".ПослеЗагрузки"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>

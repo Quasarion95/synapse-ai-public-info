@@ -27,6 +27,10 @@ public class ПоказатьНапоминание extends BroadcastReceiver {
     static final String КЛЮЧ_НОМЕР = "номер";
     /** Ежедневные — брифинг и отчёт: сами переставляют себя на завтра. */
     static final String КЛЮЧ_ЕЖЕДНЕВНО = "ежедневно";
+    /** Назначенный момент — от него, а не от «сейчас», считается завтрашний. */
+    static final String КЛЮЧ_КОГДА = "когда";
+    /** Текст для повторов: цифры из первого показа к завтрашнему дню устаревают. */
+    static final String КЛЮЧ_ПОТОМ = "потом";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -71,13 +75,39 @@ public class ПоказатьНапоминание extends BroadcastReceiver {
         AlarmManager будильник = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (будильник == null) return;
 
+        /* Завтра — от назначенного времени, а не от момента показа.
+
+           Без точных будильников система показывает уведомление в окне до
+           четверти часа. Раньше завтрашнее считалось как «сейчас + сутки», и
+           опоздание копилось: брифинг на 8:00 через неделю приходил к девяти. */
+        long сейчас = System.currentTimeMillis();
+        long было = прежний.getLongExtra(КЛЮЧ_КОГДА, сейчас);
+        long завтра = следующийРаз(было, сейчас);
+
         Intent снова = new Intent(context, ПоказатьНапоминание.class);
         снова.putExtras(прежний);
+        снова.putExtra(КЛЮЧ_КОГДА, завтра);
+        String потом = прежний.getStringExtra(КЛЮЧ_ПОТОМ);
+        if (потом != null && !потом.isEmpty()) снова.putExtra(КЛЮЧ_ТЕКСТ, потом);
+
         PendingIntent пи = PendingIntent.getBroadcast(context, номер, снова,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        long завтра = System.currentTimeMillis() + AlarmManager.INTERVAL_DAY;
         поставить(будильник, завтра, пи);
+    }
+
+    /**
+     * Тот же час и минута в ближайший день после «сейчас».
+     *
+     * Прибавляем календарные сутки, а не 24 часа: при переходе на летнее время
+     * 24 часа сдвинули бы брифинг на час.
+     */
+    static long следующийРаз(long было, long сейчас) {
+        java.util.Calendar к = java.util.Calendar.getInstance();
+        к.setTimeInMillis(было);
+        do {
+            к.add(java.util.Calendar.DAY_OF_MONTH, 1);
+        } while (к.getTimeInMillis() <= сейчас);
+        return к.getTimeInMillis();
     }
 
     /**
