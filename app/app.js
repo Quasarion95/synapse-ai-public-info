@@ -2046,7 +2046,9 @@ var ICON = {
      Звёздочки стали общим местом и ничего не сообщают: их ставят и на
      «улучшить текст», и на «показать рекомендации», и на анимацию загрузки.
      Две буквы говорят, что за кнопкой, без догадок. */
-  ai: '<span class="ai-mark" aria-hidden="true">AI</span>',
+  /* Искра над буквами — знак ИИ, который узнают без подписи: рядом с тёмной
+     кнопкой отправки одной заливки мало, чтобы кнопки различались. */
+  ai: '<span class="ai-mark" aria-hidden="true"><svg class="ai-spark" viewBox="0 0 12 12"><path d="M6 0l1.3 4.7L12 6l-4.7 1.3L6 12 4.7 7.3 0 6l4.7-1.3z"/></svg>AI</span>',
   full: '<svg viewBox="0 0 16 16" aria-hidden="true" style="width:14px;height:14px;fill:none;' +
     'stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-2px">' +
     '<path d="M6 2H2v4M10 2h4v4M10 14h4v-4M6 14H2v-4"/></svg>',
