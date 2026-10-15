@@ -682,6 +682,7 @@ var S = load();
 function rolloverIfNeeded(){
   var today = isoOf(todayDate());
   if (S.lastOpened === today) return;
+  if (S.pomodoro) S.pomodoro.doneToday = 0;   // «сессий сегодня» — значит, с утра заново
 
   var moved = 0, archived = 0;
   for (var i = 0; i < S.tasks.length; i++){
@@ -853,6 +854,15 @@ function freeLeft(kind){
 
 function canAdd(kind){ return freeLeft(kind) !== 0; }
 
+/* Возврат из корзины — тоже «добавить»: без проверки третья цель или
+   заметка возвращалась в обход лимита — удалил, создал новую, вернул старую.
+   Отдаёт вид лимита, в который запись не влезает, или пустую строку. */
+var КОРЗИНА_ЛИМИТ = { goal: 'goals', list: 'lists', note: 'notes' };
+function trashНеВлезает(item){
+  var kind = item && КОРЗИНА_ЛИМИТ[item.kind];
+  return kind && !canAdd(kind) ? kind : '';
+}
+
 /* Что из оформления открыто без подписки.
 
    Раньше здесь было пусто: темы, значки, звуки и режимы таймера отдавались
@@ -867,13 +877,35 @@ var FREE_LOOKS = {
   palettes: 2,   // «Бумага» и «Графит»
   boxes: 1,      // квадрат
   sounds: 1,     // дождь
-  pomoModes: 1   // самый короткий режим; остальные — в подписке
+  pomoModes: 1   // «Фокус»; перерывы — в подписке
 };
 
 /// Открыт ли элемент под номером index в наборе kind.
 function lookOpen(kind, index){
   if (isPro()) return true;
   return index < (FREE_LOOKS[kind] || 0);
+}
+
+/* Подписка кончилась — платное оформление снимается само.
+
+   Замки стоят на кнопках выбора, но выбранное раньше так и лежало в S:
+   тема, форма и цвет отметки, звук, режим помодоро оставались платными
+   навсегда. Проверка дешёвая, поэтому делаем её на каждой перерисовке и
+   ставим вместо закрытого первое открытое. */
+function снятьЗакрытоеОформление(){
+  if (isPro()) return;
+  if (!lookOpen('palettes', PALETTES.map(function(p){ return p.id; }).indexOf(S.palette))) S.palette = PALETTES[0].id;
+  if (!lookOpen('boxes', BOXES.map(function(b){ return b.id; }).indexOf(S.box))) S.box = BOXES[0].id;
+  if (S.markColor && S.markColor !== 'default') S.markColor = 'default';
+  if (S.meditation && !lookOpen('sounds', SOUNDS.indexOf(soundOf(S.meditation.sound)))){
+    S.meditation.sound = SOUNDS[0].title;
+    if (medAudio && (med.running || med.preview)) medAudioPlay();
+  }
+  if (S.pomodoro && !lookOpen('pomoModes', порядковыйРежима(S.pomodoro.mode))){
+    stopTicker();
+    S.pomodoro.mode = 'focus';
+    remaining = null;
+  }
 }
 
 var LIMIT_WORDS = {
@@ -1780,24 +1812,31 @@ var VIEWS = {
   subscription: { title: 'Моя подписка', render: vSubscription },
 };
 
-function go(view){
+/// Уборка при уходе с экрана. Общая для go() и для «назад»: системная
+/// кнопка ведёт мимо go(), и без этого дождь шумел дальше, а развёрнутая
+/// карта оставляла body без прокрутки.
+function уйтиСЭкрана(view){
   // Прослушивание среды не должно продолжаться на другом экране: человек
   // ушёл из медитации, а из вкладки всё ещё шумит дождь.
   if (view !== 'meditation' && med.preview){
     med.preview = false;
     medAudioStop();
   }
-  S.view = view;
-  // Последний экран запоминается всегда, а открывается только если это
-  // включили: хранить дешевле, чем спрашивать задним числом.
-  if (СТАРТОВЫЕ.some(function(в){ return в.id === view; })) S.lastView = view;
-  S.more = false;
   // Уход с аналитики закрывает развёрнутую карту: иначе она осталась бы
   // висеть поверх другого экрана.
   if (S.mm && S.mm.full){
     S.mm.full = false; S.mm.zoom = 1;
     document.body.classList.remove('mm-open');
   }
+}
+
+function go(view){
+  уйтиСЭкрана(view);
+  S.view = view;
+  // Последний экран запоминается всегда, а открывается только если это
+  // включили: хранить дешевле, чем спрашивать задним числом.
+  if (СТАРТОВЫЕ.some(function(в){ return в.id === view; })) S.lastView = view;
+  S.more = false;
   save();
   rolloverIfNeeded();
   pushView(view);
@@ -1847,6 +1886,7 @@ window.addEventListener('popstate', function(event){
   var view = event.state && event.state.view;
   if (!view || !VIEWS[view]) return;
   // Не через go(): она сама пишет в историю, и мы бы зациклились.
+  уйтиСЭкрана(view);
   S.view = view;
   S.more = false;
   save();
@@ -2310,6 +2350,7 @@ function themeColors(){
 }
 
 function applyTheme(){
+  снятьЗакрытоеОформление();
   var c = themeColors();
   var root = document.documentElement.style;
   root.setProperty('--background', rgb(c.background));
@@ -2549,10 +2590,12 @@ function жестПальцем(){
   return inApp() || touchUI();
 }
 
-function head(sub, title, backView){
+/// своё — заголовок написан человеком (название цели, списка, заметки):
+/// переводчик интерфейса его не трогает.
+function head(sub, title, backView, своё){
   return (backView && !inApp() ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
     (sub ? '<p class="hi">' + esc(sub) + '</p>' : '') +
-    (title ? '<h1 class="page">' + esc(title) + '</h1>' : '');
+    (title ? '<h1 class="page"' + (своё ? ' translate="no"' : '') + '>' + esc(title) + '</h1>' : '');
 }
 
 function blank(icon, title, text, act, label, extra){
@@ -4680,7 +4723,7 @@ function vTrash(){
          больше. Именно за этим в корзину и приходят — окинуть взглядом. */
       return '<article class="trashrow">' +
         '<div class="trashrow-t">' +
-          '<b>' + esc(item.title) + '</b>' +
+          '<b translate="no">' + esc(item.title) + '</b>' +
           '<span class="sub">' + esc(kind.title) + сНими + ' · ' +
             (left ? left + ' ' + plural(left, 'день', 'дня', 'дней') : 'сегодня') +
           '</span>' +
@@ -4970,7 +5013,7 @@ function itemRow(t, внутриЦели){
   // Цель — такой же чип, как дата, только акцентный: задача, которая ведёт к
   // цели, этим и отличается от рядовой, и сказать об этом надо словами, а не
   // припиской «· цель», из которой не понять, к какой именно.
-  if (goal) meta.push('<span class="chip goal">' + esc(goal.title) + '</span>');
+  if (goal) meta.push('<span class="chip goal" translate="no">' + esc(goal.title) + '</span>');
   // Подпункты — последним чипом и только когда они есть. Раньше слово
   // «подпункты» стояло в каждой карточке, включая те, где их ноль: подпись
   // обещала содержимое, которого нет.
@@ -5030,7 +5073,7 @@ function itemRow(t, внутриЦели){
     '<div class="item-main' + (touchUI() ? ' swipe-face' : '') + '" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
-        '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
+        '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '" translate="no">' +
           esc(t.title) + '</button>' +
         /* Всё, что известно о задаче, — рядом чипов под названием.
 
@@ -5207,7 +5250,7 @@ function vFocus(){
     html += '<p class="lbl">Требуют внимания</p><section class="card"><div class="lines">' +
       attention.map(function(g){
         return '<button class="line" data-act="open-goal" data-goal="' + g.id + '">' +
-          '<span>' + esc(g.title) + '</span><span class="chip warn">без задач</span></button>';
+          '<span translate="no">' + esc(g.title) + '</span><span class="chip warn">без задач</span></button>';
       }).join('') + '</div></section>';
   }
 
@@ -5863,7 +5906,7 @@ function vDayStrip(today, todayDone, overdue){
 
   html += '<div class="strip">' + today.map(function(t){
     var kind = t.done ? 'done' : (isOverdue(t) ? 'late' : 'open');
-    return '<i class="' + kind + '" title="' + esc(t.title) + '"></i>';
+    return '<i class="' + kind + '" title="' + esc(t.title) + '" translate="no"></i>';
   }).join('') + '</div>';
 
   return html + '<p class="strip-note">Каждый блок — одна задача на сегодня</p>';
@@ -5986,7 +6029,7 @@ function vGoals(){
          содержимое: карточка едет целиком, как задача. */
       (touchUI() ? '<div class="swipe-face gc-face">' : '') +
       '<button class="goalcard-h" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
-        '<span class="gt">' + esc(g.title) + '</span>' +
+        '<span class="gt" translate="no">' + esc(g.title) + '</span>' +
         '<span class="gp mono' + (p.total && p.done >= p.total ? ' gp--done' : '') + '">' + pct(p.done, p.total) + '%</span>' +
         '<span class="car">' + NAV_ICONS.caret + '</span>' +
       '</button>' +
@@ -6033,7 +6076,7 @@ function stageBlock(g, st, номер){
     '<p class="st-num">Этап ' + номер + '</p>' +
     '<div class="stage-h">' +
       '<button class="box' + (st.status === 'done' ? ' on' : '') + '" data-act="stage-toggle" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Готово">✓</button>' +
-      '<span class="t">' + esc(st.title) + '</span>' +
+      '<span class="t" translate="no">' + esc(st.title) + '</span>' +
       '<span class="status status--' + st.status + '">' + STATUS[st.status] + '</span>' +
       '<button class="kill" data-act="edit-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Править этап" title="Править">' + ICON.edit + '</button>' +
       '<button class="kill" data-act="kill-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Удалить этап">✕</button>' +
@@ -6050,7 +6093,7 @@ function stageBlock(g, st, номер){
       ? '<div class="tasks">' + list.map(function(t){ return itemRow(t, true); }).join('') + '</div>'
       : '<p class="none">У этого этапа пока нет задач.</p>') +
     '<div class="rowadd">' +
-      '<input class="inp" type="text" placeholder="Задача этапа" data-goaltask="' + st.id + '" autocomplete="off">' +
+      '<input class="inp" type="text" placeholder="Задача этапа" data-goaltask="' + st.id + '" data-goal="' + g.id + '" autocomplete="off">' +
       '<button class="btn sm" data-act="goal-task" data-goal="' + g.id + '" data-stage="' + st.id + '">Добавить</button>' +
     '</div>' +
   '</div>';
@@ -6117,7 +6160,7 @@ function vGoal(){
     blank(NAV_ICONS.goals, 'Похоже, она уже была удалена', 'Вернись к списку целей.', 'go', 'Все цели', ' data-view="goals"');
 
   var p = goalProgress(g);
-  var html = head('Цель', g.title, 'goals');
+  var html = head('Цель', g.title, 'goals', true);
 
   html += '<section class="card">' +
     (g.purpose ? '<p class="sub" style="margin:0 0 14px">' + esc(g.purpose) + '</p>' : '') +
@@ -6275,7 +6318,8 @@ function mmNode(x, y, w, text, sub, fillColor, done, colors){
       'fill="' + (done ? rgba(fillColor, MM.fillDone) : 'none') + '" ' +
       'stroke="' + line + '"/>' +
     lines.map(function(line, i){
-      return '<text class="mm-label" x="' + (left + 11) + '" y="' + (first + i * MM.lineH) + '">' + esc(line) + '</text>';
+      // Подпись узла — название, данное человеком: переводчик её не трогает.
+      return '<text class="mm-label" translate="no" x="' + (left + 11) + '" y="' + (first + i * MM.lineH) + '">' + esc(line) + '</text>';
     }).join('') +
     (sub ? '<text class="mm-label sec" x="' + (left + 11) + '" y="' + (first + lines.length * MM.lineH + 2) + '">' + esc(sub) + '</text>' : '') +
   '</g>';
@@ -6347,17 +6391,20 @@ function vMindMap(){
       var goalY = cursor + block / 2;
       var goalCx = cx + dir * MM.goalX;
 
-      var goalTasks = tasksOfGoal(goal.id);
-      var goalDone = goalTasks.filter(function(t){ return t.done; }).length;
-      var goalRatio = fillRatio(goalDone, goalTasks.length);
-      doneAll += goalDone; totalAll += goalTasks.length;
+      /* Готовность цели — та же, что на карточке цели: по этапам, а без
+         этапов по задачам (goalProgress). Карта считала по задачам всегда и
+         расходилась с экраном целей: закрытые этапы без задач давали тут 0%.
+         Ствол — среднее по целям, каждая весит одинаково. */
+      var gp = goalProgress(goal);
+      var goalRatio = fillRatio(gp.done, gp.total);
+      doneAll += goalRatio; totalAll += 1;
 
       body += mmLink(cx + dir * MM.coreR, cy, goalCx - dir * MM.goalW / 2, goalY, colors, goalRatio);
 
       var stageCursor = cursor;
       var rows = goal.stages.slice();
       var loose = S.tasks.filter(function(t){ return t.goalId === goal.id && !findStage(goal, t.stageId); });
-      if (loose.length) rows.push({ id: null, title: 'Задача без этапа', status: 'planned' });
+      if (loose.length) rows.push({ id: null, title: SynI18n.tr('Задача без этапа'), status: 'planned' });
 
       for (var s = 0; s < rows.length; s++){
         var stage = rows[s];
@@ -6388,8 +6435,8 @@ function vMindMap(){
       }
 
       body += mmNode(goalCx, goalY, MM.goalW, goal.title,
-        goalTasks.length ? goalDone + ' / ' + goalTasks.length + ' задач' : 'без задач',
-        colors.accent, goalTasks.length > 0 && goalRatio >= 1, colors);
+        gp.total ? gp.done + ' / ' + gp.total + ' ' + gp.unit : 'без задач',
+        colors.accent, gp.total > 0 && goalRatio >= 1, colors);
 
       cursor += block + MM.goalGap;
     }
@@ -6595,7 +6642,7 @@ function listItemLine(l, it){
   }
   return '<div class="line' + (it.done ? ' on' : '') + '">' +
     '<button class="box' + (it.done ? ' on' : '') + '" data-act="item-toggle" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Готово">✓</button>' +
-    '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить">' + esc(it.title) + '</span>' +
+    '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить" translate="no">' + esc(it.title) + '</span>' +
     '<button class="kill" data-act="item-kill" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Удалить">✕</button>' +
   '</div>';
 }
@@ -6648,7 +6695,7 @@ function vLists(){
       var p = listProgress(l);
       html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-list="' + l.id + '">' +
         '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-list" data-list="' + l.id + '">' +
-          '<h3>' + esc(l.title) + '</h3>' +
+          '<h3 translate="no">' + esc(l.title) + '</h3>' +
           '<p class="sub' + (p.full ? ' sub--done' : '') + '">Готово ' + p.done + ' из ' + p.total + '</p>' +
           '<div style="margin-top:12px"><div class="bar slim"><i style="width:' + pct(p.done, p.total) + '%"></i></div></div>' +
         '</button>' +
@@ -6667,7 +6714,7 @@ function vLists(){
       var p = listProgress(l);
       return '<article class="card row-card listtile" data-list="' + l.id + '">' +
         '<button class="main" data-act="open-list" data-list="' + l.id + '">' +
-          '<h3>' + esc(l.title) + '</h3>' +
+          '<h3 translate="no">' + esc(l.title) + '</h3>' +
           '<p class="sub' + (p.full ? ' sub--done' : '') + '">' + p.done + ' / ' + p.total + '</p>' +
           '<div class="bar slim" style="margin-top:10px"><i style="width:' + pct(p.done, p.total) + '%"></i></div>' +
         '</button>' +
@@ -6690,7 +6737,7 @@ function vLists(){
         '<div class="acc-h">' +
           '<button class="acc-toggle" data-act="list-acc" data-list="' + l.id + '" aria-expanded="' + open + '">' +
             '<span class="car">' + NAV_ICONS.caret + '</span>' +
-            '<span class="acc-t">' + esc(l.title) + '</span>' +
+            '<span class="acc-t" translate="no">' + esc(l.title) + '</span>' +
             '<span class="sub' + (p.full ? ' sub--done' : '') + '">' + p.done + ' / ' + p.total + '</span>' +
           '</button>' +
           '<div class="side">' +
@@ -6710,7 +6757,7 @@ function vLists(){
     var p = listProgress(l);
     return '<section class="listcol" data-list="' + l.id + '">' +
       '<div class="listcol-h">' +
-        '<h3>' + esc(l.title) + '</h3>' +
+        '<h3 translate="no">' + esc(l.title) + '</h3>' +
         '<span class="lc-count' + (p.full ? ' sub--done' : '') + '">' + p.done + '/' + p.total + '</span>' +
         '<div class="side">' +
           '<button data-act="rename-list" data-list="' + l.id + '" aria-label="Переименовать список" title="Переименовать">' + ICON.edit + '</button>' +
@@ -6729,7 +6776,7 @@ function vList(){
   if (!l) return head('', 'Список не найден', 'lists') +
     blank(NAV_ICONS.lists, 'Похоже, он уже был удалён', 'Вернись к спискам.', 'go', 'Списки', ' data-view="lists"');
 
-  var html = head('', l.title, 'lists');
+  var html = head('', l.title, 'lists', true);
   html += '<section class="card">' +
     (l.note ? '<p class="sub" style="margin:0 0 10px">' + esc(l.note) + '</p>' : '') +
     (l.items.length
@@ -6753,7 +6800,7 @@ function vList(){
           }
           return '<div class="line' + (it.done ? ' on' : '') + '">' +
             '<button class="box' + (it.done ? ' on' : '') + '" data-act="item-toggle" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Готово">✓</button>' +
-            '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить">' + esc(it.title) + '</span>' +
+            '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить" translate="no">' + esc(it.title) + '</span>' +
             '<button class="kill" data-act="item-kill" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Удалить">✕</button>' +
           '</div>';
         }).join('') + '</div>'
@@ -6781,7 +6828,7 @@ function vNotes(){
     var n = S.notes[i];
     html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-note="' + n.id + '">' +
       '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-note" data-note="' + n.id + '">' +
-        '<h3>' + esc(n.title) + '</h3>' +
+        '<h3 translate="no">' + esc(n.title) + '</h3>' +
         '<p class="sub">' + esc(n.body ? n.body.slice(0, 120) : 'Пустая запись') + '</p>' +
       '</button>' +
       '<div class="side">' +
@@ -6808,14 +6855,14 @@ function vNote(){
      текстом: удаление живёт в списке записей на свайпе, и держать его ещё и
      здесь, где на него можно ткнуть промахнувшись мимо текста, незачем. */
   if (!touchUI()){
-    return head('', n.title, 'notes') +
+    return head('', n.title, 'notes', true) +
       '<section class="card">' +
         '<textarea class="note-field" data-notebody="' + n.id + '" placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>' +
         '<p class="hint">Сохраняется по мере набора — заметка, которую надо не забыть сохранить, это заметка, которую теряют.</p>' +
         '<div class="acts"><button class="btn sm soft" data-act="kill-note" data-note="' + n.id + '">Удалить запись</button></div>' +
       '</section>';
   }
-  return head('', n.title, 'notes') +
+  return head('', n.title, 'notes', true) +
     '<textarea class="note-field solo" data-notebody="' + n.id + '" ' +
       'placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>';
 }
@@ -6841,11 +6888,17 @@ function pomoOrdered(){
   });
 }
 
-/// Номер режима в том порядке, в каком он показан человеку. Замок и экран
-/// обязаны считать одинаково, иначе открытым окажется не тот, что виден первым.
+/* Номер режима для замка. Бесплатен «Фокус» — по имени, а не по месту.
+
+   Раньше бесплатным был самый короткий из показанных. Но режим по умолчанию —
+   фокус, и без подписки человек оказывался в закрытом режиме с первого же
+   запуска; а поставив фокус на 1 минуту в «Длине фокуса», открывал его себе
+   сам. Фокус и есть помодоро, перерывы — уже надстройка. Остальные считаем
+   по порядку на экране, следом за ним. */
 function порядковыйРежима(id){
-  var список = pomoOrdered();
-  for (var i = 0; i < список.length; i++) if (список[i].id === id) return i;
+  if (id === 'focus') return 0;
+  var список = pomoOrdered().filter(function(p){ return p.id !== 'focus'; });
+  for (var i = 0; i < список.length; i++) if (список[i].id === id) return i + 1;
   return 0;
 }
 
@@ -6867,12 +6920,8 @@ function vPomodoro(){
     '<p class="phase">' + m.title + ' · ' + S.pomodoro[m.key] + ' мин</p>' +
     '<div class="modes">' + pomoOrdered().map(function(p){
       // Минуты прямо на карточке режима — ровно то, что чинили в приложении.
-      /* Считаем по порядку НА ЭКРАНЕ, а не в массиве.
-
-         Массив идёт «фокус, перерыв, длинный», экран — по возрастанию минут:
-         5, 15, 25. Замок вешался по массиву, поэтому бесплатным оказывался
-         «Фокус» на 25 минут, стоящий третьим, а первая карточка на экране была
-         закрыта. Бесплатен первый из показанных — самый короткий. */
+      /* Экран идёт по возрастанию минут, а замок — от «Фокуса»: он бесплатен
+         всегда, где бы ни стоял (см. порядковыйРежима). */
       var режимОткрыт = lookOpen('pomoModes', порядковыйРежима(p.id));
       return '<button class="mode' + (режимОткрыт ? '' : ' locked') + '" data-act="pomo-mode" data-mode="' + p.id + '" aria-pressed="' + (p.id === S.pomodoro.mode) + '">' +
         '<b>' + p.title + '</b><span>' + S.pomodoro[p.key] + ' мин</span></button>';
@@ -6937,7 +6986,9 @@ function pomoОстаток(){
 
 function startTicker(){
   stopTicker();
-  if (remaining === null) remaining = S.pomodoro[modeOf().key] * 60;
+  // Ноль — это закрытый помидор. Старт с нуля закрывался мгновенно и
+  // засчитывал ещё одну сессию, которой не было; начинаем круг заново.
+  if (!remaining) remaining = S.pomodoro[modeOf().key] * 60;
   S.pomodoro.endsAt = Date.now() + remaining * 1000;
   save();
   ticker = setInterval(function(){
@@ -7142,8 +7193,22 @@ function medTick(){
       medStop(false);
       return;
     }
-    if (S.view === 'meditation') render();
+    if (S.view === 'meditation') medDialUpdate();
   }, 1000);
+}
+
+/// Тик трогает только круг, цифры и слово дыхания. Полная перерисовка раз в
+/// секунду пересоздавала ползунок громкости прямо под пальцем, и тянуть его
+/// во время сеанса было невозможно — он срывался каждую секунду.
+function medDialUpdate(){
+  var dial = document.querySelector('.med-dial');
+  if (!dial) return render();
+  var total = S.meditation.minutes * 60;
+  dial.style.setProperty('--p', (total ? Math.min(1, med.elapsed / total) : 0).toFixed(4));
+  var time = dial.querySelector('.med-face b');
+  if (time) time.textContent = clockText(Math.max(0, total - med.elapsed));
+  var word = dial.querySelector('.med-face span');
+  if (word) word.textContent = SynI18n.tr(breathWord());
 }
 
 /* Экран сеанса, а не форма настроек. В центре — круг, который заполняется по
@@ -9916,6 +9981,8 @@ synAct('set_pomodoro_mode set_pomodoro_focus_minutes set_pomodoro_break_minutes 
   if (a.kind === 'set_pomodoro_mode'){
     var mode = String(a.mode || a.value || '');
     if (['focus', 'shortBreak', 'longBreak'].indexOf(mode) < 0) return skipped.push('не понял режим помодоро');
+    // Syn не обходит замки: тот же запрет, что у кнопки режима.
+    if (!lookOpen('pomoModes', порядковыйРежима(mode))) return skipped.push('этот режим помодоро — в подписке');
     stopTicker();
     S.pomodoro.mode = mode;
     remaining = S.pomodoro[modeOf().key] * 60;
@@ -9946,7 +10013,8 @@ synAct('start_meditation stop_meditation', function(a, done, skipped){
   var wanted = String(a.value || a.sound || '').toLowerCase();
   if (wanted){
     var sound = soundByAnyName(wanted);
-    if (sound) S.meditation.sound = sound.title;
+    if (sound && !lookOpen('sounds', SOUNDS.indexOf(sound))) skipped.push('среда «' + sound.title + '» — в подписке, включена прежняя');
+    else if (sound) S.meditation.sound = sound.title;
     else skipped.push('среды «' + wanted + '» нет, включена прежняя');
   }
   S.view = 'meditation';
@@ -9974,6 +10042,7 @@ synAct('set_color_theme', function(a, done, skipped){
     if (!found && (p.id === wanted || p.title.toLowerCase() === wanted)) found = p;
   });
   if (!found) return skipped.push('палитры «' + wanted + '» нет');
+  if (!lookOpen('palettes', PALETTES.indexOf(found))) return skipped.push('палитра «' + found.title + '» — в подписке');
   S.palette = found.id;
   done.push('палитра — «' + found.title + '»');
 });
@@ -12051,6 +12120,8 @@ var ACTS = {
     commit('Удалено');
   },
   'trash-restore': function(d){
+    var лимит = trashНеВлезает(trashFind(d.item));
+    if (лимит) return openModal(modalPaywall(лимит));
     var title = trashRestore(d.item);
     if (!title) return;
     commit('Вернули «' + title + '»');
@@ -12087,10 +12158,16 @@ var ACTS = {
     if (!S.trash.length) return;
     // Идём по копии списка: trashRestore вынимает записи из S.trash по ходу.
     var ids = S.trash.map(function(entry){ return entry.id; });
-    var back = 0;
-    for (var i = 0; i < ids.length; i++) if (trashRestore(ids[i])) back++;
+    var back = 0, лимит = '';
+    for (var i = 0; i < ids.length; i++){
+      // Что не влезает в лимит, остаётся в корзине; о причине — окном подписки.
+      var сверх = trashНеВлезает(trashFind(ids[i]));
+      if (сверх){ лимит = лимит || сверх; continue; }
+      if (trashRestore(ids[i])) back++;
+    }
     commit(back ? 'Вернули ' + back + ' ' + plural(back, 'запись', 'записи', 'записей')
                 : 'Вернуть не удалось');
+    if (лимит) openModal(modalPaywall(лимит));
   },
   'tour-hide': function(){ S.tourDone = true; commit('Первые шаги скрыты'); },
   'fin-hint-hide': function(){ S.finance.openingHidden = true; commit('Подсказка скрыта'); },
@@ -12492,6 +12569,8 @@ var ACTS = {
     st.status = закрываем ? 'done' : 'active';
     S.tasks.forEach(function(t){
       if (t.stageId !== st.id || t.done === закрываем) return;
+      // Архив не трогаем: снятая галочка этапа воскрешала бы давно убранные задачи.
+      if (t.archived) return;
       t.done = закрываем;
       if (t.subtasks) t.subtasks.forEach(function(sub){ sub.done = закрываем; });
     });
@@ -12698,6 +12777,8 @@ var ACTS = {
     commit();
   },
   'pomo-toggle': function(){
+    // Старт в закрытом режиме — тот же замок, что и при выборе режима.
+    if (!ticker && !lookOpen('pomoModes', порядковыйРежима(S.pomodoro.mode))) return openModal(modalLookPaywall('режим'));
     if (ticker) stopTicker(); else startTicker();
     render();
   },
@@ -12836,7 +12917,7 @@ document.addEventListener('input', function(event){
   if (t.hasAttribute && t.hasAttribute('data-volume')){
     S.meditation.volume = Number(t.value) / 100;
     if (medAudio) medAudio.volume = S.meditation.volume;
-    var readout = document.querySelector('.volume .vv');
+    var readout = document.querySelector('.med-vol .vv');
     if (readout) readout.textContent = String(Math.round(S.meditation.volume * 100));
     save();
     return;
@@ -12914,7 +12995,10 @@ document.addEventListener('keydown', function(event){
   if (t.getAttribute && t.getAttribute('data-goaltask')){
     event.preventDefault();
     var stage = t.getAttribute('data-goaltask');
-    ACTS['goal-task']({ goal: S.activeGoal, stage: stage });
+    /* Цель берём с самого поля, а не из S.activeGoal: цель, раскрытая прямо
+       в списке, активной не становится, и задача уходила без цели или в
+       чужую — ту, что открывали последней. */
+    ACTS['goal-task']({ goal: t.getAttribute('data-goal') || S.activeGoal, stage: stage });
     return;
   }
   // Enter в модалке нажимает её главную кнопку.
