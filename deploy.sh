@@ -20,11 +20,17 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 echo "==> Версии картинок"
 python3 "$ROOT/stamp-assets.py"
 
+# Посетителю отдаётся только сайт. Исходники приложения, конфиг nginx и
+# служебные скрипты сайту не нужны, а до этой правки они лежали в открытом
+# доступе: synapseapp.ru/android/local.properties и /deploy/nginx-site.conf
+# отвечали 200. --delete-excluded снимает с сервера то, что туда уже успело
+# попасть.
 echo "==> Файлы на $SERVER"
-rsync -az --delete \
+rsync -az --delete --delete-excluded \
   --exclude '.git' --exclude '.github' \
-  --exclude 'android/app/build' --exclude 'android/.gradle' \
-  --exclude 'deploy.sh' \
+  --exclude '/android' --exclude '/deploy' \
+  --exclude 'deploy.sh' --exclude 'stamp-assets.py' \
+  --exclude '.DS_Store' \
   "$ROOT/" "$SERVER:/var/www/synapseapp/"
 
 echo "==> Проверка"
