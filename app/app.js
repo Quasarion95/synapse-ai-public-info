@@ -5107,6 +5107,13 @@ function keepFocus(selector){ refocusSelector = selector; }
 function restoreTabStrip(left){
   var strip = document.querySelector('.fintabs');
   if (!strip) return;
+  /* Гаснущий правый край — пока справа ещё есть вкладки. Долистали до конца —
+     край снова чёткий, иначе последняя вкладка стояла бы полупрозрачной. */
+  var отметитьКрай = function(){
+    strip.classList.toggle('at-end', strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 2);
+  };
+  strip.addEventListener('scroll', отметитьКрай, { passive: true });
+  setTimeout(отметитьКрай, 0);
   if (left !== null && left !== undefined) strip.scrollLeft = left;
 
   var active = strip.querySelector('.fintab.on');
@@ -5984,10 +5991,15 @@ function vGoals(){
         '<span class="car">' + NAV_ICONS.caret + '</span>' +
       '</button>' +
       '<div class="bar slim"><i style="width:' + pct(p.done, p.total) + '%"></i></div>' +
+      /* У новой цели счёт — одни нули: «0 из 0 задач · 0 этапов». Строкой
+         ниже и так сказано, что этапов нет, поэтому нули не пишем — остаётся
+         только срок, если он есть. */
       '<div class="gmeta">' +
-        p.done + ' из ' + p.total + ' ' + p.unit +
-        ' · ' + g.stages.length + ' ' + plural(g.stages.length, 'этап', 'этапа', 'этапов') +
-        (g.horizon ? ' · ' + esc(g.horizon) : '') +
+        (p.total || g.stages.length
+          ? p.done + ' из ' + p.total + ' ' + p.unit +
+            ' · ' + g.stages.length + ' ' + plural(g.stages.length, 'этап', 'этапа', 'этапов') +
+            (g.horizon ? ' · ' + esc(g.horizon) : '')
+          : (g.horizon ? esc(g.horizon) : 'Только что поставлена')) +
       '</div>' +
       // Как и у задач: тело рисуется всегда, высоту схлопывает CSS —
       // иначе раскрытие нечем анимировать.
@@ -10674,6 +10686,21 @@ function foldModalActions(){
     footer.insertBefore(last, footer.firstChild);
   }
   if (footer.childElementCount) box.appendChild(footer);
+
+  /* Тень над подвалом — только когда под ним правда что-то уходит.
+
+     Она нужна, чтобы было видно: список продолжается под кнопками. Но
+     рисовалась всегда, и в коротком окне вроде «Новая запись» между полем и
+     кнопкой лежала серая полоса ни к чему — как пятно. */
+  var отметитьПрокрутку = function(){
+    box.classList.toggle('scrolls', box.scrollTop + box.clientHeight < box.scrollHeight - 2);
+  };
+  if (!box._scrollMark){
+    box.addEventListener('scroll', отметитьПрокрутку, { passive: true });
+    box._scrollMark = true;
+  }
+  отметитьПрокрутку();
+  setTimeout(отметитьПрокрутку, 200);
 }
 
 /// Выключить или вернуть к жизни всё, что лежит под модальным окном.
