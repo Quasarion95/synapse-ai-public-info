@@ -61,6 +61,21 @@ public class VoiceBridge {
         });
     }
 
+    /**
+     * Отменить слушание без итога.
+     *
+     * stop() просит движок закончить фразу, и он присылает её событием final —
+     * страница принимала это за сказанное и отправляла Syn, хотя человек нажал
+     * «стоп» или закрыл окно именно затем, чтобы не отправлять. cancel()
+     * обрывает распознавание, и результатов после него движок не шлёт.
+     */
+    @JavascriptInterface
+    public void cancel() {
+        activity.runOnUiThread(() -> {
+            if (recognizer != null) recognizer.cancel();
+        });
+    }
+
     private void начать() {
         if (ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
