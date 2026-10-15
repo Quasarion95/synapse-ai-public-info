@@ -2769,3 +2769,43 @@ html.in-app.kbd body::after{height:calc(var(--vv-shift, 0px) + 74px)}
    квадратом — самым светлым пятном экрана. Инвертируем: тёмная плитка,
    светлый знак — видно то же, что днём. */
 html[data-dark="1"] .brand .mark{filter:invert(1)}
+
+/* Нижнее меню в приложении — компактнее.
+
+   Панель с подписями занимала 63 px из 637 видимых — десятую часть экрана,
+   и вместе со строкой ввода над ней съедала почти пятую. Значки и подписи
+   читаются и в меньшем размере: поля внутри урезаны, значки 21 px вместо 24,
+   подписи на полпикселя мельче. Строка ввода опускается вслед за панелью. */
+.in-app .tabbar{padding:4px 6px; border-radius:20px}
+.in-app .tab{padding:5px 2px 4px; gap:2px; font-size:10px; border-radius:14px}
+.in-app .tab .ic{width:22px; height:22px}
+.in-app .tab .nav-ic{width:21px; height:21px}
+.in-app .composer{bottom:calc(var(--dock) + 62px + var(--vv-shift, 0px))}
+.in-app .kbd .composer, html.in-app.kbd .composer{bottom:calc(6px + var(--vv-shift, 0px))}
+.in-app .toast{bottom:166px}
+html.in-app body::after{height:calc(var(--dock) + 108px)}
+
+/* Кнопка ассистента — заметная.
+
+   Она стояла светлым кружком с бледной надписью рядом с тёмной кнопкой
+   отправки и терялась: главный инструмент приложения выглядел как
+   второстепенная иконка. Теперь — заливка цветом акцента, лёгкое свечение
+   и белая надпись: видно с первого взгляда, но отправку не перебивает. */
+.say .ai, .rowadd .ai{width:40px; height:40px; border:0;
+  background:var(--accent); color:var(--on-accent,#fff);
+  background:linear-gradient(140deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent));
+  box-shadow:0 0 0 3px var(--accent-soft), 0 6px 14px -4px color-mix(in srgb, var(--accent) 60%, transparent)}
+.say .ai:hover, .rowadd .ai:hover{background:var(--accent); border:0; filter:brightness(1.06)}
+.say .ai:active, .rowadd .ai:active{transform:scale(.94)}
+.say .ai .ai-mark, .rowadd .ai .ai-mark{color:inherit; letter-spacing:.02em}
+/* «Слушаю» в строке трат — та же кнопка, поэтому отличается движением:
+   кольцо вокруг пульсирует, пока идёт запись. */
+.say .ai.on{animation:ai-listen 1.2s ease-in-out infinite}
+@keyframes ai-listen{
+  0%, 100%{box-shadow:0 0 0 3px var(--accent-soft)}
+  50%{box-shadow:0 0 0 7px var(--accent-soft)}
+}
+@media (prefers-reduced-motion:reduce){ .say .ai.on{animation:none} }
+.ai-mark{display:inline-flex; align-items:center; gap:1px}
+.ai-spark{width:9px; height:9px; fill:currentColor; margin:-7px 0 0 -2px}
+.say .ai svg.ai-spark, .rowadd .ai svg.ai-spark{width:10px; height:10px; margin:-8px 1px 0 -1px}

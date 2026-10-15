@@ -13,6 +13,12 @@
     <link rel="preload" as="font" type="font/woff2" href="../fonts/Manrope-cyrillic.woff2" crossorigin>
     <link rel="stylesheet" href="../fonts/fonts.css">
     <link rel="stylesheet" href="app.css">
+    <!-- Часть только веб-версии: финансы одним экраном на широком окне.
+         Внутри андроид-обёртки не подключается (признак — AndroidVoice, как у
+         счётчика ниже), а в апк папки web/ нет вовсе. См. web/README.md. -->
+    <script>
+      if (!window.AndroidVoice) document.write('<link rel="stylesheet" href="web/finance-desk.css">');
+    </script>
 
     <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и
          так лежат в браузере, из сети приходила только оболочка. -->
@@ -96,6 +102,11 @@
     <script src="i18n.js"></script>
     <script src="sync-crypto.js"></script>
     <script src="sync-bridge.js"></script>
+    <!-- До app.js, а не после: первая отрисовка должна уже знать про дашборд,
+         иначе на широком экране на миг мелькают вкладки. -->
+    <script>
+      if (!window.AndroidVoice) document.write('<script src="web/finance-desk.js"><\/script>');
+    </script>
     <script src="app.js"></script>
   </body>
 </html>

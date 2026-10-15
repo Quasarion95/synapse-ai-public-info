@@ -28,7 +28,7 @@
   что выкладка не сработала. Обработчик — в app.js, registerServiceWorker.
 */
 
-var CACHE = 'synapse-shell-v88';
+var CACHE = 'synapse-shell-v89';
 
 var SHELL = [
   './',
@@ -38,6 +38,11 @@ var SHELL = [
      при отрисовке шапки, и без словаря страница офлайн была бы белой. */
   'i18n.js',
   'app.js',
+  /* Дашборд финансов — часть только веб-версии, но офлайн он нужен так же,
+     как остальная оболочка: без него широкое окно без сети показало бы
+     вкладки, а после возвращения сети — дашборд. */
+  'web/finance-desk.js',
+  'web/finance-desk.css',
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',

@@ -1877,9 +1877,13 @@ function render(){
 
   // Платный раздел не подменяется тарифами молча: у него свой экран, с тем же
   // названием в шапке, — иначе нажатие в меню выглядит как промах.
+  var finLocked = PRO_ONLY.finance && !isPro();
+  // Дашборду финансов нужна колонка шире обычной — класс на body её даёт.
+  document.body.classList.toggle('findesk', S.view === 'finance' && !finLocked && finDesk());
   $('app').innerHTML = SynI18n.tr((PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render());
-  // Строка записи трат живёт внизу экрана, как строка создания задач.
-  if (S.view === 'finance' && S.finTab === 'ops' && !(PRO_ONLY[S.view] && !isPro())){
+  // Строка записи трат живёт внизу экрана, как строка создания задач. На
+  // дашборде её нет: там строка стоит прямо в зоне трат.
+  if (S.view === 'finance' && S.finTab === 'ops' && !finLocked && !finDesk()){
     $('app').insertAdjacentHTML('beforeend', SynI18n.tr(vFinComposer()));
   }
   restoreTabStrip(stripLeft);
@@ -2046,7 +2050,9 @@ var ICON = {
      Звёздочки стали общим местом и ничего не сообщают: их ставят и на
      «улучшить текст», и на «показать рекомендации», и на анимацию загрузки.
      Две буквы говорят, что за кнопкой, без догадок. */
-  ai: '<span class="ai-mark" aria-hidden="true">AI</span>',
+  /* Искра над буквами — знак ИИ, который узнают без подписи: рядом с тёмной
+     кнопкой отправки одной заливки мало, чтобы кнопки различались. */
+  ai: '<span class="ai-mark" aria-hidden="true"><svg class="ai-spark" viewBox="0 0 12 12"><path d="M6 0l1.3 4.7L12 6l-4.7 1.3L6 12 4.7 7.3 0 6l4.7-1.3z"/></svg>AI</span>',
   full: '<svg viewBox="0 0 16 16" aria-hidden="true" style="width:14px;height:14px;fill:none;' +
     'stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-2px">' +
     '<path d="M6 2H2v4M10 2h4v4M10 14h4v-4M6 14H2v-4"/></svg>',
@@ -3304,12 +3310,24 @@ var FIN_TABS = [
   // рубли среди задач читаются как чужая колонка.
 ];
 
+/* Широкое окно браузера показывает раздел одним экраном, без вкладок.
+
+   Сам дашборд живёт в web/finance-desk.js — это часть только веб-версии: в
+   апк папка web/ не попадает, и там SynFinDesk не существует вовсе. Отсюда
+   к нему ровно два хода — эта проверка и кнопка возврата в полосе вкладок;
+   все суммы дашборд считает функциями этого файла. */
+function finDesk(){
+  return !!(window.SynFinDesk && SynFinDesk.on());
+}
+
 function vFinance(){
+  if (finDesk()) return SynFinDesk.render();
+
   var tab = S.finTab || 'sum';
   var html = '<div class="fintabs">' + FIN_TABS.map(function(t){
     return '<button class="fintab' + (t.id === tab ? ' on' : '') + '" data-act="fin-tab" data-tab="' + t.id + '">' +
       esc(t.title) + '</button>';
-  }).join('') + '</div>';
+  }).join('') + (window.SynFinDesk ? SynFinDesk.backButton() : '') + '</div>';
 
   if (tab === 'ops') return html + vFinOps();
   if (tab === 'budgets') return html + vFinBudgets();
