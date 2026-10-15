@@ -1669,6 +1669,14 @@ var NAV_ICONS = {
   leave: navIcon('<path d="M9.5 20.5H6a2.5 2.5 0 0 1-2.5-2.5V6A2.5 2.5 0 0 1 6 3.5h3.5"/><path d="M15.5 16l4.5-4-4.5-4"/><path d="M20 12H9"/>'),
 
   // Строка со стрелкой вправо: «здесь есть продолжение».
+  /* Стрелка «свернуть / развернуть». Раньше это был символ ⌄ (U+2304): его нет
+     ни в Manrope, ни в Inter, браузер брал его из системного шрифта — и на
+     каждом телефоне он стоял по-своему, обычно ниже середины строки, а
+     повёрнутый в «>» уезжал ещё дальше. Рисованная стрелка от шрифта не
+     зависит и вращается вокруг своего центра. */
+  caret: navIcon('<path d="M6.5 9.5l5.5 5.5 5.5-5.5"/>'),
+  // Профиль без имени — силуэт: голова и плечи.
+  person: navIcon('<circle cx="12" cy="8.6" r="3.6"/><path d="M5 19.5c1.2-3.6 3.8-5.4 7-5.4s5.8 1.8 7 5.4"/>'),
   chevron: navIcon('<path d="M9.5 5.5l6.5 6.5-6.5 6.5"/>'),
   // Отправить — стрелка вверх, как в строке создания.
   send: navIcon('<path d="M12 19.5V5"/><path d="M5.5 11.5L12 5l6.5 6.5"/>'),
@@ -1741,6 +1749,9 @@ var TAB_OF_VIEW = {
   profile: 'settings',
   'settings-view': 'settings',
   'settings-data': 'settings',
+  'settings-notify': 'settings',
+  'settings-start': 'settings',
+  'settings-about': 'settings',
   about: 'settings'
 };
 
@@ -1754,6 +1765,9 @@ var VIEWS = {
   settings:   { title: 'Настройки',  render: vSettings },
   'settings-view': { title: 'Вид',   render: vSettingsView },
   'settings-data': { title: 'Данные', render: vSettingsData },
+  'settings-notify': { title: 'Напоминания', render: vSettingsNotify },
+  'settings-start': { title: 'Старт и список', render: vSettingsStart },
+  'settings-about': { title: 'О приложении', render: vSettingsAbout },
   about:      { title: 'О сервисе',  render: vAbout },
   profile:    { title: 'Профиль',    render: vProfile },
   lists:      { title: 'Списки',     render: vLists },
@@ -4698,29 +4712,33 @@ function vTrash(){
 var TOUR_STEPS = [
   {
     id: 'task',
-    title: 'Создай первую задачу',
-    hint: 'Напиши её в строке внизу. День и время можно сказать прямо там: «купить молоко завтра в 9 утра» — из названия эти слова уйдут.',
+    title: 'Запиши первое дело',
+    hint: 'Напиши его в строке внизу. День и время можно сказать прямо там: «купить молоко завтра в 9 утра» — из названия эти слова уйдут.',
     done: function(){ return S.tasks.length > 0; }
   },
   {
     id: 'done',
-    title: 'Отметь её выполненной',
-    hint: 'Нажми на кружок слева от названия. Отмеченное сегодня останется в аналитике, а завтра уйдёт из списка само.',
+    title: 'Отметь его выполненным',
+    hint: 'Нажми на отметку слева от названия. Отмеченное сегодня останется в аналитике, а завтра уйдёт из списка само.',
     done: function(){ return S.tasks.some(function(t){ return t.done || t.archived; }); }
   },
   {
     id: 'goal',
-    title: 'Заведи цель',
-    hint: 'Раздел «Цели». У цели есть этапы, у этапов — свои задачи: так большое дело превращается в то, что можно сделать сегодня.',
+    /* «Заведи цель» звучало канцелярски — цель ставят, а не заводят. */
+    title: 'Поставь цель',
+    hint: 'То, к чему ведут задачи: «выучить английский», «накопить на отпуск». Разбей её на этапы — и каждый день будет понятно, какой шаг сделать.',
     done: function(){ return S.goals.length > 0; },
-    act: 'go', extra: ' data-view="goals"', label: 'Открыть цели'
+    act: 'go', extra: ' data-view="goals"', label: 'Поставить цель'
   },
   {
     id: 'syn',
-    title: 'Попроси Syn',
-    hint: 'Скажи словами: «разбери мой день» или «перенеси урок на субботу». Можно голосом — Syn выполнит сказанное.',
+    /* «Попроси Syn» ничего не говорило человеку, который только поставил
+       приложение: кто такой Syn и о чём его просить — неизвестно. Шаг теперь
+       сначала называет, что это, потом — где он и что ему сказать. */
+    title: 'Познакомься с ассистентом',
+    hint: 'Syn — встроенный ИИ-помощник. Нажми AI в строке внизу и напиши, как человеку: «спланируй мой день» или «перенеси звонок на субботу». Можно голосом.',
     done: function(){ return S.synChat.length > 0; },
-    act: 'ai', label: 'Открыть ассистента'
+    act: 'ai', label: 'Написать Syn'
   }
 ];
 
@@ -4776,7 +4794,7 @@ function vTour(){
             '<b>' + esc(step.title) + '</b>' +
             (isNow ? '<p>' + esc(step.hint) + '</p>' : '') +
             (isNow && step.act
-              ? '<button class="btn sm" data-act="' + step.act + '"' + (step.extra || '') + '>' +
+              ? '<button class="btn tour-go" data-act="' + step.act + '"' + (step.extra || '') + '>' +
                 esc(step.label) + '</button>'
               : '') +
           '</div>' +
@@ -4785,7 +4803,7 @@ function vTour(){
     '</div>' +
     // Кнопка словом, а не только крестиком в углу: пропустить знакомство —
     // это нормальный выбор, и он не должен выглядеть как закрытие рекламы.
-    '<div class="acts"><button class="btn sm soft" data-act="tour-hide">Пропустить знакомство</button></div>' +
+    '<button class="btn soft tour-skip" data-act="tour-hide">Пропустить знакомство</button>' +
   '</section>';
 }
 
@@ -4851,7 +4869,7 @@ function vTasks(){
         // Значок дня — только в приложении: в браузере заголовки крупные и
         // стоят просторно, там рисунок ничего не ускоряет.
         (inApp() ? '<span class="group-ic">' + (BUCKET_ICONS[b.id] || '') + '</span>' : '') +
-        '<h3>' + esc(b.title) + '</h3><span class="car">⌄</span>' +
+        '<h3>' + esc(b.title) + '</h3><span class="car">' + NAV_ICONS.caret + '</span>' +
         '<span class="n">' + (mine.length ? taskCount(mine.length) : 'пусто') + '</span>' +
       '</button>' +
       // Обёртка нужна для той же плавности, что у карточек: высоту ведёт
@@ -4957,10 +4975,10 @@ function itemRow(t, внутриЦели){
   // «подпункты» стояло в каждой карточке, включая те, где их ноль: подпись
   // обещала содержимое, которого нет.
   if (t.subtasks.length){
-    meta.push('<span class="chip sub"><span class="car">⌄</span>' +
+    meta.push('<span class="chip sub"><span class="car">' + NAV_ICONS.caret + '</span>' +
       subDone + ' из ' + t.subtasks.length + '</span>');
   } else if (t.note){
-    meta.push('<span class="chip sub"><span class="car">⌄</span>описание</span>');
+    meta.push('<span class="chip sub"><span class="car">' + NAV_ICONS.caret + '</span>описание</span>');
   }
 
   var expandable = t.subtasks.length || t.note;
@@ -5239,7 +5257,9 @@ function vFocusCard(today, todayDone, overdue, withTime){
           ? (brief.morning ? 'Утренний разбор от Syn' : 'Вечерний разбор от Syn')
           : today.length
             ? 'Сегодня в фокусе ' + taskCount(today.length)
-            : 'Можно задать спокойный ритм') + '</p>' +
+            // Не тем же предложением, что строка «День» ниже: подзаголовок и
+            // первая строка карточки повторяли друг друга слово в слово.
+            : 'Свободный день') + '</p>' +
       '</div>' +
       '<div class="focus-p' + (percent >= 100 ? ' focus-p--done' : '') + '"><b>' + percent + '%</b><span>Прогресс дня</span></div>' +
     '</div>' +
@@ -5961,7 +5981,7 @@ function vGoals(){
       '<button class="goalcard-h" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
         '<span class="gt">' + esc(g.title) + '</span>' +
         '<span class="gp mono' + (p.total && p.done >= p.total ? ' gp--done' : '') + '">' + pct(p.done, p.total) + '%</span>' +
-        '<span class="car">⌄</span>' +
+        '<span class="car">' + NAV_ICONS.caret + '</span>' +
       '</button>' +
       '<div class="bar slim"><i style="width:' + pct(p.done, p.total) + '%"></i></div>' +
       '<div class="gmeta">' +
@@ -6140,7 +6160,7 @@ function vAnalytics(){
   // один ствол. Задачи без цели на карту не попадают, и считать их незачем.
   if (!S.goals.length){
     return blank(NAV_ICONS.analytics, 'Карта пока пустая',
-      'Заведи цель и разбей её на этапы — здесь вырастет дерево: от цели к этапам, от этапов к задачам.',
+      'Поставь цель и разбей её на этапы — здесь вырастет дерево: от цели к этапам, от этапов к задачам.',
       'go', 'К целям', ' data-view="goals"');
   }
 
@@ -6657,7 +6677,7 @@ function vLists(){
       return '<article class="card accitem' + (open ? ' open' : '') + '" data-list="' + l.id + '">' +
         '<div class="acc-h">' +
           '<button class="acc-toggle" data-act="list-acc" data-list="' + l.id + '" aria-expanded="' + open + '">' +
-            '<span class="car">⌄</span>' +
+            '<span class="car">' + NAV_ICONS.caret + '</span>' +
             '<span class="acc-t">' + esc(l.title) + '</span>' +
             '<span class="sub' + (p.full ? ' sub--done' : '') + '">' + p.done + ' / ' + p.total + '</span>' +
           '</button>' +
@@ -7311,6 +7331,8 @@ function foldGroup(group, wrap, open){
   if (!wrap){ group.classList.toggle('closed', !open); return; }
   var from = wrap.getBoundingClientRect().height;
   var to = open ? wrap.scrollHeight : 0;
+  // Обрезаем только на время движения: открытому блоку обрезка срезает тени.
+  wrap.classList.add('folding');
   group.classList.toggle('closed', !open);
   wrap.style.height = from + 'px';
   void wrap.offsetHeight;
@@ -7318,6 +7340,7 @@ function foldGroup(group, wrap, open){
   clearTimeout(wrap._foldTimer);
   wrap._foldTimer = setTimeout(function(){
     wrap.style.height = open ? '' : '0px';
+    wrap.classList.remove('folding');
   }, 280);
 }
 
@@ -7334,6 +7357,12 @@ function avatarHTML(size){
       return '<span class="' + cls + '">' + esc(initials()) + '</span>';
     }
     return '<span class="' + cls + '" style="background-image:url(&quot;' + src + '&quot;)"></span>';
+  }
+  /* Без имени вместо буквы — силуэт. Раньше в кружке стоял «?», и кнопка
+     профиля в шапке читалась как «Помощь»: её нажимали за справкой и
+     попадали в профиль. */
+  if (!(S.profile.name || '').trim()){
+    return '<span class="' + cls + ' anon">' + NAV_ICONS.person + '</span>';
   }
   return '<span class="' + cls + '">' + esc(initials()) + '</span>';
 }
@@ -7362,6 +7391,29 @@ function vSettings(){
      сами: их заголовки теперь крупные. */
   var html = '<div class="setpage">';
 
+  /* В приложении — оглавление, а не полотно.
+
+     На телефоне все разделы, раскрытые подряд, давали ленту в десяток
+     экранов: палитра на двадцать пять тем, напоминания, данные, обучение —
+     и нужное приходилось искать прокруткой. Теперь первым экраном идёт
+     профиль и список разделов, каждый открывается своей страницей, а
+     системная «назад» возвращает к списку. В вебе экран широкий и всё видно
+     сразу — там разделы остаются раскрытыми, как были. */
+  if (inApp()){
+    html += '<p class="setgroup-t">Настройки</p>' +
+      '<button class="setprofile" data-act="go" data-view="profile">' + avatarHTML() +
+        '<span class="sl-text"><b>' + esc(S.profile.name || 'Ваш профиль') + '</b>' +
+          '<i>' + (S.profile.name ? 'Имя и фото видны только вам' : 'Добавьте имя и фото — их видите только вы') + '</i></span>' +
+        '<span class="sl-arrow">' + NAV_ICONS.chevron + '</span></button>' +
+      '<div class="setcats">' + РАЗДЕЛЫ_НАСТРОЕК.filter(function(р){ return !р.есть || р.есть(); }).map(function(р){
+        return '<button class="setcat" data-act="go" data-view="' + р.view + '">' +
+          '<span class="setcat-ic">' + navIcon(р.icon) + '</span>' +
+          '<span class="sl-text"><b>' + esc(р.title) + '</b><i>' + esc(р.sub) + '</i></span>' +
+          '<span class="sl-arrow">' + NAV_ICONS.chevron + '</span></button>';
+      }).join('') + '</div>';
+    return html + '</div>';
+  }
+
   html += группаНастроек('Профиль',
     '<button class="setline" data-act="go" data-view="profile">' +
       '<span class="sl-text"><b>' + esc(S.profile.name || 'Без имени') + '</b>' +
@@ -7369,6 +7421,7 @@ function vSettings(){
       '<span class="sl-arrow">' + NAV_ICONS.chevron + '</span></button>');
 
   html += группаНастроек('Вид', телоВида(), true);
+  if (уведомленияДоступны()) html += группаНастроек('Напоминания', телоНапоминаний(), true);
 
   /* Две настройки старта спорят друг с другом, и спор надо показать.
 
@@ -7380,20 +7433,7 @@ function vSettings(){
 
      Теперь, когда включён последний экран, выбор раздела гаснет и говорит,
      почему он сейчас не в деле. */
-  var стартПерекрыт = !!S.openLast;
-  html += группаНастроек('Старт и список',
-    '<div class="setline"><span class="sl-text"><b>Открывать при запуске</b>' +
-      '<i>' + (стартПерекрыт
-        ? 'Сейчас не используется: ниже включён последний экран'
-        : 'С какого раздела начинается сервис') + '</i></span></div>' +
-    '<div class="radios' + (стартПерекрыт ? ' off' : '') + '">' + СТАРТОВЫЕ.map(function(в){
-      return '<button class="radio" data-act="set-startview" data-id="' + в.id + '"' +
-        ' aria-pressed="' + (S.startView === в.id) + '">' + esc(в.title) + '</button>';
-    }).join('') + '</div>' +
-    строкаПереключателя('Открывать последний экран', 'toggle-openlast', S.openLast,
-      'Тот раздел, где вы были в прошлый раз, вместо выбранного выше.') +
-    строкаПереключателя('Плотный список задач', 'toggle-compact', S.compactTasks,
-      'Ниже строки и меньше пояснений — на экран помещается больше.'));
+  html += группаНастроек('Старт и список', телоСтарта());
 
   /* Сохранение — одним куском.
 
@@ -7413,18 +7453,69 @@ function vSettings(){
 
   html += группаНастроек('Данные', телоДанных(), true);
 
-  html += группаНастроек('Обучение',
+  html += телоОПриложении();
+
+  return html + '</div>';
+}
+
+/* Разделы настроек для оглавления в приложении. Порядок — от того, что
+   трогают чаще, к тому, что раз в жизни. */
+var РАЗДЕЛЫ_НАСТРОЕК = [
+  { view: 'settings-view', title: 'Оформление', sub: 'Тема, палитра, шрифт и отметка задач',
+    icon: '<circle cx="12" cy="12" r="8.5"/><circle cx="8.6" cy="10" r="1.2"/><circle cx="12" cy="7.6" r="1.2"/><circle cx="15.4" cy="10" r="1.2"/><path d="M12 20.5c-1.6 0-2.2-1.4-1.3-2.6.9-1.3.2-2.9-1.6-2.9"/>' },
+  { view: 'settings-notify', title: 'Напоминания', sub: 'О задачах, целях, план утром и итог вечером',
+    icon: '<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>',
+    есть: function(){ return уведомленияДоступны(); } },
+  { view: 'settings-start', title: 'Старт и список', sub: 'С чего начинать и плотность задач',
+    icon: '<rect x="4" y="4.5" width="16" height="15" rx="3.5"/><path d="M8 9.5h8M8 13h8M8 16.5h5"/>' },
+  { view: 'settings-data', title: 'Данные', sub: 'Синхронизация, резервная копия, очистка',
+    icon: '<ellipse cx="12" cy="6.5" rx="7" ry="2.8"/><path d="M5 6.5v11c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-11"/><path d="M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8"/>' },
+  { view: 'settings-about', title: 'О приложении', sub: 'Обучение заново и что умеет Synapse',
+    icon: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/>' }
+];
+
+/// Страница одного раздела в приложении: крупный заголовок и тело раздела.
+function страницаНастроек(тело){
+  return head('', '', 'settings') + '<div class="setpage">' + тело + '</div>';
+}
+
+function vSettingsNotify(){
+  return страницаНастроек(группаНастроек('Напоминания', телоНапоминаний(), true));
+}
+function vSettingsStart(){
+  return страницаНастроек(группаНастроек('Старт и список', телоСтарта()));
+}
+function vSettingsAbout(){
+  return страницаНастроек(телоОПриложении());
+}
+
+function телоСтарта(){
+  var стартПерекрыт = !!S.openLast;
+  return (
+    '<div class="setline"><span class="sl-text"><b>Открывать при запуске</b>' +
+      '<i>' + (стартПерекрыт
+        ? 'Сейчас не используется: ниже включён последний экран'
+        : 'С какого раздела начинается сервис') + '</i></span></div>' +
+    '<div class="radios' + (стартПерекрыт ? ' off' : '') + '">' + СТАРТОВЫЕ.map(function(в){
+      return '<button class="radio" data-act="set-startview" data-id="' + в.id + '"' +
+        ' aria-pressed="' + (S.startView === в.id) + '">' + esc(в.title) + '</button>';
+    }).join('') + '</div>' +
+    строкаПереключателя('Открывать последний экран', 'toggle-openlast', S.openLast,
+      'Тот раздел, где вы были в прошлый раз, вместо выбранного выше.') +
+    строкаПереключателя('Плотный список задач', 'toggle-compact', S.compactTasks,
+      'Ниже строки и меньше пояснений — на экран помещается больше.'));
+}
+
+function телоОПриложении(){
+  return группаНастроек('Обучение',
     строкаДействия('Показать обучение заново',
       'Подсказки и первый сценарий начнутся сначала.',
-      '<button class="btn sm soft" data-act="reset-tour">Повторить</button>'));
-
-  html += группаНастроек('О сервисе',
+      '<button class="btn sm soft" data-act="reset-tour">Повторить</button>')) +
+  группаНастроек('О сервисе',
     '<button class="setline" data-act="go" data-view="about">' +
       '<span class="sl-text"><b>' + (inApp() ? 'Что умеет приложение' : 'Что умеет веб-версия') + '</b>' +
         '<i>Возможности и чем отличается от приложения на айфоне</i></span>' +
       '<span class="sl-arrow">' + NAV_ICONS.chevron + '</span></button>');
-
-  return html + '</div>';
 }
 
 function строкаДействия(название, пояснение, кнопки){
@@ -7540,22 +7631,17 @@ function строкаПереключателя(название, действи
 }
 
 function vSettingsView(){
-  return head('', '', 'settings') + телоВида();
+  // В приложении страница открывается из оглавления — ей нужен свой заголовок.
+  return head('', '', 'settings') + (inApp() ? '<p class="setgroup-t">Оформление</p>' : '') + телоВида();
 }
 
-/* Тело раздела «Вид» отдельно от его шапки.
+/* Напоминания — свой раздел, а не начало «Вида».
 
-   Оно нужно в двух местах: на своём экране и на общей странице настроек. Копия
-   разошлась бы с оригиналом на первой же правке — в этом файле такое уже
-   стоило дня. */
-function телоВида(){
+   Блок стоял внутри «Вида», перед превью темы: под крупным заголовком «Вид»
+   первым шло «Напоминания», а превью, ради которого раздел и открывают,
+   уезжало вниз — хотя комментарий выше обещает его первым. */
+function телоНапоминаний(){
   var html = '';
-
-  /* Превью стоит первым, а не последним.
-
-     Внизу его не было видно: меняешь палитру наверху — а результат за краем
-     экрана, и приходится листать туда-обратно после каждого нажатия. Теперь
-     карточка прямо под шапкой: любое изменение видно, не сходя с места. */
   /* Напоминания — только в приложении: в браузере их показывать нечем, и
      переключатель, который ничего не делает, хуже его отсутствия. */
   if (уведомленияДоступны()){
@@ -7564,7 +7650,7 @@ function телоВида(){
        настройках «включено». Иначе человек, отказавший в уведомлениях, видит
        «Напоминать: да» и ждёт напоминаний, которые не придут. */
     var напоминаемЛи = н.on && window.AndroidNotify.permitted();
-    html += '<p class="lbl">Напоминания</p><section class="card">' +
+    html += '<section class="card">' +
       строкаПереключателя('Напоминать', 'notify-on', напоминаемЛи,
         'Задачи со временем, сроки целей, план утром и итог вечером.') +
       (напоминаемЛи
@@ -7591,6 +7677,22 @@ function телоВида(){
     '</section>';
   }
 
+  return html;
+}
+
+/* Тело раздела «Вид» отдельно от его шапки.
+
+   Оно нужно в двух местах: на своём экране и на общей странице настроек. Копия
+   разошлась бы с оригиналом на первой же правке — в этом файле такое уже
+   стоило дня. */
+function телоВида(){
+  var html = '';
+
+  /* Превью стоит первым, а не последним.
+
+     Внизу его не было видно: меняешь палитру наверху — а результат за краем
+     экрана, и приходится листать туда-обратно после каждого нажатия. Теперь
+     карточка прямо под шапкой: любое изменение видно, не сходя с места. */
   html += '<div class="preview-dock">' +
     '<p class="lbl">Как это выглядит</p>' +
     '<section class="card preview">' +
@@ -7674,7 +7776,7 @@ function телоВида(){
 /* ---- данные ---- */
 
 function vSettingsData(){
-  return head('', '', 'settings') + телоДанных();
+  return head('', '', 'settings') + (inApp() ? '<p class="setgroup-t">Данные</p>' : '') + телоДанных();
 }
 
 function телоДанных(){
@@ -13740,6 +13842,14 @@ function сверитьПодписку(){
     render();
   }
 })();
+/* Стартовый экран — первая запись истории.
+
+   Без неё первую запись делал первый же переход, и делал её заменой, а не
+   добавлением: «Задачи → Настройки → назад» в приложении закрывало
+   приложение вместо возврата к задачам — истории, куда возвращаться, не
+   было. Ставится после выбора стартового раздела: до него S.view — ещё
+   последний экран прошлого раза, и в историю легло бы не то. */
+pushView(S.view);
 применитьПлотность();
 
 /* Помидор, запущенный до перезагрузки, продолжается.

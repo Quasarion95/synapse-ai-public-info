@@ -288,6 +288,10 @@ select.inp{appearance:none}
 /* Стрелка, а не кнопка с кружком: круглая плашка спорила с самим заголовком.
    Размер средний — 20 пикселей, видно, но заголовок не перебивает. */
 .group-h .car{color:var(--fg-2); margin-bottom:6px; font-size:20px; line-height:1; flex:none; transition:transform .18s ease}
+/* Стрелка — рисунок размером в строку, а не буква. */
+.car{display:inline-grid; place-items:center; vertical-align:middle}
+.car .nav-ic{width:1em; height:1em; stroke-width:2.2}
+.group-h .car .nav-ic{width:18px; height:18px}
 .group-h:hover .car{color:var(--fg)}
 .group-h.closed .car{transform:rotate(-90deg)}
 .group-h .n{margin-left:auto; font-size:12.5px; color:var(--fg-3); margin-bottom:7px; flex:none; white-space:nowrap}
@@ -311,7 +315,11 @@ select.inp{appearance:none}
 .in-app .group.closed .group-h{margin-bottom:0}
 /* Свёрнутый блок раньше просто исчезал через display:none — переход по такому
    не проигрывается. Теперь высоту ведёт та же обёртка, что у карточек. */
-.tasklist-wrap{overflow:hidden; transition:height .24s ease, opacity .2s ease}
+.tasklist-wrap{transition:height .24s ease, opacity .2s ease}
+/* Обрезка — только пока блок свёрнут или едет. Постоянный overflow:hidden
+   срезал тень последней карточки: снизу у неё был ровный край вместо мягкой
+   тени, как будто карточку подрезали ножницами. */
+.group.closed .tasklist-wrap, .tasklist-wrap.folding{overflow:hidden}
 .group.closed .tasklist-wrap{height:0; opacity:0}
 @media (prefers-reduced-motion:reduce){ .tasklist-wrap{transition:none} }
 .group-sub{font-size:12.5px; color:var(--fg-3); margin:-6px 0 12px}
@@ -713,6 +721,9 @@ select.inp{appearance:none}
    заметнее: панель должна читаться на любом фоне и в любой теме. */
 .say{display:flex; gap:8px; align-items:center; background:var(--soft); border:1.5px solid var(--fg-3); border-radius:999px; padding:7px 7px 7px 18px; box-shadow:var(--shadow-lift), 0 0 0 5px var(--bg)}
 .say input{flex:1; border:0; background:none; outline:0; font-size:15px; min-width:0}
+/* Подсказка в поле на узком экране обрывалась посреди слова («…в 9 ут»):
+   многоточие хотя бы показывает, что фраза длиннее. */
+.say input{text-overflow:ellipsis}
 .say input::placeholder{color:var(--fg-3); opacity:.85}
 /* Кнопка ассистента слева от отправки: тише её, но заметнее обычной иконки.
    Фон — карточный, а не soft: сама панель уже soft, и кружок на ней пропадал. */
@@ -1012,6 +1023,7 @@ body.mm-open{overflow:hidden}
 /* ============ ПРОФИЛЬ ============ */
 .avatar{width:34px; height:34px; border-radius:999px; background:var(--soft); background-size:cover; background-position:center; display:grid; place-items:center; font-family:var(--display); font-weight:700; font-size:14px; color:var(--fg-2); flex:none}
 .avatar.lg{width:82px; height:82px; font-size:31px}
+.avatar.anon .nav-ic{width:58%; height:58%; stroke-width:1.8}
 .iconbtn.av{padding:0; overflow:hidden}
 .iconbtn.av .avatar{width:100%; height:100%; background-color:transparent}
 .iconbtn.on .avatar{color:var(--bg)}
@@ -1205,11 +1217,24 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 
    Не спрятано и не выключено: человек должен видеть, что выбор есть и он
    больше двух тем. Спрятанное не продаёт, а выключенное выглядит поломкой. */
-.radio.locked, .soundcard.locked, .mode.locked{position:relative; opacity:.55}
-.radio.locked::after, .soundcard.locked::after, .mode.locked::after{
-  content:'🔒'; position:absolute; top:2px; right:5px; font-size:9px; opacity:.75; line-height:1}
-.radio.pal.locked::after, .radio.boxpick.locked::after, .radio.markpick.locked::after{
-  top:1px; right:3px}
+/* Закрытое — приглушено текстом, а не прозрачностью всей кнопки.
+
+   Было opacity .55 на всё сразу: кружок с цветом темы бледнел вместе с
+   подписью, и то, ради чего кнопка показывается, — какой это цвет, —
+   разглядеть было нельзя. Замок-эмодзи в 9 px при этом становился точкой:
+   на андроиде цветной эмодзи такого размера не читается вовсе, и закрытые
+   темы выглядели просто сломанными. Теперь цвет виден полностью, подпись
+   приглушена, а в углу — ярлык «Pro» шрифтом приложения. */
+.radio.locked, .soundcard.locked, .mode.locked{position:relative; color:var(--fg-3)}
+.radio.locked::before, .soundcard.locked::before, .mode.locked::before{
+  content:'Pro'; position:absolute; top:-6px; right:6px; padding:1px 6px; border-radius:999px;
+  background:var(--fg); color:var(--bg); font-family:var(--body); font-size:9px; font-weight:700;
+  letter-spacing:.04em; line-height:1.35}
+/* Ярлык — на ::before: ::after у этих кнопок занят пустышкой, которая
+   центрирует подпись, и прежний замок на нём перебивался ею же — на палитрах
+   его не было видно никогда. */
+.radio.pal.locked::before, .radio.boxpick.locked::before, .radio.markpick.locked::before{
+  top:-6px; right:4px}
 
 .paywall-price{display:grid; grid-template-columns:auto 1fr; gap:4px 10px;
   align-items:baseline; margin:14px 0 4px; padding:12px 14px;
@@ -1226,6 +1251,10 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    приложении внизу и панель разделов, и композер, поэтому поднимаем заметно
    выше. */
 .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; background:var(--fg); color:var(--bg); border-radius:999px; padding:11px 20px; font-size:14px; z-index:90; box-shadow:var(--shadow-lift); max-width:calc(100% - 32px)}
+/* Ширина — по тексту, а не по остатку экрана. С left:50% и без ширины
+   браузер отводил плашке только правую половину экрана, и на телефоне даже
+   «Задача в блоке «Сегодня»» ломалась на две строки в узком столбике. */
+.toast{width:max-content; text-align:center; border-radius:22px}
 
 /* ============ ТАРИФЫ И ЗАМКИ ============ */
 
@@ -2604,3 +2633,66 @@ html[data-dense="1"] .titleline{gap:6px}
 .acc-h .kill{flex:none}
 .acc-body{padding:2px 16px 14px; border-top:1px solid var(--line)}
 .acc-body .lines{margin-top:10px}
+
+/* Под карточкой знакомства сразу шёл заголовок «Сегодня» — вплотную, и они
+   читались одним блоком. */
+.card.tour{margin-bottom:22px}
+
+/* Подложка под нижними кнопками в приложении.
+
+   Поле ввода и меню висят над списком отдельными плашками, и в щели между
+   ними просвечивал текст: заголовок «На неделе» резался пополам, строки
+   задач торчали между полем и меню. Плавное затухание в цвет фона убирает
+   этот шум, а сам список по-прежнему виден до самого поля. */
+html.in-app body::after{content:''; position:fixed; left:0; right:0; bottom:0; z-index:30;
+  height:calc(var(--dock) + 124px); pointer-events:none;
+  background:linear-gradient(to bottom, transparent, var(--bg) 58%)}
+html.in-app.kbd body::after{height:calc(var(--vv-shift, 0px) + 74px)}
+
+/* Карточка знакомства — крупно и мягко.
+
+   Первое, что видит человек, поставивший приложение. Прежде она была собрана
+   как служебный блок: тёмная обводка цвета акцента, шаги через тонкие черты,
+   мелкая кнопка «Пропустить» у левого края. Теперь — без резкой рамки, с
+   большим скруглением и воздухом, текущий шаг лежит на своей подложке, а
+   обе кнопки — во всю ширину, по центру, высотой с палец. */
+.card.tour{border-color:var(--stroke); border-radius:var(--r-xl); padding:22px 20px 20px}
+.tour-head h3{font-size:21px; letter-spacing:-.02em}
+.tour-head .sub{margin-top:3px}
+.tour-hide{width:36px; height:36px; background:var(--soft); font-size:14px; margin:-4px -4px 0 0}
+.tour-bar{height:6px; margin:16px 0 10px}
+.tour-steps{gap:4px}
+.tour-step{border-bottom:0; padding:12px; border-radius:var(--r-md); align-items:center}
+.tour-step:last-child{padding-bottom:12px}
+.tour-step.now{background:var(--soft); align-items:flex-start; padding:16px 14px}
+.tour-mark{width:26px; height:26px; font-size:12px; margin-top:0}
+.tour-step.now .tour-mark{margin-top:-1px}
+.tour-body{flex:1}
+.tour-body b{font-size:15.5px; line-height:1.3}
+.tour-step.on .tour-body b{text-decoration:none}
+.tour-body p{font-size:13.5px; line-height:1.5; margin-top:6px}
+.tour-body .btn.tour-go{display:flex; width:100%; justify-content:center; margin-top:14px; padding:13px 18px; font-size:14.5px; border-radius:999px}
+.btn.tour-skip{display:flex; width:100%; justify-content:center; margin-top:14px; padding:14px 18px; font-size:14.5px; border-radius:999px; box-shadow:none}
+
+/* Оглавление настроек в приложении.
+
+   Профиль — крупной карточкой с аватаром, под ним разделы: у каждого своя
+   плашка со значком, название и одна строка о том, что внутри. Всё по
+   центру по вертикали, высота строки — с палец, края мягкие. */
+.setprofile, .setcat{
+  display:flex; align-items:center; gap:14px; width:100%; text-align:left; color:inherit; font:inherit;
+  background:var(--card); border:1px solid var(--stroke); box-shadow:var(--shadow)}
+.setprofile{padding:16px 16px 16px 14px; border-radius:var(--r-xl); margin:8px 0 22px}
+.setprofile .avatar{width:56px; height:56px; font-size:21px}
+.setprofile .sl-text{flex:1}
+.setprofile .sl-text b{font-size:17px; font-weight:700}
+.setcats{display:flex; flex-direction:column; gap:10px}
+.setcat{padding:14px 16px 14px 14px; border-radius:var(--r-lg); min-height:72px}
+.setcat .sl-text{flex:1}
+.setcat .sl-text b{font-size:15.5px; font-weight:700}
+.setcat .sl-text i{font-size:12.5px; color:var(--fg-3); line-height:1.35}
+.setcat-ic{flex:none; width:44px; height:44px; border-radius:14px; background:var(--soft);
+  display:grid; place-items:center; color:var(--accent-text,var(--accent))}
+.setcat-ic .nav-ic{width:22px; height:22px; stroke-width:1.7}
+.setprofile:active, .setcat:active{transform:scale(.985); transition:transform .08s ease}
+.setprofile .sl-arrow .nav-ic, .setcat .sl-arrow .nav-ic{width:18px; height:18px}
