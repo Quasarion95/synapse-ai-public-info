@@ -1837,6 +1837,8 @@ function go(view){
   // включили: хранить дешевле, чем спрашивать задним числом.
   if (СТАРТОВЫЕ.some(function(в){ return в.id === view; })) S.lastView = view;
   S.more = false;
+  // Регулярные операции — и при переходе между экранами: save() ниже их запишет.
+  finRunRecurring();
   save();
   rolloverIfNeeded();
   pushView(view);
@@ -2901,20 +2903,50 @@ function finParse(raw, kind){
   // Граница слова тут не \b: в JS она считается по латинице, и после
   // кириллической «к» в конце строки границы попросту нет — «1.5к»
   // не совпадало и превращалось в полтора рубля.
-  var multiplied = text.replace(/(\d+(?:[.,]\d+)?)\s*(к|k|тыс\.?|тысяч[аи]?)(?![а-яёa-z0-9])/gi, function(_, num){
-    return String(Math.round(parseFloat(num.replace(',', '.')) * 1000));
+  //
+  // Точка между группами по три — разделитель тысяч, а не копейки: «кофе
+  // 1.500» записывалось как полтора рубля. Копейки пишут двумя знаками
+  // («12.50»), а три цифры после точки в деньгах означают тысячи.
+  text = text.replace(/(^|[^\d.,])(\d{1,3}(?:\.\d{3})+)(?![\d.,])/g, function(_, lead, num){
+    return lead + num.replace(/\./g, '');
+  });
+
+  // «к» и «k» — только вплотную к числу («80к») или последним словом
+  // («80 к»). Через пробел посреди фразы это предлог: «торт 500 к чаю»
+  // превращался в полмиллиона. «тыс» через пробел по-прежнему множитель —
+  // предлогом оно не бывает.
+  // Помеченное множителем число — точно сумма: метка \u0001 потом решает,
+  // какое из нескольких чисел взять, и вычищается из названия.
+  var multiplied = text.replace(/(\d+(?:[.,]\d+)?)(?:\s*(?:тыс\.?|тысяч[аи]?)|[кk]|\s+[кk]\s*$)(?![а-яёa-z0-9])/gi, function(_, num){
+    return String(Math.round(parseFloat(num.replace(',', '.')) * 1000)) + '\u0001';
   });
 
   var joined = multiplied.replace(/(\d)[   ](?=\d{3}\b)/g, '$1');
-  var found = joined.match(/-?\d+(?:[.,]\d{1,2})?/);
-  if (!found) return null;
+  /* Чисел бывает несколько: «2 кофе 350». Раньше бралось первое, и два кофе
+     стоили два рубля. Теперь сумма — число со значком денег рядом (₽, «р»,
+     «руб», множитель «к»/«тыс»), а если такого нет — последнее: сумму
+     называют в конце, а количество — в начале. */
+  // Число перед названием месяца — дата («к 8 марта»), а не сумма.
+  var numRe = /-?\d+(?:[.,]\d{1,2})?/g, all = [], m;
+  while ((m = numRe.exec(joined))){
+    if (!/^\s*(?:январ|феврал|март|апрел|ма[яй]|июн|июл|август|сентябр|октябр|ноябр|декабр)/i
+          .test(joined.slice(m.index + m[0].length))) all.push(m);
+  }
+  if (!all.length) return null;
+  var found = all[all.length - 1];
+  for (var n = 0; n < all.length; n++){
+    var after = joined.slice(all[n].index + all[n][0].length);
+    if (/^(?:\u0001|\s*(?:₽|руб|р\.?(?![а-яёa-z])|\$|€|₸))/i.test(after)){ found = all[n]; break; }
+  }
 
   var amount = Math.round(Math.abs(parseFloat(found[0].replace(',', '.'))) * 100);
   if (!amount) return null;
 
-  var title = joined.replace(found[0], ' ').replace(/\s+/g, ' ').trim();
+  var title = (joined.slice(0, found.index) + ' ' + joined.slice(found.index + found[0].length))
+    .replace(/\u0001/g, '').replace(/\s+/g, ' ').trim();
   title = stripMoneyWords(title);
-  title = title.replace(/^[-–—:,.]+|[-–—:,.]+$/g, '').trim();
+  // Минус «−» (U+2212) — знак суммы, а не название: «−500» давало трату «−».
+  title = title.replace(/^[-−–—:,.]+|[-−–—:,.]+$/g, '').trim();
 
   var low = title.toLowerCase();
   var cat = 'other';
@@ -3056,13 +3088,18 @@ function finRunRecurring(){
     var rule = box[i];
     if (rule.off) continue;
     var every = FIN_EVERY[rule.every] || FIN_EVERY.month;
-    var cursor = rule.lastRun || rule.since;
-    if (!cursor) continue;
+    if (!rule.since) continue;
 
-    // Первый раз — сама дата начала, дальше шагаем от неё.
-    var when = rule.lastRun ? finStepDate(cursor, every) : cursor;
-    var guard = 0;
-    while (when <= today && guard++ < 400){
+    /* Каждая дата считается от даты начала, а не от прошлого шага.
+
+       Раньше шагали setMonth(+1) от предыдущей даты: 31 января давало 3
+       марта, февраль пропадал, а дальше аренда списывалась третьего. Годовое
+       с 29 февраля уезжало на 1 марта навсегда. Теперь n-я дата — это «начало
+       плюс n шагов» с числом, прижатым к длине месяца, как в finSubNext. */
+    var n = 0, when = finRecNth(rule.since, every, 0), guard = 0;
+    while (rule.lastRun && when && when <= rule.lastRun && guard++ < 2000) when = finRecNth(rule.since, every, ++n);
+    guard = 0;
+    while (when && when <= today && guard++ < 400){
       S.finance.ops.push({
         id: uid(), kind: rule.kind, title: rule.title, amount: rule.amount,
         cat: rule.cat, date: when, at: Date.now() + guard,
@@ -3070,18 +3107,30 @@ function finRunRecurring(){
       });
       rule.lastRun = when;
       made++;
-      when = finStepDate(when, every);
+      when = finRecNth(rule.since, every, ++n);
     }
   }
   return made;
 }
 
-function finStepDate(iso, every){
-  var date = new Date(iso + 'T00:00:00');
-  if (every === FIN_EVERY.week) date.setDate(date.getDate() + 7);
-  else if (every === FIN_EVERY.year) date.setFullYear(date.getFullYear() + 1);
-  else date.setMonth(date.getMonth() + 1);
-  return isoOf(date);
+/// n-я дата правила: начало плюс n шагов, число прижато к длине месяца.
+function finRecNth(since, every, n){
+  var начало = new Date(since + 'T00:00:00');
+  if (isNaN(начало)) return '';
+  if (every === FIN_EVERY.week){
+    return isoOf(new Date(начало.getFullYear(), начало.getMonth(), начало.getDate() + 7 * n));
+  }
+  var месяцы = начало.getMonth() + n * (every === FIN_EVERY.year ? 12 : 1);
+  var год = начало.getFullYear() + Math.floor(месяцы / 12), месяц = ((месяцы % 12) + 12) % 12;
+  return isoOf(new Date(год, месяц, Math.min(начало.getDate(), daysInMonth(год, месяц))));
+}
+
+/// Последняя дата правила не позже limit — или '', если правило ещё не началось.
+function finRecLastDue(rule, limit){
+  var every = FIN_EVERY[rule.every] || FIN_EVERY.month;
+  var n = 0, last = '', when = finRecNth(rule.since, every, 0), guard = 0;
+  while (when && when <= limit && guard++ < 5000){ last = when; when = finRecNth(rule.since, every, ++n); }
+  return last;
 }
 
 /* Сколько откладывать в месяц, чтобы успеть к сроку копилки. Считается по
@@ -3275,14 +3324,25 @@ function finDueThisMonth(key){
     var sub = S.finance.subs[i];
     if (sub.off) continue;
     var every = FIN_EVERY[sub.every] || FIN_EVERY.month;
-    if (every !== FIN_EVERY.month){
+    /* Недельный платёж списывается в месяц четыре-пять раз, а считался
+       одним: «сколько ещё уйдёт» занижалось вчетверо. Считаем, сколько его
+       дат попадает в этот месяц, и умножаем. */
+    var раз = 1;
+    if (every === FIN_EVERY.week && sub.since){
+      раз = 0;
+      for (var w = 0, день = finRecNth(sub.since, every, 0); день && finMonthKey(день) <= key && w < 3000; день = finRecNth(sub.since, every, ++w)){
+        if (finMonthKey(день) === key) раз++;
+      }
+      if (!раз && !finSubPaidIn(sub, key)) continue;
+      раз = раз || 1;
+    } else if (every !== FIN_EVERY.month){
       var next = finSubNext(sub);
       if (finMonthKey(next) !== key && !finSubPaidIn(sub, key)) continue;
     }
     rows.push({
       sub: sub,
       paid: (sub.paid || {})[key] || 0,
-      expect: finSubTypical(sub),
+      expect: finSubTypical(sub) * раз,
       known: finSubKnown(sub)
     });
   }
@@ -3604,7 +3664,15 @@ function vFinOps(){
   // По дням, свежие сверху: список трат читают как ленту, а не как таблицу.
   var days = {};
   var order = [];
-  var sorted = S.finance.ops.slice().sort(function(a, b){
+  /* Лента — за показанный месяц. Переключатель месяцев над ней менял цифры
+     в разборе, а сама лента показывала все записи за всё время: в марте
+     листали августовские траты. */
+  var monthOps = finMonthOps(finShownMonth());
+  if (!monthOps.length){
+    html += blank(NAV_ICONS.finance, 'В этом месяце записей нет',
+      'Переключите месяц стрелками сверху или запишите трату строкой внизу.');
+  }
+  var sorted = monthOps.slice().sort(function(a, b){
     return a.date === b.date ? b.at - a.at : (a.date < b.date ? 1 : -1);
   });
   for (var i = 0; i < sorted.length; i++){
@@ -3742,7 +3810,15 @@ function vFinChart(inline){
   '</section>';
 
   // Что выросло и что упало — по категориям, к прошлому месяцу.
-  var moved = finByCat(key).map(function(row){
+  /* Категории берутся из обоих месяцев. Раньше — только из текущего, и то,
+     на что в прошлом месяце тратили, а в этом перестали, в «Что изменилось»
+     не попадало вовсе: самое приятное изменение месяца оставалось невидимым. */
+  var current = finByCat(key), seen = {};
+  current.forEach(function(row){ seen[row.cat] = true; });
+  finByCat(prevKey).forEach(function(row){
+    if (!seen[row.cat]) current.push({ cat: row.cat, title: row.title, sum: 0 });
+  });
+  var moved = current.map(function(row){
     var was = finBudgetSpent(row.cat, prevKey);
     return { title: row.title, cat: row.cat, sum: row.sum, was: was, diff: row.sum - was };
   }).filter(function(r){ return r.was || r.sum; });
@@ -4378,8 +4454,8 @@ function modalSubEdit(sub){
       '<input class="inp" id="m-title" value="' + esc(sub.title) + '"></div>' +
     '<div class="pairfields">' +
       '<div class="field"><label for="m-amount">Сумма</label>' +
-        '<input class="inp" id="m-amount" inputmode="numeric" value="' +
-          (sub.amount ? Math.round(sub.amount / 100) : '') + '" placeholder="необязательно"></div>' +
+        '<input class="inp" id="m-amount" inputmode="decimal" value="' +
+          (sub.amount ? finAmountInput(sub.amount) : '') + '" placeholder="необязательно"></div>' +
       '<div class="field"><label for="m-every">Раз в</label>' +
         '<select class="inp" id="m-every">' +
           '<option value="week"' + (sub.every === 'week' ? ' selected' : '') + '>неделю</option>' +
@@ -4431,6 +4507,38 @@ function finSubRemind(sub){
   S.tasks.push(task);
   sub.taskId = task.id;
   return task;
+}
+
+/* Дата записи об оплате — внутри того месяца, за который платят.
+
+   Оплату отмечают и задним числом, листнув на прошлый месяц, — а трата
+   ложилась сегодняшним днём: отметка стояла в июле, деньги в ленте — в
+   августе, и оба месяца считались неверно. В текущем месяце — сегодня, в
+   другом — день списания платежа, прижатый к длине месяца, или последний. */
+function finSubPayDate(sub, key){
+  if (key === finMonthKey()) return isoOf(todayDate());
+  var parts = String(key).split('-');
+  var год = Number(parts[0]), месяц = Number(parts[1]) - 1;
+  var день = sub.since ? Number(String(sub.since).slice(8, 10)) : 0;
+  var последний = daysInMonth(год, месяц);
+  return isoOf(new Date(год, месяц, день ? Math.min(день, последний) : последний));
+}
+
+/// Отвязать запись от оплаты платежа: снять sub.paid и sub.ops того месяца.
+/// Возвращает платёж и месяц, если связь была.
+function finSubUnlinkOp(op){
+  if (!op || !op.fromSub) return null;
+  var sub = finSub(op.fromSub);
+  if (!sub || !sub.ops) return null;
+  for (var key in sub.ops){
+    if (sub.ops.hasOwnProperty(key) && sub.ops[key] === op.id){
+      delete sub.ops[key];
+      if (sub.paid) delete sub.paid[key];
+      if (!sub.paid) sub.paid = {};
+      return { sub: sub, key: key };
+    }
+  }
+  return null;
 }
 
 function finSub(id){
@@ -4501,7 +4609,7 @@ function modalDebtPay(debt){
       (debt.paid ? ' из ' + finMoney(debt.amount) : '') + '</p>' +
     '<div class="field"><label for="m-amount">' +
       (debt.mine ? 'Сколько отдали' : 'Сколько вернули') + '</label>' +
-      '<input class="inp" id="m-amount" inputmode="numeric" placeholder="можно частью"></div>' +
+      '<input class="inp" id="m-amount" inputmode="decimal" placeholder="можно частью"></div>' +
     '<div class="acts center" style="margin:0 0 14px">' +
       '<button class="btn sm soft" data-act="fin-debt-pay-all" data-debt="' + debt.id + '">' +
         'Всё сразу — ' + finMoney(left) + '</button></div>' +
@@ -4520,8 +4628,8 @@ function modalSubPay(sub){
     '<p class="s">' + esc(sub.title) +
       (обычно ? ' · обычно ' + finMoney(обычно) : '') + '</p>' +
     '<div class="field"><label for="m-amount">Сколько заплатили</label>' +
-      '<input class="inp" id="m-amount" inputmode="numeric" value="' +
-      (обычно ? esc(String(Math.round(обычно / 100))) : '') + '" placeholder="600"></div>' +
+      '<input class="inp" id="m-amount" inputmode="decimal" value="' +
+      (обычно ? esc(finAmountInput(обычно)) : '') + '" placeholder="600"></div>' +
     '<button class="btn full" data-act="fin-sub-pay-save" data-sub="' + sub.id + '">Записать</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
@@ -4556,13 +4664,25 @@ function finCatSelect(id, chosen){
   }).join('') + '</select>';
 }
 
+/* Сумма в поле правки — ровно та, что записана, с копейками через запятую.
+
+   Поля заполнялись Math.round(x / 100): у траты 450,50 в окне стояло 451, и
+   простое «Сохранить» без единой правки меняло сумму. Копейки терялись на
+   каждом пересохранении. Пробелов-разделителей тут нет нарочно: строку
+   потом читает finParse, а ему «1500,50» понятнее, чем «1 500,50». */
+function finAmountInput(kop){
+  kop = Math.round(kop || 0);
+  var abs = Math.abs(kop), rest = abs % 100;
+  return (kop < 0 ? '-' : '') + Math.floor(abs / 100) + (rest ? ',' + ('0' + rest).slice(-2) : '');
+}
+
 function modalOpening(){
   return '<h3>Сколько у вас сейчас</h3>' +
     '<p class="s">Одним числом: карта, наличные и всё остальное вместе. ' +
       'Дальше Synapse считает сам — прибавляет доходы и вычитает траты.</p>' +
     '<div class="field"><label for="m-amount">Всего сейчас</label>' +
       '<input class="inp" id="m-amount" inputmode="numeric" value="' +
-        (S.finance.opening ? Math.round(S.finance.opening / 100) : '') + '" placeholder="35 000"></div>' +
+        (S.finance.opening ? finAmountInput(S.finance.opening) : '') + '" placeholder="35 000"></div>' +
     '<button class="btn full" data-act="fin-opening-save">Записать</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
@@ -4574,7 +4694,7 @@ function modalBudget(cat){
     '<div class="field"><label for="m-cat">Категория</label>' + finCatSelect('m-cat', cat) + '</div>' +
     '<div class="field"><label for="m-amount">Сколько в месяц</label>' +
       '<input class="inp" id="m-amount" value="' +
-        (fresh ? '' : Math.round(finBudget(cat) / 100)) + '" placeholder="25 000"></div>' +
+        (fresh ? '' : finAmountInput(finBudget(cat))) + '" placeholder="25 000"></div>' +
     '<button class="btn full" data-act="fin-budget-save">' + (fresh ? 'Разложить' : 'Сохранить') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
@@ -4589,7 +4709,7 @@ function modalOp(op){
     '<div class="field"><label for="m-title">Название</label>' +
       '<input class="inp" id="m-title" value="' + esc(op.title) + '"></div>' +
     '<div class="field"><label for="m-amount">Сумма</label>' +
-      '<input class="inp" id="m-amount" value="' + Math.round(op.amount / 100) + '"></div>' +
+      '<input class="inp" id="m-amount" value="' + finAmountInput(op.amount) + '"></div>' +
     '<div class="field"><label for="m-cat">Категория</label>' + finCatSelect('m-cat', op.cat) + '</div>' +
     '<div class="field"><label for="m-due">Дата</label>' +
       полеДаты('m-due', op.date) + '</div>' +
@@ -4612,7 +4732,7 @@ function modalRecurring(rule){
     '<div class="field"><label for="m-title">Название</label>' +
       '<input class="inp" id="m-title" value="' + esc(fresh ? '' : rule.title) + '" placeholder="Аренда"></div>' +
     '<div class="field"><label for="m-amount">Сумма</label>' +
-      '<input class="inp" id="m-amount" value="' + (fresh ? '' : Math.round(rule.amount / 100)) +
+      '<input class="inp" id="m-amount" value="' + (fresh ? '' : finAmountInput(rule.amount)) +
         '" placeholder="45 000"></div>' +
     '<div class="field"><label for="m-cat">Категория</label>' +
       finCatSelect('m-cat', fresh ? 'home' : rule.cat) + '</div>' +
@@ -4637,7 +4757,7 @@ function modalJar(jar){
     '<div class="field"><label for="m-title">На что</label>' +
       '<input class="inp" id="m-title" value="' + esc(fresh ? '' : jar.title) + '" placeholder="Отпуск"></div>' +
     '<div class="field"><label for="m-amount">Сколько нужно</label>' +
-      '<input class="inp" id="m-amount" value="' + (fresh ? '' : Math.round(jar.target / 100)) +
+      '<input class="inp" id="m-amount" value="' + (fresh ? '' : finAmountInput(jar.target)) +
         '" placeholder="120 000"></div>' +
     '<div class="field"><label for="m-due">К какому числу</label>' +
       полеДаты('m-due', fresh ? '' : (jar.due || '')) + '</div>' +
@@ -11810,10 +11930,25 @@ var ACTS = {
     op.cat = $('m-cat') ? $('m-cat').value : op.cat;
     op.kind = $('m-opkind') ? $('m-opkind').value : op.kind;
     op.date = mval('m-due') || op.date;
+    /* Запись из оплаты платежа связана с ним: sub.paid[месяц] — сумма, по
+       которой считаются «обычно» и годовой итог. Правка суммы или даты здесь
+       раньше до платежа не доходила, и он продолжал помнить старое. */
+    var link = finSubUnlinkOp(op);
+    if (link && op.kind !== 'income'){
+      var newKey = finMonthKey(op.date);
+      if (!link.sub.ops[newKey]){
+        link.sub.paid[newKey] = op.amount;
+        link.sub.ops[newKey] = op.id;
+      } else delete op.fromSub;
+    } else if (link) delete op.fromSub;
     closeModal();
     commit('Запись изменена');
   },
   'fin-op-kill': function(d){
+    // Удалили запись об оплате — снимаем и отметку «оплачено» у платежа,
+    // иначе он числился бы оплаченным деньгами, которых в ленте больше нет.
+    var killed = finOp(d.op);
+    if (killed) finSubUnlinkOp(killed);
     S.finance.ops = S.finance.ops.filter(function(op){ return op.id !== d.op; });
     closeModal();
     commit('Запись удалена');
@@ -11866,7 +12001,9 @@ var ACTS = {
   'fin-debt-pay-all': function(d){
     var debt = finDebt(d.debt);
     var field = $('m-amount');
-    if (debt && field) field.value = String(Math.round(Math.max(0, debt.amount - (debt.paid || 0)) / 100));
+    // Остаток ровно до копейки: округлённый до рубля 1 234,56 становился 1 235,
+    // а 999,40 — 999, и долг с копейками «всё сразу» не закрывался никогда.
+    if (debt && field) field.value = finAmountInput(Math.max(0, debt.amount - (debt.paid || 0)));
   },
   'fin-debt-pay-save': function(d){
     var debt = finDebt(d.debt);
@@ -11875,7 +12012,7 @@ var ACTS = {
     if (!parsed) return fieldError('m-amount', 'Сколько отдали? Можно частью.');
     closeModal();
     debt.paid = Math.min(debt.amount, (debt.paid || 0) + parsed.amount);
-    if (debt.paid >= debt.amount){
+    if (debt.amount - debt.paid <= 0){
       debt.closed = true;
       if (debt.taskId) S.tasks = S.tasks.filter(function(t){ return t.id !== debt.taskId; });
       debt.taskId = '';
@@ -11943,6 +12080,10 @@ var ACTS = {
     finJarApply(jar, 1, Math.max(0, (jar.target || 0) - (jar.saved || 0)));
   },
   'fin-jar-kill': function(d){
+    // Этап цели, заведённый под копилку, уходит вместе с ней: иначе в цели
+    // оставался этап «накопить» без копилки, который никогда не закроется.
+    var jar = finJar(d.jar);
+    if (jar) finLinkJarToGoal(jar, '');
     S.finance.jars = S.finance.jars.filter(function(x){ return x.id !== d.jar; });
     commit('Копилка удалена');
   },
@@ -11992,6 +12133,10 @@ var ACTS = {
       : (S.finDraftCat || (S.finDraftDuty ? 'home' : 'subs'));
     var duty = $('m-duty') ? $('m-duty').value === '1' : !!S.finDraftDuty;
     var sub = finSub(d.sub);
+    // Напоминание — задача со своей датой, повтором и суммой в названии.
+    // Сменили дату, период или сумму — а задача напоминала по-старому.
+    var перенести = !!(sub && sub.taskId && (sub.since !== since || sub.every !== every ||
+      sub.amount !== parsed.amount || sub.title !== title));
     if (sub){
       sub.title = title; sub.amount = parsed.amount; sub.every = every;
       sub.since = since; sub.cat = cat; sub.duty = duty;
@@ -12005,6 +12150,10 @@ var ACTS = {
 
     var remind = $('m-remind');
     var want = !!(remind && remind.checked);
+    if (want && перенести){
+      S.tasks = S.tasks.filter(function(t){ return t.id !== sub.taskId; });
+      sub.taskId = '';
+    }
     if (want && !sub.taskId) finSubRemind(sub);
     if (!want && sub.taskId){
       // Галочку сняли — напоминание уходит вместе с ней.
@@ -12035,7 +12184,16 @@ var ACTS = {
       since: mval('m-due') || isoOf(todayDate()),
       accountId: ''
     };
-    if (rule){ for (var k in patch) if (patch.hasOwnProperty(k)) rule[k] = patch[k]; }
+    if (rule){
+      /* Сменили дату начала или период — расписание другое, а lastRun
+         оставался от старого, и новые даты шли от него. Ставим lastRun на
+         последнюю дату нового расписания, которая не позже уже пройденной:
+         всё до неё уже записано старым правилом, и задвоений не будет. */
+      var другоеРасписание = rule.since !== patch.since || rule.every !== patch.every;
+      var былоДо = rule.lastRun;
+      for (var k in patch) if (patch.hasOwnProperty(k)) rule[k] = patch[k];
+      if (другоеРасписание && былоДо) rule.lastRun = finRecLastDue(rule, былоДо);
+    }
     else {
       patch.id = uid(); patch.off = false; patch.lastRun = '';
       S.finance.recurring.push(patch);
@@ -12048,6 +12206,13 @@ var ACTS = {
     var rule = finRec(d.rec);
     if (!rule) return;
     rule.off = !rule.off;
+    /* Включили после паузы — пропущенное за паузу не догоняем. Раньше
+       finRunRecurring записывал разом все списания за то время, пока правило
+       стояло выключенным: пауза ровно для того и ставится, чтобы их не было. */
+    if (!rule.off){
+      var последняя = finRecLastDue(rule, isoOf(todayDate()));
+      if (последняя && последняя > (rule.lastRun || '')) rule.lastRun = последняя;
+    }
     commit();
   },
   'fin-rec-kill': function(d){
@@ -12091,7 +12256,7 @@ var ACTS = {
     var op = {
       id: uid(), kind: 'spend', title: sub.title, amount: parsed.amount,
       cat: finCat(sub.cat || 'subs').id,
-      date: isoOf(todayDate()), at: Date.now(),
+      date: finSubPayDate(sub, key), at: Date.now(),
       accountId: '',
       fromSub: sub.id
     };
@@ -13903,6 +14068,12 @@ rolloverIfNeeded();
    не открывать неделю, и пропущенные списания всё равно должны появиться —
    каждое своим днём. Сохраняем сразу, иначе следующий заход добавит их снова. */
 if (finRunRecurring()) save();
+/* Только при холодном старте — мало: на андроиде приложение неделями живёт
+   свёрнутым в памяти и открывается без перезагрузки, и аренда первого числа
+   не появлялась, пока его не убьёт система. Догоняем и при возвращении. */
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible' && finRunRecurring()){ save(); render(); }
+});
 finSyncJarStages();
 render();
 // При каждом открытии переставляем будильники: время прошло, задачи закрылись,
