@@ -25,7 +25,9 @@
         '<link rel="stylesheet" href="web/meditation-scenes.css">' +
         '<link rel="stylesheet" href="web/pomodoro-timer.css">' +
         '<link rel="stylesheet" href="web/goal-map.css">' +
-        '<link rel="stylesheet" href="web/layout.css">');
+        '<link rel="stylesheet" href="web/layout.css">' +
+        '<link rel="stylesheet" href="web/subscription.css">' +
+        '<link rel="stylesheet" href="web/theme.css">');
     </script>
 
     <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и
@@ -114,6 +116,8 @@
          иначе на широком экране на миг мелькают вкладки. -->
     <script>
       if (!window.AndroidVoice) document.write(
+        '<script src="web/theme.js"><\/script>' +
+        '<script src="web/subscription.js"><\/script>' +
         '<script src="web/i18n-web.js"><\/script>' +
         '<script src="web/desk.js"><\/script>' +
         '<script src="web/finance-desk.js"><\/script>' +
