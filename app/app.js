@@ -85,6 +85,12 @@ function собратьНапоминания(){
   if (!н.on) return список;
 
   var сейчас = Date.now();
+  /* Тексты уведомлений — через тот же перевод, что и экран. Уведомление
+     показывает система, а не наша разметка, поэтому SynI18n.tr до него не
+     доходил, и в английском режиме напоминания приходили по-русски.
+     Названия задач (заголовок напоминания о задаче) не переводим — это текст
+     человека; цели внутри фраз шаблоны в i18n.js оставляют как есть. */
+  var по = function(x){ return (window.SynI18n && SynI18n.tr) ? SynI18n.tr(x) : x; };
 
   if (н.tasks){
     // Задачи со временем — о каждой в её час. Выполненные молчат.
@@ -104,8 +110,8 @@ function собратьНапоминания(){
          клинику») — уведомление занимало два ряда, чтобы сказать одно. */
       var цель = t.goalId ? findGoal(t.goalId) : null;
       список.push({ когда: когда, заголовок: t.title,
-        текст: (цель ? 'Цель: ' + цель.title + ' · ' : '') +
-          ((н.заранее ? 'через ' + н.заранее + ' мин, в ' : 'на ') + t.time) });
+        текст: по((цель ? 'Цель: ' + цель.title + ' · ' : '') +
+          ((н.заранее ? 'через ' + н.заранее + ' мин, в ' : 'на ') + t.time)) });
     });
   }
 
@@ -119,8 +125,8 @@ function собратьНапоминания(){
       д.setDate(д.getDate() - 1);
       var п = goalProgress(g);
       if (д.getTime() > сейчас){
-        список.push({ когда: д.getTime(), заголовок: 'Завтра срок цели',
-          текст: g.title + ' — пройдено ' + pct(п.done, п.total) + '%' });
+        список.push({ когда: д.getTime(), заголовок: по('Завтра срок цели'),
+          текст: по(g.title + ' — пройдено ' + pct(п.done, п.total) + '%') });
       }
     });
   }
@@ -155,12 +161,12 @@ function собратьНапоминания(){
        подряд, пока человек не откроет приложение. Цифры знает только
        страница, поэтому в повторах — слова без цифр. */
     список.push({ когда: утро, ежедневно: true,
-      заголовок: 'План на день',
-      текст: наУтро.length
+      заголовок: по('План на день'),
+      текст: по(наУтро.length
         ? 'На сегодня ' + taskCount(наУтро.length) +
           (хвост ? ', и ' + хвост + ' ждут с прошлых дней' : '') + '. С чего начнём?'
-        : 'На сегодня пока пусто. Что важно успеть?',
-      потом: 'Загляните в план на сегодня: с чего начнём?' });
+        : 'На сегодня пока пусто. Что важно успеть?'),
+      потом: по('Загляните в план на сегодня: с чего начнём?') });
 
     /* Итог дня честен только про сегодняшний вечер: про завтрашний мы не
        знаем, сколько будет закрыто. */
@@ -168,14 +174,14 @@ function собратьНапоминания(){
     var осталось = наВечер.filter(function(t){ return !t.done; }).length;
     var итогСегодня = isoOf(new Date(вечер)) === сегодняISO;
     список.push({ когда: вечер, ежедневно: true,
-      заголовок: 'Как прошёл день',
-      текст: !итогСегодня
+      заголовок: по('Как прошёл день'),
+      текст: по(!итогСегодня
         ? 'Как прошёл день? Отметьте сделанное и наметьте завтра.'
         : наВечер.length
           ? 'Закрыто ' + (наВечер.length - осталось) + ' из ' + наВечер.length +
             (осталось ? '. Осталось ' + осталось + ' — перенести на завтра?' : '. Всё сделано.')
-          : 'Задач на сегодня не было. Наметить что-то на завтра?',
-      потом: 'Как прошёл день? Отметьте сделанное и наметьте завтра.' });
+          : 'Задач на сегодня не было. Наметить что-то на завтра?'),
+      потом: по('Как прошёл день? Отметьте сделанное и наметьте завтра.') });
   }
 
   // По времени: номера в мосте раздаются по порядку, и ближайшее должно
@@ -813,7 +819,9 @@ if (typeof document !== 'undefined'){
     if (document.hidden) return;
     if (S.lastOpened === isoOf(todayDate())) return;
     rolloverIfNeeded();
-    render();
+    // Перекат двигает даты задач — будильники должны узнать об этом сразу.
+    пересобратьНапоминания();
+    renderKeepingInput();
   });
 }
 
@@ -2078,7 +2086,63 @@ window.addEventListener('popstate', function(event){
    не может требовать логин до первой задачи: человеку с лендинга обещано
    «без регистрации», а состояние входа всё равно лежит рядом с задачами.
    Вход есть, он живёт отдельным экраном и нужен для будущего аккаунта. */
+/* Фоновая перерисовка не стирает набранное.
+
+   render() пересобирает экран строкой, и поле, в котором человек печатает,
+   рождается заново — пустым или со старым значением из S, без фокуса.
+   Пока перерисовку вызывал сам человек, это было незаметно. Но экран
+   перерисовывают и без него: пришла синхронизация, закрылся помидор,
+   наступил новый день, догнались регулярные траты, сверилась подписка. И
+   подпункт, сумма траты или код связки, набранные наполовину, пропадали.
+
+   Поэтому фоновые пути зовут renderKeepingInput() (или commit внутри
+   фоном()): перед перерисовкой запоминаем поле в фокусе — по id или по его
+   data-атрибутам, плюс номер среди таких же — и его текст с выделением, после
+   — находим новое такое же и возвращаем всё как было. Пути, которые поле
+   очищают нарочно (добавили задачу — строка пустеет), идут обычным render():
+   вернуть туда старый текст значило бы добавить задачу второй раз. */
+var держатьВвод = 0;
+function фоном(fn){
+  держатьВвод++;
+  try { fn(); } finally { держатьВвод--; }
+}
+function renderKeepingInput(){ фоном(render); }
+
+function запомнитьВвод(){
+  if (!editableFocused()) return null;
+  var node = document.activeElement;
+  var где = null;
+  if ($('app') && $('app').contains(node)) где = $('app');
+  else if ($('top') && $('top').contains(node)) где = $('top');
+  if (!где) return null;   // окно и прочее render() не пересобирает
+  var кав = function(v){ return String(v).replace(/["\\]/g, '\\$&'); };
+  var sel = node.tagName.toLowerCase();
+  if (node.id) sel = '#' + (window.CSS && CSS.escape ? CSS.escape(node.id) : node.id);
+  else {
+    var есть = false;
+    for (var i = 0; i < node.attributes.length; i++){
+      var a = node.attributes[i];
+      if (a.name.indexOf('data-') === 0 || a.name === 'name'){ sel += '[' + a.name + '="' + кав(a.value) + '"]'; есть = true; }
+    }
+    if (!есть) return null;   // не за что зацепиться — не гадаем
+  }
+  var все = где.querySelectorAll(sel), номер = 0;
+  for (var j = 0; j < все.length; j++) if (все[j] === node){ номер = j; break; }
+  var снимок = { sel: sel, номер: номер, где: где.id, value: node.value, start: null, end: null };
+  try { снимок.start = node.selectionStart; снимок.end = node.selectionEnd; } catch (e) {}
+  return снимок;
+}
+function вернутьВвод(снимок){
+  var где = $(снимок.где);
+  var node = где ? где.querySelectorAll(снимок.sel)[снимок.номер] : null;
+  if (!node) return;   // поля больше нет (экран сменился) — и не надо
+  if (снимок.value != null && node.value !== снимок.value) node.value = снимок.value;
+  try { node.focus({ preventScroll: true }); } catch (e) { node.focus(); }
+  try { if (снимок.start != null) node.setSelectionRange(снимок.start, снимок.end); } catch (e) {}
+}
+
 function render(){
+  var ввод = держатьВвод ? запомнитьВвод() : null;
   applyTheme();
 
   var view = VIEWS[S.view] || VIEWS.tasks;
@@ -2109,6 +2173,7 @@ function render(){
   showToast();
   // Высота шапки могла поменяться вместе с размером шрифта.
   syncRail();
+  if (ввод) вернутьВвод(ввод);
 }
 
 /* ============ ТЕМА ============ */
@@ -2668,6 +2733,9 @@ function поверх(fill){
 }
 
 function applyTheme(){
+  // Плотность — тем же путём, что тема: раньше признак ставился только при
+  // запуске и в настройке, и после импорта или синхронизации расходился с S.
+  применитьПлотность();
   снятьЗакрытоеОформление();
   var c = themeColors();
   var root = document.documentElement.style;
@@ -2813,7 +2881,7 @@ function vTop(){
       // буквой, и непонятно, чей это аккаунт.
       '<button class="whoami' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
         'title="Профиль" aria-label="Профиль">' + avatarHTML() +
-        (S.profile.name ? '<span class="nm">' + esc(S.profile.name) + '</span>' : '') +
+        (S.profile.name ? '<span class="nm" translate="no">' + esc(S.profile.name) + '</span>' : '') +
       '</button>' +
     '</div>' +
   '</div>';
@@ -3918,7 +3986,10 @@ function vFinComposer(){
     '<form class="say" data-form="fin-add">' +
       '<label class="visually-hidden" for="finfield">' +
         (kind === 'income' ? 'Новый доход' : 'Новая трата') + '</label>' +
+      // Набранное живёт в S.finDraft, как S.draft у строки задач: иначе
+      // переключатель «Трата/Доход» и старт голоса перерисовкой стирали строку.
       '<input id="finfield" type="text" autocomplete="off" enterkeyhint="done" ' +
+        'value="' + esc(S.finDraft || '') + '" ' +
         'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
       (voiceSupported()
         ? '<button class="ai' + (finVoice.on ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
@@ -3962,7 +4033,8 @@ function finVoiceStart(){
     }
     // Пишем прямо в поле, без перерисовки: перерисовка оборвала бы слушание.
     var field = $('finfield');
-    if (field) field.value = (finVoice.final + interim).trim();
+    S.finDraft = (finVoice.final + interim).trim();
+    if (field) field.value = S.finDraft;
   };
 
   rec.onerror = function(event){
@@ -3978,6 +4050,7 @@ function finVoiceStart(){
     var said = finVoice.final.trim();
     finVoice.final = '';
     var field = $('finfield');
+    if (said) S.finDraft = said;
     if (field && said) field.value = said;
     // Услышали — сразу записываем: голосом говорят, чтобы не нажимать.
     if (said) ACTS['fin-add']({});
@@ -4047,7 +4120,7 @@ function vFinOps(){
             '</div>' +
             '<div class="swipe-face">' : '') +
           '<span class="fr-dot" style="background:' + finTint(op.cat, .95) + '"></span>' +
-          '<button class="fr-t" data-act="fin-op-edit" data-op="' + op.id + '">' + esc(op.title) +
+          '<button class="fr-t" data-act="fin-op-edit" data-op="' + op.id + '"><span translate="no">' + esc(op.title) + '</span>' +
             '<span class="fr-c">' + esc(finCat(op.cat).title) + '</span></button>' +
           '<span class="fr-v' + (op.kind === 'income' ? ' up' : '') + '">' +
             finMoney(op.amount * (op.kind === 'income' ? 1 : -1), { plus: op.kind === 'income' }) + '</span>' +
@@ -4254,7 +4327,7 @@ function vFinDebts(){
           '<button class="kill" data-act="fin-debt-kill" data-debt="' + d.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
         '</div>' : '') +
       '<div class="dr-main' + (touchUI() ? ' swipe-face' : '') + '">' +
-        '<span class="dr-t">' + esc(d.who) +
+        '<span class="dr-t"><span translate="no">' + esc(d.who) + '</span>' +
           '<span class="dr-n dr-n--' + (d.mine ? 'mine' : 'owed') + '">' + (d.mine ? 'я должен' : 'мне должны') +
             /* Прошедший срок называем прошедшим.
 
@@ -4306,7 +4379,7 @@ function vFinJars(){
     var pace = finJarPace(jar);
     return '<article class="card jar' + (saved >= jar.target ? ' full' : '') + '">' +
       '<div class="finhead">' +
-        '<h3>' + esc(jar.title) + '</h3>' +
+        '<h3 translate="no">' + esc(jar.title) + '</h3>' +
         '<span class="sub">' + share + '%</span>' +
       '</div>' +
       '<div class="debt-sum"><b>' + finMoney(saved) + '</b>' +
@@ -4415,7 +4488,7 @@ function finPayTable(rows, key, title, lead){
             '</div>' +
             '<div class="swipe-face">' : '') +
           '<span class="pr-main">' + finSubLogo(sub) +
-            '<span class="pr-t">' + esc(sub.title) +
+            '<span class="pr-t"><span translate="no">' + esc(sub.title) + '</span>' +
               '<span class="pr-n">' + esc(note) + '</span></span>' +
           '</span>' +
           '<span class="pr-v">' + (known ? (finSubVaries(sub) ? '≈ ' : '') + finMoney(finPerMonth(sub)) : '—') + '</span>' +
@@ -4798,7 +4871,7 @@ function finTemplateChips(duty){
 }
 
 function modalSubEdit(sub){
-  return '<h3>' + esc(sub.title) + '</h3>' +
+  return '<h3 translate="no">' + esc(sub.title) + '</h3>' +
     '<div class="field"><label for="m-title">Название</label>' +
       '<input class="inp" id="m-title" value="' + esc(sub.title) + '"></div>' +
     '<div class="pairfields">' +
@@ -4919,7 +4992,7 @@ function modalJarMove(jar, sign){
   var кладём = sign > 0;
   var осталось = Math.max(0, (jar.target || 0) - (jar.saved || 0));
   return '<h3>' + (кладём ? 'Отложить в копилку' : 'Снять из копилки') + '</h3>' +
-    '<p class="s">' + esc(jar.title) + ' · ' + finMoney(jar.saved || 0) +
+    '<p class="s"><span translate="no">' + esc(jar.title) + '</span> · ' + finMoney(jar.saved || 0) +
       (jar.target ? ' из ' + finMoney(jar.target) : '') + '</p>' +
     '<div class="field"><label for="m-amount">Сколько</label>' +
       '<input class="inp" id="m-amount" inputmode="numeric" placeholder="' +
@@ -4954,7 +5027,7 @@ function finJarApply(jar, sign, amount){
 function modalDebtPay(debt){
   var left = Math.max(0, debt.amount - (debt.paid || 0));
   return '<h3>' + (debt.mine ? 'Платёж по долгу' : 'Возврат долга') + '</h3>' +
-    '<p class="s">' + esc(debt.who) + ' · осталось ' + finMoney(left) +
+    '<p class="s"><span translate="no">' + esc(debt.who) + '</span> · осталось ' + finMoney(left) +
       (debt.paid ? ' из ' + finMoney(debt.amount) : '') + '</p>' +
     '<div class="field"><label for="m-amount">' +
       (debt.mine ? 'Сколько отдали' : 'Сколько вернули') + '</label>' +
@@ -4974,7 +5047,7 @@ function modalDebtPay(debt){
 function modalSubPay(sub){
   var обычно = finSubTypical(sub);
   return '<h3>Отметить оплату</h3>' +
-    '<p class="s">' + esc(sub.title) +
+    '<p class="s"><span translate="no">' + esc(sub.title) + '</span>' +
       (обычно ? ' · обычно ' + finMoney(обычно) : '') + '</p>' +
     '<div class="field"><label for="m-amount">Сколько заплатили</label>' +
       '<input class="inp" id="m-amount" inputmode="decimal" value="' +
@@ -5117,7 +5190,7 @@ function modalJar(jar){
         '<option value="">Сама по себе</option>' +
         goals.map(function(g){
           return '<option value="' + g.id + '"' +
-            (!fresh && jar.goalId === g.id ? ' selected' : '') + '>' + esc(g.title) + '</option>';
+            (!fresh && jar.goalId === g.id ? ' selected' : '') + ' translate="no">' + esc(g.title) + '</option>';
         }).join('') + '</select></div>' : '') +
     '<button class="btn full" data-act="fin-jar-save"' + (fresh ? '' : ' data-jar="' + jar.id + '"') + '>' +
       (fresh ? 'Завести' : 'Сохранить') + '</button>' +
@@ -5507,12 +5580,12 @@ function itemRow(t, внутриЦели){
     detail = '<div class="detail-wrap"><div class="detail">' +
       // Принадлежность цели — строкой словами, а не чипом с названием: чип
       // читался как метка, а не как «эта задача про вот эту цель».
-      (goal ? '<p class="belongs">Относится к цели «' + esc(goal.title) + '»</p>' : '') +
-      (t.note ? '<p class="note">' + esc(t.note) + '</p>' : '') +
+      (goal ? '<p class="belongs">Относится к цели «<span translate="no">' + esc(goal.title) + '</span>»</p>' : '') +
+      (t.note ? '<p class="note" translate="no">' + esc(t.note) + '</p>' : '') +
       t.subtasks.map(function(s){
         return '<div class="subline' + (s.done ? ' on' : '') + '">' +
           '<button class="box' + (s.done ? ' on' : '') + '" data-act="subtoggle" data-task="' + t.id + '" data-sub="' + s.id + '" aria-label="Выполнено">✓</button>' +
-          '<span>' + esc(s.title) + '</span>' +
+          '<span translate="no">' + esc(s.title) + '</span>' +
           '<button class="kill" data-act="subkill" data-task="' + t.id + '" data-sub="' + s.id + '" aria-label="Удалить">✕</button>' +
         '</div>';
       }).join('') +
@@ -5666,6 +5739,9 @@ function addTask(){
   });
   S.draft = '';
   S.closed[parsed.bucket] = false;
+  // Подсказка под строкой гасла только по кнопке «Добавить» (ACTS.add), а
+  // добавляющие по Enter видели её вечно. Добавил задачу — значит, понял.
+  S.hintSeen = true;
   commit('Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
 }
 
@@ -6570,7 +6646,7 @@ function stageBlock(g, st, номер){
       '<button class="kill" data-act="edit-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Править этап" title="Править">' + ICON.edit + '</button>' +
       '<button class="kill" data-act="kill-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Удалить этап">✕</button>' +
     '</div>' +
-    (st.detail ? '<p class="detail">' + esc(st.detail) + '</p>' : '') +
+    (st.detail ? '<p class="detail" translate="no">' + esc(st.detail) + '</p>' : '') +
     (st.targetDate && st.status !== 'done'
       ? '<p class="detail stage-target' + dueSoonClass(st.targetDate) + '">К ' +
         esc(humanDate(st.targetDate)) + ' · ' + esc(untilText(st.targetDate)) + '</p>'
@@ -6592,7 +6668,7 @@ function stageBlock(g, st, номер){
 function goalBody(g){
   var html = '<div class="goalbody">';
 
-  if (g.purpose) html += '<p class="sub gpurpose">' + esc(g.purpose) + '</p>';
+  if (g.purpose) html += '<p class="sub gpurpose" translate="no">' + esc(g.purpose) + '</p>';
 
   /* Дата цели — вместе с тем, сколько до неё осталось. Сама дата без остатка
      заставляет считать в голове, а именно остаток и есть повод шевелиться. */
@@ -6652,7 +6728,7 @@ function vGoal(){
   var html = head('Цель', g.title, 'goals', true);
 
   html += '<section class="card">' +
-    (g.purpose ? '<p class="sub" style="margin:0 0 14px">' + esc(g.purpose) + '</p>' : '') +
+    (g.purpose ? '<p class="sub" style="margin:0 0 14px" translate="no">' + esc(g.purpose) + '</p>' : '') +
     bar(p.done, p.total, p.done + ' из ' + p.total + ' ' + p.unit) +
     '<div class="acts">' +
       '<button class="btn sm" data-act="new-stage" data-goal="' + g.id + '">+ Создать этап</button>' +
@@ -7364,7 +7440,7 @@ function vList(){
 
   var html = head('', l.title, 'lists', true);
   html += '<section class="card">' +
-    (l.note ? '<p class="sub" style="margin:0 0 10px">' + esc(l.note) + '</p>' : '') +
+    (l.note ? '<p class="sub" style="margin:0 0 10px" translate="no">' + esc(l.note) + '</p>' : '') +
     (l.items.length
       ? '<div class="lines">' + l.items.map(function(it){
           /* Название пункта правится на месте.
@@ -7415,7 +7491,7 @@ function vNotes(){
     html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-note="' + n.id + '">' +
       '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-note" data-note="' + n.id + '">' +
         '<h3 translate="no">' + esc(n.title) + '</h3>' +
-        '<p class="sub">' + esc(n.body ? n.body.slice(0, 120) : 'Пустая запись') + '</p>' +
+        (n.body ? '<p class="sub" translate="no">' + esc(n.body.slice(0, 120)) + '</p>' : '<p class="sub">Пустая запись</p>') +
       '</button>' +
       '<div class="side">' +
         '<button data-act="rename-note" data-note="' + n.id + '" aria-label="Переименовать запись" title="Переименовать">' + ICON.edit + '</button>' +
@@ -7561,7 +7637,8 @@ function pomoЗавершить(){
   remaining = 0;
   S.pomodoro.endsAt = 0;
   if (S.pomodoro.mode === 'focus') S.pomodoro.doneToday += 1;
-  commit('Помидор закрыт');
+  // Помидор закрывается сам по таймеру — в это время человек может печатать.
+  фоном(function(){ commit('Помидор закрыт'); });
 }
 
 /// Остаток по часам. null — таймер не запущен.
@@ -8065,7 +8142,7 @@ function vSettings(){
   if (inApp()){
     html += '<p class="setgroup-t">Настройки</p>' +
       '<button class="setprofile" data-act="go" data-view="profile">' + avatarHTML() +
-        '<span class="sl-text"><b>' + esc(S.profile.name || 'Ваш профиль') + '</b>' +
+        '<span class="sl-text"><b' + (S.profile.name ? ' translate="no"' : '') + '>' + esc(S.profile.name || 'Ваш профиль') + '</b>' +
           '<i>' + (S.profile.name ? 'Имя и фото видны только вам' : 'Добавьте имя и фото — их видите только вы') + '</i></span>' +
         '<span class="sl-arrow">' + NAV_ICONS.chevron + '</span></button>' +
       '<div class="setcats">' + РАЗДЕЛЫ_НАСТРОЕК.filter(function(р){ return !р.есть || р.есть(); }).map(function(р){
@@ -8079,7 +8156,7 @@ function vSettings(){
 
   html += группаНастроек('Профиль',
     '<button class="setline" data-act="go" data-view="profile">' +
-      '<span class="sl-text"><b>' + esc(S.profile.name || 'Без имени') + '</b>' +
+      '<span class="sl-text"><b' + (S.profile.name ? ' translate="no"' : '') + '>' + esc(S.profile.name || 'Без имени') + '</b>' +
         '<i>Имя и фото видны только вам</i></span>' +
       '<span class="sl-arrow">' + NAV_ICONS.chevron + '</span></button>');
 
@@ -9256,7 +9333,7 @@ function synLogHTML(){
   return S.synChat.map(function(item, index){
     item.i = index;
     if (item.role === 'user'){
-      return '<div class="syn-msg mine"><span>' + esc(item.text) + '</span></div>';
+      return '<div class="syn-msg mine"><span translate="no">' + esc(item.text) + '</span></div>';
     }
     var html = '<div class="syn-msg"><span>' + esc(item.text) + '</span></div>';
 
@@ -9887,16 +9964,16 @@ function synAsk(){
 function activateFromLink(code){
   code = String(code || '').trim();
   if (!code) return;
-  openModal(modalProCode('', true));
+  openModal(modalProCode('', true, code));
   proActivate(code).then(function(pro){
     if (!pro || !pro.active){
-      openModal(modalProCode('Код принят, но подписка по нему неактивна.', false));
+      openModal(modalProCode('Код принят, но подписка по нему неактивна.', false, code));
       return;
     }
     closeModal();
     commit('Подписка включена');
   }).catch(function(error){
-    openModal(modalProCode((error && error.message) || 'Не получилось проверить код.', false));
+    openModal(modalProCode((error && error.message) || 'Не получилось проверить код.', false, code));
   });
 }
 
@@ -11820,11 +11897,11 @@ function modalTask(t){
   var goalOptions = '<option value="">Без цели</option>';
   for (var i = 0; i < S.goals.length; i++){
     var g = S.goals[i];
-    goalOptions += '<option value="' + g.id + '"' + (t.goalId === g.id ? ' selected' : '') + '>' + esc(g.title) + '</option>';
+    goalOptions += '<option value="' + g.id + '"' + (t.goalId === g.id ? ' selected' : '') + ' translate="no">' + esc(g.title) + '</option>';
     for (var j = 0; j < g.stages.length; j++){
       var st = g.stages[j];
       goalOptions += '<option value="' + g.id + ':' + st.id + '"' +
-        (t.goalId === g.id && t.stageId === st.id ? ' selected' : '') + '>— ' + esc(st.title) + '</option>';
+        (t.goalId === g.id && t.stageId === st.id ? ' selected' : '') + ' translate="no">— ' + esc(st.title) + '</option>';
     }
   }
 
@@ -11942,7 +12019,7 @@ function modalTask(t){
 
 function modalMove(task){
   return '<h3>Перенести в блок</h3>' +
-    '<p class="s">' + esc(task.title) + '</p>' +
+    '<p class="s" translate="no">' + esc(task.title) + '</p>' +
     BUCKETS.map(function(b){
       return '<button class="setrow" data-act="move-task" data-task="' + task.id + '" data-bucket="' + b.id + '">' +
         '<span>' + b.title + '</span>' +
@@ -11966,10 +12043,10 @@ function modalMove(task){
 function modalKillStage(goal, stage){
   var count = S.tasks.filter(function(t){ return t.stageId === stage.id; }).length;
   return '<h3>Удалить этап?</h3>' +
-    '<p class="s">' + esc(stage.title) + '</p>' +
+    '<p class="s" translate="no">' + esc(stage.title) + '</p>' +
     '<p class="s">' + (count
-      ? 'Задачи этапа никуда не денутся: ' + taskCount(count) + ' останутся у цели «' +
-        esc(goal.title) + '», просто без этапа.'
+      ? 'Задачи этапа никуда не денутся: ' + taskCount(count) + ' останутся у цели «<span translate="no">' +
+        esc(goal.title) + '</span>», просто без этапа.'
       : 'Задач у этапа нет.') + '</p>' +
     '<p class="s">Сам этап вернуть будет нельзя.</p>' +
     '<button class="btn full" data-act="kill-stage-do" data-goal="' + goal.id + '" data-stage="' + stage.id + '">Удалить этап</button>' +
@@ -11984,13 +12061,13 @@ function modalKillGoal(goal){
      заглянуть в корзину, когда он передумал. */
   if (!count){
     return '<h3>Удалить цель?</h3>' +
-      '<p class="s">' + esc(goal.title) + '</p>' +
+      '<p class="s" translate="no">' + esc(goal.title) + '</p>' +
       '<p class="s">Задач у цели нет. Сама цель уйдёт в корзину — оттуда её можно вернуть ' + TRASH_DAYS + ' дней.</p>' +
       '<button class="btn full" data-act="kill-goal-confirm" data-goal="' + goal.id + '">Удалить цель</button>' +
       '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
   }
   return '<h3>Удалить цель?</h3>' +
-    '<p class="s">' + esc(goal.title) + '</p>' +
+    '<p class="s" translate="no">' + esc(goal.title) + '</p>' +
     '<p class="s">У цели ' + taskCount(count) + '. Что с ними сделать?</p>' +
     '<button class="btn full" data-act="kill-goal-confirm" data-goal="' + goal.id + '">' +
       'Оставить задачи в списке</button>' +
@@ -12063,12 +12140,16 @@ function modalPaywall(kind){
 /* Код с сайта. Проверяет его сервер — тот же маршрут, что у приложения, и та
    же связка «один код, одно устройство». Локально ничего не решается: иначе
    подписка включалась бы правкой localStorage. */
-function modalProCode(error, busy){
+/* code — что человек уже вписал. Окно пересобирается на «Проверяем…» и на
+   ошибку, и раньше поле рождалось пустым: опечатался в одном знаке — набирай
+   все двенадцать заново. */
+function modalProCode(error, busy, code){
   return '<h3>Код подписки</h3>' +
     '<p class="s">Код приходит после оплаты на сайте. Выглядит так: XXXX-XXXX-XXXX.</p>' +
     '<form class="field" data-form="pro-activate">' +
       '<label for="procode">Код</label>' +
       '<input class="inp mono" id="procode" type="text" placeholder="KBNQ-E2S5-M9BW" ' +
+        'value="' + esc(code || '') + '" ' +
         'autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">' +
     '</form>' +
     (error ? '<p class="err">' + esc(error) + '</p>' : '') +
@@ -12301,6 +12382,36 @@ function showToast(){
 
 /* ============ ДЕЙСТВИЯ ============ */
 
+
+/* Замена всех данных («Примеры», «Стереть всё») — уже после окна-вопроса.
+
+   Прежнее состояние кладём рядом, в KEY + '.before-wipe': промахнулся — есть
+   откуда достать. Квоты может не хватить — тогда меняем всё равно (человек
+   уже подтвердил), но говорим, что копии нет. Подписка и номер установки —
+   не «данные», а привязка этого браузера: раньше seed() их обнулял, и Pro
+   слетал вместе с задачами.
+
+   Синхронизация: раньше save() через 2,5 с отправлял пустой снимок поверх
+   серверного, и пустота уезжала на айфон и андроид. Теперь забываем базу
+   прошлой сверки и ставим «сначала принять»: авто-отправка вместо записи
+   делает приём, а без базы приём объединяет (ничего не стирает ни там, ни
+   здесь). Стереть серверную копию — отдельная кнопка «Удалить копию». */
+function заменитьВсеДанные(новое, тост){
+  var копияЕсть = false;
+  try { localStorage.setItem(KEY + '.before-wipe', JSON.stringify(S)); копияЕсть = true; } catch (e) {}
+  var прежнее = S;
+  S = новое;
+  S.theme = прежнее.theme;
+  S.palette = прежнее.palette;
+  S.view = прежнее.view;
+  S.pro = прежнее.pro;
+  S.installID = прежнее.installID;
+  if (syncEnabled()){
+    syncForgetSynced();
+    syncStoreSet('pullFirst', '1');
+  }
+  commit(копияЕсть ? тост : тост + '. Копию сохранить не удалось: нет места');
+}
 var ACTS = {
   go: function(d){ if (!closeModalBeforeGo(d.view)) go(d.view); },
 
@@ -12313,6 +12424,8 @@ var ACTS = {
      пережил очистку данных приложения и был известен ещё до загрузки app.js. */
   lang: function(){
     SynI18n.set(SynI18n.isEnglish() ? 'ru' : 'en');
+    // Уже поставленные уведомления несут текст на прежнем языке.
+    пересобратьНапоминания();
     render();
   },
   more: function(){ S.more = !S.more; commit(); },
@@ -12413,11 +12526,11 @@ var ACTS = {
     var field = $('procode');
     var code = field ? field.value.trim() : '';
     if (!code) return;
-    openModal(modalProCode('', true));
+    openModal(modalProCode('', true, code));
 
     proActivate(code).then(function(pro){
       if (!pro.active){
-        openModal(modalProCode('Код принят, но подписка по нему неактивна.', false));
+        openModal(modalProCode('Код принят, но подписка по нему неактивна.', false, code));
         return;
       }
       closeModal();
@@ -12425,7 +12538,7 @@ var ACTS = {
     }).catch(function(error){
       var message = error && error.message ? error.message : 'Не получилось';
       if (error && error.status === undefined) message = 'Сервер не ответил. Проверь соединение.';
-      openModal(modalProCode(message, false));
+      openModal(modalProCode(message, false, code));
     });
   },
 
@@ -12438,7 +12551,17 @@ var ACTS = {
     });
   },
 
+  /* Отвязка стирает код из браузера, а вернуть Pro можно только вводом кода
+     заново — его часто уже не найти. Поэтому сначала спрашиваем. */
   'pro-forget': function(){
+    openModal(
+      '<h3>Отвязать код?</h3>' +
+      '<p class="s">Pro в этом браузере выключится. Чтобы вернуть его, понадобится ввести код заново — сохраните его, если ещё не сохранили.</p>' +
+      '<button class="btn full danger" data-act="pro-forget-confirm">Отвязать</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+  },
+  'pro-forget-confirm': function(){
+    closeModal();
     S.pro = { active: false, plan: '', expiresAt: '', code: '' };
     commit('Код отвязан от этого браузера');
   },
@@ -12655,7 +12778,9 @@ var ACTS = {
     closeModal();
     commit('Категория добавлена');
   },
-  'fin-kind': function(d){ S.finKind = d.kind; commit(); keepFocus('#finfield'); },
+  // keepFocus — до commit: после него перерисовка уже прошла, и курсор не
+  // возвращался вовсе.
+  'fin-kind': function(d){ S.finKind = d.kind; keepFocus('#finfield'); commit(); },
 
   /* Голос для трат. Нажал — слушает, отпустил — записал.
 
@@ -12684,6 +12809,7 @@ var ACTS = {
       accountId: ''
     });
     field.value = '';
+    S.finDraft = '';
     // Дата держится между записями: пачку за прошлую неделю иначе пришлось
     // бы выставлять заново на каждой строке.
     S.finDate = when || '';
@@ -12697,6 +12823,7 @@ var ACTS = {
     S.synIntent = 'finance';
     S.synGoalCreate = false;
     if (field) field.value = '';
+    S.finDraft = '';
     synRender(draft, '');
     synSend(draft);
   },
@@ -13091,9 +13218,21 @@ var ACTS = {
     if (!title) return;
     commit('Вернули «' + title + '»');
   },
+  /* Одна запись насовсем — так же необратимо, как вся корзина, а крестик
+     мелкий и рядом с «Вернуть»: раньше стиралось с одного промаха. */
   'trash-kill': function(d){
     var item = trashFind(d.item);
     if (!item) return;
+    openModal(
+      '<h3>Стереть навсегда?</h3>' +
+      '<p class="s">Запись сотрётся без возможности вернуть:</p>' +
+      '<p class="s" translate="no"><b>' + esc(item.title || '') + '</b></p>' +
+      '<button class="btn full danger" data-act="trash-kill-confirm" data-item="' + esc(item.id) + '">Стереть навсегда</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+  },
+  'trash-kill-confirm': function(d){
+    closeModal();
+    if (!trashFind(d.item)) return;
     S.trash = S.trash.filter(function(entry){ return entry.id !== d.item; });
     commit('Стёрто навсегда');
   },
@@ -13826,24 +13965,37 @@ var ACTS = {
   'med-stop': function(){ medStop(true); },
 
   /* --- данные --- */
+  /* Раньше обе строки меняли все данные с одного касания, а следом
+     автосохранение в файл и синхронизация разносили пустоту дальше. Теперь —
+     своим окном, как «Стереть навсегда» в корзине, а сама замена — в
+     заменитьВсеДанные(): копия на этом устройстве и пауза отправки. */
   'reset-demo': function(){
-    var theme = S.theme, view = S.view, palette = S.palette;
-    S = demoState();
-    S.theme = theme;
-    S.palette = palette;
-    S.view = view;
-    commit('Примеры на месте');
+    openModal(
+      '<h3>Заменить всё примерами?</h3>' +
+      '<p class="s">Задачи, цели, списки, заметки и финансы в этом браузере заменятся примерами. Копия прежних данных останется на этом устройстве.</p>' +
+      (syncEnabled() ? '<p class="s">Синхронизация ничего не сотрёт на других устройствах: при следующей сверке их данные вернутся и сюда.</p>' : '') +
+      '<button class="btn full danger" data-act="reset-demo-confirm">Заменить примерами</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+  },
+  'reset-demo-confirm': function(){
+    closeModal();
+    заменитьВсеДанные(demoState(), 'Примеры на месте');
   },
   wipe: function(){
-    var theme = S.theme, view = S.view, palette = S.palette;
-    S = seed();
-    S.view = view;
-    S.palette = palette;
-    S.tasks = []; S.goals = []; S.lists = []; S.notes = [];
-    S.pomodoro.doneToday = 0;
-    S.meditation.doneTotal = 0;
-    S.theme = theme;
-    commit('Пусто');
+    openModal(
+      '<h3>Стереть всё в этом браузере?</h3>' +
+      '<p class="s">Задачи, цели, списки, заметки и финансы в этом браузере удалятся. Копия прежних данных останется на этом устройстве, подписка останется на месте.</p>' +
+      (syncEnabled() ? '<p class="s">Синхронизация ничего не сотрёт на других устройствах: при следующей сверке их данные вернутся и сюда.</p>' : '') +
+      '<button class="btn full danger" data-act="wipe-confirm">Стереть всё</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+  },
+  'wipe-confirm': function(){
+    closeModal();
+    var пусто = seed();
+    пусто.tasks = []; пусто.goals = []; пусто.lists = []; пусто.notes = [];
+    пусто.pomodoro.doneToday = 0;
+    пусто.meditation.doneTotal = 0;
+    заменитьВсеДанные(пусто, 'Пусто');
   },
 
   'close-modal': function(){ closeModal(); }
@@ -13905,6 +14057,7 @@ document.addEventListener('input', function(event){
     return;
   }
   if (t.id === 'field'){ S.draft = t.value; return; }
+  if (t.id === 'finfield'){ S.finDraft = t.value; return; }
   if (t.id === 'gfield'){ S.goalDraft = t.value; return; }
   // Громкость ведём без перерисовки: она бы дёргала ползунок из-под пальца.
   if (t.hasAttribute && t.hasAttribute('data-volume')){
@@ -14275,7 +14428,9 @@ document.addEventListener('pointerdown', function(event){
   if (!карточка) return;
   // Отказываемся только от настоящих органов управления: название задачи —
   // тоже кнопка, и именно за него карточку берут.
-  if (event.target.closest('.box, .side, .btn')) return;
+  // Поля и раскрытая часть — тоже не «ручка»: долгое нажатие в поле подпункта
+  // или в тексте заметки значит «выделить», а поднимало карточку.
+  if (event.target.closest('.box, .side, .btn, input, textarea, select, [contenteditable], .detail')) return;
 
   НЕСУ = {
     id: карточка.getAttribute('data-task'),
@@ -14474,7 +14629,15 @@ document.addEventListener('pointerup', function(){
   commit(изменилось ? 'Перенесено в «' + bucketTitle(выбор.день.bucket) + '»' : '');
 });
 
-document.addEventListener('pointercancel', function(){ if (НЕСУ){ бросить(); render(); } });
+/* Отмена жеста приходит и тогда, когда карточку не поднимали вовсе: браузер
+   забрал палец под прокрутку. Раньше render() шёл и тут — и стирал набранное
+   в полях. Перерисовка нужна, только если карточка была поднята. */
+document.addEventListener('pointercancel', function(){
+  if (!НЕСУ) return;
+  var был = НЕСУ.активен;
+  бросить();
+  if (был) render();
+});
 
 /**
  * Убрать за жестом. Чистим по разметке, а не по памяти о нём: оборвавшийся
@@ -14512,7 +14675,10 @@ function бросить(){
    main). Совпадение здесь не случайность, а способ попасть в ту же линию. */
 function railTop(){
   var top = $('top');
-  var height = top ? Math.round(top.getBoundingClientRect().height) : 72;
+  // Замер — в экранных пикселях, а переменная применяется внутри
+  // html{zoom:var(--scale)}, и браузер умножит её на масштаб ещё раз: при
+  // крупном шрифте колонка съезжала ниже шапки. Делим обратно.
+  var height = top ? Math.round(top.getBoundingClientRect().height / масштаб()) : 72;
   return height + 24;
 }
 
@@ -14561,7 +14727,10 @@ function syncViewportShift(){
   var vv = window.visualViewport;
   if (!vv) return;
   var raw = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-  var shift = (editableFocused() && raw >= KEYBOARD_MIN_HEIGHT) ? raw : 0;
+  // Высота клавиатуры — в экранных пикселях, а --vv-shift живёт под
+  // html{zoom}: без деления строка создания при крупном шрифте взлетала выше
+  // клавиатуры, при мелком — пряталась под неё.
+  var shift = (editableFocused() && raw >= KEYBOARD_MIN_HEIGHT) ? Math.round(raw / масштаб()) : 0;
   var root = document.documentElement;
   // Пишем, только когда значение поменялось: присвоение переменной каждый
   // кадр прокрутки заставляет браузер пересчитывать вёрстку зря.
@@ -14629,8 +14798,10 @@ document.addEventListener('focusin', function(event){
          center, а не nearest: у нижнего края экрана «ближайшее» положение —
          это остаться под клавиатурой. */
       var видно = node.getBoundingClientRect();
+      // --vv-shift записан в пикселях до масштаба (см. syncViewportShift) —
+      // сравниваем с экраном, умножив обратно.
       var низ = window.innerHeight - (parseInt(
-        getComputedStyle(document.documentElement).getPropertyValue('--vv-shift')) || 0);
+        getComputedStyle(document.documentElement).getPropertyValue('--vv-shift')) || 0) * масштаб();
       if (видно.bottom > низ - 24 || видно.top < 80){
         node.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }
@@ -14898,7 +15069,7 @@ if (finRunRecurring()) save();
    свёрнутым в памяти и открывается без перезагрузки, и аренда первого числа
    не появлялась, пока его не убьёт система. Догоняем и при возвращении. */
 document.addEventListener('visibilitychange', function(){
-  if (document.visibilityState === 'visible' && finRunRecurring()){ save(); render(); }
+  if (document.visibilityState === 'visible' && finRunRecurring()){ save(); renderKeepingInput(); }
 });
 finSyncJarStages();
 render();
@@ -14936,7 +15107,7 @@ function сверитьПодписку(){
   proActivate(S.pro.code).then(function(pro){
     // Перерисовываем в обе стороны: замки встают на место или снимаются
     // (продлённая подписка снова открывает платное).
-    render();
+    renderKeepingInput();
   }).catch(function(){});
 }
 
@@ -15138,7 +15309,10 @@ function syncApplyRemote(r){
   починитьЗаписи(S);
   save();
   syncMarkSynced(S);   // применили чужое — не гнать его обратно
-  render();            // показать подтянутое
+  // Пришли чужие даты и задачи — без пересборки будильники звенели бы по
+  // старому расписанию (на андроиде — до следующей правки здесь).
+  пересобратьНапоминания();
+  renderKeepingInput();  // показать подтянутое, не стерев набираемое
 }
 
 /* Слить пришедшее с местными правками — когда здесь есть неотправленное.
@@ -15169,21 +15343,25 @@ function syncMergeList(местные, пришли, база){
   });
   return итог;
 }
-function syncMergeRemote(r){
+function syncMergeRemote(r, послеЗамены){
   var база = syncBase();
   S.tasks = syncMergeList(S.tasks, r.tasks, база && база.t);
   S.goals = syncMergeList(S.goals, r.goals, база && база.g);
   S.lists = syncMergeList(S.lists, r.lists, база && база.l);
   S.notes = syncMergeList(S.notes, r.notes, база && база.n);
-  if (r.finance && база && syncHashOf(syncFinPart(S)) === база.f) S.finance = r.finance;
-  if (r.trash && база && syncHashOf(syncTrashPart(S)) === база.tr) S.trash = r.trash;
+  // После «Стереть всё»/«Примеры» базы нет, и местные (пустые или
+  // примерные) финансы и корзина остались бы — а следом уехали бы поверх
+  // серверных. Тут правда за сервером: местное только что заменили нарочно.
+  if (r.finance && (послеЗамены || (база && syncHashOf(syncFinPart(S)) === база.f))) S.finance = r.finance;
+  if (r.trash && (послеЗамены || (база && syncHashOf(syncTrashPart(S)) === база.tr))) S.trash = r.trash;
   S._iosFolders = r.folders || S._iosFolders || [];
   починитьЗаписи(S);
   save();
   // База — то, что сейчас на сервере: следующая сверка отличит настоящие
   // местные правки от только что принятого.
   syncSetBase(r);
-  render();
+  пересобратьНапоминания();   // слитые задачи — новое расписание
+  renderKeepingInput();
 }
 
 /* Последняя серверная копия, поверх которой пишем при конфликте, — в сторону.
@@ -15209,13 +15387,13 @@ function syncDropConflictStash(){
 
 /* ---- оркестровка ---- */
 function syncDo(promiseFn){
-  SYNC.busy = true; render();
+  SYNC.busy = true; renderKeepingInput();
   return Promise.resolve().then(promiseFn).catch(function(e){
     if (e && e.status === 402) SYNC.status = 'Синхронизация устройств доступна в Pro.';
     else if (e && e.status === 401){ syncStoreSet('token', null); SYNC.status = 'Нужно включить синхронизацию заново.'; }
     else if (e && e.status === 404) SYNC.status = 'Код не подошёл. Проверьте, что он введён целиком.';
     else SYNC.status = (e && e.message) ? e.message : 'Не получилось. Попробуйте ещё раз.';
-  }).then(function(){ SYNC.busy = false; render(); });
+  }).then(function(){ SYNC.busy = false; renderKeepingInput(); });
 }
 
 /* Приём и отправка идут строго по очереди.
@@ -15242,12 +15420,16 @@ function syncLocalDirty(){ return syncLastHash === null || syncContentHash() !==
 function syncPullApply(){ return syncSerial('pull', syncPullInner); }
 function syncPullInner(){
   if (!syncReady()) return Promise.resolve();
+  // «Сначала принять» (после «Стереть всё»/«Примеры», см. заменитьВсеДанные):
+  // не верим «сервер не менялся» — база забыта, сливаем пришедшее целиком.
+  var сначалаПринять = syncStore('pullFirst') === '1';
   return syncApiPull().then(function(d){
     if (!d.snapshot || !d.snapshot.cipher){
+      syncStoreSet('pullFirst', null);   // на сервере пусто — затирать нечего
       if (syncLocalDirty()) syncScheduleAutoPush();
       return;
     }
-    if (d.updatedAt && d.updatedAt === syncStore('lastServerUpdatedAt')){
+    if (!сначалаПринять && d.updatedAt && d.updatedAt === syncStore('lastServerUpdatedAt')){
       // Сервер не менялся. Неотправленное (например, с прошлого открытия) — отправить.
       if (syncLocalDirty()) syncScheduleAutoPush();
       return;
@@ -15258,12 +15440,14 @@ function syncPullInner(){
         // Проверка — здесь, вплотную к записи в S, а не до сети: правка могла
         // случиться, пока шёл запрос и расшифровка.
         if (syncLocalDirty()){
-          syncMergeRemote(r);
+          syncMergeRemote(r, сначалаПринять);
           syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+          syncStoreSet('pullFirst', null);
           syncScheduleAutoPush();
         } else {
           syncApplyRemote(r);
           syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+          syncStoreSet('pullFirst', null);
         }
       });
     });
@@ -15273,6 +15457,9 @@ function syncPullInner(){
 function syncPushCurrent(){ return syncSerial('push', function(){ return syncPushInner(true); }); }
 function syncPushInner(можноСлить){
   if (!syncReady()) return Promise.resolve();
+  // Приём после замены всех данных ещё не прошёл (сеть, расшифровка) — молчим,
+  // иначе «Синхронизировать сейчас» записал бы пустоту поверх сервера.
+  if (syncStore('pullFirst') === '1') return Promise.resolve();
   var копия = syncFreeze();
   return syncEncryptEnvelope(копия).then(function(cipher){
     return syncApiPush(cipher, syncStore('lastServerUpdatedAt')).then(function(d){
@@ -15425,6 +15612,8 @@ function syncForgetSynced(){
 function syncAutoPush(){
   if (!syncEnabled() || !syncReady()) return;
   if (!syncLocalDirty()) return;                    // не менялось — молчим
+  // После замены всех данных — не писать поверх сервера, а сперва принять.
+  if (syncStore('pullFirst') === '1'){ syncPullApply().catch(function(){}); return; }
   syncPushCurrent().catch(function(){});            // тихо; ошибка — таймер повторит
 }
 function syncScheduleAutoPush(){
