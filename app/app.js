@@ -6803,8 +6803,6 @@ function vMindMap(){
   var controls = '<div class="mmctl">' +
       '<button type="button" data-act="mm-zoom" data-dir="in" aria-label="Крупнее">' + mmIcon('<path d="M12 6v12M6 12h12"/>') + '</button>' +
       '<button type="button" data-act="mm-zoom" data-dir="out" aria-label="Мельче">' + mmIcon('<path d="M6 12h12"/>') + '</button>' +
-      '<button type="button" data-act="mm-zoom" data-dir="fit" aria-label="Вписать карту">' +
-        mmIcon('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>') + '</button>' +
     '</div>';
 
   var canvas = '<div class="mmbox"><div class="mmwrap"><svg viewBox="0 0 ' + width + ' ' + height + '" width="' + shown + '" ' +
@@ -6841,6 +6839,14 @@ function vMindMap(){
     '</div>';
   }
 
+  /* В приложении карта — это весь экран, а не врезка.
+
+     Рамка, легенда и кнопка «Развернуть» делили и без того узкий экран:
+     сама карта получала полоску посередине. Теперь холст занимает всё место
+     между шапкой и нижним меню, без рамки, и поверх — только «+» и «−».
+     Двигать пальцем и щипать её можно сразу, разворачивать незачем. */
+  if (inApp()) return '<div class="mmscreen">' + canvas + '</div>';
+
   return canvas + legend +
     '<button class="btn soft mm-open-btn" data-act="mm-full" data-full="1">' + ICON.full + ' Развернуть карту</button>';
 }
@@ -6856,9 +6862,20 @@ var MM_MIN_SCALE = 0.85;
 
 function fitMindMap(){
   var wrap = document.querySelector('.mmwrap');
+  // Снимаем раньше любых выходов: иначе после ухода с карты страница
+  // оставалась бы без прокрутки.
+  if (!wrap || !wrap.closest('.mmscreen')) document.body.classList.remove('mm-screen');
   if (!wrap) return;
   var svg = wrap.querySelector('svg');
   if (!svg) return;
+
+  // Карта во весь экран: рамка тянется от своего верха до нижнего меню.
+  var экран = !!wrap.closest('.mmscreen');
+  document.body.classList.toggle('mm-screen', экран);
+  if (экран){
+    var низ = $('tabbar') ? $('tabbar').getBoundingClientRect().top : window.innerHeight;
+    wrap.style.height = Math.max(200, Math.round(низ - wrap.getBoundingClientRect().top - 6)) + 'px';
+  }
 
   var box = (svg.getAttribute('viewBox') || '').split(' ');
   var vw = Number(box[2]) || 1, vh = Number(box[3]) || 1;
@@ -6943,7 +6960,8 @@ function fitMindMap(){
   if (!(S.mm && S.mm.full)){
     /* На телефоне рамка — ровно полэкрана: в ней карту удобно двигать и
        растягивать, не разворачивая, а под ней ещё видно легенду и кнопку. */
-    if (narrow) wrap.style.height = Math.round(window.innerHeight * 0.5) + 'px';
+    if (экран){ /* высота уже задана выше */ }
+    else if (narrow) wrap.style.height = Math.round(window.innerHeight * 0.5) + 'px';
     else {
       var limit = Math.round(window.innerHeight * 0.72);
       wrap.style.height = Math.min(limit, drawnH + 24) + 'px';

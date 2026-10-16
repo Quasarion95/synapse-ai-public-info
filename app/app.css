@@ -2837,3 +2837,10 @@ html.in-app body::after{height:calc(var(--dock) + 108px)}
 /* «Развернуть карту» — во всю ширину, по центру. */
 .btn.mm-open-btn{display:flex; width:100%; justify-content:center; gap:8px; margin:14px 0 var(--gap);
   padding:14px 18px; font-size:15px; border-radius:999px}
+
+/* Карта целей в приложении — весь экран без рамки (см. vMindMap). */
+.mmscreen .mmbox{margin:0 calc(-1 * var(--pad))}
+.mmscreen .mmwrap{border:0; border-radius:0; box-shadow:none; background:transparent; padding:0}
+.mmscreen .mmctl{right:calc(var(--pad) + 2px); bottom:14px}
+body.mm-screen{overflow:hidden}
+body.mm-screen::after{display:none}
