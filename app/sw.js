@@ -28,7 +28,7 @@
   что выкладка не сработала. Обработчик — в app.js, registerServiceWorker.
 */
 
-var CACHE = 'synapse-shell-v89';
+var CACHE = 'synapse-shell-v96';
 
 var SHELL = [
   './',
@@ -41,8 +41,22 @@ var SHELL = [
   /* Дашборд финансов — часть только веб-версии, но офлайн он нужен так же,
      как остальная оболочка: без него широкое окно без сети показало бы
      вкладки, а после возвращения сети — дашборд. */
+  'web/desk.js',
+  'web/desk.css',
   'web/finance-desk.js',
   'web/finance-desk.css',
+  'web/meditation-scenes.js',
+  'web/meditation-scenes.css',
+  'web/pomodoro-timer.js',
+  'web/pomodoro-timer.css',
+  'web/goal-map.js',
+  'web/goal-map.css',
+  'web/layout.css',
+  'web/i18n-web.js',
+  'web/theme.js',
+  'web/theme.css',
+  'web/subscription.js',
+  'web/subscription.css',
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',

@@ -10,8 +10,8 @@
    числа в голове, перескакивая между экранами.
 
    Поэтому дашборд живёт здесь, в web/:
-     * в апк эта папка не попадает (exclude в android/app/build.gradle), а
-       index.html не подключает её, если страница открыта внутри обёртки;
+     * index.html не подключает эту папку, если страница открыта внутри
+       андроид-обёртки (признак — window.AndroidVoice);
      * айфон — нативное приложение, его это не касается вовсе;
      * считать здесь ничего нового не нужно: все суммы берутся теми же
        функциями app.js, что и во вкладках, — finMonthTotals, finByCat,
@@ -28,44 +28,19 @@
 (function (global) {
   'use strict';
 
-  /* Порог — 1240 пикселей, тот же, с которого app.css раскладывает экраны в
-     две колонки. Уже — колонка текста меньше 900 пикселей, и в неё не
-     помещаются даже три зоны в ряд. */
-  var WIDE = global.matchMedia ? global.matchMedia('(min-width:1240px)') : null;
-
-  /// Окно достаточно широкое, и это не андроид-обёртка.
-  function fits(){
-    return !!(WIDE && WIDE.matches) && !global.AndroidVoice;
-  }
+  /* Порог ширины, перерисовка при его пересечении и разметка зон — общие с
+     другими дашбордами и живут в desk.js. */
+  var fits = SynDesk.fits;
+  var zoneHead = SynDesk.zoneHead;
+  var zoneEmpty = SynDesk.zoneEmpty;
+  var kpi = SynDesk.kpi;
 
   /// Показывать ли дашборд сейчас. Вкладки остаются по желанию: кто привык к
   /// ним, переключается кнопкой «Вкладками», и выбор запоминается.
   function on(){
     return fits() && S.finLayout !== 'tabs';
   }
-
-  /* Окно растянули или сузили — раскладка меняется сразу, а не со следующим
-     нажатием. Перерисовываем только экран денег: остальным всё равно. */
-  /* Слушаем resize, а не change у matchMedia: при эмуляции размера и в части
-     встроенных браузеров change не приходит, и дашборд оставался в окне, куда
-     уже не помещался. Перерисовываем, только когда порог действительно
-     пересекли, — иначе каждое движение края окна стоило бы полной отрисовки. */
-  if (WIDE){
-    var былоШироко = WIDE.matches;
-    var ждём = false;
-    global.addEventListener('resize', function(){
-      if (ждём) return;
-      ждём = true;
-      // Таймер, а не requestAnimationFrame: кадров не бывает у окна, которое
-      // сейчас не рисуется, и перерисовка ждала бы, пока на него посмотрят.
-      global.setTimeout(function(){
-        ждём = false;
-        if (WIDE.matches === былоШироко) return;
-        былоШироко = WIDE.matches;
-        if (typeof S !== 'undefined' && S.view === 'finance' && typeof render === 'function') render();
-      }, 120);
-    });
-  }
+  SynDesk.register('finance', on);
 
   /* ============ ЭКРАН ============
 
@@ -86,7 +61,7 @@
     var key = finShownMonth();
     // Обёртка нужна ради container query: раскладку зон меряем по ширине
     // дашборда, а контейнер не может запрашивать сам себя.
-    return '<div class="desk-wrap"><div class="desk">' +
+    return '<div class="desk-wrap"><div class="desk fin">' +
       deskHead(key) +
       zoneKpi(key) +
       zoneAnalytics(key) +
@@ -98,39 +73,35 @@
     '</div></div>';
   }
 
+  /* Шапка в три части: слева название и прямо под ним месяц — то, что
+     решает, какие числа на экране; посередине курсы — справка, на которую
+     бросают взгляд; справа переключатель вида. Подпись «Октябрь 2026 — всё
+     на одном экране» ушла: месяц и так написан под названием, а «всё на
+     одном экране» видно без слов. */
   function deskHead(key){
     return '<div class="desk-head">' +
       '<div class="desk-title">' +
         '<h1 class="page">Мои финансы</h1>' +
-        '<span class="sub">' + esc(monthName(key)) + ' — всё на одном экране</span>' +
+        finMonthBar() +
       '</div>' +
-      finMonthBar() +
+      ratesStrip() +
       '<button class="btn sm soft desk-switch" data-act="fin-layout" data-to="tabs" ' +
         'title="Показывать раздел вкладками, как на телефоне">Вкладками</button>' +
     '</div>';
   }
 
-  /* Заголовок зоны: название, короткий итог справа и «+», если в зоне можно
-     что-то завести. Плюс — значок, а не «+ Новый долг»: в шапке узкой зоны
-     слова съедали место у итога, ради которого на неё и смотрят. */
-  function zoneHead(title, note, addAct, addLabel, extra){
-    return '<div class="dz-head">' +
-      '<h3>' + esc(title) + '</h3>' +
-      (note ? '<span class="dz-note">' + note + '</span>' : '') +
-      (addAct
-        ? '<button class="dz-add" data-act="' + addAct + '"' + (extra || '') +
-            ' title="' + esc(addLabel) + '" aria-label="' + esc(addLabel) + '">+</button>'
-        : '') +
-    '</div>';
-  }
+  /* Микрофон в строке трат — свой, контуром.
 
-  /// Пустая зона — одна строка пояснения и кнопка, а не большая заглушка с
-  /// картинкой: рядом стоят шесть других зон, и пустая не должна их глушить.
-  function zoneEmpty(text, act, label, extra){
-    return '<div class="dz-empty"><p>' + esc(text) + '</p>' +
-      (act ? '<button class="btn sm" data-act="' + act + '"' + (extra || '') + '>' + esc(label) + '</button>' : '') +
-    '</div>';
-  }
+     Общий значок из app.js в этой кнопке рисуется заливкой (так задано для
+     .say .ai в app.css), и дуга держателя сливалась с капсулой в один
+     невнятный силуэт — микрофон в нём не узнавали. Здесь классический
+     микрофон: капсула с решёткой, держатель, ножка и подставка. Подставка и
+     полоски решётки и делают его читаемым с первого взгляда. */
+  var MIC = '<svg class="dmic" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<rect x="8.5" y="2.5" width="7" height="11.5" rx="3.5"/>' +
+    '<path d="M8.5 7h2.2M8.5 9.8h2.2M13.3 7h2.2M13.3 9.8h2.2"/>' +
+    '<path d="M5.5 11a6.5 6.5 0 0 0 13 0"/>' +
+    '<path d="M12 17.5v3M8.5 20.8h7"/></svg>';
 
   /// Ссылка «подробнее» внизу зоны: уводит во вкладку с полной таблицей.
   function zoneMore(tab, label){
@@ -177,15 +148,6 @@
           owedN ? owedN + ' ' + plural(owedN, 'человек', 'человека', 'человек') : 'никто') +
       '</div>' +
     '</section>';
-  }
-
-  function kpi(caption, value, tone, note, act, noteTone){
-    var tag = act ? 'button' : 'div';
-    return '<' + tag + ' class="dk' + (tone ? ' ' + tone : '') + '"' + (act ? ' data-act="' + act + '"' : '') + '>' +
-      '<span class="dk-c">' + esc(caption) + '</span>' +
-      '<b class="dk-v">' + esc(value) + '</b>' +
-      '<span class="dk-n' + (noteTone ? ' ' + noteTone : '') + '">' + esc(note) + '</span>' +
-    '</' + tag + '>';
   }
 
   /* ---- разбор месяца ----
@@ -284,26 +246,40 @@
 
   /* Темп — только у текущего месяца: у прошедшего прогнозировать нечего.
      «В среднем 1 600 в день, к концу месяца выйдет 49 000» — это то, чего не
-     скажет ни одна вкладка: там видно, сколько ушло, но не куда идёт. */
+     скажет ни одна вкладка: там видно, сколько ушло, но не куда идёт.
+
+     Делить на дни можно только повседневное. Аренда в 42 000, списанная
+     третьего числа, иначе растягивалась на каждый день месяца, и прогноз
+     выходил вдвое больше правды. Поэтому крупное и регулярное — жильё,
+     кредиты, отмеченные платежи и автосписания — берётся как есть, к нему
+     прибавляются ещё не оплаченные платежи месяца, а темп считается по
+     остальному. */
   function anaPace(key, spent, prevSpent){
     if (key !== finMonthKey() || !spent) return '';
     var today = todayDate();
     var day = today.getDate();
     var total = daysInMonth(today.getFullYear(), today.getMonth());
-    var perDay = Math.round(spent / day);
-    var forecast = perDay * total;
-    var env = finBudgetRows(key);
-    var plan = 0;
-    env.forEach(function(r){ plan += r.plan; });
 
-    var compare = '';
-    if (plan && forecast > plan) compare = ' — больше, чем разложено по конвертам (' + finMoney(plan) + ')';
-    else if (prevSpent) compare = forecast > prevSpent
-      ? ' — больше, чем в прошлом месяце (' + finMoney(prevSpent) + ')'
-      : ' — меньше, чем в прошлом месяце (' + finMoney(prevSpent) + ')';
+    var daily = 0;
+    finMonthOps(key).forEach(function(op){
+      if (op.kind === 'income') return;
+      if (op.fromSub || op.fromRule || op.cat === 'home' || op.cat === 'loans') return;
+      daily += op.amount;
+    });
+    var perDay = Math.round(daily / day);
 
-    return '<p class="dz-pace">В среднем <b>' + esc(finMoney(perDay)) + '</b> в день. ' +
-      'Если так пойдёт, к концу месяца уйдёт <b>' + esc(finMoney(forecast)) + '</b>' + esc(compare) + '.</p>';
+    var dueLeft = 0;
+    finDueThisMonth(key).forEach(function(row){ if (!row.paid && row.known) dueLeft += row.expect; });
+
+    var forecast = spent + perDay * (total - day) + dueLeft;
+
+    var compare = prevSpent
+      ? (forecast > prevSpent ? ' — больше' : ' — меньше') + ', чем в прошлом месяце (' + finMoney(prevSpent) + ')'
+      : '';
+
+    return '<p class="dz-pace">Повседневные траты — в среднем <b>' + esc(finMoney(perDay)) + '</b> в день. ' +
+      'Если так пойдёт' + (dueLeft ? ' и оплатить оставшиеся платежи' : '') +
+      ', к концу месяца уйдёт <b>' + esc(finMoney(forecast)) + '</b>' + esc(compare) + '.</p>';
   }
 
   /// «48 тыс» вместо «48 300 ₽» над столбиком: шесть полных сумм в узкой
@@ -329,9 +305,9 @@
     var ops = finMonthOps(key);
     if (pick) ops = ops.filter(function(op){ return op.cat === pick; });
 
-    // Внутренняя обёртка — ради широкой раскладки: там лента вынута из потока
-    // и не раздвигает ряды своей длиной (см. .z-feed в finance-desk.css).
-    var html = '<section class="desk-zone z-feed"><div class="dz-inner">' +
+    // Внутренняя обёртка — ради высокой зоны: лента вынута из потока и не
+    // раздвигает ряды своей длиной (см. .dz-tall в desk.css).
+    var html = '<section class="desk-zone z-feed dz-tall"><div class="dz-inner">' +
       zoneHead('Мои траты', ops.length ? ops.length + ' ' + plural(ops.length, 'запись', 'записи', 'записей') : '');
 
     html += '<div class="desk-add">' +
@@ -346,7 +322,7 @@
         (voiceSupported()
           ? '<button class="ai' + (finVoice.on ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
               'aria-label="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '" ' +
-              'title="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '">' + ICON.mic + '</button>'
+              'title="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '">' + MIC + '</button>'
           : '') +
         '<button class="send" type="submit" aria-label="Записать">' + NAV_ICONS.send + '</button>' +
       '</form>' +
@@ -469,9 +445,9 @@
       var sum = row.paid ? row.paid : row.expect;
       return '<div class="dpay' + (row.paid ? ' paid' : '') + '">' +
         finSubLogo(sub) +
-        '<button class="dpay-t" data-act="fin-sub-edit" data-sub="' + sub.id + '" title="Править">' + esc(sub.title) +
-          '<span class="' + (!row.paid && next && next < today ? 'late' : '') + '">' + esc(note) + '</span></button>' +
+        '<button class="dpay-t" data-act="fin-sub-edit" data-sub="' + sub.id + '" title="Править">' + esc(sub.title) + '</button>' +
         '<span class="dpay-v">' + (sum ? (finSubVaries(sub) && !row.paid ? '≈ ' : '') + esc(finMoney(sum)) : '—') + '</span>' +
+        '<span class="dpay-n' + (!row.paid && next && next < today ? ' late' : '') + '">' + esc(note) + '</span>' +
         '<button class="fr-pay' + (row.paid ? ' on' : '') + '" data-act="fin-sub-pay" data-sub="' + sub.id + '" ' +
           'title="' + (row.paid ? 'Отменить отметку' : 'Отметить оплату') + '">' + (row.paid ? ICON.check : 'Оплатить') + '</button>' +
       '</div>';
@@ -585,6 +561,170 @@
     }).join('') + '</div>';
 
     return html + '</section>';
+  }
+
+  /* ============ КУРСЫ ============
+
+     Доллар, евро и биткоин — тонкой полосой в шапке, рядом с месяцем. Не
+     зона: это справка, на которую бросают взгляд, а не то, с чем работают, и
+     целая карточка отняла бы место у собственных денег человека.
+
+     Откуда:
+       * доллар и евро — официальный курс ЦБ через cbr-xml-daily.ru. Там же
+         тенге, гривна, белорусский рубль и сом, поэтому курс показывается в
+         той валюте, которую человек выбрал для раздела, а не всегда в рублях;
+       * биткоин — CoinGecko, а если он не ответил — Binance. Его считают в
+         долларах все, поэтому и здесь он в долларах.
+
+     Запросы уходят прямо из браузера: ключей у этих адресов нет, данных
+     человека в них ничего, только «дай цену». На боевом сайте их разрешает
+     connect-src в deploy/nginx-site.conf.
+
+     Ответ кладётся в localStorage вместе со временем и живёт полчаса: экран
+     денег перерисовывается на каждое нажатие, и без этого каждое нажатие
+     было бы тремя запросами. Без сети показывается последнее полученное, с
+     подписью, на когда. Это удобство одного браузера, а не запись человека,
+     поэтому в S (и в синхронизацию) курсы не попадают. */
+  var RATES_KEY = 'synapse.rates';
+  var RATES_TTL = 30 * 60 * 1000;
+  var RATES_CODES = ['USD', 'EUR', 'KZT', 'UAH', 'BYN', 'KGS'];
+  var rates = readRates();
+  var ratesBusy = false;
+  // Не чаще раза в две минуты, даже если ничего не пришло: без сети каждое
+  // нажатие на экране иначе стало бы новой попыткой.
+  var ratesTried = 0;
+
+  function readRates(){
+    try { return JSON.parse(localStorage.getItem(RATES_KEY) || 'null'); } catch (e){ return null; }
+  }
+  function keepRates(){
+    try { localStorage.setItem(RATES_KEY, JSON.stringify(rates)); } catch (e){}
+  }
+
+  /// Запрос с пределом по времени: зависший адрес не должен держать полосу
+  /// в «загружаются» до бесконечности.
+  function getJSON(url){
+    var ctrl = global.AbortController ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 8000) : null;
+    return fetch(url, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+      .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
+      .finally(function(){ if (timer) clearTimeout(timer); });
+  }
+
+  function fetchCbr(){
+    return getJSON('https://www.cbr-xml-daily.ru/daily_json.js').then(function(d){
+      var out = { date: String(d.Date || '').slice(0, 10), v: {} };
+      RATES_CODES.forEach(function(code){
+        var x = d.Valute && d.Valute[code];
+        if (x) out.v[code] = [x.Value / x.Nominal, x.Previous / x.Nominal];
+      });
+      if (!out.v.USD) throw new Error('нет доллара');
+      return out;
+    });
+  }
+
+  function fetchBtc(){
+    return getJSON('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true')
+      .then(function(d){
+        var b = d.bitcoin;
+        if (!b || !b.usd) throw new Error('пусто');
+        return { usd: b.usd, ch: b.usd_24h_change || 0, src: 'CoinGecko' };
+      })
+      .catch(function(){
+        return getJSON('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT').then(function(d){
+          if (!d.lastPrice) throw new Error('пусто');
+          return { usd: Number(d.lastPrice), ch: Number(d.priceChangePercent) || 0, src: 'Binance' };
+        });
+      });
+  }
+
+  /* Освежить, если пора. Каждый источник отдельно: упал биткоин — доллар и
+     евро всё равно обновляются, и наоборот. По готовности меняется только
+     сама полоса, а не весь экран: перерисовка сбросила бы набранную трату. */
+  function refreshRates(){
+    if (ratesBusy || (rates && Date.now() - rates.at < RATES_TTL)) return;
+    if (!global.fetch || Date.now() - ratesTried < 2 * 60 * 1000) return;
+    ratesTried = Date.now();
+    ratesBusy = true;
+    var next = { at: Date.now(), cbr: rates && rates.cbr, btc: rates && rates.btc };
+    var a = fetchCbr().then(function(x){ next.cbr = x; }, function(){});
+    var b = fetchBtc().then(function(x){ next.btc = x; next.btcAt = Date.now(); }, function(){});
+    Promise.all([a, b]).then(function(){
+      ratesBusy = false;
+      // Ничего не пришло — время не ставим, иначе полчаса не пробовали бы снова.
+      if (next.cbr === (rates && rates.cbr) && next.btc === (rates && rates.btc)) next.at = rates ? rates.at : 0;
+      rates = next;
+      keepRates();
+      var node = document.getElementById('deskRates');
+      if (node) node.innerHTML = SynI18n.tr(ratesInner());
+    });
+  }
+
+  function ratesStrip(){
+    setTimeout(refreshRates, 0);
+    return '<div class="desk-rates" id="deskRates" aria-label="Курсы валют">' + ratesInner() + '</div>';
+  }
+
+  /// Курс одной валюты в валюте раздела: по ЦБ всё в рублях, поэтому делим
+  /// рублёвую цену на рублёвую цену выбранной валюты.
+  function cbrIn(code, base, which){
+    var v = rates.cbr.v;
+    var price = function(c){ return c === 'RUB' ? 1 : (v[c] ? v[c][which] : 0); };
+    var b = price(base);
+    return b ? price(code) / b : 0;
+  }
+
+  function ratesInner(){
+    if (!rates || (!rates.cbr && !rates.btc)){
+      return '<span class="dr-wait">' + (ratesBusy || !rates ? 'Курсы загружаются…' : 'Курсы недоступны') + '</span>';
+    }
+    var cur = S.currency || 'rub';
+    var base = { rub: 'RUB', kzt: 'KZT', uah: 'UAH', byn: 'BYN', kgs: 'KGS', usd: 'USD', eur: 'EUR' }[cur] || 'RUB';
+    // «Без значка» — значит, валюта неизвестна; показываем в рублях, с ₽.
+    var sign = cur === 'none' ? '₽' : (валютаЗнак() || '₽');
+    var html = '';
+
+    if (rates.cbr && (base === 'RUB' || rates.cbr.v[base])){
+      ['USD', 'EUR'].forEach(function(code){
+        if (code === base) return;
+        var now = cbrIn(code, base, 0), was = cbrIn(code, base, 1);
+        if (!now) return;
+        html += rateChip(code === 'USD' ? '$' : '€', fmtNum(now, now < 10 ? 3 : 2) + ' ' + sign,
+          was ? (now / was - 1) * 100 : 0,
+          (code === 'USD' ? 'Доллар' : 'Евро') + ' по курсу ЦБ на ' + dotDate(rates.cbr.date));
+      });
+    }
+    if (rates.btc){
+      html += rateChip('₿', '$' + fmtNum(rates.btc.usd, 0), rates.btc.ch,
+        'Биткоин в долларах, ' + rates.btc.src + ', изменение за сутки');
+    }
+    var age = Date.now() - rates.at;
+    var stale = age > 6 * 60 * 60 * 1000;
+    html += '<span class="dr-src" title="Доллар и евро — ЦБ РФ (cbr-xml-daily.ru), биткоин — ' +
+      esc(rates.btc ? rates.btc.src : 'CoinGecko') + '">' +
+      (rates.cbr ? 'ЦБ на ' + esc(dotDate(rates.cbr.date)) : '') +
+      (stale ? ' · без связи' : '') + '</span>';
+    return html;
+  }
+
+  function rateChip(mark, value, change, title){
+    var ch = Math.round(change * 100) / 100;
+    return '<span class="dr" title="' + esc(title) + '">' +
+      '<i>' + esc(mark) + '</i><b>' + esc(value) + '</b>' +
+      (ch ? '<em class="' + (ch > 0 ? 'up' : 'down') + '">' + (ch > 0 ? '▲' : '▼') +
+        esc(fmtNum(Math.abs(ch), 2)) + '%</em>' : '') +
+    '</span>';
+  }
+
+  /// «83,95», «80 853» — как пишут числа по-русски: запятая и пробелы в тысячах.
+  function fmtNum(n, digits){
+    var parts = Number(n).toFixed(digits).split('.');
+    return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009') + (parts[1] ? ',' + parts[1] : '');
+  }
+
+  function dotDate(iso){
+    var p = String(iso || '').split('-');
+    return p.length === 3 ? p[2] + '.' + p[1] : '';
   }
 
   /* Кнопка обратно на дашборд — в конце полосы вкладок. Видна только там,

@@ -1,0 +1,97 @@
+/* ============ ЦВЕТОВАЯ СИСТЕМА — только веб ============
+
+   Переменные считает web/theme.js (светлая тема — «Чистый светлый»,
+   тёмная — «Тёмный премиум», фирменная пара цветов — из палитры). Здесь —
+   компоненты, которым одной смены переменных мало: главные кнопки с
+   градиентом, цвета разделов в меню, выбранное, прогресс. */
+
+body{background:var(--bg)}
+
+/* ---- главные кнопки ----
+   Фирменный градиент и мягкая цветная тень вместо чёрной таблетки: главное
+   действие на экране видно сразу. Вторичные (.soft) остаются тихими. */
+.btn:not(.soft):not(.danger):not(.ghost){
+  background:var(--grad, var(--accent)); color:var(--on-accent, #fff);
+  box-shadow:0 6px 16px -12px var(--accent);
+}
+.btn:not(.soft):not(.danger):not(.ghost):hover{opacity:1; filter:brightness(1.06)}
+.btn.soft{background:var(--card); border-color:var(--line); box-shadow:none}
+.btn.soft:hover{background:var(--soft)}
+
+/* ---- выбранное: переключатели, режимы, вкладки ---- */
+/* Выбранное — мягкой подложкой с цветным текстом, а не сплошной заливкой:
+   сплошным цветом на экране остаются только главные кнопки. */
+.radio[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent-text);
+  box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, transparent); font-weight:600}
+.radios.off .radio[aria-pressed="true"]{background:transparent; color:var(--fg-2)}
+.mode[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent-text);
+  box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, transparent)}
+.mode[aria-pressed="true"] span{color:var(--accent-text); opacity:.8}
+.mode.locked[aria-pressed="true"], .mode.locked[aria-pressed="true"] span{color:var(--accent-text)}
+.mode.locked[aria-pressed="true"]::before{background:var(--accent); color:var(--on-accent)}
+.fintab.on, .paytab.on, .finswitch button.on, .sidepick button.on{color:var(--accent-text)}
+
+/* ---- прогресс ---- */
+.bar i{background:var(--grad)}
+.focus-p b{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent}
+.dcol.on .dc-b i.out{background:var(--grad)}
+
+/* ---- поле ввода с кнопкой ассистента ---- */
+.say .ai, .rowadd .ai{background:var(--grad); color:var(--on-accent); border:0}
+.say{border-color:var(--line)}
+.say:focus-within{border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-soft), var(--shadow-lift)}
+
+/* ---- статусы погромче ---- */
+.chip.goal{background:var(--accent-soft); color:var(--accent-text)}
+
+/* ============ ЦВЕТА РАЗДЕЛОВ ============
+
+   У каждого раздела свой цвет — одинаковый во всех палитрах. Значок пункта
+   меню — в цветной плашке; выбранный пункт подсвечен цветом своего раздела.
+   Пункты узнаются по data-view, разметку не трогаем. */
+.tab[data-view="tasks"]{--c:var(--c-tasks)}
+.tab[data-view="goals"]{--c:var(--c-goals)}
+.tab[data-view="focus"]{--c:var(--c-focus)}
+.tab[data-view="analytics"]{--c:var(--c-map)}
+.tab[data-view="lists"]{--c:var(--c-lists)}
+.tab[data-view="notes"]{--c:var(--c-notes)}
+.tab[data-view="pomodoro"]{--c:var(--c-pomo)}
+.tab[data-view="meditation"]{--c:var(--c-med)}
+.tab[data-view="finance"]{--c:var(--c-fin)}
+.tab[data-view="trash"]{--c:var(--c-trash)}
+.tab[data-view="subscription"]{--c:var(--c-sub)}
+.tab[data-view="settings"], a.tab, .tab.leave{--c:var(--c-set)}
+
+/* Телефонная ширина: выбранный пункт нижней панели — цветом раздела. */
+.tab[aria-current="page"] .ic{color:var(--c, var(--accent))}
+
+@media (min-width:1040px){
+  .tab .ic{width:28px; height:28px; border-radius:9px;
+    background:color-mix(in srgb, var(--c, var(--accent)) 14%, transparent); color:var(--c, var(--accent))}
+  .tab .nav-ic{width:16px; height:16px; stroke-width:2.1}
+  .tab[aria-current="page"]{background:color-mix(in srgb, var(--c, var(--accent)) 12%, transparent); color:var(--fg)}
+  :root[data-dark="1"] .tab[aria-current="page"]{
+    background:linear-gradient(90deg, color-mix(in srgb, var(--c, var(--accent)) 24%, transparent), transparent)}
+  .tab:hover{background:var(--soft)}
+  .tabbar{background:var(--card)}
+}
+
+/* ---- профиль внизу меню ---- */
+.whoami .avatar{background:var(--grad); color:var(--on-accent)}
+
+/* ============ КАРТА ЦЕЛЕЙ ============
+
+   Узлы SVG раскрашены app.js старой палитрой прямо в разметке; CSS сильнее
+   атрибутов и перекрашивает их в новую систему. Какой выполненный узел —
+   задача, какой — этап или цель, размечает theme.js (mm-task / mm-goal). */
+.mmwrap{background:var(--card)}
+.mmwrap svg rect:not(.mm-node){fill:var(--card)}
+.mmwrap svg rect.mm-node{stroke:color-mix(in srgb, var(--fg-3) 45%, transparent)}
+.mmwrap svg rect.mm-node.mm-goal{fill:var(--accent-soft); stroke:var(--accent)}
+.mmwrap svg rect.mm-node.mm-task{fill:var(--ok-soft); stroke:var(--pos)}
+.mmwrap svg .mm-link{stroke:color-mix(in srgb, var(--fg-3) 50%, transparent)}
+.mmwrap svg circle{fill:var(--soft); stroke:var(--line)}
+.mmwrap svg g[fill]{fill:var(--accent)}
+.mmlegend span:nth-child(1) i{background:var(--ok-soft) !important; border-color:var(--pos) !important}
+.mmlegend span:nth-child(2) i{background:var(--accent-soft) !important; border-color:var(--accent) !important}
+.mmlegend span:nth-child(3) i{background:var(--card) !important}

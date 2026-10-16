@@ -1,30 +1,11 @@
 /* ============ МОИ ФИНАНСЫ ОДНИМ ЭКРАНОМ — только веб ============
 
-   Разметку рисует web/finance-desk.js. Здесь только раскладка зон и то, чего
-   нет в app.css; плитки, полосы, кнопки «Оплатить» и строка ввода берутся
-   оттуда как есть, чтобы дашборд и вкладки выглядели одним разделом. */
-
-/* Колонка шире обычной.
-
-   Для текста 1180 пикселей — предел: строка длиннее читается с трудом. Но
-   дашборд — не текст, а семь зон рядом, и на мониторе 1920 обычная колонка
-   оставляла по краям по двести пикселей пустоты, а зоны жались друг к другу.
-   Просветы пересчитываются той же формулой, что в app.css, — иначе меню
-   слева стояло бы на месте, а колонка уехала под него. */
-@media (min-width:1240px){
-  body.findesk{
-    --col: clamp(700px, calc(100vw / var(--scale, 1) - var(--rail) - 3 * 28px), 1640px);
-    --gutter: max(28px, calc((100vw / var(--scale, 1) - var(--rail) - var(--col) + 2 * var(--pad)) / 3));
-  }
-  /* Плавающей строки ввода на дашборде нет — она в зоне трат, и место под
-     ней внизу страницы не нужно. */
-  body.findesk main{padding-bottom:56px}
-}
+   Разметку рисует web/finance-desk.js. Общее у дашбордов — колонка, сетка,
+   зона, плитки — в desk.css; здесь раскладка зон финансов и то, чего нет в
+   app.css. Полосы, кнопки «Оплатить» и строка ввода берутся оттуда как есть,
+   чтобы дашборд и вкладки выглядели одним разделом. */
 
 /* ---- сетка зон ----
-
-   Раскладка считается от ширины самого дашборда, а не окна: размер шрифта в
-   настройках задаётся через zoom, и по окну зоны переключались бы не там.
 
    Узко (до 1200):        Широко (от 1200):
      итоги итоги итоги      итоги итоги итоги итоги
@@ -34,22 +15,14 @@
 
    Траты — колонка справа на несколько рядов: лента длинная по природе, и
    ей нужна высота, а не ширина. */
-.desk-wrap{container-type:inline-size; container-name:desk}
-.desk{
-  display:grid; gap:var(--gap, 16px);
-  grid-template-columns:repeat(3, minmax(0,1fr));
+.desk.fin{
   grid-template-areas:
     "head head head"
     "kpi  kpi  kpi"
     "ana  ana  feed"
     "env  pay  feed"
     "debt jars jars";
-  /* Зоны одного ряда — одной высоты: конверты, платежи и долги, кончающиеся
-     на разной высоте, читаются как рассыпанные карточки, а не как панель. */
-  align-items:stretch;
 }
-.desk-head{grid-area:head}
-.z-kpi{grid-area:kpi}
 .z-ana{grid-area:ana}
 .z-feed{grid-area:feed}
 .z-env{grid-area:env}
@@ -58,7 +31,7 @@
 .z-jars{grid-area:jars}
 
 @container desk (min-width:1200px){
-  .desk{
+  .desk.fin{
     grid-template-columns:repeat(3, minmax(0,1fr)) minmax(340px, 1.05fr);
     grid-template-areas:
       "head head head head"
@@ -68,65 +41,6 @@
       "jars jars jars feed";
   }
 }
-
-/* Лента не раздвигает ряды своей длиной: её содержимое вынуто из потока и
-   прокручивается внутри, а высоту задают соседи слева. Без этого длинный
-   месяц растягивал «Разбор» до высоты ленты, и под столбиками зияла пустота. */
-.z-feed{position:relative; min-height:440px}
-.z-feed > .dz-inner{position:absolute; inset:0; padding:inherit}
-
-/* ---- шапка ---- */
-.desk-head{display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:2px}
-.desk-title{flex:1; min-width:220px}
-.desk-title h1.page{margin:0; font-size:30px}
-.desk-title .sub{display:block; margin-top:3px; font-size:13px; color:var(--fg-3)}
-.desk-head .finmonth{margin:0}
-.desk-switch{flex:none}
-
-/* ---- зона ---- */
-.desk-zone{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
-  box-shadow:var(--shadow); padding:16px 18px; min-width:0; display:flex; flex-direction:column}
-.dz-head{display:flex; align-items:baseline; gap:10px; margin-bottom:12px}
-.dz-head h3{font-size:16px; margin:0; flex:none}
-.dz-note{flex:1; min-width:0; text-align:right; font-size:12.5px; color:var(--fg-3);
-  font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.dz-note b{color:var(--fg); font-weight:600}
-.dz-head h3 + .dz-add{margin-left:auto}
-.dz-note b.bad, .dz-pace b.bad{color:var(--neg,var(--crit))}
-.dz-note b.good{color:var(--pos,var(--ok))}
-.dz-add{flex:none; width:26px; height:26px; border-radius:999px; display:grid; place-items:center;
-  background:var(--soft); color:var(--fg-2); font-size:17px; line-height:1; align-self:center}
-.dz-add:hover{background:var(--fg); color:var(--bg)}
-.dz-empty{flex:1; display:flex; flex-direction:column; align-items:flex-start; gap:10px; justify-content:center}
-.dz-empty p, .dz-quiet{margin:0; font-size:13px; line-height:1.5; color:var(--fg-3)}
-.dz-list{display:flex; flex-direction:column}
-.dz-foot{display:flex; align-items:center; justify-content:space-between; gap:10px;
-  margin-top:auto; padding-top:12px; font-size:12.5px; color:var(--fg-3)}
-.dz-foot b{color:var(--fg); font-variant-numeric:tabular-nums}
-.dz-more{display:inline-flex; align-items:center; gap:4px; font-size:12.5px; color:var(--fg-2)}
-.dz-more:hover{color:var(--fg)}
-.dz-more svg{width:12px; height:12px; fill:none; stroke:currentColor; stroke-width:2}
-.dz-sub{display:flex; align-items:baseline; justify-content:space-between; gap:8px;
-  font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg-3);
-  font-weight:600; margin-bottom:10px}
-.dz-sub span{text-transform:none; letter-spacing:0; font-weight:400}
-
-/* ---- итоги ---- */
-.z-kpi{padding:0; overflow:hidden}
-.desk-kpi{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1px; background:var(--line)}
-@container desk (min-width:1000px){ .desk-kpi{grid-template-columns:repeat(6, minmax(0,1fr))} }
-.dk{background:var(--card); padding:14px 18px; text-align:left; display:flex; flex-direction:column; gap:3px; min-width:0}
-button.dk:hover{background:var(--soft)}
-.dk-c{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--fg-3); font-weight:500}
-.dk-v{font-size:22px; letter-spacing:-.02em; font-variant-numeric:tabular-nums; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis}
-.dk-n{font-size:12px; color:var(--fg-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.dk.bad .dk-v{color:var(--neg,var(--crit))}
-.dk.warn .dk-v{color:var(--warn)}
-.dk.good .dk-v{color:var(--pos,var(--ok))}
-.dk-n.warn{color:var(--warn)}
-.dk-n.good{color:var(--pos,var(--ok))}
-.dk-n.bad{color:var(--neg,var(--crit))}
 
 /* ---- разбор ---- */
 .dz-ana{display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.25fr); gap:26px}
@@ -162,7 +76,6 @@ button.dk:hover{background:var(--soft)}
 .dz-pace b{color:var(--fg); font-variant-numeric:tabular-nums}
 
 /* ---- траты ---- */
-.z-feed .dz-inner{display:flex; flex-direction:column; min-height:0}
 .desk-add{margin-bottom:10px}
 .desk-add .finswitch{margin-bottom:8px}
 /* Строка ввода в зоне — без тени и белого ореола: у плавающей они отделяли
@@ -170,6 +83,10 @@ button.dk:hover{background:var(--soft)}
 .desk-add .say{box-shadow:none; border-width:1px; padding:5px 5px 5px 14px}
 .desk-add .say input{font-size:14px}
 .desk-add .say .ai, .desk-add .say .send{width:32px; height:32px}
+/* Свой микрофон — контуром, а не заливкой: правило app.css для .say .ai
+   заливает всё, что внутри кнопки. */
+.desk-add .say .ai svg.dmic{width:18px; height:18px; fill:none; stroke:currentColor;
+  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
 .desk-add .finwhen{margin:8px 0 0}
 .dz-filter{display:flex; align-items:center; justify-content:space-between; gap:8px;
   font-size:12.5px; padding:6px 6px 6px 12px; margin-bottom:8px; border-radius:999px;
@@ -177,7 +94,6 @@ button.dk:hover{background:var(--soft)}
 .dz-filter button{width:22px; height:22px; border-radius:999px; display:grid; place-items:center;
   font-size:11px; color:var(--fg-3)}
 .dz-filter button:hover{background:var(--card); color:var(--fg)}
-.dz-scroll{flex:1; min-height:0; overflow-y:auto; margin:0 -18px; padding:0 18px; scrollbar-width:thin}
 .dday{margin-bottom:12px}
 .dday-h{display:flex; justify-content:space-between; gap:10px; padding:4px 0 5px;
   font-size:12px; color:var(--fg-3); position:sticky; top:0; background:var(--card); z-index:1}
@@ -207,16 +123,22 @@ button.dk:hover{background:var(--soft)}
 .denv-f{margin-top:5px; font-size:12px; color:var(--fg-2)}
 .denv.over .denv-f{color:var(--crit)}
 
-/* ---- платежи ---- */
-.dpay{display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--line)}
-.dpay .tplmark{flex:none}
-.dpay-t{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; text-align:left; font-size:13.5px}
-.dpay-t span{font-size:11.5px; color:var(--fg-3)}
-.dpay-t span.late{color:var(--crit)}
-.dpay-v{font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap}
+/* ---- платежи ----
+
+   Две строки, как у долгов: зона узкая, и в одну строку значок, название,
+   сумма и «Оплатить» оставляли названию семьдесят пикселей — «ChatGPT Plus»
+   ломалось на два этажа. Сверху — что и сколько, снизу — срок и кнопка. */
+.dpay{display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"l t v" "l n a";
+  column-gap:10px; row-gap:4px; align-items:center; padding:9px 0; border-top:1px solid var(--line)}
+.dpay .tplmark{grid-area:l; align-self:start; margin-top:1px}
+.dpay-t{grid-area:t; min-width:0; text-align:left; font-size:13.5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dpay-v{grid-area:v; text-align:right; font-size:13.5px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dpay-n{grid-area:n; min-width:0; font-size:11.5px; color:var(--fg-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dpay-n.late{color:var(--crit)}
+.dpay .fr-pay{grid-area:a; justify-self:end; min-width:80px; font-size:12px; padding:4px 10px}
+.dpay .fr-pay.on{width:80px; height:24px}
 .dpay.paid .dpay-t, .dpay.paid .dpay-v{opacity:.6}
-.dpay .fr-pay{min-width:80px; font-size:12px; padding:5px 10px}
-.dpay .fr-pay.on{width:80px; height:26px}
 
 /* ---- долги ----
 
@@ -251,3 +173,19 @@ button.dk:hover{background:var(--soft)}
 /* Кнопка «Одним экраном» в конце полосы вкладок: отделена от вкладок, чтобы
    не читаться ещё одной из них. */
 .fintab.desk-back{margin-left:auto; color:var(--accent-text,var(--accent)); font-weight:600}
+
+/* ---- курсы ----
+
+   Тонкая полоса в шапке между названием и месяцем: справка, а не зона.
+   Значок валюты, цена и изменение мелко — стрелка и процент приглушены и не
+   красятся в «хорошо/плохо»: рост доллара для одного удача, для другого
+   нет, и раскрашивать это за человека не нам. */
+.desk-rates{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0}
+.dr{display:inline-flex; align-items:baseline; gap:6px; padding:6px 11px; border-radius:999px;
+  background:var(--card); border:1px solid var(--stroke); font-size:13px; white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.dr i{font-style:normal; font-weight:700; color:var(--fg-3); font-size:12.5px}
+.dr b{font-weight:600}
+.dr em{font-style:normal; font-size:11px; color:var(--fg-3)}
+.dr em.up{color:var(--fg-2)}
+.dr-src, .dr-wait{font-size:11px; color:var(--fg-3); white-space:nowrap; padding:0 4px}

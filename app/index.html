@@ -13,11 +13,21 @@
     <link rel="preload" as="font" type="font/woff2" href="../fonts/Manrope-cyrillic.woff2" crossorigin>
     <link rel="stylesheet" href="../fonts/fonts.css">
     <link rel="stylesheet" href="app.css">
-    <!-- Часть только веб-версии: финансы одним экраном на широком окне.
+    <!-- Часть только веб-версии: финансы одним экраном на широком окне,
+         живой фон медитации, убывающее время помодоро, карта целей
+         во всю область и раскладка широкого окна с меню у левого края.
          Внутри андроид-обёртки не подключается (признак — AndroidVoice, как у
-         счётчика ниже), а в апк папки web/ нет вовсе. См. web/README.md. -->
+         счётчика ниже). См. web/README.md. -->
     <script>
-      if (!window.AndroidVoice) document.write('<link rel="stylesheet" href="web/finance-desk.css">');
+      if (!window.AndroidVoice) document.write(
+        '<link rel="stylesheet" href="web/desk.css">' +
+        '<link rel="stylesheet" href="web/finance-desk.css">' +
+        '<link rel="stylesheet" href="web/meditation-scenes.css">' +
+        '<link rel="stylesheet" href="web/pomodoro-timer.css">' +
+        '<link rel="stylesheet" href="web/goal-map.css">' +
+        '<link rel="stylesheet" href="web/layout.css">' +
+        '<link rel="stylesheet" href="web/subscription.css">' +
+        '<link rel="stylesheet" href="web/theme.css">');
     </script>
 
     <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и
@@ -105,7 +115,15 @@
     <!-- До app.js, а не после: первая отрисовка должна уже знать про дашборд,
          иначе на широком экране на миг мелькают вкладки. -->
     <script>
-      if (!window.AndroidVoice) document.write('<script src="web/finance-desk.js"><\/script>');
+      if (!window.AndroidVoice) document.write(
+        '<script src="web/theme.js"><\/script>' +
+        '<script src="web/subscription.js"><\/script>' +
+        '<script src="web/i18n-web.js"><\/script>' +
+        '<script src="web/desk.js"><\/script>' +
+        '<script src="web/finance-desk.js"><\/script>' +
+        '<script src="web/meditation-scenes.js"><\/script>' +
+        '<script src="web/pomodoro-timer.js"><\/script>' +
+        '<script src="web/goal-map.js"><\/script>');
     </script>
     <script src="app.js"></script>
   </body>

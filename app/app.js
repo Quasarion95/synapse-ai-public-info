@@ -1879,7 +1879,9 @@ function render(){
   // названием в шапке, — иначе нажатие в меню выглядит как промах.
   var finLocked = PRO_ONLY.finance && !isPro();
   // Дашборду финансов нужна колонка шире обычной — класс на body её даёт.
-  document.body.classList.toggle('findesk', S.view === 'finance' && !finLocked && finDesk());
+  // Сам дашборд — в web/, см. desk.js и finance-desk.js.
+  document.body.classList.toggle('deskpage', !!(window.SynDesk && SynDesk.active(S.view)) &&
+    !(PRO_ONLY[S.view] && !isPro()));
   $('app').innerHTML = SynI18n.tr((PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render());
   // Строка записи трат живёт внизу экрана, как строка создания задач. На
   // дашборде её нет: там строка стоит прямо в зоне трат.
@@ -3312,8 +3314,9 @@ var FIN_TABS = [
 
 /* Широкое окно браузера показывает раздел одним экраном, без вкладок.
 
-   Сам дашборд живёт в web/finance-desk.js — это часть только веб-версии: в
-   апк папка web/ не попадает, и там SynFinDesk не существует вовсе. Отсюда
+   Сам дашборд живёт в web/finance-desk.js — это часть только веб-версии:
+   внутри андроид-обёртки index.html её не подключает, и SynFinDesk там не
+   существует вовсе. Отсюда
    к нему ровно два хода — эта проверка и кнопка возврата в полосе вкладок;
    все суммы дашборд считает функциями этого файла. */
 function finDesk(){
