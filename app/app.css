@@ -2706,7 +2706,7 @@ html.in-app.kbd body::after{height:calc(var(--vv-shift, 0px) + 74px)}
    всю ширину и по центру, высотой с палец. Маленькой таблеткой у левого края
    они выглядели случайной кнопкой, а это главное действие экрана. */
 .in-app .btn:is([data-act="new-note"], [data-act="new-list"], [data-act="fin-budget-new"],
-  [data-act="fin-debt-new"], [data-act="fin-jar-new"]):not(.blank > .btn){
+  [data-act="fin-debt-new"], [data-act="fin-jar-new"], [data-act="fin-sub-new"], [data-act="fin-rec-new"]):not(.blank > .btn){
   display:flex; width:100%; justify-content:center; padding:14px 18px; font-size:15px; border-radius:999px}
 
 /* Переключатель вида списков — одним ровным рядом из четырёх.
