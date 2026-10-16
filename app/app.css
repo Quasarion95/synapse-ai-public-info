@@ -3210,3 +3210,136 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 .fx-d em{font-style:normal; font-size:10.5px; font-weight:500; color:var(--fg-2); line-height:1}
 .fx-d b{font-size:12px; font-weight:600; color:var(--fg); line-height:1}
 .fx-d.now b{color:var(--accent-text, var(--accent)); font-weight:700}
+
+/* ============ ФИНАНСЫ В ПРИЛОЖЕНИИ — как на айфоне ============ */
+.in-app .fintabs{gap:6px; border:0; padding:2px 16px 4px; margin:0 -16px 12px}
+.in-app .fintab{padding:9px 14px; border-radius:12px; font-size:15px; font-weight:600; color:var(--fg-2);
+  background:color-mix(in srgb, var(--card) 60%, transparent); border:0; box-shadow:none}
+.in-app .fintab.on{background:var(--card); color:var(--fg); box-shadow:var(--shadow)}
+.in-app .fintab::after{display:none}
+
+.fa-card{display:block; width:100%; text-align:left; background:var(--card); border:1px solid var(--line);
+  border-radius:22px; padding:16px; box-shadow:var(--shadow); margin-bottom:12px; color:var(--fg)}
+.fa-h3{font-size:15px; font-weight:600; margin:0}
+.fa-hint{font-size:12.5px; color:var(--fg-2); margin:6px 0 0; line-height:1.4}
+.fa-center{text-align:center; padding:8px 0 2px}
+.fa-act{display:flex; align-items:center; justify-content:center; gap:6px; height:44px; padding:0 16px; margin-top:12px;
+  border-radius:12px; font-size:14px; font-weight:600; background:var(--accent-soft); color:var(--accent-text, var(--accent))}
+.fa-act.primary{background:var(--grad, var(--accent)); color:var(--on-accent, #fff)}
+
+.fa-hero{position:relative; display:block; width:100%; text-align:left; border-radius:24px; padding:18px; margin-bottom:12px;
+  color:#fff; background:var(--grad, var(--accent)); box-shadow:0 10px 26px -12px var(--accent)}
+.fa-hero.neg{background:linear-gradient(135deg, var(--warn), color-mix(in srgb, var(--warn) 72%, #000))}
+.fa-hero-ic{position:absolute; top:18px; right:18px; opacity:.38}
+.fa-hero-ic .nav-ic{width:24px; height:24px; stroke-width:2}
+.fa-hero-l{display:block; font-size:13px; font-weight:600; opacity:.85}
+.fa-hero-v{display:block; font-size:38px; font-weight:700; letter-spacing:-.02em; line-height:1.1; margin-top:2px;
+  font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-pills{display:flex; gap:8px; margin-top:16px}
+.fa-pill{flex:1; min-width:0; padding:9px 10px; border-radius:14px; background:rgba(255,255,255,.17)}
+.fa-pill-l{display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; opacity:.88; white-space:nowrap; overflow:hidden}
+.fa-pill-l .nav-ic{width:10px; height:10px; stroke-width:3; flex:none}
+.fa-pill b{display:block; font-size:14px; font-weight:700; margin-top:3px; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+.fa-ib{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; flex:none;
+  background:color-mix(in srgb, var(--c) 14%, transparent); color:var(--c)}
+.fa-ib.big{width:40px; height:40px}
+.fa-ib .nav-ic{width:14px; height:14px; stroke-width:2.6}
+.fa-ib.big .nav-ic{width:18px; height:18px; stroke-width:2.2}
+.fa-badge{display:grid; place-items:center; flex:none; border-radius:32%; font-weight:700;
+  background:color-mix(in srgb, var(--c) 16%, transparent); color:var(--c)}
+.fa-badge .nav-ic{width:45%; height:45%; stroke-width:2.8}
+
+.fa-switch{display:flex; align-items:center; justify-content:space-between}
+.fa-switch b{font-size:16px; font-weight:700}
+.fa-switch button{width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent-text, var(--accent))}
+.fa-switch button:disabled{opacity:.35}
+.fa-switch button svg{width:14px; height:14px}
+.fa-month{display:flex; flex-direction:column; gap:16px}
+.fa-tiles{display:flex; gap:10px}
+.fa-stat{flex:1; min-width:0; padding:12px; border-radius:16px; background:color-mix(in srgb, var(--c) 8%, transparent);
+  display:flex; flex-direction:column; gap:8px}
+.fa-stat em{font-style:normal; font-size:12px; font-weight:600; color:var(--fg-2); margin-bottom:-7px}
+.fa-stat b{font-size:19px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-net{display:flex; justify-content:space-between; align-items:baseline; padding:0 4px; margin-top:-4px}
+.fa-net span{font-size:13px; font-weight:600; color:var(--fg-2)}
+.fa-net b{font-size:15px; font-weight:700; font-variant-numeric:tabular-nums}
+.fa-net b.up, .fa-op-v.up, .fa-three b.up{color:var(--ok)}
+.fa-net b.down{color:var(--warn)}
+.fa-split{height:1px; background:var(--line); margin:-2px 0}
+.fa-ring{display:flex; align-items:center; gap:18px}
+.fa-donut{position:relative; width:128px; height:128px; flex:none}
+.fa-donut svg{width:100%; height:100%; display:block}
+.fa-donut-c{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 24px; text-align:center}
+.fa-donut-c span{font-size:10px; font-weight:600; color:var(--fg-2)}
+.fa-donut-c b{font-size:14px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums}
+.fa-legend{flex:1; min-width:0; display:flex; flex-direction:column; gap:8px}
+.fa-legend span{display:flex; align-items:center; gap:6px; font-size:12px}
+.fa-legend i{width:8px; height:8px; border-radius:50%; flex:none}
+.fa-legend em{flex:1; min-width:0; font-style:normal; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-legend b{font-weight:700; color:var(--fg-2); font-variant-numeric:tabular-nums}
+.fa-legend small{font-size:11px; color:var(--fg-2)}
+.fa-cats{display:flex; flex-direction:column; gap:4px}
+.fa-cat{display:flex; align-items:center; gap:12px; padding:6px 0}
+.fa-cat-b{flex:1; min-width:0; display:flex; flex-direction:column; gap:6px}
+.fa-cat-t{display:flex; align-items:baseline; gap:6px}
+.fa-cat-t b{font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-cat-t em{font-style:normal; font-size:12px; font-weight:600; color:var(--fg-2)}
+.fa-cat-t span{margin-left:auto; font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap}
+.fa-cat-b small{font-size:11px; font-weight:500; color:var(--fg-2); margin-top:-2px}
+.fa-cat-b small.bad{color:var(--danger)}
+.fa-bar{display:block; height:6px; border-radius:999px; background:color-mix(in srgb, var(--line) 80%, transparent); overflow:hidden}
+.fa-bar i{display:block; height:100%; border-radius:999px}
+
+.fa-jars{display:flex; flex-direction:column; gap:10px}
+.fa-row-h{display:flex; align-items:center; gap:10px}
+.fa-row-h b{font-size:16px; font-weight:700}
+.fa-row-h em{margin-left:auto; font-style:normal; font-size:15px; font-weight:700; color:var(--ok)}
+.fa-jar{display:flex; flex-direction:column; gap:5px}
+.fa-jar-t{display:flex; justify-content:space-between; font-size:13.5px; font-weight:600}
+.fa-jar-t em{font-style:normal; color:var(--fg-2); font-weight:700; font-size:12.5px}
+.fa-jars .fa-bar{height:8px}
+.fa-more-n{font-size:12px; color:var(--fg-2)}
+
+.fa-duty{display:flex; align-items:center; gap:12px}
+.fa-duty-b{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px}
+.fa-duty-b em{font-style:normal; font-size:13px; font-weight:600; color:var(--fg-2)}
+.fa-duty-b b{font-size:20px; font-weight:700}
+.fa-duty-b small{font-size:12px; color:var(--fg-2)}
+.fa-go{color:var(--fg-3); display:grid}
+.fa-go svg{width:14px; height:14px}
+
+.fa-ophead{display:flex; flex-direction:column; gap:14px}
+.fa-three{display:flex; align-items:center}
+.fa-three span{flex:1; min-width:0; text-align:center; display:flex; flex-direction:column; gap:3px}
+.fa-three span + span{border-left:1px solid var(--line)}
+.fa-three em{font-style:normal; font-size:11px; font-weight:600; color:var(--fg-2)}
+.fa-three b{font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px}
+.fa-when{margin:-2px 4px 12px; display:flex; align-items:center; gap:10px; font-size:13px; color:var(--fg-2)}
+.fa-day{margin-bottom:14px}
+.fa-day-h{display:flex; align-items:baseline; justify-content:space-between; padding:2px 6px 8px}
+.fa-day-h b{font-size:15px; font-weight:700}
+.fa-day-h span{font-size:13px; font-weight:600; color:var(--fg-2); font-variant-numeric:tabular-nums}
+.fa-ops{padding:0 14px; margin-bottom:0; overflow:hidden}
+.fa-op{border:0; border-radius:0; background:none; padding:0; margin:0}
+.fa-op + .fa-op{border-top:1px solid var(--line)}
+.fa-op > .swipe-face{display:flex; align-items:center; gap:12px; padding:10px 0; background:var(--card)}
+.fa-op-t{flex:1; min-width:0; text-align:left; display:flex; flex-direction:column; gap:2px}
+.fa-op-t b{font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--fg)}
+.fa-op-t em{font-style:normal; font-size:11px; color:var(--fg-2)}
+.fa-op-v{font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap}
+.fa-empty{display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; padding:28px 24px; color:var(--fg)}
+.fa-empty .nav-ic{width:30px; height:30px; color:var(--accent-text, var(--accent)); opacity:.8}
+.fa-empty b{font-size:16px; font-weight:600}
+.fa-empty p{font-size:13px; color:var(--fg-2); margin:0}
+.in-app .fintabs{background:none; border-radius:0}
+.in-app .fa-op.finrow{display:block; border-top:0}
+.in-app .fa-op.finrow + .fa-op.finrow{border-top:1px solid var(--line)}
+.in-app .fa-op.finrow.swipe > .swipe-face{padding:10px 0; gap:12px; background:var(--card)}
+.fa-switch button .nav-ic{width:14px; height:14px; stroke-width:2.6}
+.fa-switch button.prev .nav-ic{transform:scaleX(-1)}
+.fa-go .nav-ic{width:14px; height:14px; stroke-width:2.4}
+.fa-pills{gap:6px}
+.fa-pill{padding:8px 8px}
+.fa-pill-l{font-size:10.5px; letter-spacing:-.01em}

@@ -4032,7 +4032,9 @@ function vFinance(){
   var tab = S.finTab || 'sum';
   var html = '<div class="fintabs">' + FIN_TABS.map(function(t){
     return '<button class="fintab' + (t.id === tab ? ' on' : '') + '" data-act="fin-tab" data-tab="' + t.id + '">' +
-      esc(t.title) + '</button>';
+      // В приложении вкладки короче, как на айфоне: «Подписки и платежи» не
+      // помещались и полоса уезжала за край на половине слова.
+      esc(inApp() && t.short ? t.short : t.title) + '</button>';
   }).join('') + (window.SynFinDesk ? SynFinDesk.backButton() : '') + '</div>';
 
   if (tab === 'ops') return html + vFinOps();
@@ -4062,6 +4064,7 @@ function finMonthBar(){
    есть, сколько должен и должны мне, на что ушло в этом месяце, успеваю ли
    копить. Ничего, что нельзя прочесть за десять секунд. */
 function vFinSummary(){
+  if (inApp()) return vFinSummaryApp();
   var month = finMonthTotals();
   var debts = finDebtSums();
   var free = finBalance() - finSaved();
@@ -4160,6 +4163,228 @@ function vFinSummary(){
   '</section>';
 
   return html;
+}
+
+/* ============ ФИНАНСЫ В ПРИЛОЖЕНИИ — как на айфоне ============
+
+   Повторяет FinanceView из iOS. Сводка: цветная карточка «Свободно» с тремя
+   плашками, копилки (если есть), карточка месяца — потрачено и заработано,
+   итог, кольцо трат по категориям и строки категорий, — и обязательные
+   платежи одной суммой «в месяц / в год». Траты: шапка месяца с тремя
+   числами и лента по дням, каждый день — своей карточкой. */
+
+/// Цвет категории для кольца и значков — насыщеннее, чем полоса в вебе:
+/// на маленьком значке бледный оттенок не читается.
+function finColor(cat){
+  var c = finCat(cat);
+  return c.id === 'other' ? 'var(--fg-3)' : 'hsl(' + c.hue + ' 58% 50%)';
+}
+
+/// Значок категории: первая буква на мягкой подложке её цвета. Доход —
+/// зелёная стрелка «пришло».
+function finBadge(cat, income, size){
+  size = size || 38;
+  var цвет = income ? 'var(--ok)' : finColor(cat);
+  return '<span class="fa-badge" style="--c:' + цвет + ';width:' + size + 'px;height:' + size + 'px;font-size:' +
+    Math.round(size * 0.42) + 'px">' + (income ? ICON_FIN.down : esc(String(finCat(cat).title).charAt(0).toUpperCase())) + '</span>';
+}
+
+var ICON_FIN = {
+  down: '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M17 7L7 17M7 9v8h8"/></svg>',
+  up: '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M7 17L17 7M9 7h8v8"/></svg>',
+  bank: '<svg viewBox="0 0 24 24" class="nav-ic"><rect x="3" y="6.5" width="18" height="11" rx="2.5"/><circle cx="12" cy="12" r="2.3"/></svg>',
+  repeat: '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M17 3.5l3 3-3 3"/><path d="M20 6.5H8.5A4.5 4.5 0 0 0 4 11v1"/><path d="M7 20.5l-3-3 3-3"/><path d="M4 17.5h11.5A4.5 4.5 0 0 0 20 13v-1"/></svg>',
+  jar: '<svg viewBox="0 0 24 24" class="nav-ic"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M14.5 9.5c-.5-.9-1.4-1.3-2.5-1.3-1.5 0-2.5.8-2.5 1.9 0 2.6 5.2 1.4 5.2 4 0 1.1-1.1 2-2.7 2-1.2 0-2.2-.5-2.7-1.4"/></svg>'
+};
+
+function finMonthSwitch(){
+  var key = finShownMonth();
+  return '<div class="fa-switch">' +
+    '<button class="prev" data-act="fin-month" data-step="-1" aria-label="Прошлый месяц">' + NAV_ICONS.chevron + '</button>' +
+    '<b>' + esc(monthName(key)) + '</b>' +
+    '<button data-act="fin-month" data-step="1"' + (key >= finMonthKey() ? ' disabled' : '') +
+      ' aria-label="Следующий месяц">' + NAV_ICONS.chevron + '</button>' +
+  '</div>';
+}
+
+/// Кольцо трат: доли категорий дугами с небольшим зазором, в центре — сумма.
+function finDonut(rows, total){
+  var r = 50, длина = 2 * Math.PI * r, зазор = rows.length > 1 ? 2.2 : 0, сдвиг = 0;
+  var дуги = rows.map(function(row){
+    var доля = total ? row.sum / total : 0;
+    var дуга = Math.max(0, доля * длина - зазор);
+    var html = '<circle cx="64" cy="64" r="' + r + '" fill="none" stroke="' + finColor(row.cat) + '" stroke-width="15" ' +
+      'stroke-linecap="butt" stroke-dasharray="' + дуга.toFixed(2) + ' ' + (длина - дуга).toFixed(2) + '" ' +
+      'stroke-dashoffset="' + (-сдвиг).toFixed(2) + '"/>';
+    сдвиг += доля * длина;
+    return html;
+  }).join('');
+  return '<div class="fa-donut"><svg viewBox="0 0 128 128"><g transform="rotate(-90 64 64)">' + дуги + '</g></svg>' +
+    '<div class="fa-donut-c"><span>Траты</span><b>' + finMoney(total) + '</b></div></div>';
+}
+
+function vFinSummaryApp(){
+  var month = finMonthTotals();
+  var debts = finDebtSums();
+  var free = finBalance() - finSaved();
+  var html = '';
+
+  if (!S.finance.opening && !S.finance.ops.length && !S.finance.openingHidden){
+    html += '<section class="fa-card">' +
+      '<div class="finhint-head"><h3 class="fa-h3">Сначала — сколько у тебя есть</h3>' +
+        '<button class="tour-hide" data-act="fin-hint-hide" aria-label="Скрыть подсказку">✕</button></div>' +
+      '<p class="fa-hint">Впиши, сколько сейчас на карте и в кошельке, — одним числом. Без него «Свободно» показывает не деньги, а разницу доходов и трат с первой записи.</p>' +
+      '<button class="fa-act primary" data-act="fin-opening">Вписать</button>' +
+    '</section>';
+  }
+
+  // Главное число — сколько можно тратить — крупно на цвете.
+  html += '<button class="fa-hero' + (free < 0 ? ' neg' : '') + '" data-act="fin-opening">' +
+    '<span class="fa-hero-ic">' + NAV_ICONS.wallet + '</span>' +
+    '<span class="fa-hero-l">Свободно</span>' +
+    '<b class="fa-hero-v">' + finMoney(free) + '</b>' +
+    '<span class="fa-pills">' +
+      finPill('Накоплено', finSaved(), ICON_FIN.bank) +
+      finPill('Я должен', debts.owe, ICON_FIN.up) +
+      finPill('Мне должны', debts.owed, ICON_FIN.down) +
+    '</span>' +
+  '</button>';
+
+  // Копилки — только когда они уже есть; призыв «начни копить» живёт в своей вкладке.
+  var jars = S.finance.jars || [];
+  if (jars.length){
+    html += '<button class="fa-card fa-jars" data-act="fin-tab" data-tab="jars">' +
+      '<span class="fa-row-h"><span class="fa-ib" style="--c:var(--ok)">' + ICON_FIN.jar + '</span>' +
+        '<b>Копилки</b><em>' + finMoney(finSaved()) + '</em></span>' +
+      jars.slice(0, 3).map(function(j){
+        var доля = j.target ? Math.min(1, (j.saved || 0) / j.target) : 0;
+        return '<span class="fa-jar"><span class="fa-jar-t"><span translate="no">' + esc(j.title) + '</span>' +
+            '<em>' + Math.round(доля * 100) + '%</em></span>' +
+          '<span class="fa-bar"><i style="width:' + (доля * 100).toFixed(1) + '%;background:var(--ok)"></i></span></span>';
+      }).join('') +
+      (jars.length > 3 ? '<span class="fa-more-n">Ещё ' + (jars.length - 3) + '</span>' : '') +
+    '</button>';
+  }
+
+  // Месяц: два числа, итог, кольцо и категории.
+  var cats = finByCat();
+  var net = month.earned - month.spent;
+  html += '<section class="fa-card fa-month">' + finMonthSwitch() +
+    '<div class="fa-tiles">' +
+      finStat('Потрачено', month.spent, ICON_FIN.up, 'var(--warn)') +
+      finStat('Заработано', month.earned, ICON_FIN.down, 'var(--ok)') +
+    '</div>' +
+    (month.spent || month.earned
+      ? '<div class="fa-net"><span>Итог месяца</span><b class="' + (net >= 0 ? 'up' : 'down') + '">' +
+          (net >= 0 ? '+' : '−') + finMoney(Math.abs(net)) + '</b></div>' : '') +
+    (cats.length
+      ? '<div class="fa-split"></div>' +
+        '<div class="fa-ring">' + finDonut(cats, month.spent) +
+          '<div class="fa-legend">' + cats.slice(0, 4).map(function(row){
+            return '<span><i style="background:' + finColor(row.cat) + '"></i><em>' + esc(row.title) + '</em><b>' +
+              (month.spent ? Math.round(row.sum * 100 / month.spent) : 0) + '%</b></span>';
+          }).join('') + (cats.length > 4 ? '<small>и ещё ' + (cats.length - 4) + '</small>' : '') + '</div>' +
+        '</div>' +
+        '<div class="fa-cats">' + cats.map(function(row){
+          var доля = month.spent ? row.sum / month.spent : 0;
+          var план = finBudget(row.cat);
+          var поверх = план && row.sum > план;
+          return '<div class="fa-cat">' + finBadge(row.cat, false, 34) +
+            '<div class="fa-cat-b"><div class="fa-cat-t"><b>' + esc(row.title) + '</b><em>' + Math.round(доля * 100) + '%</em>' +
+              '<span>' + finMoney(row.sum) + '</span></div>' +
+              '<span class="fa-bar"><i style="width:' + (план ? Math.min(100, row.sum * 100 / план) : доля * 100).toFixed(1) +
+                '%;background:' + (поверх ? 'var(--danger)' : finColor(row.cat)) + '"></i></span>' +
+              (план ? '<small class="' + (поверх ? 'bad' : '') + '">' + (поверх
+                ? 'Перерасход ' + finMoney(row.sum - план)
+                : 'Осталось ' + finMoney(план - row.sum) + ' из ' + finMoney(план)) + '</small>' : '') +
+            '</div></div>';
+        }).join('') + '</div>'
+      : '<p class="fa-hint fa-center">В этом месяце ещё ничего не записано.</p>') +
+  '</section>';
+
+  // Обязательные платежи: годовая сумма — главный довод, когда решаешь, от чего отказаться.
+  var вГод = finSubsYear();
+  if (вГод > 0){
+    html += '<button class="fa-card fa-duty" data-act="fin-tab" data-tab="subs">' +
+      '<span class="fa-ib big" style="--c:var(--c-sub, #8b5cf6)">' + ICON_FIN.repeat + '</span>' +
+      '<span class="fa-duty-b"><em>Обязательные платежи</em><b>' + finMoney(Math.round(вГод / 12)) + ' в месяц</b>' +
+        '<small>' + finMoney(вГод) + ' в год</small></span>' +
+      '<span class="fa-go">' + NAV_ICONS.chevron + '</span>' +
+    '</button>';
+  }
+  return html;
+}
+
+function finPill(подпись, сумма, значок){
+  return '<span class="fa-pill"><span class="fa-pill-l">' + значок + esc(подпись) + '</span><b>' + finMoney(сумма) + '</b></span>';
+}
+
+function finStat(подпись, сумма, значок, цвет){
+  return '<div class="fa-stat" style="--c:' + цвет + '"><span class="fa-ib" style="--c:' + цвет + '">' + значок + '</span>' +
+    '<em>' + esc(подпись) + '</em><b>' + finMoney(сумма) + '</b></div>';
+}
+
+/// Подпись дня в ленте: «Сегодня», «Вчера» или «12 октября».
+function finDayTitle(iso){
+  var сегодня = isoOf(todayDate());
+  var вчера = new Date(todayDate().getTime()); вчера.setDate(вчера.getDate() - 1);
+  if (iso === сегодня) return 'Сегодня';
+  if (iso === isoOf(вчера)) return 'Вчера';
+  return humanDate(iso);
+}
+
+function vFinOpsApp(){
+  var key = finShownMonth();
+  var month = finMonthTotals(key);
+  // В день — за прошедшие дни текущего месяца или за весь прошлый месяц.
+  var parts = key.split('-');
+  var дней = key === finMonthKey() ? todayDate().getDate()
+    : new Date(Number(parts[0]), Number(parts[1]), 0).getDate();
+  var html = '<div class="finance-has-composer">' +
+    '<section class="fa-card fa-ophead">' + finMonthSwitch() +
+      '<div class="fa-three">' +
+        '<span><em>Потрачено</em><b>' + finMoney(month.spent) + '</b></span>' +
+        '<span><em>В день</em><b>' + finMoney(дней ? Math.round(month.spent / дней) : 0) + '</b></span>' +
+        '<span><em>Доход</em><b class="up">' + finMoney(month.earned) + '</b></span>' +
+      '</div>' +
+    '</section>' +
+    '<div class="finwhen fa-when"><label for="findate">Дата записи</label>' +
+      полеДаты('findate', S.finDate || isoOf(todayDate())) + '</div>';
+
+  var ops = finMonthOps(key).slice().sort(function(a, b){
+    return a.date === b.date ? b.at - a.at : (a.date < b.date ? 1 : -1);
+  });
+  if (!ops.length){
+    return html + '<div class="fa-empty">' + NAV_ICONS.finance +
+      '<b>В этом месяце ещё ничего не записано.</b>' +
+      '<p>Напиши внизу «кофе 350» или зажми микрофон и скажи.</p></div></div>';
+  }
+  var дни = [], поДню = {};
+  ops.forEach(function(op){
+    if (!поДню[op.date]){ поДню[op.date] = []; дни.push(op.date); }
+    поДню[op.date].push(op);
+  });
+  html += дни.map(function(date){
+    var rows = поДню[date];
+    var ушло = rows.reduce(function(acc, op){ return acc + (op.kind === 'income' ? 0 : op.amount); }, 0);
+    return '<div class="fa-day"><div class="fa-day-h"><b>' + esc(finDayTitle(date)) + '</b>' +
+        (ушло ? '<span>−' + finMoney(ушло) + '</span>' : '') + '</div>' +
+      '<div class="fa-card fa-ops">' + rows.map(function(op){
+        var доход = op.kind === 'income';
+        return '<div class="finrow fa-op swipe">' +
+          '<div class="side">' +
+            '<button data-act="fin-op-edit" data-op="' + op.id + '" aria-label="Править">' + ICON.edit + '</button>' +
+            '<button class="kill" data-act="fin-op-kill" data-op="' + op.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+          '</div>' +
+          '<div class="swipe-face">' + finBadge(op.cat, доход, 38) +
+            '<button class="fa-op-t" data-act="fin-op-edit" data-op="' + op.id + '"><b translate="no">' + esc(op.title) + '</b>' +
+              '<em>' + esc(finCat(op.cat).title) + '</em></button>' +
+            '<span class="fa-op-v' + (доход ? ' up' : '') + '">' + (доход ? '+' : '−') + finMoney(op.amount) + '</span>' +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div></div>';
+  }).join('');
+  return html + '</div>';
 }
 
 function finTile(caption, value, tone){
@@ -4270,6 +4495,7 @@ function finVoiceStop(){
 }
 
 function vFinOps(){
+  if (inApp()) return vFinOpsApp();
   var kind = S.finKind || 'spend';
   var html = '<div class="finance-has-composer">' + finMonthBar();
 
