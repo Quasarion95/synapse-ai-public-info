@@ -204,10 +204,16 @@
          срок в партнёрских программах. */
       var PARTNER_TTL = 30 * 24 * 60 * 60 * 1000;
 
+      /* Код к тому же виду, что и на сервере (normalized_promo_code):
+         заглавные, только буквы и цифры, до 24 знаков. Буквы — любые, а не
+         только латиница: сервер русские буквы в коде оставляет, и раньше
+         страница их молча вырезала — «АННА20» уходил на сервер как «20». */
+      function cleanPromo(value) {
+        return String(value || "").toUpperCase().replace(/[^\p{L}\p{N}]/gu, "").slice(0, 24);
+      }
+
       var partnerCode = (function () {
-        function clean(value) {
-          return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 24);
-        }
+        var clean = cleanPromo;
         var fromLink = clean(new URLSearchParams(location.search).get("promo"));
         if (fromLink) {
           try {
@@ -230,16 +236,58 @@
       /* Что уходит на сервер: сначала то, что человек вписал руками, потом
          запомненное по ссылке. Рука главнее памяти — если он специально ввёл
          другой код, значит именно его и имел в виду. */
-      function currentPromo() {
+      function typedPromo() {
         var field = document.getElementById("promo");
-        var typed = field ? String(field.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
+        return field ? cleanPromo(field.value) : "";
+      }
+
+      /* Если сервер признал код в другом написании (набран на русской
+         раскладке — см. promoVariants), дальше уходит его настоящий вид,
+         иначе партнёру не засчитается и скидка не применится при оплате. */
+      function currentPromo() {
+        var typed = typedPromo();
+        if (typed && promoState.valid && promoState.typed === typed) { return promoState.code; }
         return typed || partnerCode;
+      }
+
+      /* Какие написания кода спросить у сервера, по порядку.
+
+         Первым — ровно то, что ввели: код может и правда быть русским.
+         Если такого нет, а в коде есть русские буквы, пробуем ещё два
+         прочтения латинского кода:
+           * набран на русской раскладке — ANNA20 превращается в ФТТФ20,
+             возвращаем буквы тех же клавиш;
+           * набран похожими русскими буквами — АННА20 вместо ANNA20
+             (так бывает, когда код диктуют или переписывают с картинки).
+         Каждое пробуем, только если в нём не осталось русских букв. */
+      var RU_KEYS = "ЙЦУКЕНГШЩЗФЫВАПРОЛДЯЧСМИТЬ";
+      var EN_KEYS = "QWERTYUIOPASDFGHJKLZXCVBNM";
+      var RU_LOOK = "АВЕКМНОРСТУХ";
+      var EN_LOOK = "ABEKMHOPCTYX";
+
+      function swapLetters(code, from, to) {
+        var out = "";
+        for (var i = 0; i < code.length; i++) {
+          var at = from.indexOf(code[i]);
+          out += at === -1 ? code[i] : to[at];
+        }
+        return /^[A-Z0-9]+$/.test(out) ? out : "";
+      }
+
+      function promoVariants(code) {
+        var list = [code];
+        if (/[А-ЯЁ]/.test(code)) {
+          [swapLetters(code, RU_KEYS, EN_KEYS), swapLetters(code, RU_LOOK, EN_LOOK)].forEach(function (v) {
+            if (v && list.indexOf(v) === -1) { list.push(v); }
+          });
+        }
+        return list;
       }
 
       /* Что известно про код прямо сейчас. Скидку считает сервер, а не мы:
          цена — это деньги, и складывать её в браузере нельзя. Здесь только
          то, что он ответил. */
-      var promoState = { code: "", valid: false, price: 0, percent: 0, plan: "" };
+      var promoState = { code: "", typed: "", valid: false, price: 0, percent: 0, plan: "" };
 
       // Пришли по ссылке — код виден в поле, а не спрятан: человек должен
       // понимать, что применяется, и мочь стереть.
@@ -248,7 +296,9 @@
         if (field && partnerCode) { field.value = partnerCode; }
         if (field) {
           field.addEventListener("input", function () {
-            this.value = this.value.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+            // Русские буквы не стираем: на русской раскладке поле раньше
+            // оставалось пустым, сколько ни печатай.
+            this.value = this.value.toUpperCase().replace(/[^\p{L}\p{N}-]/gu, "");
             запросить();
           });
         }
@@ -284,11 +334,20 @@
         промоТаймер = setTimeout(проверитьПромо, 400);
       }
 
+      function спроситьКод(код, план) {
+        return fetch(BACKEND + "/v1/synapse/checkout/promo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: код, plan: план })
+        }).then(function (r) { return r.json(); });
+      }
+
       function проверитьПромо() {
-        var код = currentPromo();
+        var набрано = typedPromo();
+        var код = набрано || partnerCode;
         var план = selectedPlan;
         if (!код) {
-          promoState = { code: "", valid: false, price: 0, percent: 0, plan: "" };
+          promoState = { code: "", typed: "", valid: false, price: 0, percent: 0, plan: "" };
           показатьПромо("Не обязательно. Влияет на скидку, если она есть у кода.", "");
           renderTotal();
           return;
@@ -296,23 +355,41 @@
 
         промоПопытка += 1;
         var попытка = промоПопытка;
-        fetch(BACKEND + "/v1/synapse/checkout/promo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: код, plan: план })
-        }).then(function (r) { return r.json(); }).then(function (ответ) {
+        var варианты = promoVariants(код);
+        var первыйОтвет = null;
+
+        // Написания спрашиваем по очереди, а не разом: обычно хватает
+        // первого, и лишние запросы только съедали бы лимит на проверку.
+        function следующий(i) {
+          if (i >= варианты.length) { return Promise.resolve(первыйОтвет); }
+          return спроситьКод(варианты[i], план).then(function (ответ) {
+            if (ответ && ответ.valid) { return ответ; }
+            if (!первыйОтвет) { первыйОтвет = ответ; }
+            return следующий(i + 1);
+          });
+        }
+
+        следующий(0).then(function (ответ) {
           if (попытка !== промоПопытка) { return; }
           if (ответ && ответ.valid) {
             promoState = {
-              code: ответ.code, valid: true,
+              code: ответ.code, typed: набрано, valid: true,
               price: Number(ответ.price), percent: Number(ответ.discountPercent) || 0,
               plan: план
             };
+            // Код нашёлся в другом написании — показываем в поле настоящий,
+            // чтобы человек видел, какой код применён. Только если он
+            // за это время ничего не допечатал.
+            var field = document.getElementById("promo");
+            if (field && набрано && набрано !== ответ.code && typedPromo() === набрано) {
+              field.value = ответ.code;
+              promoState.typed = ответ.code;
+            }
             показатьПромо(promoState.percent
               ? "Код принят: скидка " + promoState.percent + "%."
               : "Код принят.", "ok");
           } else {
-            promoState = { code: код, valid: false, price: 0, percent: 0, plan: план };
+            promoState = { code: код, typed: набрано, valid: false, price: 0, percent: 0, plan: план };
             показатьПромо((ответ && ответ.reason) || "Такого кода нет.", "bad");
           }
           renderTotal();
@@ -320,7 +397,7 @@
           // Связь пропала — молчим и оставляем полную цену. Сервер всё равно
           // пересчитает при оплате, так что скидка не потеряется.
           if (попытка !== промоПопытка) { return; }
-          promoState = { code: код, valid: false, price: 0, percent: 0, plan: план };
+          promoState = { code: код, typed: набрано, valid: false, price: 0, percent: 0, plan: план };
           renderTotal();
         });
       }
