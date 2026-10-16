@@ -9041,8 +9041,26 @@ function synQuotaHTML(){
 }
 
 /// Перерисовать окно, не трогая остального экрана.
+/* Клавиатура в окне Syn — только по желанию человека.
+
+   Раньше окно ставило курсор в поле при каждом открытии и каждой
+   перерисовке. На телефоне это значит: открыл ассистента — выскочила
+   клавиатура и подбросила окно вверх, хотя человек, может, собирался
+   говорить голосом. Нажал микрофон — клавиатура спряталась, после фразы
+   окно перерисовалось и вытащило её снова, и закрывать её приходилось
+   руками.
+
+   Теперь курсор возвращается в поле, только если человек сам в него
+   нажал и печатает. Открытие окна и микрофон этот признак снимают. */
+var synКлавиатура = false;
+document.addEventListener('focusin', function(e){
+  if (e.target && e.target.id === 'syn-input' && e.isTrusted) synКлавиатура = true;
+});
+
 function synRender(draft, error){
-  openModal(modalSyn(draft, error), true);
+  // Первое открытие окна — без клавиатуры: нажать на поле человек успеет.
+  if (!$('syn-log')) synКлавиатура = false;
+  openModal(modalSyn(draft, error), synКлавиатура ? true : 'none');
   var field = $('syn-input');
   if (field){
     growInput(field);
@@ -9357,6 +9375,10 @@ window.addEventListener('android-voice', function(event){
 function voiceStart(){
   if (voice.on || !voiceSupported()) return;
   voiceCancelPending();
+  // Говорят голосом — клавиатура не нужна: прячем её и не возвращаем после
+  // фразы (см. synКлавиатура).
+  synКлавиатура = false;
+  if (document.activeElement && document.activeElement.id === 'syn-input') document.activeElement.blur();
 
   var родной = voiceNative();
   if (родной){
@@ -11284,6 +11306,8 @@ function openModal(html, toInput){
   // Окно ассистента перерисовывается на каждую реплику, и курсор должен
   // остаться в строке ввода: иначе после ответа нельзя дописать следующее
   // слово, не ткнув в поле.
+  // 'none' — окно само решает, что фокус не нужен (Syn без клавиатуры).
+  if (toInput === 'none') return;
   if (toInput){
     var input = $('syn-input');
     if (input){
