@@ -6025,6 +6025,9 @@ function ttsFromServer(text){
       body: JSON.stringify({ text: text })
     });
   }).then(function(response){
+    // Сессию сервер забыл — следующий запрос возьмёт новую, а этот прочтёт
+    // системный голос.
+    if (response.status === 401){ SYN.token = ''; SYN.expiresAt = 0; }
     if (!response.ok) throw new Error('tts ' + response.status);
     return response.blob();
   });
@@ -6058,7 +6061,7 @@ function briefingRun(){
   render();
 
   var morning = briefingIsMorning();
-  synSession().then(function(token){
+  synWithSession(function(token){
     return synFetch('/v1/synapse/research', {
       query: 'Собери брифинг по этому срезу.',
       taskTitle: morning ? 'morning' : 'evening',
@@ -6067,9 +6070,17 @@ function briefingRun(){
     }, token);
   }).then(function(data){
     BRIEFING.busy = false;
+    data = data || {};
+    // Брифинг тратит тот же дневной запас, что и разговор с Syn: остаток под
+    // полем должен уменьшиться и от него.
+    synQuotaSet(data.quota);
     var raw = String(data.note || '').trim();
     if (!raw){
       S.briefing.error = 'Syn не собрал брифинг. Попробуй ещё раз.';
+      // Без даты ошибка не показывалась вовсе: экран выводит отказ, только
+      // если errorDate — сегодня. Человек жал «Собрать», кнопка оживала, и
+      // ничего не происходило — ни брифинга, ни слова о том, почему.
+      S.briefing.errorDate = isoOf(todayDate());
       commit();
       return;
     }
@@ -6116,6 +6127,13 @@ function briefingRun(){
       снимок: briefingSnapshot(),
       собранВ: Date.now(), устарел: false
     };
+    /* Слепок — до commit, иначе свежий брифинг тут же помечался устаревшим.
+
+       commit сравнивает слепок с прошлым, а прошлый мог записать commit
+       задолго до сборки: Syn меняет задачи через save(), мимо commit. Разница
+       копилась, и первый же commit — вот этот — объявлял только что собранный
+       разбор устаревшим. */
+    БРИФИНГ_СЛЕД = брифингСледОтДел();
     commit('Брифинг собран');
   }).catch(function(error){
     BRIEFING.busy = false;
@@ -8507,16 +8525,27 @@ function webInstallID(){
   return id.indexOf('web-') === 0 ? id : 'web-' + id;
 }
 
+/* Сколько ждём ответа сервера, прежде чем сказать об этом вслух.
+
+   Срока не было вовсе: подвисшее соединение в метро или в лифте держало
+   «Syn думает…» бесконечно, поле отправки оставалось выключенным, и выйти из
+   этого можно было только перезагрузкой. Сорок секунд — с запасом на долгий
+   ответ модели, но меньше, чем человек готов смотреть на троеточие. */
+var SYN_FETCH_MS = 40000;
+
 function synFetch(path, body, token){
   var headers = { 'Content-Type': 'application/json' };
   if (token){
     headers.Authorization = 'Bearer ' + token;
     headers['X-Synapse-Install-ID'] = webInstallID();
   }
-  return fetch(SYN.base + path, {
+  var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  var timer = null;
+  var request = fetch(SYN.base + path, {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: ctrl ? ctrl.signal : undefined
   }).then(function(response){
     return response.json().catch(function(){ return {}; }).then(function(data){
       if (!response.ok){
@@ -8528,6 +8557,60 @@ function synFetch(path, body, token){
       return data;
     });
   });
+  // Срок ставим гонкой, а не только через abort: в старых WebView
+  // AbortController нет, и подвисший запрос иначе так и висел бы.
+  var deadline = new Promise(function(resolve, reject){
+    timer = setTimeout(function(){
+      if (ctrl) ctrl.abort();
+      var error = new Error('Syn не ответил за ' + Math.round(SYN_FETCH_MS / 1000) +
+        ' секунд. Проверь соединение и попробуй ещё раз.');
+      error.status = 0;
+      error.timeout = true;
+      reject(error);
+    }, SYN_FETCH_MS);
+  });
+  return Promise.race([request, deadline]).then(function(data){
+    clearTimeout(timer);
+    return data;
+  }, function(error){
+    clearTimeout(timer);
+    throw error;
+  });
+}
+
+/* Запрос с сессией и одной попыткой заново на 401.
+
+   Сессия жила по сроку, который назвал сервер, — но сервер может забыть её
+   раньше: перезапуск, смена ключа. Тогда каждый запрос получал 401, а токен
+   в памяти считался свежим ещё час, и Syn молчал до перезагрузки страницы.
+   Теперь 401 сбрасывает токен, и запрос повторяется один раз с новой
+   сессией; второй 401 уже честно показывается. */
+function synWithSession(request){
+  return synSession().then(request).catch(function(error){
+    if (!error || error.status !== 401) throw error;
+    SYN.token = '';
+    SYN.expiresAt = 0;
+    return synSession().then(request);
+  });
+}
+
+/* Остаток запросов привязан к дню.
+
+   Число от сервера жило в памяти без даты: приложение на андроиде не
+   выгружается неделями, и после полуночи под полем висело вчерашнее
+   «осталось 0», хотя норма уже обновилась. Теперь при смене дня старое число
+   забывается, и до первого ответа показывается дневная норма. */
+function synQuotaSet(quota){
+  if (!quota || typeof quota !== 'object') return;
+  var copy = {};
+  for (var key in quota) if (Object.prototype.hasOwnProperty.call(quota, key)) copy[key] = quota[key];
+  copy.date = isoOf(todayDate());
+  SYN.quota = copy;
+}
+
+function synQuotaNow(){
+  if (SYN.quota && SYN.quota.date !== isoOf(todayDate())) SYN.quota = null;
+  return SYN.quota;
 }
 
 /// Сессия берётся один раз и живёт до истечения срока.
@@ -8862,16 +8945,30 @@ function synLogHTML(){
        действие, а не задавал вопрос. */
 
     // Карточка подтверждения: что именно запишется и на какую сумму.
+    /* Кнопки — только у карточки, чья пачка ещё не решена, и только в этом
+       заходе на страницу.
+
+       Пачка была одна на всё приложение (S.finPending), и каждый новый ответ
+       её перезаписывал, а кнопки «Записать» у старых карточек оставались.
+       Нажатие на старой карточке записывало суммы из новой. Теперь пачка
+       лежит в самой реплике, кнопка знает свою реплику по data-i, а после
+       решения кнопки исчезают. Пачка из прошлого захода не подтверждается —
+       то же правило, что было у S.finPending: подтверждать вчера
+       предложенное сегодня — верный способ записать не то. */
     if (item.finance && item.finance.rows.length){
+      var живая = item.finance.actions && item.finance.actions.length &&
+        item.finance.session === SYN_СЕССИЯ;
       html += '<div class="syn-fin">' +
         '<b>' + esc(item.finance.head) + '</b>' +
         '<ul>' + item.finance.rows.map(function(row){
           return '<li>' + esc(row) + '</li>';
         }).join('') + '</ul>' +
-        '<div class="syn-none-acts">' +
-          '<button class="btn sm" data-act="fin-apply">Записать</button>' +
-          '<button class="btn sm soft" data-act="fin-drop">Не надо</button>' +
-        '</div>' +
+        (живая
+          ? '<div class="syn-none-acts">' +
+              '<button class="btn sm" data-act="fin-apply" data-i="' + index + '">Записать</button>' +
+              '<button class="btn sm soft" data-act="fin-drop" data-i="' + index + '">Не надо</button>' +
+            '</div>'
+          : '<p class="hint">' + esc(item.finance.outcome || 'Не записано') + '</p>') +
       '</div>';
     }
 
@@ -8929,9 +9026,10 @@ function synScrollDown(){
 function synQuotaHTML(){
   var limit = isPro() ? proSynLimit(S.pro.plan) : FREE_SYN_LIMIT;
   var text;
-  if (SYN.quota && typeof SYN.quota.used === 'number'){
-    limit = SYN.quota.limit || limit;
-    var left = Math.max(0, limit - SYN.quota.used);
+  var quota = synQuotaNow();
+  if (quota && typeof quota.used === 'number'){
+    limit = quota.limit || limit;
+    var left = Math.max(0, limit - quota.used);
     text = 'Осталось ' + left + ' из ' + limit + ' запросов на сегодня.';
   } else {
     text = (isPro() ? 'В подписке ' : 'Бесплатно ') + limit + ' запросов к Syn в день.';
@@ -8953,6 +9051,37 @@ function synRender(draft, error){
   synScrollDown();
 }
 
+/* Перерисовать окно, только если оно ещё открыто.
+
+   synRender открывает окно всегда — так его и открывают кнопки Syn. Но
+   ответ сервера, слово диктовки и ошибка распознавания приходят позже, когда
+   человек мог окно уже закрыть, и раньше каждое такое событие открывало его
+   заново. Теперь всё, что приходит само, обновляет только состояние: ответ
+   ляжет в ленту и будет виден при следующем открытии, а окно не выскочит
+   поверх другого экрана или другого окна. */
+function synRedraw(draft, error){
+  if (!$('syn-log')) return;
+  synRender(draft, error);
+}
+
+/// Номер захода на страницу: пачка денег подтверждается только в том же.
+var SYN_СЕССИЯ = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+/* Забрать пачку денег у реплики, чтобы записать её или отказаться.
+
+   Пачка отдаётся один раз: после этого у карточки нет кнопок, и второе
+   нажатие — или нажатие на старой карточке — уже ничего не запишет. */
+function synFinTake(index, outcome){
+  var item = S.synChat[Number(index)];
+  if (!item || !item.finance || item.finance.session !== SYN_СЕССИЯ) return null;
+  var batch = item.finance.actions;
+  if (!batch || !batch.length) return null;
+  item.finance.actions = null;
+  item.finance.outcome = outcome;
+  synRedraw($('syn-input') ? $('syn-input').value : '', '');
+  return batch;
+}
+
 /// Отправка и применение. Текст в поле сохраняем при ошибке — иначе повторить
 /// запрос с правкой было бы нечем.
 function synSend(text){
@@ -8962,10 +9091,18 @@ function synSend(text){
   SYN.busy = true;
   synChatPush('user', text, null);
   save();
-  synRender('', '');
+  synRedraw('', '');
 
+  /* Отказ ловится только у самого запроса.
+
+     Раньше catch стоял в конце цепочки и ловил всё подряд: если действия уже
+     применились, а упала перерисовка или подсчёт карточки, catch выкидывал
+     из ленты вопрос и возвращал его в поле. Человек жал «отправить» ещё раз
+     и получал вторую такую же задачу. Теперь ошибка после применения — это
+     ошибка экрана, а не запроса: ответ остаётся в ленте, повторять нечего. */
   synAsk().then(function(data){
-    if (data.quota) SYN.quota = data.quota;
+    data = data || {};
+    synQuotaSet(data.quota);
     /* Финансовые действия не применяются сразу.
 
        Задачу Syn создаёт молча — ошибку видно и её легко убрать. С деньгами
@@ -8974,37 +9111,43 @@ function synSend(text){
        показывается карточкой, и пишется только по нажатию. */
     var finance = (data.actions || []).filter(finIsFinanceAction);
     var rest = (data.actions || []).filter(function(a){ return !finIsFinanceAction(a); });
-    S.finPending = finance.length ? finance : null;
 
     var result = synApplyActions(rest);
     SYN.busy = false;
     synChatPush('assistant', data.reply || 'Готово.', result);
-    // Разговор с Syn — четвёртый шаг обучения, и записать это надо здесь:
-    // ответ ассистента идёт мимо commit().
-    tourCheck();
-    // Помечаем именно «действий не было вовсе»: пустой список — это не то же
-    // самое, что действия, которые не применились, — про те сказано отдельно.
-    if (!(data.actions || []).length){
-      var last = S.synChat[S.synChat.length - 1];
-      last.none = true;
-      last.said = text;
-    }
-    if (finance.length){
-      var card = S.synChat[S.synChat.length - 1];
-      card.none = false;
-      card.finance = finPreview(finance);
-    }
+    var last = S.synChat[S.synChat.length - 1];
     save();
-    synRender('', '');
-    // Экран под окном должен показывать уже новые данные.
-    render();
-  }).catch(function(error){
+
+    try {
+      // Разговор с Syn — четвёртый шаг обучения, и записать это надо здесь:
+      // ответ ассистента идёт мимо commit().
+      tourCheck();
+      // Помечаем именно «действий не было вовсе»: пустой список — это не то же
+      // самое, что действия, которые не применились, — про те сказано отдельно.
+      if (!(data.actions || []).length){
+        last.none = true;
+        last.said = text;
+      }
+      if (finance.length){
+        last.none = false;
+        last.finance = finPreview(finance);
+        last.finance.actions = finance;
+        last.finance.session = SYN_СЕССИЯ;
+      }
+      save();
+      synRedraw('', '');
+      // Экран под окном должен показывать уже новые данные.
+      render();
+    } catch (error){
+      if (window.console) console.error(error);
+    }
+  }, function(error){
     SYN.busy = false;
     // Неотвеченный вопрос не остаётся в ленте: иначе он уедет на сервер
     // следующим запросом как будто на него уже ответили.
     S.synChat.pop();
     save();
-    synRender(text, synErrorText(error));
+    synRedraw(text, synErrorText(error));
     /* Кончились запросы — предлагаем подписку, а не просто сообщаем.
 
        Раньше человек упирался в серую строчку «бесплатные запросы на сегодня
@@ -9028,7 +9171,9 @@ function synOfferPro(){
   S.proOfferShown = сегодня;
   save();
   // Даём дочитать ответ Syn, а не накрываем его окном в ту же миллисекунду.
-  setTimeout(function(){ openModal(modalSynPaywall()); }, 700);
+  // За эти 700 мс окно Syn могли закрыть или сменить другим — тогда
+  // предложение не выскакивает поверх чужого экрана или чужой формы.
+  setTimeout(function(){ if ($('syn-log')) openModal(modalSynPaywall()); }, 700);
 }
 
 /* Окно должно вести к покупке, а не к ожиданию.
@@ -9042,7 +9187,7 @@ function synOfferPro(){
    починится само. Недельный тариф стоит первым: 149 рублей — это решение на
    один вечер, а не обязательство на год, и именно с него начинают. */
 function modalSynPaywall(){
-  var limit = (SYN.quota && SYN.quota.limit) || FREE_SYN_LIMIT;
+  var limit = (synQuotaNow() && SYN.quota.limit) || FREE_SYN_LIMIT;
   var неделя = planPrice('pro.weekly'), месяц = planPrice('pro.monthly');
   return '<h3>Syn на сегодня закончился</h3>' +
     '<p class="s">Бесплатно он отвечает ' + limit + ' раз в сутки. В подписке — ' +
@@ -9070,7 +9215,7 @@ function synErrorText(error){
   if (error.status === 503) return 'Syn для веба ещё не включён на сервере.';
   if (error.status === 404) return 'Syn в браузере ещё не включён на сервере.';
   if (error.status === 402){
-    if (error.data && error.data.quota) SYN.quota = error.data.quota;
+    if (error.data && error.data.quota) synQuotaSet(error.data.quota);
     return error.data && error.data.error ? error.data.error : 'Запросы к Syn на сегодня закончились.';
   }
   if (error.status === 403) return 'Сервер не принял запрос с этого адреса.';
@@ -9111,7 +9256,11 @@ var VOICE_SILENCE_MS = 2000;
    ассистенту. */
 var VOICE_SEND_DELAY = 700;
 
-var voice = { on: false, rec: null, final: '', pending: null, silence: null, stopping: false };
+/* cancelled — «стоп» на андроиде: распознанное после него не отправляется.
+   Системный движок может прислать итог уже после отмены, а у старой
+   оболочки без cancel() итог после stop() приходит всегда. */
+var voice = { on: false, rec: null, final: '', pending: null, silence: null, stopping: false,
+              cancelled: false };
 
 /// Сбросить отсчёт тишины — человек снова заговорил.
 function voiceSilenceReset(){
@@ -9161,29 +9310,47 @@ function voiceSupported(){
    запроса на одну фразу. */
 window.addEventListener('android-voice', function(event){
   var d = (event && event.detail) || {};
+  /* Окно Syn закрыто — сказанное никуда не идёт.
+
+     Раньше каждое событие звало synRender, а тот открывал окно: человек
+     закрывал Syn «назад», движок присылал ещё слово — и окно выскакивало
+     обратно, а итог фразы уходил платным запросом. Слушание, начавшееся уже
+     после закрытия, гасим сразу. */
+  if (!$('syn-log')){
+    voice.on = false;
+    if (d.kind === 'start') voiceStop();
+    return;
+  }
+  // После «стоп» движок ещё может прислать хвост — он не считается. Даже
+  // start: новое слушание сбрасывает флаг до запуска, так что start при
+  // поднятом флаге — запоздалый, от уже отменённого.
+  if (voice.cancelled){
+    voice.on = false;
+    return;
+  }
   if (d.kind === 'start'){
     voice.on = true;
-    synRender('', '');
+    synRedraw('', '');
     return;
   }
   if (d.kind === 'partial'){
-    if (voice.on) synRender(d.text || '', '');
+    if (voice.on) synRedraw(d.text || '', '');
     return;
   }
   if (d.kind === 'error'){
     voice.on = false;
-    synRender($('syn-input') ? $('syn-input').value : '', d.text || 'Распознавание не сработало.');
+    synRedraw($('syn-input') ? $('syn-input').value : '', d.text || 'Распознавание не сработало.');
     return;
   }
   if (d.kind === 'final'){
     voice.on = false;
     var said = (d.text || '').trim();
-    if (!said){ synRender($('syn-input') ? $('syn-input').value : '', ''); return; }
+    if (!said){ synRedraw($('syn-input') ? $('syn-input').value : '', ''); return; }
     // Та же секунда на раздумье, что и у браузерного распознавания: человек
     // должен успеть нажать «стоп», если сказанное вышло не так.
     voiceCancelPending();
     voice.pending = setTimeout(function(){ voice.pending = null; synSend(said); }, VOICE_SEND_DELAY);
-    synRender(said, '');
+    synRedraw(said, '');
   }
 });
 
@@ -9193,6 +9360,7 @@ function voiceStart(){
 
   var родной = voiceNative();
   if (родной){
+    voice.cancelled = false;
     // Разрешение на микрофон спросит сама оболочка, и после согласия слушание
     // начнётся без второго нажатия.
     родной.start();
@@ -9246,7 +9414,7 @@ function voiceStart(){
       : event && event.error === 'no-speech'
         ? 'Ничего не услышал.'
         : 'Распознавание не сработало.';
-    synRender($('syn-input') ? $('syn-input').value : '', reason);
+    synRedraw($('syn-input') ? $('syn-input').value : '', reason);
   };
 
   rec.onend = function(){
@@ -9267,7 +9435,7 @@ function voiceStart(){
     voice.final = '';
 
     if (!said){
-      synRender($('syn-input') ? $('syn-input').value : '', '');
+      synRedraw($('syn-input') ? $('syn-input').value : '', '');
       return;
     }
 
@@ -9280,7 +9448,7 @@ function voiceStart(){
       voice.pending = null;
       synSend(said);
     }, VOICE_SEND_DELAY);
-    synRender(said, '');
+    synRedraw(said, '');
   };
 
   try {
@@ -9289,9 +9457,21 @@ function voiceStart(){
     voice.on = false;
     voice.rec = null;
   }
-  synRender($('syn-input') ? $('syn-input').value : '', '');
+  synRedraw($('syn-input') ? $('syn-input').value : '', '');
 }
 
+/* Остановить диктовку — значит отменить, а не досказать.
+
+   «Стоп» нажимают, когда сказалось не то, — но фраза всё равно уходила Syn.
+   В браузере abort() тоже зовёт onend, а тот видел накопленный voice.final и
+   отправлял его; заодно приходила ложная ошибка «aborted» с красной строкой
+   «распознавание не сработало». На андроиде stop() просит движок закончить
+   фразу, и итог прилетал событием final — с той же отправкой.
+
+   Теперь в браузере обработчики снимаются до abort(), а накопленное
+   забывается; на андроиде движок отменяется через cancel(), а всё, что он
+   успеет прислать после, отбрасывается по voice.cancelled. Текст в поле
+   остаётся: захочет человек — отправит его сам. */
 function voiceStop(){
   voiceCancelPending();
   // Нажали «стоп» — ждать тишину больше незачем.
@@ -9299,9 +9479,15 @@ function voiceStop(){
   voice.stopping = false;
 
   var родной = voiceNative();
-  if (родной && voice.on && !voice.rec){
+  if (родной && !voice.rec){
+    // Зовём и когда voice.on ещё ложно: слушание могли запросить, а событие
+    // start ещё не пришло — его тоже надо отменить.
+    voice.cancelled = true;
     voice.on = false;
-    родной.stop();
+    // Старая оболочка cancel() не знает — тогда stop(), а его итог отбросит
+    // voice.cancelled.
+    if (typeof родной.cancel === 'function') родной.cancel();
+    else родной.stop();
     return;
   }
 
@@ -9309,13 +9495,15 @@ function voiceStop(){
   voice.on = false;
   var rec = voice.rec;
   voice.rec = null;
-  // abort, а не stop: stop досылает последний кусок и снова зовёт onend,
-  // который отправил бы уже отправленное.
+  voice.final = '';
+  rec.onresult = null;
+  rec.onerror = null;
+  rec.onend = null;
   try { rec.abort(); } catch (error){}
 }
 
 function synAsk(){
-  return synSession().then(function(token){
+  return synWithSession(function(token){
     var workspace = synWorkspace();
     if (S.synIntent) workspace.assistantIntent = S.synIntent;
     if (S.synGoalCreate) workspace.assistantGoalCreate = true;
@@ -9546,15 +9734,39 @@ function synWeekdayDate(text){
   return null;
 }
 
+/* Дата и время от модели — только проверенные.
+
+   Проверка была по началу строки: «9:30:» проходило как время, «9:30» без
+   ведущего нуля резалось до «9:30» вместо «09:30» (а время без даты не
+   дополнялось нулём вовсе), «25:99» и «2026-02-31» ложились в задачу как
+   есть. Дальше такое значение ломало сортировку по времени, напоминания и
+   полосу дня, а «31 февраля» Date молча превращал в 3 марта.
+
+   Теперь время — ЧЧ:ММ с необязательными секундами и поясом, часы до 23 и
+   минуты до 59, с нулём впереди. Дата — настоящий день календаря: разбираем
+   и собираем обратно, и если вышло другое число, такого дня нет. */
+function synClock(text){
+  var m = /^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}(?::?\d{2})?)?$/.exec(String(text || ''));
+  if (!m) return null;
+  var h = Number(m[1]), min = Number(m[2]);
+  if (h > 23 || min > 59 || (m[3] && Number(m[3]) > 59)) return null;
+  return (h < 10 ? '0' : '') + h + ':' + m[2];
+}
+
+function synISODate(text){
+  var iso = String(text || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  return isoOf(dateOf(iso)) === iso ? iso : null;
+}
+
 function synSplitDateTime(value){
   var raw = String(value || '').trim();
   if (!raw) return { date: null, time: null };
   var parts = raw.split(/[ T]/);
-  var date = /^\d{4}-\d{2}-\d{2}$/.test(parts[0]) ? parts[0] : null;
+  var date = synISODate(parts[0]);
   if (!date) date = synWeekdayDate(raw);
-  var time = parts[1] && /^\d{1,2}:\d{2}/.test(parts[1])
-    ? parts[1].slice(0, 5).padStart(5, '0') : null;
-  if (!date && /^\d{1,2}:\d{2}/.test(parts[0])) time = parts[0].slice(0, 5);
+  var time = synClock(parts[1]);
+  if (!date && synClock(parts[0])) time = synClock(parts[0]);
   return { date: date, time: time };
 }
 
@@ -9914,7 +10126,12 @@ synAct('complete_task mark_task_done reopen_task uncomplete_task', function(a, d
 });
 
 synAct('restore_task', function(a, done, skipped){
-  var target = String(a.target || '').toLowerCase().trim();
+  /* Имя — теми же правилами, что у прочих действий с задачей, и без имени
+     ничего не возвращаем. Раньше читался только target, а пустая строка
+     «входит» в любое название: indexOf('') === 0, и из корзины доставалась
+     первая попавшаяся задача — не та, о которой просили. */
+  var target = synTaskName(a).toLowerCase();
+  if (!target) return skipped.push('не понял, какую задачу вернуть');
 
   // Сначала корзина: «верни задачу» после удаления — самый частый случай.
   for (var t = 0; t < S.trash.length; t++){
@@ -9929,7 +10146,7 @@ synAct('restore_task', function(a, done, skipped){
   for (var i = 0; i < S.tasks.length; i++){
     if (S.tasks[i].archived && S.tasks[i].title.toLowerCase().indexOf(target) >= 0){ found = S.tasks[i]; break; }
   }
-  if (!found) return skipped.push('ни в корзине, ни в архиве нет «' + (a.target || '') + '»');
+  if (!found) return skipped.push('ни в корзине, ни в архиве нет «' + synTaskName(a) + '»');
   found.archived = false;
   found.done = false;
   found.bucket = 'today';
@@ -10398,10 +10615,26 @@ synAct('delete_all_goals clear_goals reset_goals', function(a, done, skipped){
 synAct('delete_all_goals_and_tasks clear_goals_and_tasks reset_goals_and_tasks', function(a, done, skipped){
   var count = S.tasks.length + S.goals.length;
   if (!count) return skipped.push('удалять нечего');
+  /* В корзину, как у соседей выше. Здесь удаление шло мимо неё — и это была
+     самая крупная пачка из всех: одна неверно понятая фраза стирала и цели,
+     и задачи без возврата. Задачи цели кладём внутрь её записи — так же, как
+     при удалении цели с задачами из её экрана: вернёт человек цель, и задачи
+     вернутся вместе с ней на свои этапы, а не повиснут со ссылкой на цель,
+     которой нет. Остальные задачи — каждую своей записью. */
+  S.goals.forEach(function(g){
+    var свои = S.tasks.filter(function(t){ return t.goalId === g.id; });
+    trashPut('goal', g, {
+      taskIDs: свои.map(function(t){ return { id: t.id, stageId: t.stageId }; }),
+      tasks: свои
+    });
+  });
+  S.tasks.forEach(function(t){
+    if (!t.goalId || !findGoal(t.goalId)) trashPut('task', t);
+  });
   S.tasks = [];
   S.goals = [];
   S.activeGoal = null;
-  done.push('удалено всё: ' + count);
+  done.push('удалено всё: ' + count + ' — лежит в корзине');
 });
 
 /* Понять действие, имя которого модель придумала сама.
@@ -11021,6 +11254,17 @@ function setPageInert(on){
 }
 
 function openModal(html, toInput){
+  /* Запись в историю — только когда окна на экране ещё не было.
+
+     Раньше запись добавлялась на каждый вызов, а окно Syn перерисовывается
+     через openModal на каждое слово диктовки и на каждый ответ. Один разговор
+     оставлял в истории два десятка записей, и чтобы закрыть окно на андроиде,
+     «назад» приходилось жать столько же раз. Окно поверх окна — та же одна
+     запись: закрывается оно тоже одним нажатием. */
+  var былоОткрыто = modalOpen();
+  // Окно Syn сменилось другим — диктовка без своего окна слушать не должна:
+  // распознанное ушло бы платным запросом в закрытый разговор.
+  if (былоОткрыто && $('syn-log') && html.indexOf('id="syn-log"') < 0) voiceStop();
   $('modalIn').innerHTML = SynI18n.tr(html);
   foldModalActions();
   $('modal').classList.add('on');
@@ -11032,7 +11276,7 @@ function openModal(html, toInput){
      озвучки. */
   setPageInert(true);
 
-  if (window.history && window.history.pushState){
+  if (!былоОткрыто && window.history && window.history.pushState){
     modalDepth++;
     window.history.pushState({ modal: modalDepth }, '', location.href);
   }
@@ -11072,6 +11316,12 @@ function closeModal(){
 /// Убрать окно с экрана, не трогая историю. Нужно отдельно: когда окно
 /// закрывает сама кнопка «назад», запись уже снята браузером.
 function hideModal(){
+  /* Закрыли окно Syn — диктовка и отложенная отправка отменяются.
+
+     Без этого закрытое окно открывалось само: микрофон продолжал слушать,
+     следующее же слово перерисовывало окно обратно, а договорённая фраза
+     уходила Syn и тратила платный запрос, хотя человек уже передумал. */
+  if ($('syn-log')) voiceStop();
   $('modal').classList.remove('on');
   setPageInert(false);
   $('modalIn').innerHTML = '';
@@ -11080,6 +11330,29 @@ function hideModal(){
 
 function modalOpen(){
   return $('modal') && $('modal').classList.contains('on');
+}
+
+/* Переход в раздел прямо из окна — без гонки с историей.
+
+   Раньше «go» делал closeModal(), то есть history.back(), и сразу go() с
+   pushState. Только back() асинхронный: новая запись ложилась поверх записи
+   окна, а потом back() срабатывал и снимал уже её — человек оказывался на
+   прежнем экране, или popstate закрывал окно, которого нет, и modalDepth
+   уезжал. Теперь запись окна не снимается, а превращается в запись раздела:
+   replaceState синхронный, гоняться не с чем.
+
+   Возвращает true, если переходить уже не нужно: раздел тот же, и хватает
+   закрыть окно обычным способом. */
+function closeModalBeforeGo(view){
+  if (!modalOpen()) return false;
+  var своя = modalDepth > 0 && window.history && window.history.replaceState &&
+    window.history.state && window.history.state.modal;
+  if (!своя){ hideModal(); return false; }
+  if (S.view === view){ closeModal(); return true; }
+  hideModal();
+  modalDepth--;
+  window.history.replaceState({ view: view }, '', location.href);
+  return false;
 }
 
 var HORIZONS = ['Месяц', 'Квартал', 'Полгода', 'Год', 'Три года'];
@@ -11496,9 +11769,13 @@ function syncCompletion(){
 
    Слепок берём тот же самый, что уходит в срез: если он совпал с прошлым,
    значит, с точки зрения брифинга ничего и не произошло. */
+/* Просрочку в слепок не берём: она зависит от часов, а не от дел. Задача на
+   девять утра становилась «просроченной» в 9:01 сама по себе, слепок менялся,
+   и первый же commit после этого — любая галочка в настройках — помечал
+   брифинг устаревшим, хотя ни одно дело не поменялось. */
 function брифингСледОтДел(){
   var задачи = liveTasks().map(function(t){
-    return t.id + (t.done ? 'd' : isOverdue(t) ? 'm' : 'o');
+    return t.id + (t.done ? 'd' : 'o');
   }).sort().join(',');
   var цели = S.goals.map(function(g){
     return g.id + ':' + (g.stages || []).map(function(st){ return st.id + st.status; }).sort().join('|');
@@ -11631,7 +11908,7 @@ function showToast(){
 /* ============ ДЕЙСТВИЯ ============ */
 
 var ACTS = {
-  go: function(d){ closeModal(); go(d.view); },
+  go: function(d){ if (!closeModalBeforeGo(d.view)) go(d.view); },
 
   theme: function(){
     S.theme = isDarkNow() ? 'light' : 'dark';
@@ -12028,18 +12305,18 @@ var ACTS = {
     synRender(draft, '');
     synSend(draft);
   },
-  'fin-apply': function(){
+  'fin-apply': function(d){
     // Деньги пишутся только после подтверждения: ошибка в сумме портит и
     // сводку, и конверты, и остаток на счёте — в отличие от задачи, где
     // промах видно сразу и он ничего не ломает.
-    var batch = S.finPending;
-    if (!batch || !batch.length) return;
-    S.finPending = null;
+    // Пачка — та, что у нажатой карточки (data-i), а не последняя пришедшая.
+    var batch = synFinTake(d.i, 'Записано');
+    if (!batch) return;
     var made = finApplyBatch(batch);
     commit(made.length ? made.join(', ') : 'Ничего не записалось');
   },
-  'fin-drop': function(){
-    S.finPending = null;
+  'fin-drop': function(d){
+    if (!synFinTake(d.i, 'Не записано')) return;
     commit('Не записано');
   },
   'fin-op-edit': function(d){
