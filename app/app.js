@@ -12947,8 +12947,18 @@ var ACTS = {
         : 'Напишите, что и на сколько: «кофе 350»');
     }
     var when = $('findate') ? $('findate').value : '';
+    /* «зарплата 95000» — доход, даже если переключатель стоит на «Трата».
+
+       Категория «Доход» узнаётся по словам (зарплата, аванс, премия,
+       кешбэк…), и раньше она ставилась, а сама запись всё равно уходила
+       тратой: зарплата вычиталась из бюджета вместо того, чтобы его
+       пополнить. Если слова однозначно про доход, а человек не переключал
+       вид явно, записываем доходом. */
+    var вид = S.finKind || 'spend';
+    if (вид === 'spend' && parsed.cat === 'salary' &&
+        /(зарплат|аванс|преми|гонорар|кешбэк|кэшбэк)/i.test(field.value)) вид = 'income';
     S.finance.ops.push({
-      id: uid(), kind: S.finKind || 'spend', title: parsed.title,
+      id: uid(), kind: вид, title: parsed.title,
       amount: parsed.amount, cat: parsed.cat,
       date: when || isoOf(todayDate()), at: Date.now(),
       accountId: ''
