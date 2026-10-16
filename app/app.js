@@ -753,6 +753,22 @@ function rolloverIfNeeded(){
   save();
 }
 
+/* Перекат и тогда, когда приложение не закрывали.
+
+   Перекат запускался только при загрузке и при переходе между экранами. На
+   Android WebView живёт в фоне сутками: открыл утром — а на экране вчерашнее
+   «Сегодня», «Завтра» с сегодняшним числом и ни одной перенесённой задачи,
+   пока не тронешь меню. Возвращение на экран — это и есть «первое открытие
+   нового дня». */
+if (typeof document !== 'undefined'){
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) return;
+    if (S.lastOpened === isoOf(todayDate())) return;
+    rolloverIfNeeded();
+    render();
+  });
+}
+
 /* Плотный список — признаком на корне, как тема и начертание.
 
    Не отдельной веткой в разметке задач: там она обросла бы условиями в
@@ -1176,12 +1192,25 @@ function parseSchedule(text, fallbackBucket){
   var today = todayDate();
   var date = null, time = null;
 
+  /* Кусок запоминается позицией, а не текстом.
+
+     Раньше в cuts лежала сама строка, и название потом резалось по первому её
+     вхождению — а оно не обязано быть тем, что распознали. «Сделать завтрак
+     завтра» превращалось в «Сделать к завтра»: «завтра» нашлось внутри
+     «завтрака». «Встреча вс» теряла «вс» из «встречи» и становилась «Треча
+     вс». Теперь режется ровно то место, где было совпадение.
+
+     И это место тут же забивается пробелами в work. Иначе следующие проверки
+     видят уже разобранное ещё раз: дата «16.10» читалась заодно и как время
+     16:10, а настоящее «в 9:00» оставалось в названии. */
   var take = function(regex){
-    var m = work.match(regex);
+    var m = regex.exec(work);
     if (!m) return null;
     // Первая группа — символ перед словом, его вырезать нельзя.
     var lead = m[1] || '';
-    cuts.push(m[0].slice(lead.length));
+    var at = m.index + lead.length, len = m[0].length - lead.length;
+    cuts.push({ at: at, len: len });
+    work = work.slice(0, at) + new Array(len + 1).join(' ') + work.slice(at + len);
     return m;
   };
 
@@ -1209,11 +1238,26 @@ function parseSchedule(text, fallbackBucket){
   }
 
   if (!date){
-    var numericProbe = work.match(new RegExp(WORD_START + '(\\d{1,2})[.\\/](\\d{1,2})(?:[.\\/](\\d{2,4}))?' + WORD_END));
-    // «в 9.30» — это половина десятого, а не тридцатый месяц.
-    var numeric = (numericProbe && Number(numericProbe[3]) >= 1 && Number(numericProbe[3]) <= 12 && Number(numericProbe[2]) <= 31)
-      ? take(new RegExp(WORD_START + '(\\d{1,2})[.\\/](\\d{1,2})(?:[.\\/](\\d{2,4}))?' + WORD_END))
-      : null;
+    /* «в 9.30» — это половина десятого, а не тридцатый месяц. И «в 9.05» —
+       пять минут десятого, а не девятое мая: месяц тут правдоподобный, и
+       раньше встреча молча уезжала на полгода. Число с точкой после «в»
+       читается как время; дату так не говорят — говорят «9.05» или «на 9.05».
+
+       Перебираются все такие числа, а не только первое: в «в 9.30 врач 16.10»
+       первое — время, а дата идёт вторым. */
+    var numericRe = new RegExp(WORD_START + '(\\d{1,2})[.\\/](\\d{1,2})(?:[.\\/](\\d{2,4}))?' + WORD_END, 'g');
+    var numeric = null, numericProbe;
+    while ((numericProbe = numericRe.exec(work))){
+      var probeAt = numericProbe.index + (numericProbe[1] || '').length;
+      var похожеНаВремя = /(^|[^а-яa-z0-9])в\s*$/.test(work.slice(0, probeAt));
+      if (!похожеНаВремя && Number(numericProbe[3]) >= 1 && Number(numericProbe[3]) <= 12 &&
+          Number(numericProbe[2]) >= 1 && Number(numericProbe[2]) <= 31){
+        numericRe.lastIndex = numericProbe.index;
+        numeric = take(numericRe);
+        break;
+      }
+      if (numericRe.lastIndex === numericProbe.index) numericRe.lastIndex += 1;
+    }
     if (numeric){
       var year = numeric[4] ? Number(numeric[4]) : today.getFullYear();
       if (year < 100) year += 2000;
@@ -1239,25 +1283,42 @@ function parseSchedule(text, fallbackBucket){
   if (withMinutes){
     time = clock(Number(withMinutes[2]), Number(withMinutes[3]));
   } else {
-    var withPeriod = take(new RegExp(WORD_START + '(?:в|к|на)\\s*([01]?\\d|2[0-3])\\s+(утра|дня|вечера|ночи)' + WORD_END));
+    /* «На» — время только вместе с минутами или со «утра/вечера/ночи».
+
+       Без них «на» почти всегда про количество, а не про час: «отпуск на 3
+       дня» давал 15:00, «столик на 4 человек» — 04:00, «пробежка на 10 минут»
+       и «разделить на два» — тоже часы. «На 3 дня» — это три дня, поэтому
+       «дня» после «на» временем не считается, а «на 8 вечера» — считается.
+       «В два раза» и «в 3 раза» — тоже не время. */
+    var withPeriod = take(new RegExp(WORD_START + '(?:(?:в|к)\\s*([01]?\\d|2[0-3])\\s+(утра|дня|вечера|ночи)|на\\s*([01]?\\d|2[0-3])\\s+(утра|вечера|ночи))' + WORD_END));
     if (withPeriod){
-      time = clock(adjustHour(Number(withPeriod[2]), withPeriod[3]), 0);
+      time = clock(adjustHour(Number(withPeriod[2] || withPeriod[4]), withPeriod[3] || withPeriod[5]), 0);
     } else {
       var named2 = take(wordRegex('(?:в|к|на)\\s+(полдень|полночь|обед(?:а)?)'));
       if (named2){
         var keyword = named2[2];
         time = keyword === 'полдень' ? '12:00' : keyword === 'полночь' ? '00:00' : '13:00';
       } else {
-        var wordHour = take(new RegExp(WORD_START + '(?:в|к|на)\\s+(час|часа|часов|одиннадцать|двенадцать|один|одну|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять)(?:\\s+(утра|дня|вечера|ночи))?' + WORD_END));
+        // «В час» — час дня только сам по себе или с «дня/ночи»: «в час пик»
+        // — это не 01:00.
+        var СЛОВА_ЧАСА = 'час(?!\\s+[а-яa-z0-9])|часа|часов|одиннадцать|двенадцать|один|одну|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять';
+        var wordHour = take(new RegExp(WORD_START + '(?:(?:в|к)\\s+(' + СЛОВА_ЧАСА.replace('(?!\\s+[а-яa-z0-9])', '') + ')(?:\\s+час(?:а|ов)?)?\\s+(утра|дня|вечера|ночи)|на\\s+(' + СЛОВА_ЧАСА.replace('(?!\\s+[а-яa-z0-9])', '') + ')(?:\\s+час(?:а|ов)?)?\\s+(утра|вечера|ночи))' + WORD_END))
+          || take(new RegExp(WORD_START + '(?:в|к)\\s+(' + СЛОВА_ЧАСА + ')(?:\\s+час(?:а|ов)?)?' + WORD_END + '(?!\\s+раз)'));
         if (wordHour){
-          time = clock(adjustHour(HOUR_WORDS[wordHour[2]], wordHour[3]), 0);
+          time = clock(adjustHour(HOUR_WORDS[wordHour[2] || wordHour[4]], wordHour[3] || wordHour[5]), 0);
         } else {
-          var hourOnly = take(new RegExp(WORD_START + '(?:в|к|на)\\s*([01]?\\d|2[0-3])' + WORD_END));
+          var hourOnly = take(new RegExp(WORD_START + '(?:в|к)\\s*([01]?\\d|2[0-3])(?:\\s+час(?:а|ов)?)?' + WORD_END + '(?!\\s+раз)'));
           if (hourOnly) time = clock(Number(hourOnly[2]), 0);
         }
       }
     }
   }
+
+  // Назвал ли человек день сам — запоминается до того, как день подставят из
+  // блока. Раньше hasDate считался в самом конце, и «встретить в 8» без всякого
+  // дня выходило «с явной датой»: карточка показывала выведенное нами число как
+  // обещание человека.
+  var названаДата = !!date;
 
   /* --- блок словами, если даты так и нет --- */
   var bucket = null;
@@ -1268,15 +1329,11 @@ function parseSchedule(text, fallbackBucket){
 
   /* --- название --- */
   // Режем ровно те куски, что распознали, из исходной строки — с учётом
-  // регистра и «ё». Куски искали в нормализованном тексте, поэтому ищем по
-  // нормализованной копии и вырезаем по найденным позициям.
-  var lowered = normalizeText(original);
+  // регистра и «ё». Позиции в нормализованном тексте совпадают с исходными:
+  // нормализация только меняет буквы, длину строки она не трогает.
   var keep = original.split('');
   for (var c = 0; c < cuts.length; c++){
-    var at = lowered.indexOf(cuts[c]);
-    if (at < 0) continue;
-    for (var k = at; k < at + cuts[c].length; k++) keep[k] = ' ';
-    lowered = lowered.slice(0, at) + new Array(cuts[c].length + 1).join(' ') + lowered.slice(at + cuts[c].length);
+    for (var k = cuts[c].at; k < cuts[c].at + cuts[c].len; k++) keep[k] = ' ';
   }
   var title = keep.join('').replace(/\s+/g, ' ').trim();
 
@@ -1286,7 +1343,7 @@ function parseSchedule(text, fallbackBucket){
   title = title.replace(/^(?:создай|добавь|оформи|запиши|напомни)\s+(?:задачу\s+|мне\s+)?/i, '');
   title = title.charAt(0).toUpperCase() + title.slice(1);
 
-  if (!date && time){
+  if (!date && time && !bucket){
     // Время без дня ставит задачу на день блока по умолчанию.
     date = dateOf(dateForBucket(fallbackBucket || 'today')) || today;
   }
@@ -1299,12 +1356,18 @@ function parseSchedule(text, fallbackBucket){
   // Блоки «На неделе» и «Потом» не называют конкретный день, поэтому времени
   // там нет (TaskBucket.spansSeveralDays). Но названную вслух дату не теряем:
   // «оплатить 25.08» обязано помнить 25 августа.
-  if (spansSeveralDays(finalBucket)){
+  //
+  // И время при названной дате тоже не теряем. Раньше оно обнулялось по
+  // одному блоку, и «врач в понедельник в 9:00» или «созвон 20.10 в 15:00»
+  // приходили без часа — напоминание не срабатывало. День здесь конкретный,
+  // значит и время у него есть; напоминания считают по date и time, им блок
+  // не важен.
+  if (spansSeveralDays(finalBucket) && !названаДата){
     time = null;
-    if (!date) iso = null;
+    iso = null;
   }
 
-  return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: !!date, hasTime: !!time };
+  return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: названаДата, hasTime: !!time };
 }
 
 /* Время, которое сегодня уже прошло, — это завтра.
@@ -1450,30 +1513,49 @@ function advancedDate(date, rule){
   }
 
   if (rule.unit === 'week'){
+    /* Несколько дней в неделе — сначала оставшиеся дни этой же недели, и
+       только когда они кончились, прыжок через интервал к первому дню.
+
+       Раньше интервал при нескольких днях не участвовал вовсе: «каждые две
+       недели по вторникам и четвергам» шло каждую неделю. И «ближайший» брался
+       первым по порядку, а не ближайшим: со среды по правилу «пн и пт»
+       следующим выходил понедельник, а не пятница. Неделя считается с
+       понедельника, как в календаре у нас. */
     var days = (rule.weeklyWeekdays && rule.weeklyWeekdays.length) ? rule.weeklyWeekdays.slice() : [date.getDay()];
-    days.sort(function(a, b){ return a - b; });
-    // Несколько дней в неделе — берётся ближайший следующий.
+    var отПонедельника = function(day){ return (day + 6) % 7; };
+    days.sort(function(a, b){ return отПонедельника(a) - отПонедельника(b); });
+    var сейчас = отПонедельника(next.getDay());
     for (var d = 0; d < days.length; d++){
-      var delta = (days[d] - next.getDay() + 7) % 7;
-      if (delta > 0) return addDays(next, delta);
+      if (отПонедельника(days[d]) > сейчас) return addDays(next, отПонедельника(days[d]) - сейчас);
     }
-    return addDays(next, 7 * step - ((next.getDay() - days[0] + 7) % 7));
+    return addDays(next, 7 * step - сейчас + отПонедельника(days[0]));
   }
 
-  // Месяц. Число берётся из правила или из самой даты; в коротком месяце
-  // прижимается к последнему дню, а не уезжает в следующий.
-  var wanted = (rule.monthlyDays && rule.monthlyDays.length) ? rule.monthlyDays[0] : date.getDate();
+  /* Месяц. Число берётся из правила или из самой даты; в коротком месяце
+     прижимается к последнему дню, а не уезжает в следующий.
+
+     Чисел в правиле может быть несколько — «5 и 20 числа», — и раньше из них
+     бралось только первое: серия шла пятого и пропускала двадцатое. Теперь
+     сначала оставшиеся числа этого месяца, затем прыжок через интервал к
+     самому раннему. */
+  var wanted = (rule.monthlyDays && rule.monthlyDays.length) ? rule.monthlyDays.slice() : [date.getDate()];
+  wanted.sort(function(a, b){ return a - b; });
   var year = next.getFullYear(), month = next.getMonth();
-  var candidate = new Date(year, month, Math.min(wanted, daysInMonth(year, month)));
+  var candidate = null;
+  for (var w = 0; w < wanted.length && !candidate; w++){
+    var этот = new Date(year, month, Math.min(wanted[w], daysInMonth(year, month)));
+    if (этот > date) candidate = этот;
+  }
   var guard = 0;
-  while (candidate <= date && guard < 64){
+  while (!candidate && guard < 64){
     month += step;
     year += Math.floor(month / 12);
     month = ((month % 12) + 12) % 12;
-    candidate = new Date(year, month, Math.min(wanted, daysInMonth(year, month)));
+    candidate = new Date(year, month, Math.min(wanted[0], daysInMonth(year, month)));
+    if (candidate <= date) candidate = null;
     guard += 1;
   }
-  return candidate;
+  return candidate || addDays(date, 1);
 }
 
 function daysInMonth(year, month){
@@ -1514,7 +1596,16 @@ function nextOccurrence(fromISO, rule, minISO){
 
 /// Следующее повторение той же серии. Возвращает созданную задачу или null.
 function spawnNextOccurrence(task){
-  var base = task.date || isoOf(todayDate());
+  /* Серия считается от своего дня, а не от дня переноса.
+
+     Невыполненная задача наутро переезжает в «Сегодня», и её date становится
+     сегодняшним числом, а настоящий день повторения остаётся в carriedFrom.
+     Раньше следующее повторение считалось от date — и еженедельная задача на
+     понедельник, закрытая во вторник после переноса, дальше шла по вторникам.
+     Теперь шаг правила — от исходного дня, а «не раньше завтра» — от
+     сегодняшнего: дубль на уже прошедший день не нужен. */
+  var base = task.carriedFrom || task.date || isoOf(todayDate());
+  var сегодняЗадачи = task.date || base;
 
   /* Число месяца запоминается на первом повторении и едет с серией дальше.
 
@@ -1543,8 +1634,21 @@ function spawnNextOccurrence(task){
     }
   }
 
-  var next = nextOccurrence(base, правило, isoOf(addDays(dateOf(base) || todayDate(), 1)));
+  var next = nextOccurrence(base, правило, isoOf(addDays(dateOf(сегодняЗадачи > base ? сегодняЗадачи : base) || todayDate(), 1)));
   if (!next) return null;
+
+  /* Срок едет вместе с повторением, на тот же сдвиг в днях.
+
+     Раньше копия получала прошлый срок без изменений, и каждое следующее
+     повторение рождалось уже просроченным — красным с первого дня. */
+  var срок = null;
+  if (task.deadline && task.deadline.date){
+    срок = {};
+    for (var поле in task.deadline) if (task.deadline.hasOwnProperty(поле)) срок[поле] = task.deadline[поле];
+    срок.date = isoOf(addDays(dateOf(task.deadline.date), dayDiff(base, next)));
+  } else if (task.deadline){
+    срок = task.deadline;
+  }
 
   var series = task.series || task.id;
   // Дубль той же серии на тот же день не создаём — hasRecurringOccurrence.
@@ -1556,7 +1660,7 @@ function spawnNextOccurrence(task){
   var copy = {
     id: uid(), title: task.title, bucket: derivedBucket(next), date: next, done: false,
     note: task.note, time: task.time, repeat: task.repeat, rule: task.rule || null, series: series,
-    deadline: task.deadline || null, windowFrom: task.windowFrom || null,
+    deadline: срок, windowFrom: task.windowFrom || null,
     hasExplicitDate: task.hasExplicitDate, hasExplicitTime: task.hasExplicitTime,
     // Якорь едет с серией: иначе следующее повторение снова возьмёт число из
     // прижатой даты и серия опять сядет на 28-е.
@@ -2688,17 +2792,29 @@ function trashDaysLeft(item){
    Цель возвращается вместе со связями: задачи, которые были к ней привязаны,
    привязываются обратно. Их идентификаторы сохранены в extra, потому что сами
    задачи никуда не удалялись — у них лишь снялась связь. */
+/* Блок вернувшейся задачи считается из её даты заново.
+
+   Раньше пересчитывалось только прошедшее. Задача, удалённая позавчера из
+   «Завтра» с датой на вчерашнее «завтра», возвращалась в «Сегодня» — это
+   правильно; а удалённая из «Послезавтра» и возвращённая назавтра оставалась
+   в «Послезавтра» с завтрашним числом. Задачи цели возвращались вовсе без
+   пересчёта. */
+function вернутьВБлок(task){
+  if (!task || !task.date) return;
+  if (task.date < isoOf(todayDate())){
+    task.date = isoOf(todayDate());
+    task.archived = false;
+  }
+  task.bucket = derivedBucket(task.date);
+}
+
 function trashRestore(id){
   var item = trashFind(id);
   if (!item) return '';
 
   if (item.kind === 'task'){
     var task = item.data;
-    if (task.date && task.date < isoOf(todayDate())){
-      task.date = isoOf(todayDate());
-      task.bucket = 'today';
-      task.archived = false;
-    }
+    вернутьВБлок(task);
     S.tasks.push(task);
   } else if (item.kind === 'goal'){
     S.goals.push(item.data);
@@ -2708,6 +2824,7 @@ function trashRestore(id){
     for (var k = 0; k < S.tasks.length; k++) естьID[S.tasks[k].id] = true;
     for (var si = 0; si < свои.length; si++){
       if (естьID[свои[si].id]) continue;
+      вернутьВБлок(свои[si]);
       S.tasks.push(свои[si]);
       естьID[свои[si].id] = true;
     }
@@ -9786,6 +9903,10 @@ synAct('complete_task mark_task_done reopen_task uncomplete_task', function(a, d
   if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var closing = a.kind === 'complete_task' || a.kind === 'mark_task_done';
   task.done = closing;
+  // Подпункты закрываются вместе с задачей, как у галочки на карточке. Иначе
+  // syncCompletion на ближайшем сохранении видел открытые подпункты и
+  // возвращал задачу обратно — Syn отчитывался «закрыта», а она висела.
+  if (closing && task.subtasks) task.subtasks.forEach(function(sub){ sub.done = true; });
   // Та же логика, что у галочки на карточке: закрытая повторяющаяся задача
   // ставит следующую в серии, иначе повтор кончается на первом разе.
   if (closing) spawnNextOccurrence(task);
@@ -10384,16 +10505,11 @@ function synApplyActions(actions){
 }
 
 /// Из даты в блок дня — обратное к dateForBucket.
+/// Одна граница на всё приложение: раньше здесь «на неделе» кончалось на
+/// седьмом дне, а в derivedBucket — на шестом, и задача через неделю после
+/// создания лежала в «Потом», а после первого переката — в «На неделе».
 function bucketForDate(iso){
-  var target = dateOf(iso);
-  if (!target) return 'later';
-  var today = todayDate();
-  var days = Math.round((target - today) / 86400000);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'tomorrow';
-  if (days === 2) return 'dayAfterTomorrow';
-  if (days <= 7) return 'thisWeek';
-  return 'later';
+  return derivedBucket(iso);
 }
 
 /* ============ ПЕРЕНОС ДАННЫХ ============ */
@@ -11340,7 +11456,17 @@ function syncCompletion(){
   for (i = 0; i < S.tasks.length; i++){
     var t = S.tasks[i];
     if (!t.subtasks || !t.subtasks.length) continue;
+    var былаЗакрыта = !!t.done;
     t.done = t.subtasks.every(function(sub){ return sub.done; });
+    /* Задача, закрытая последним подпунктом, — тоже закрытая задача.
+
+       Следующее повторение ставила только галочка на самой карточке
+       (ACTS.toggle). Повторяющаяся задача, которую закрыли подпунктами,
+       просто кончалась — серия обрывалась без единого слова. Ставим здесь
+       ровно на переходе «открыта → закрыта»: у галочки задача к этому моменту
+       уже закрыта, так что второй копии не будет, а от дубля на тот же день
+       spawnNextOccurrence бережёт и сам. */
+    if (!былаЗакрыта && t.done && t.repeat) spawnNextOccurrence(t);
   }
 
   for (i = 0; i < S.goals.length; i++){
@@ -12345,8 +12471,17 @@ var ACTS = {
     // Родитель ведёт за собой подпункты. Без этого syncCompletion пересчитал
     // бы задачу обратно по незакрытым подпунктам — нажатие выглядело бы
     // как не сработавшее.
+    //
+    // Но только при закрытии. Снятие галочки раньше сбрасывало все подпункты
+    // разом, и случайное нажатие стирало всю отмеченную работу. Теперь при
+    // открытии снимается один последний подпункт — ровно столько, сколько
+    // нужно, чтобы пересчёт не закрыл задачу обратно.
     if (t.subtasks && t.subtasks.length){
-      for (var si = 0; si < t.subtasks.length; si++) t.subtasks[si].done = t.done;
+      if (t.done){
+        for (var si = 0; si < t.subtasks.length; si++) t.subtasks[si].done = true;
+      } else if (t.subtasks.every(function(sub){ return sub.done; })){
+        t.subtasks[t.subtasks.length - 1].done = false;
+      }
     }
     // createNextRecurringTaskIfNeeded(afterCompleting:) из WorkspaceStore:
     // закрытая повторяющаяся задача не исчезает, а ставит следующую в серии.
@@ -12416,9 +12551,19 @@ var ACTS = {
     var title = mval('m-title');
     if (title) t.title = title;
     t.note = $('m-note') ? $('m-note').value.trim() : t.note;
+    /* Дата пересчитывается из блока, только если блок поменяли.
+
+       Раньше она пересчитывалась на каждом сохранении, а у «На неделе» и
+       «Потом» dateForBucket даёт пустоту: правка одного описания у задачи
+       «врач в понедельник» стирала понедельник. Блок тот же — значит, и день
+       тот же, который назвали.
+
+       Время у таких блоков держим, пока у задачи есть свой день: «в
+       понедельник в 9:00» — это конкретный час, и напоминание о нём нужно. */
+    var прежнийБлок = t.bucket;
     t.bucket = mval('m-bucket') || t.bucket;
-    t.date = dateForBucket(t.bucket);
-    t.time = spansSeveralDays(t.bucket) ? null : (mval('m-time') || null);
+    if (t.bucket !== прежнийБлок) t.date = dateForBucket(t.bucket);
+    t.time = (spansSeveralDays(t.bucket) && !t.date) ? null : (mval('m-time') || null);
     t.repeat = mval('m-repeat');
     if (t.repeat === CUSTOM_REPEAT){
       var days = [].map.call(document.querySelectorAll('#m-rdays .radio[aria-pressed="true"]'), function(b){
@@ -12774,10 +12919,19 @@ var ACTS = {
     var value = input.value.trim();
     if (!value) return;
     var parsed = parseSchedule(value, 'today');
+    /* Те же проверки, что у addTask на экране «Задачи».
+
+       Раньше их здесь не было: «завтра в 9» без названия давало задачу с
+       пустым заголовком, прошедшее время ставилось на сегодня просроченным, а
+       признаки «день и время названы сами» не записывались вовсе. */
+    if (!parsed.title){ toast('Напиши, что сделать, — одной даты мало'); return; }
+    parsed = pushPastTimeToTomorrow(parsed, value);
     // Та же самая задача, что на экране «Задачи» — один объект в S.tasks.
     S.tasks.push({
       id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
-      time: parsed.time, repeat: '', series: null, goalId: d.goal, stageId: d.stage, subtasks: []
+      time: parsed.time, repeat: '', rule: null, series: null,
+      hasExplicitDate: !!parsed.hasDate, hasExplicitTime: !!parsed.hasTime,
+      goalId: d.goal, stageId: d.stage, subtasks: []
     });
     input.value = '';
     keepFocus('[data-goaltask="' + d.stage + '"]');
