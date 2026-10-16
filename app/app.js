@@ -1914,6 +1914,10 @@ var NAV_ICONS = {
   // «О сервисе», у которого тоже круг.
   support: navIcon('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M14.4 9.6l3.6-3.6M6 6l3.6 3.6M14.4 14.4l3.6 3.6M6 18l3.6-3.6"/>'),
   // Ещё — три точки.
+  // Кошелёк — финансы в нижней панели приложения.
+  wallet: navIcon('<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M16 13.5h1.5"/>'),
+  // Меню — три черты, как у выдвижной панели на айфоне.
+  menu: navIcon('<path d="M4.5 7h15M4.5 12h15M4.5 17h15"/>'),
   more: navIcon('<circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   // Закрыть «Ещё» — крест.
   close: navIcon('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'),
@@ -2097,6 +2101,13 @@ function pushView(view){
     historyReady = true;
     return;
   }
+  // Переход из открытого меню занимает запись меню, а не кладёт новую
+  // поверх: иначе «назад» из раздела сперва попадало бы на ту же страницу,
+  // где меню уже закрыто, и нажимать приходилось дважды.
+  if (window.history.state && window.history.state.drawer){
+    window.history.replaceState(state, '', location.href);
+    return;
+  }
   // Повторный переход в тот же раздел записи не заслуживает.
   if (window.history.state && window.history.state.view === view) return;
   window.history.pushState(state, '', location.href);
@@ -2108,6 +2119,13 @@ window.addEventListener('popstate', function(event){
   if (modalOpen()){
     if (modalDepth > 0) modalDepth--;
     hideModal();
+    return;
+  }
+  // Открытое меню закрывается «назад» так же, как окно: системная кнопка
+  // должна убирать то, что сверху, а не уводить с экрана под ним.
+  if (S.more && inApp()){
+    S.more = false;
+    render();
     return;
   }
 
@@ -2193,6 +2211,7 @@ function render(){
   $('top').innerHTML = SynI18n.tr(vTop() + (storageBroken ? vStorageWarning() : ''));
   $('tabbar').classList.remove('hidden');
   $('tabbar').innerHTML = SynI18n.tr(vTabbar());
+  if (inApp()) рисоватьМеню();
   // Полоса вкладок финансов прокручена вбок, и перерисовка сбрасывала её в
   // самое начало: нажал «Подписки» справа — и они уехали за край экрана.
   // Запоминаем сдвиг до перерисовки, возвращаем после.
@@ -2906,8 +2925,58 @@ function applyTheme(){
   }
 }
 
+/* ============ ВЫДВИЖНОЕ МЕНЮ (приложение) ============
+
+   Повторяет меню айфона: логотип, крестик, группы разделов в карточках, у
+   каждого пункта — значок в плашке своего цвета, как в настройках iOS. Узел
+   живёт вне нижней панели: у панели есть transform, и fixed внутри неё
+   считался бы от панели, а не от экрана. Узел создаётся один раз и только
+   меняет класс — иначе выезд не анимировался бы. */
+var ЦВЕТ_ПУНКТА = { lists:'lists', notes:'notes', pomodoro:'pomo', meditation:'med',
+  trash:'trash', subscription:'sub', settings:'set', support:'tasks' };
+
+function пунктМеню(id){
+  var t = tabByID(id);
+  if (!t) return '';
+  var inside = '<span class="dr-ic" style="--c:var(--c-' + (ЦВЕТ_ПУНКТА[id] || 'set') + ')">' +
+      (NAV_ICONS[id] || '') + '</span>' +
+    '<span class="dr-tx">' + esc(t.title) + '</span>' +
+    '<span class="dr-ch">' + NAV_ICONS.chevron + '</span>';
+  if (t.href){
+    return '<a class="dr-row" href="' + t.href + '" target="_blank" rel="noopener noreferrer">' + inside + '</a>';
+  }
+  return '<button class="dr-row' + (activeTab() === id ? ' on' : '') + '" data-act="go" data-view="' + id + '">' +
+    inside + '</button>';
+}
+
+function рисоватьМеню(){
+  var узел = $('drawer');
+  if (!узел){
+    узел = document.createElement('div');
+    узел.id = 'drawer';
+    узел.className = 'drawer';
+    document.body.appendChild(узел);
+  }
+  узел.innerHTML = SynI18n.tr(
+    '<div class="dr-scrim" data-act="drawer-close"></div>' +
+    '<aside class="dr-panel" aria-label="Меню">' +
+      '<div class="dr-head">' +
+        '<div class="dr-brand"><img src="icons/icon-192.png" alt="" width="34" height="34">' +
+          '<div><b>Synapse AI</b><span>создавай причины</span></div></div>' +
+        '<button class="dr-x" data-act="drawer-close" aria-label="Закрыть меню">' + NAV_ICONS.close + '</button>' +
+      '</div>' +
+      '<div class="dr-group">' + ['lists', 'notes', 'pomodoro', 'meditation'].map(пунктМеню).join('') + '</div>' +
+      '<div class="dr-group">' + ['subscription', 'settings', 'trash', 'support'].map(пунктМеню).join('') + '</div>' +
+    '</aside>');
+  узел.classList.toggle('open', !!S.more);
+  узел.setAttribute('aria-hidden', S.more ? 'false' : 'true');
+  document.documentElement.classList.toggle('dr-on', !!S.more);
+}
+
 function vTop(){
   return '<div class="top-in">' +
+    (inApp() ? '<button class="iconbtn menubtn" data-act="drawer" aria-label="Меню" aria-expanded="' +
+      !!S.more + '">' + NAV_ICONS.menu + '</button>' : '') +
     // Логотип с названием — кнопка «домой»: из любого раздела возвращает к
     // задачам. Так устроен любой сайт, и человек пробует это первым, ещё до
     // того, как найдёт «Задачи» в меню.
@@ -2965,8 +3034,11 @@ function activeTab(){
 
 function tabButton(t, cls){
   var on = activeTab() === t.id;
+  // В панели приложения финансы стоят рядом с аналитикой, и два значка со
+  // столбиками читались как один раздел. Там у денег — кошелёк.
+  var значок = (inApp() && t.id === 'finance') ? NAV_ICONS.wallet : NAV_ICONS[t.id];
   var inside =
-    '<span class="ic">' + (NAV_ICONS[t.id] || '') + '</span>' +
+    '<span class="ic">' + (значок || '') + '</span>' +
     '<span class="tx">' + esc(cls === 'tab' && t.short ? t.short : t.title) + '</span>';
 
   // Пункт со ссылкой — настоящая ссылка, а не кнопка: её можно открыть в
@@ -2984,7 +3056,25 @@ function tabButton(t, cls){
 /* Одна разметка на обе раскладки: слева колонка целиком, снизу четыре пункта
    и «Ещё». Пункты за «Ещё» лежат в том же дереве — на широком экране просто
    перестают быть спрятанными. */
+/* В приложении нижняя панель — пять разделов без «Ещё», как на айфоне.
+
+   Финансы поднялись в панель: деньги открывают каждый день, наравне с
+   задачами, и прятать их за «Ещё» значило каждый раз делать лишний шаг.
+   Карта сдвинулась на последнее место. Остальное — списки, заметки, помодоро,
+   настройки — живёт в выдвижном меню слева, кнопка которого стоит в шапке. */
+var ПАНЕЛЬ_ПРИЛОЖЕНИЯ = ['tasks', 'goals', 'focus', 'finance', 'analytics'];
+
+function tabByID(id){
+  for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) return TABS[i];
+  return null;
+}
+
 function vTabbar(){
+  if (inApp()){
+    return '<div class="tabs-main">' +
+      ПАНЕЛЬ_ПРИЛОЖЕНИЯ.map(function(id){ return tabButton(tabByID(id), 'tab'); }).join('') +
+    '</div>';
+  }
   var rest = TABS.filter(function(t){ return !t.primary; });
   var restOn = rest.some(function(t){ return t.id === activeTab(); });
 
@@ -12641,6 +12731,21 @@ var ACTS = {
     render();
   },
   more: function(){ S.more = !S.more; commit(); },
+  /* Меню приложения. Открытие кладёт запись в историю — тогда системное
+     «назад» закрывает меню, а не уходит с экрана. Закрытие крестиком или
+     тапом мимо снимает эту запись, чтобы следующее «назад» не тратилось
+     впустую. */
+  drawer: function(){
+    if (S.more) return ACTS['drawer-close']();
+    S.more = true;
+    try { history.pushState({ view: S.view, drawer: 1 }, '', location.href); } catch (e){}
+    commit();
+  },
+  'drawer-close': function(){
+    if (history.state && history.state.drawer){ history.back(); return; }
+    S.more = false;
+    commit();
+  },
 
   /* Ассистент. Строка из композера подставляется в поле — чаще всего человек
      уже начал печатать там и только потом сообразил, что это просьба к Syn. */
