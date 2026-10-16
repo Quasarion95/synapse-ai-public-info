@@ -9615,8 +9615,10 @@ function synFinTake(index, outcome){
 
 /// Отправка и применение. Текст в поле сохраняем при ошибке — иначе повторить
 /// запрос с правкой было бы нечем.
-function synSend(text){
-  if (!text || SYN.busy) return;
+/// onDone — необязательный: его зовёт запись с зажатой AI, которая
+/// показывает итог в своей панели, а не в окне Syn.
+function synSend(text, onDone){
+  if (!text || SYN.busy){ if (onDone) onDone({ ok: false, busy: true }); return; }
   voiceStop();
 
   SYN.busy = true;
@@ -9672,6 +9674,7 @@ function synSend(text){
     } catch (error){
       if (window.console) console.error(error);
     }
+    if (onDone) onDone({ ok: true, reply: data.reply || 'Готово.', result: result, finance: finance.length });
   }, function(error){
     SYN.busy = false;
     // Неотвеченный вопрос не остаётся в ленте: иначе он уедет на сервер
@@ -9688,6 +9691,7 @@ function synSend(text){
        лечится. Показываем один раз за сутки — окно, которое выскакивает на
        каждую попытку, из предложения превращается в помеху. */
     if (error && error.status === 402) synOfferPro();
+    if (onDone) onDone({ ok: false, error: error, text: synErrorText(error) });
   });
 }
 
@@ -15257,9 +15261,66 @@ function бгОтправить(){
   S.holdVoiceUsed = true;
   S.synIntent = '';
   S.synGoalCreate = false;
-  synRender('', '');
-  synSend(text);
-  if (tourCheck()) toast('Первые шаги пройдены');
+  /* Запрос — в фоне, окно Syn не открывается.
+
+     Человек сказал фразу затем, чтобы она стала задачей, а не чтобы
+     читать переписку. Раньше после отпускания открывалось окно ассистента,
+     и его приходилось закрывать. Теперь панель показывает «Syn думает…»,
+     затем коротко — что сделано, и сама уходит. Нажать на неё — открыть
+     разговор целиком. */
+  итогПоказать({ думает: true, сказано: text });
+  synSend(text, function(r){
+    if (!r.ok){
+      итогПоказать({ ошибка: true, сказано: text,
+        текст: r.busy ? 'Syn ещё отвечает на прошлое — попробуйте через секунду' : (r.text || 'Не получилось — попробуйте ещё раз'),
+        открыть: r.error && r.error.status === 402 ? 'pro' : 'syn' });
+      return;
+    }
+    var сделано = (r.result && r.result.done) || [];
+    итогПоказать({ сказано: text, текст: сделано.length ? сделано.join(' · ') : r.reply,
+      ответ: сделано.length ? r.reply : '', деньги: r.finance, открыть: r.finance ? 'syn' : '' });
+    if (tourCheck()) toast('Первые шаги пройдены');
+  });
+}
+
+/* Итог фоновой записи — карточка над строкой ввода.
+
+   Живёт несколько секунд (дольше, если в ответе деньги: их надо
+   подтвердить в окне Syn) и уходит сама. Нажатие открывает разговор. */
+var итогТаймер = null;
+function итогПоказать(o){
+  var el = $('voiceresult');
+  if (!el){
+    el = document.createElement('button');
+    el.type = 'button';
+    el.id = 'voiceresult';
+    el.className = 'voiceresult';
+    el.addEventListener('click', function(){
+      var куда = el.getAttribute('data-open');
+      итогСпрятать();
+      if (куда === 'pro'){ openModal(modalSynPaywall()); return; }
+      S.synIntent = ''; S.synGoalCreate = false;
+      synRender('', '');
+    });
+    document.body.appendChild(el);
+  }
+  clearTimeout(итогТаймер);
+  el.className = 'voiceresult on' + (o.ошибка ? ' err' : '') + (o.думает ? ' wait' : '');
+  el.setAttribute('data-open', o.открыть || 'syn');
+  el.innerHTML =
+    '<span class="vr-ic">' + (o.думает ? '<i class="vr-spin"></i>' : o.ошибка ? '!' : '✓') + '</span>' +
+    '<span class="vr-body"><b>' + esc(SynI18n.tr(o.думает ? 'Syn думает…' : o.ошибка ? 'Не вышло' : 'Готово')) + '</b>' +
+      '<span class="vr-said" translate="no">«' + esc(o.сказано || '') + '»</span>' +
+      (o.текст ? '<span class="vr-text">' + esc(o.текст) + '</span>' : '') +
+      (o.деньги ? '<span class="vr-more">' + esc(SynI18n.tr('Деньги ждут подтверждения — нажмите')) + '</span>' : '') +
+    '</span>';
+  var comp = document.querySelector('.composer');
+  el.style.bottom = (comp ? Math.max(12, window.innerHeight - comp.getBoundingClientRect().top + 10) : 150) + 'px';
+  if (!o.думает) итогТаймер = setTimeout(итогСпрятать, o.деньги ? 9000 : o.ошибка ? 6000 : 4200);
+}
+function итогСпрятать(){
+  var el = $('voiceresult');
+  if (el) el.classList.remove('on');
 }
 
 function бгОтменить(){

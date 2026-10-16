@@ -2899,3 +2899,22 @@ html.hv-on .say .ai{transform:scale(1.18); box-shadow:0 0 0 6px var(--accent-sof
 html.tour-hold:not(.hv-on) .say .ai{animation:ai-hint 1.6s ease-in-out infinite}
 @keyframes ai-hint{0%,100%{box-shadow:0 0 0 3px var(--accent-soft)} 50%{box-shadow:0 0 0 10px var(--accent-soft)}}
 @media (prefers-reduced-motion:reduce){ .hv-dot, html.tour-hold .say .ai{animation:none} }
+
+/* Итог записи с зажатой AI — карточка над строкой ввода. */
+.voiceresult{position:fixed; left:12px; right:12px; bottom:140px; z-index:60; max-width:560px; margin:0 auto;
+  display:flex; gap:12px; align-items:flex-start; text-align:left; width:auto;
+  background:var(--card); border:1px solid var(--stroke); border-radius:22px; box-shadow:var(--shadow-lift);
+  padding:12px 14px; opacity:0; transform:translateY(12px); pointer-events:none;
+  transition:opacity .18s ease, transform .22s cubic-bezier(.2,.8,.2,1)}
+.voiceresult.on{opacity:1; transform:none; pointer-events:auto}
+.vr-ic{flex:none; width:30px; height:30px; border-radius:999px; display:grid; place-items:center;
+  background:var(--ok); color:var(--on-ok, #fff); font-weight:800; font-size:14px}
+.voiceresult.wait .vr-ic{background:var(--accent-soft)}
+.voiceresult.err .vr-ic{background:var(--danger); color:var(--on-danger, #fff)}
+.vr-spin{width:16px; height:16px; border-radius:999px; border:2px solid var(--accent); border-right-color:transparent; animation:vr-spin .8s linear infinite}
+@keyframes vr-spin{to{transform:rotate(360deg)}}
+.vr-body{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1}
+.vr-body b{font-size:14.5px}
+.vr-said{font-size:12.5px; color:var(--fg-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.vr-text{font-size:14px; color:var(--fg); line-height:1.4; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+.vr-more{font-size:12.5px; color:var(--accent-text, var(--accent)); font-weight:600}
