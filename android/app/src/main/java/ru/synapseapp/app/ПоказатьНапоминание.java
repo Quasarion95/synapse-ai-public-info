@@ -111,12 +111,18 @@ public class ПоказатьНапоминание extends BroadcastReceiver {
     }
 
     /**
-     * Точный будильник там, где он разрешён, иначе окно в четверть часа.
+     * Точный будильник там, где он разрешён, иначе неточный, но будящий.
      *
      * С Android 12 точные будильники требуют отдельного разрешения, и просить
      * его ради напоминания о задаче — перебор: магазины к таким запросам
      * относятся плохо, а человеку неважно, придёт напоминание в 9:00 или в
      * 9:07. Но если разрешение уже есть, пользуемся им.
+     *
+     * Без разрешения раньше стоял setWindow — и в Doze (телефон лежит,
+     * экран погашен) он не срабатывал вовсе, до первого пробуждения: утреннее
+     * напоминание приходило к обеду. setAndAllowWhileIdle разрешения не
+     * требует и срабатывает и в Doze — система лишь может сдвинуть его на
+     * минуты, что для напоминания неважно.
      */
     static void поставить(AlarmManager будильник, long когда, PendingIntent пи) {
         boolean можноТочно = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
@@ -125,10 +131,11 @@ public class ПоказатьНапоминание extends BroadcastReceiver {
             if (можноТочно) {
                 будильник.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, когда, пи);
             } else {
-                будильник.setWindow(AlarmManager.RTC_WAKEUP, когда, 15 * 60 * 1000L, пи);
+                будильник.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, когда, пи);
             }
         } catch (SecurityException e){
-            будильник.setWindow(AlarmManager.RTC_WAKEUP, когда, 15 * 60 * 1000L, пи);
+            // Разрешение на точные отозвали между проверкой и вызовом.
+            будильник.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, когда, пи);
         }
     }
 
