@@ -3014,3 +3014,40 @@ h1, h2, h3, .fr-t, .pr-t, .tilebtn .tt, .goalcard-h .gt, .listtile h3{
 .in-app .item .chips{flex-direction:column; align-items:flex-end; gap:2px; max-width:44%}
 .in-app .item .chips .mi{max-width:100%}
 .in-app .item .chips .mi:first-child{flex:none}
+
+/* ---- Поле окна Syn — как в Telegram ----
+   Одна капсула во всю ширину: текст и одна кнопка справа. Пусто —
+   микрофон (держать, чтобы записать), есть текст — «отправить». */
+.syn-bar{align-items:flex-end; gap:0; background:var(--soft); border:1px solid var(--stroke);
+  border-radius:24px; padding:4px 4px 4px 6px}
+.syn-bar textarea{background:none; border:0; box-shadow:none; outline:0; min-height:38px; padding:9px 8px;
+  font-size:15px; line-height:1.35}
+.syn-bar textarea:focus{box-shadow:none; border:0}
+.syn-bar .syn-mic, .syn-bar .syn-go{width:38px; height:38px; margin:0}
+.syn-bar .syn-mic{background:var(--accent); color:var(--on-accent,#fff); touch-action:none;
+  -webkit-touch-callout:none; -webkit-user-select:none; user-select:none}
+.syn-bar .syn-mic svg{width:19px; height:19px}
+.syn-bar .syn-go{display:none}
+.syn-bar.has-text .syn-go{display:grid}
+.syn-bar.has-text .syn-mic{display:none}
+html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--accent-soft)}
+/* Панель записи и итог — поверх окна, когда записывают из него. */
+.holdvoice, .voiceresult{z-index:90}
+
+/* ---- Строка создания задачи над меню — тоньше ----
+   Капсула с полем и двумя кнопками по 40 px занимала внизу почти 60 px.
+   Кнопки 34 px, поля капсулы меньше: строка ниже на треть, а цели нажатия
+   остаются удобными. */
+.in-app .say{padding:3px 3px 3px 15px; border-width:1px}
+.in-app .say input{font-size:15px}
+.in-app .say .ai, .in-app .say .send{width:34px; height:34px}
+.in-app .say .send .nav-ic{width:17px; height:17px}
+.in-app .say .ai svg.ai-spark{width:9px; height:9px}
+.in-app .say .ai .ai-mark{font-size:11px}
+
+/* Подпункты и описание — под названием задачи. */
+.in-app .item .tcol{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px}
+.in-app .item .tsub .mi{display:inline-flex; align-items:center; gap:3px; font-size:11.5px; font-weight:600; color:var(--fg-2)}
+.in-app .item .tsub .car{display:inline-grid; transition:transform .18s ease}
+.in-app .item .tsub .car .nav-ic{width:12px; height:12px; stroke-width:2.4}
+.in-app .item.open .tsub .car{transform:rotate(180deg)}

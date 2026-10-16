@@ -5674,6 +5674,7 @@ function itemRow(t, внутриЦели){
   }
 
   var expandable = t.subtasks.length || t.note;
+  var подстрока = '';
 
   /* Строка задачи в приложении — значки как на айфоне.
 
@@ -5707,9 +5708,11 @@ function itemRow(t, внутриЦели){
     if (t.repeat) meta.push(мета(повтор, repeatLabel(t.repeat, t)));
     if (t.deadline && (t.deadline.date || t.deadline.time)) meta.push(мета(флажок, deadlineText(t.deadline)));
     if (isOverdue(t)) meta.push('<span class="mi late">не выполнено</span>');
+    // Подпункты и описание — строкой под названием, как на айфоне: справа
+    // им не место, там только время и даты.
     if (expandable){
-      meta.push('<span class="mi exp"><span class="car">' + NAV_ICONS.caret + '</span>' +
-        (t.subtasks.length ? '<span>' + subDone + '/' + t.subtasks.length + '</span>' : '<span>описание</span>') + '</span>');
+      подстрока = '<span class="mi exp"><span class="car">' + NAV_ICONS.caret + '</span>' +
+        (t.subtasks.length ? '<span>' + subDone + ' из ' + t.subtasks.length + '</span>' : '<span>описание</span>') + '</span>';
     }
   }
 
@@ -5760,8 +5763,10 @@ function itemRow(t, внутриЦели){
     '<div class="item-main' + (touchUI() ? ' swipe-face' : '') + '" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
+        (подстрока ? '<div class="tcol">' : '') +
         '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '" translate="no">' +
           esc(t.title) + '</button>' +
+        (подстрока ? '<div class="tsub">' + подстрока + '</div></div>' : '') +
         /* Всё, что известно о задаче, — рядом чипов под названием.
 
            Мелкой серой строкой справа это занимало одну строку вместо двух, но
@@ -9451,21 +9456,25 @@ function modalSyn(draft, error){
     '</div>' +
     '<div class="syn-log" id="syn-log">' + synLogHTML() + '</div>' +
     (error ? '<p class="err syn-error">' + esc(error) + '</p>' : '') +
-    '<form class="syn-bar" data-form="syn-send">' +
+    /* Поле во всю ширину и одна кнопка, как в Telegram.
+
+       Пока в поле пусто — кнопка микрофона: держишь — идёт запись,
+       отпустил — фраза уходит Syn, увёл палец — отмена. Как только в поле
+       что-то напечатано — на её месте кнопка «отправить». Раньше рядом
+       стояли обе, и поле сжималось; а диктовка отправлялась сама после
+       паузы, хотя человек ещё думал. Теперь когда отправить, решает он. */
+    '<form class="syn-bar' + ((draft || '').trim() || SYN.busy || !voiceSupported() ? ' has-text' : '') + '" data-form="syn-send">' +
       '<label class="visually-hidden" for="syn-input">Что сделать</label>' +
       '<textarea class="inp" id="syn-input" rows="1" enterkeyhint="send" ' +
-        'placeholder="Перенеси урок на субботу">' + esc(draft || '') + '</textarea>' +
+        'placeholder="Сообщение для Syn">' + esc(draft || '') + '</textarea>' +
       (voiceSupported()
-        ? '<button class="syn-mic' + (voice.on ? ' on' : '') + '" type="button" data-act="syn-voice" ' +
-          'aria-label="' + (voice.on ? 'Остановить диктовку' : 'Продиктовать') + '" ' +
-          'title="' + (voice.on ? 'Остановить диктовку' : 'Продиктовать') + '">' + ICON.mic + '</button>'
+        ? '<button class="syn-mic" type="button" data-act="syn-voice" ' +
+          'aria-label="Удерживайте, чтобы записать" title="Удерживайте, чтобы записать">' + ICON.mic + '</button>'
         : '') +
       '<button class="syn-go" type="submit" aria-label="Отправить"' + (SYN.busy ? ' disabled' : '') + '>' +
         (SYN.busy ? '…' : '↑') + '</button>' +
     '</form>' +
-    (voice.on
-      ? '<p class="hint syn-voice-hint">Слушаю. Замолчите — и Syn выполнит сказанное.</p>'
-      : synQuotaHTML()) +
+    synQuotaHTML() +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Закрыть</button></div>' +
   '</div>';
 }
@@ -9474,7 +9483,7 @@ function synLogHTML(){
   if (!S.synChat.length){
     return '<p class="syn-empty">Скажи словами: «перенеси созвон на пятницу», «разбери мой день», ' +
       '«сделай из этого цель», «включи дождь на 15 минут».' +
-      (voiceSupported() ? ' Или продиктуй голосом — Syn выполнит сказанное.' : '') + '</p>';
+      (voiceSupported() ? ' Или зажми микрофон, скажи и отпусти — Syn выполнит сказанное.' : '') + '</p>';
   }
 
   return S.synChat.map(function(item, index){
@@ -9627,6 +9636,13 @@ window.addEventListener('resize', function(){
       a.blur();
     }
   }
+});
+
+// Пусто в поле — микрофон, есть текст — «отправить» (класс has-text).
+document.addEventListener('input', function(e){
+  if (!e.target || e.target.id !== 'syn-input') return;
+  var bar = e.target.closest('.syn-bar');
+  if (bar) bar.classList.toggle('has-text', !!e.target.value.trim() || SYN.busy || !voiceSupported());
 });
 
 function synRender(draft, error){
@@ -12662,9 +12678,10 @@ var ACTS = {
     speechSay(briefingSpeech(), function(){ render(); });
     render();
   },
+  /* Короткое нажатие на микрофон — подсказка: запись идёт, пока его
+     держат (см. «ЗАПИСЬ С ЗАЖАТОЙ КНОПКОЙ»). Удержание сюда не доходит. */
   'syn-voice': function(){
-    if (voice.on) { voiceStop(); synRender($('syn-input') ? $('syn-input').value : '', ''); }
-    else voiceStart();
+    toast('Удерживайте микрофон, пока говорите, — отпустите, чтобы отправить');
   },
   /* Разобрать фразу своим парсером и завести задачу. Тот же путь, что у
      строки создания: «купить корм коту завтра в 11 утра» превращается в
@@ -15227,8 +15244,8 @@ function бгРисовать(){
   el.classList.toggle('cancel', !!бг.отмена);
   el.classList.toggle('sending', !!бг.отпущен && !бг.отмена);
   document.documentElement.classList.add('hv-on');
-  var comp = document.querySelector('.composer');
-  if (comp) el.style.bottom = Math.max(12, window.innerHeight - comp.getBoundingClientRect().top + 10) + 'px';
+  var якорь = (бг.вОкне && document.querySelector('.syn-bar')) || document.querySelector('.composer');
+  if (якорь) el.style.bottom = Math.max(12, window.innerHeight - якорь.getBoundingClientRect().top + 10) + 'px';
   el.querySelector('.hv-title').textContent = SynI18n.tr(бг.отмена ? 'Отпустите — запись отменится'
     : бг.отпущен ? 'Отправляю Syn…' : 'Слушаю');
   var text = бгТекст();
@@ -15279,7 +15296,7 @@ function бгСлушать(){
   var родной = voiceNative();
   if (родной){
     voice.cancelled = false;
-    родной.start();
+    (родной.startHold || родной.start).call(родной);
     return;
   }
   var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -15327,9 +15344,16 @@ function бгОтправить(){
   if (!бг || бг.отправлено) return;
   бг.отправлено = true;
   var text = бгТекст();
+  var бгВОкне = !!бг.вОкне && !!$('syn-log');
   бгЗакрыть();
   if (!text){ toast('Ничего не расслышал — зажмите и скажите ещё раз'); return; }
   S.holdVoiceUsed = true;
+  if (бгВОкне){
+    // Записали из окна Syn: фраза уходит в его ленту, как напечатанная.
+    synSend(text);
+    if (tourCheck()) toast('Первые шаги пройдены');
+    return;
+  }
   S.synIntent = '';
   S.synGoalCreate = false;
   /* Запрос — в фоне, окно Syn не открывается.
@@ -15472,18 +15496,20 @@ function бгПерезапуск(){
   setTimeout(function(){
     if (бг !== этот || !бг.идёт || бг.отпущен) return;
     var родной = voiceNative();
-    if (родной){ voice.cancelled = false; родной.start(); }
+    if (родной){ voice.cancelled = false; (родной.startHold || родной.start).call(родной); }
   }, 700);
 }
 
 function бгКнопка(target){
-  return target && target.closest ? target.closest('.say .ai[data-act="ai"]') : null;
+  return target && target.closest ? target.closest('.say .ai[data-act="ai"], .syn-bar .syn-mic') : null;
 }
 
 document.addEventListener('pointerdown', function(event){
   var btn = бгКнопка(event.target);
   if (!btn || event.button > 0 || !voiceSupported()) return;
-  бг = { кнопка: btn, x: event.clientX, y: event.clientY, id: event.pointerId };
+  бг = { кнопка: btn, x: event.clientX, y: event.clientY, id: event.pointerId,
+    // Из окна Syn — фраза идёт в его ленту; с кнопки AI — в фоне.
+    вОкне: !!btn.closest('.syn-bar') };
   try { btn.setPointerCapture(event.pointerId); } catch (e){}
   бг.timer = setTimeout(бгНачать, БГ_ПОРОГ);
 });
