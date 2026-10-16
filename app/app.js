@@ -2894,7 +2894,15 @@ function applyTheme(){
      при загрузке страницы, и после смены темы часы и батарея оставались на
      полосе прежнего цвета до перезапуска. */
   if (window.AndroidBars){
-    try { window.AndroidBars.paint(rgb(c.background)); } catch (e){}
+    /* Цвет берём уже после того, как web/theme.js перекрасит переменные:
+       он оборачивает applyTheme и пишет свой фон следом за нашим. Иначе
+       полоса статуса оставалась бы цвета прежней палитры. */
+    setTimeout(function(){
+      try {
+        var фон = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
+        window.AndroidBars.paint(фон || rgb(c.background));
+      } catch (e){}
+    }, 0);
   }
 }
 

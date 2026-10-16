@@ -27,6 +27,10 @@
         '<link rel="stylesheet" href="web/goal-map.css">' +
         '<link rel="stylesheet" href="web/layout.css">');
     </script>
+    <!-- Цветовая система — общая для веба и андроида: темы в приложении
+         должны выглядеть так же, как на сайте. Поэтому эти два файла
+         грузятся всегда, без проверки на обёртку. -->
+    <link rel="stylesheet" href="web/theme.css">
 
     <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и
          так лежат в браузере, из сети приходила только оболочка. -->
@@ -121,6 +125,7 @@
         '<script src="web/pomodoro-timer.js"><\/script>' +
         '<script src="web/goal-map.js"><\/script>');
     </script>
+    <script src="web/theme.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
