@@ -2809,3 +2809,31 @@ html.in-app body::after{height:calc(var(--dock) + 108px)}
 .ai-mark{display:inline-flex; align-items:center; gap:1px}
 .ai-spark{width:9px; height:9px; fill:currentColor; margin:-7px 0 0 -2px}
 .say .ai svg.ai-spark, .rowadd .ai svg.ai-spark{width:10px; height:10px; margin:-8px 1px 0 -1px}
+
+/* ---- Карта целей: рамка, масштаб, легенда ---- */
+
+/* Рамка карты с кнопками масштаба поверх. */
+.mmbox{position:relative; margin-bottom:var(--gap)}
+.mmbox .mmwrap{margin-bottom:0}
+.mmfull .mmbox{flex:1; display:flex; min-height:0; margin:0}
+.mmfull .mmbox .mmwrap{flex:1}
+/* Внутри рамки жест двумя пальцами — масштаб карты, а не страницы. */
+.mmwrap{touch-action:pan-x pan-y}
+
+.mmctl{position:absolute; right:10px; bottom:10px; display:flex; flex-direction:column; gap:8px; z-index:2}
+.mmctl button{width:40px; height:40px; border-radius:14px; display:grid; place-items:center;
+  background:var(--card); color:var(--fg); border:1px solid var(--stroke); box-shadow:var(--shadow-lift)}
+.mmctl button:active{transform:scale(.94)}
+.mmctl svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round}
+
+/* Легенда — плашки своего цвета, а не серый текст с точками. */
+.mmlegend{display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 0; font-size:13px; color:var(--fg)}
+.mmkey{display:inline-flex; align-items:center; gap:7px; padding:6px 11px 6px 8px; border-radius:999px; font-size:12.5px;
+  background:var(--soft); border:1px solid var(--line); font-weight:600}
+.mmkey i{width:16px; height:16px; border-radius:6px; border:1.5px solid var(--stroke); flex:none; margin:0}
+.mmhint{flex-basis:100%; margin:4px 2px 0; font-size:12.5px; color:var(--fg-3); line-height:1.4}
+.mmfull .mmlegend{gap:6px}
+
+/* «Развернуть карту» — во всю ширину, по центру. */
+.btn.mm-open-btn{display:flex; width:100%; justify-content:center; gap:8px; margin:14px 0 var(--gap);
+  padding:14px 18px; font-size:15px; border-radius:999px}

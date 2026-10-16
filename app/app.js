@@ -6790,23 +6790,43 @@ function vMindMap(){
   var shown = Math.round(width * zoom);
   var full = !!(S.mm && S.mm.full);
 
-  var canvas = '<div class="mmwrap"><svg viewBox="0 0 ' + width + ' ' + height + '" width="' + shown + '" ' +
+  /* Масштаб — кнопками прямо на карте, а не строкой под ней.
+
+     Раньше «−» и «+» были мелкими текстовыми чипами в конце легенды, а
+     увеличивать карту толком можно было только развернув её на весь экран.
+     Теперь кнопки висят в углу самой рамки, крупные и рисованные, и
+     масштаб меняется на месте, вокруг середины того, что видно. Двумя
+     пальцами карту тоже можно растянуть или сжать — тоже внутри рамки. */
+  var mmIcon = function(path){
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + path + '</svg>';
+  };
+  var controls = '<div class="mmctl">' +
+      '<button type="button" data-act="mm-zoom" data-dir="in" aria-label="Крупнее">' + mmIcon('<path d="M12 6v12M6 12h12"/>') + '</button>' +
+      '<button type="button" data-act="mm-zoom" data-dir="out" aria-label="Мельче">' + mmIcon('<path d="M6 12h12"/>') + '</button>' +
+      '<button type="button" data-act="mm-zoom" data-dir="fit" aria-label="Вписать карту">' +
+        mmIcon('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>') + '</button>' +
+    '</div>';
+
+  var canvas = '<div class="mmbox"><div class="mmwrap"><svg viewBox="0 0 ' + width + ' ' + height + '" width="' + shown + '" ' +
       'height="' + Math.round(height * zoom) + '" role="img" aria-label="Карта целей">' +
       body + core +
-    '</svg></div>';
+    '</svg></div>' + controls + '</div>';
 
-  var zoomButtons =
-    '<button class="chip" data-act="mm-zoom" data-dir="out" aria-label="Мельче">−</button> ' +
-    '<button class="chip" data-act="mm-zoom" data-dir="in" aria-label="Крупнее">+</button>';
+  /* Легенда — цветными плашками с понятными словами.
 
+     Прежняя строка «задача выполнена · цель или этап закрыты · ещё в работе»
+     шла мелким серым текстом с квадратиками в 10 пикселей, и было неясно,
+     какой цвет к чему. Теперь каждое состояние — плашка его же цвета:
+     зелёная — сделано, цвета акцента — закрыто, серая — в работе. И одна
+     строка о том, что значит плотность заливки. */
+  var плашка = function(fill, border, title){
+    return '<span class="mmkey"><i style="background:' + fill + '; border-color:' + border + '"></i>' + title + '</span>';
+  };
   var legend = '<div class="mmlegend">' +
-      '<span><i style="background:' + rgba(colors.focusGreen, MM.fillDone) +
-        '; border-color:' + rgba(colors.focusGreen, 0.9) + '"></i>задача выполнена</span>' +
-      '<span><i style="background:' + rgba(colors.accent, MM.fillDone) +
-        '; border-color:' + rgba(colors.accent, 0.9) + '"></i>цель или этап закрыты</span>' +
-      '<span><i style="background:' + rgb(colors.panel) +
-        '; border-color:' + rgba(colors.textSecondary, 0.5) + '"></i>ещё в работе</span>' +
-      (full ? '' : '<span style="margin-left:auto">' + zoomButtons + '</span>') +
+      плашка(rgba(colors.focusGreen, MM.fillDone), rgba(colors.focusGreen, 0.9), 'Задача сделана') +
+      плашка(rgba(colors.accent, MM.fillDone), rgba(colors.accent, 0.9), 'Этап закрыт') +
+      плашка(rgb(colors.panel), rgba(colors.textSecondary, 0.5), 'В работе') +
+      '<p class="mmhint">Цвет акцента — закрытый этап или цель. Чем гуще заливка карточки, тем больше в ней сделано.</p>' +
     '</div>';
 
   // В рамке высотой с ладонь видно ствол и обрезанные края двух целей —
@@ -6815,16 +6835,14 @@ function vMindMap(){
     return '<div class="mmfull">' +
       '<div class="mmfull-bar">' +
         '<span class="ttl">Карта целей</span>' +
-        '<span class="sp">' + zoomButtons +
+        '<span class="sp">' +
           '<button class="chip" data-act="mm-full" data-full="0">Закрыть</button></span>' +
       '</div>' + canvas + legend +
     '</div>';
   }
 
   return canvas + legend +
-    '<div class="acts" style="margin-top:-4px">' +
-      '<button class="btn sm soft" data-act="mm-full" data-full="1">' + ICON.full + ' Развернуть карту</button>' +
-    '</div>';
+    '<button class="btn soft mm-open-btn" data-act="mm-full" data-full="1">' + ICON.full + ' Развернуть карту</button>';
 }
 
 /* Карта открывается ровно в ширину окна. В приложении на этом была бага:
@@ -6865,6 +6883,7 @@ function fitMindMap(){
     // ни на телефоне, ни на ноутбуке. Общий вид достаётся кнопкой «−» —
     // осознанным действием, а не по умолчанию вместо текста.
     var floorFull = MM_MIN_SCALE;
+    wrap.setAttribute('data-base', String(Math.max(floorFull, Math.min(2.2, fitFull))));
     var scale = Math.max(floorFull, Math.min(2.2, fitFull)) * zoom;
     svg.setAttribute('width', Math.max(60, Math.round(vw * scale)));
     svg.setAttribute('height', Math.round(vh * scale));
@@ -6920,9 +6939,15 @@ function fitMindMap(){
 
      Рамка ровно по карте, но не выше своего предела — дальше прокрутка
      внутри неё. */
+  wrap.setAttribute('data-base', String(base));
   if (!(S.mm && S.mm.full)){
-    var limit = Math.round(window.innerHeight * (narrow ? 0.62 : 0.72));
-    wrap.style.height = Math.min(limit, drawnH + 24) + 'px';
+    /* На телефоне рамка — ровно полэкрана: в ней карту удобно двигать и
+       растягивать, не разворачивая, а под ней ещё видно легенду и кнопку. */
+    if (narrow) wrap.style.height = Math.round(window.innerHeight * 0.5) + 'px';
+    else {
+      var limit = Math.round(window.innerHeight * 0.72);
+      wrap.style.height = Math.min(limit, drawnH + 24) + 'px';
+    }
   } else {
     wrap.style.height = '';
   }
@@ -6933,6 +6958,60 @@ function fitMindMap(){
   wrap.scrollLeft = narrow ? 0 : Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
 }
 
+/* Масштаб на месте, без перерисовки страницы.
+
+   Прежде каждое «+» шло через commit() и перерисовку всего экрана: карта
+   прыгала в начало, и увеличенный кусок приходилось искать заново. Теперь
+   меняется только размер холста, а прокрутка подгоняется так, чтобы точка
+   под пальцем (или середина рамки) осталась на месте. */
+var MM_ZOOM_MIN = 0.5, MM_ZOOM_MAX = 3;
+var mmSaveTimer = null;
+function mmSetZoom(next, anchorX, anchorY){
+  var wrap = document.querySelector('.mmwrap');
+  var svg = wrap && wrap.querySelector('svg');
+  if (!svg) return;
+  if (!S.mm) S.mm = { zoom: 1 };
+  next = Math.min(MM_ZOOM_MAX, Math.max(MM_ZOOM_MIN, next));
+  var box = (svg.getAttribute('viewBox') || '').split(' ');
+  var vw = Number(box[2]) || 1, vh = Number(box[3]) || 1;
+  var base = Number(wrap.getAttribute('data-base')) || 1;
+  var rect = wrap.getBoundingClientRect();
+  var ax = anchorX === undefined ? rect.width / 2 : anchorX - rect.left;
+  var ay = anchorY === undefined ? rect.height / 2 : anchorY - rect.top;
+  var oldW = svg.getBoundingClientRect().width || 1, oldH = svg.getBoundingClientRect().height || 1;
+  var fx = (wrap.scrollLeft + ax) / Math.max(oldW, wrap.scrollWidth);
+  var fy = (wrap.scrollTop + ay) / Math.max(oldH, wrap.scrollHeight);
+  S.mm.zoom = next;
+  svg.setAttribute('width', Math.max(60, Math.round(vw * base * next)));
+  svg.setAttribute('height', Math.round(vh * base * next));
+  wrap.scrollLeft = Math.max(0, fx * wrap.scrollWidth - ax);
+  wrap.scrollTop = Math.max(0, fy * wrap.scrollHeight - ay);
+  clearTimeout(mmSaveTimer);
+  mmSaveTimer = setTimeout(save, 400);
+}
+
+/* Щипок двумя пальцами внутри рамки. Страница при этом не масштабируется:
+   жест принадлежит карте. */
+var mmPinch = null;
+function mmTouchDist(t){ return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+document.addEventListener('touchstart', function(event){
+  if (event.touches.length !== 2) return;
+  var wrap = event.target.closest ? event.target.closest('.mmwrap') : null;
+  if (!wrap) return;
+  mmPan = null;
+  mmPinch = { dist: mmTouchDist(event.touches), zoom: (S.mm && S.mm.zoom) || 1 };
+}, { passive: true });
+document.addEventListener('touchmove', function(event){
+  if (!mmPinch || event.touches.length !== 2) return;
+  event.preventDefault();
+  var t = event.touches;
+  mmSetZoom(mmPinch.zoom * mmTouchDist(t) / mmPinch.dist,
+    (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
+}, { passive: false });
+document.addEventListener('touchend', function(event){
+  if (event.touches.length < 2) mmPinch = null;
+});
+
 /* Перетаскивание карты пальцем и мышью: при увеличении она шире рамки. */
 var mmPan = null;
 document.addEventListener('pointerdown', function(event){
@@ -6941,7 +7020,7 @@ document.addEventListener('pointerdown', function(event){
   mmPan = { wrap: wrap, x: event.clientX, left: wrap.scrollLeft };
 });
 document.addEventListener('pointermove', function(event){
-  if (!mmPan) return;
+  if (!mmPan || mmPinch) return;
   mmPan.wrap.scrollLeft = mmPan.left - (event.clientX - mmPan.x);
 });
 document.addEventListener('pointerup', function(){ mmPan = null; });
@@ -12292,8 +12371,9 @@ var ACTS = {
   'avatar-clear': function(){ S.profile.avatar = ''; commit('Фото убрано'); },
   'mm-zoom': function(d){
     if (!S.mm) S.mm = { zoom: 1 };
-    S.mm.zoom = Math.min(2, Math.max(0.5, S.mm.zoom + (d.dir === 'in' ? 0.25 : -0.25)));
-    commit();
+    var z = S.mm.zoom || 1;
+    var next = d.dir === 'fit' ? 1 : z * (d.dir === 'in' ? 1.25 : 0.8);
+    mmSetZoom(next);
   },
   /* Карта на весь экран. Масштаб при закрытии сбрасывается: то, что удобно
      развернув, во врезке снова не поместится. */
@@ -15211,3 +15291,41 @@ ACTS['sync-delete'] = function(){
 ACTS['sync-delete-confirm'] = function(){ closeModal(); syncDeleteRemote(); };
 
 try { syncPullOnLoad(); } catch (e) {}
+
+/* Окно плавно едет вслед за клавиатурой.
+
+   Окно стоит по центру экрана. Клавиатура сжимает экран, и центр мгновенно
+   оказывается выше — окно перескакивало туда рывком, а на телефоне это
+   выглядело как «выбросило вверх». Теперь после каждого изменения размера
+   окно сначала рисуется на старом месте (сдвигом), а затем за четверть
+   секунды доезжает до нового. Сама раскладка та же — меняется только то,
+   как окно попадает на место. */
+(function(){
+  var прежнийВерх = null;
+  function запомнить(){
+    var box = $('modalIn');
+    прежнийВерх = (box && $('modal').classList.contains('on')) ? box.getBoundingClientRect().top : null;
+  }
+  function подвинуть(){
+    var box = $('modalIn');
+    if (!box || !$('modal').classList.contains('on')){ прежнийВерх = null; return; }
+    var новыйВерх = box.getBoundingClientRect().top;
+    if (прежнийВерх !== null && Math.abs(прежнийВерх - новыйВерх) > 2 &&
+        !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+      box.style.transition = 'none';
+      box.style.transform = 'translateY(' + (прежнийВерх - новыйВерх) + 'px)';
+      void box.offsetHeight;
+      box.style.transition = 'transform .26s cubic-bezier(.2,.8,.2,1)';
+      box.style.transform = '';
+      clearTimeout(box._едет);
+      box._едет = setTimeout(function(){ box.style.transition = ''; }, 300);
+    }
+    прежнийВерх = новыйВерх;
+  }
+  // Место до изменения размера знаем заранее: фокус в поле — первый признак
+  // того, что сейчас выедет клавиатура.
+  document.addEventListener('focusin', запомнить);
+  document.addEventListener('focusout', запомнить);
+  window.addEventListener('resize', подвинуть);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', подвинуть);
+})();
