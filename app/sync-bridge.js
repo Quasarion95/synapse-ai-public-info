@@ -313,7 +313,7 @@ var SynSyncBridge = (function () {
   // { UUID: местный id } по всем записям состояния. Веб отправляет свои id
   // через toUUID, и назад они приходят уже UUID; по этой карте пришедшая
   // запись узнаёт свою местную и остаётся под её id.
-  async function localIndex(S) {
+  async function localIndex(S, extraIds) {
     var idx = {};
     async function add(id) {
       if (id == null || id === '') return;
@@ -327,19 +327,36 @@ var SynSyncBridge = (function () {
         for (var j = 0; j < (t.subtasks || []).length; j++) if (t.subtasks[j]) await add(t.subtasks[j].id);
       }
     }
+    async function goalsOf(gs) {
+      for (var g = 0; g < (gs || []).length; g++) { if (!gs[g]) continue; await add(gs[g].id);
+        for (var st = 0; st < (gs[g].stages || []).length; st++) if (gs[g].stages[st]) await add(gs[g].stages[st].id); }
+    }
+    async function listsOf(ls) {
+      for (var l = 0; l < (ls || []).length; l++) { if (!ls[l]) continue; await add(ls[l].id);
+        for (var it = 0; it < (ls[l].items || []).length; it++) if (ls[l].items[it]) await add(ls[l].items[it].id); }
+    }
     S = S || {};
     await tasksOf(S.tasks);
-    await tasksOf((S.trash || []).filter(function (e) { return e && e.kind === 'task' && e.data; }).map(function (e) { return e.data; }));
-    var gs = S.goals || [];
-    for (var g = 0; g < gs.length; g++) { if (!gs[g]) continue; await add(gs[g].id);
-      for (var st = 0; st < (gs[g].stages || []).length; st++) if (gs[g].stages[st]) await add(gs[g].stages[st].id); }
-    var ls = S.lists || [];
-    for (var l = 0; l < ls.length; l++) { if (!ls[l]) continue; await add(ls[l].id);
-      for (var it = 0; it < (ls[l].items || []).length; it++) if (ls[l].items[it]) await add(ls[l].items[it].id); }
+    await goalsOf(S.goals);
+    await listsOf(S.lists);
     for (var n = 0; n < (S.notes || []).length; n++) if (S.notes[n]) await add(S.notes[n].id);
+    // Корзина — вся, не только задачи. Удалённая здесь цель (список, заметка)
+    // приходит с сервера под UUID; без местного id слияние не узнавало её в
+    // базе и возвращало как новую.
+    var tr = S.trash || [];
+    for (var e = 0; e < tr.length; e++) {
+      var en = tr[e]; if (!en || !en.data) continue;
+      if (en.kind === 'task') await tasksOf([en.data]);
+      else if (en.kind === 'goal') { await goalsOf([en.data]); await tasksOf((en.extra && en.extra.tasks) || []); }
+      else if (en.kind === 'list') await listsOf([en.data]);
+      else await add(en.data.id);
+    }
     var f = S.finance || {};
     var kinds = ['ops', 'debts', 'jars', 'subs'];
     for (var k = 0; k < kinds.length; k++) for (var r = 0; r < (f[kinds[k]] || []).length; r++) if (f[kinds[k]][r]) await add(f[kinds[k]][r].id);
+    // Id из базы прошлой синхронизации: стёртое навсегда уже нигде не лежит,
+    // но база его помнит — по ней слияние и поймёт, что запись удалена здесь.
+    for (var x = 0; x < (extraIds || []).length; x++) await add(extraIds[x]);
     return idx;
   }
 
