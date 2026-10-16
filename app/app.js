@@ -16396,3 +16396,135 @@ try { syncPullOnLoad(); } catch (e) { if (синхроЖдёт()) перекат
   window.addEventListener('resize', подвинуть);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', подвинуть);
 })();
+
+/* ============ ЛИСТАНИЕ РАЗДЕЛОВ СВАЙПОМ (приложение) ============
+
+   Как на айфоне: провёл пальцем влево — следующий раздел нижней панели,
+   вправо — предыдущий. Экран идёт за пальцем, и если отпустить, не дотянув
+   до четверти ширины (и без быстрого броска), он возвращается на место.
+
+   Жест уступает всему, у чего свой горизонтальный жест:
+   - строке задачи влево — там кнопки действий; вправо по закрытой строке
+     свайпа нет, и это движение отдаётся листанию;
+   - карте целей, полям ввода, ползункам, горизонтальным полосам вкладок;
+   - открытому окну, меню, переносу карточки и записи голосом.
+   Края экрана не трогаем: это системный жест «назад» у Android.
+
+   Двигаются только дети main без position:fixed. Если сдвинуть сам main,
+   fixed внутри него (строка ввода над панелью) стал бы считаться от main и
+   уехал бы вниз страницы на всё время жеста. */
+var листание = null;
+
+function листаемыйРаздел(){
+  return ПАНЕЛЬ_ПРИЛОЖЕНИЯ.indexOf(activeTab());
+}
+
+function листаниеЗапрещено(цель){
+  if (!цель || typeof цель.closest !== 'function') return true;
+  if (modalOpen() || S.more) return true;
+  if (typeof НЕСУ !== 'undefined' && НЕСУ && НЕСУ.активен) return true;
+  if (typeof бг !== 'undefined' && бг) return true;
+  if (document.documentElement.classList.contains('kbd')) return true;
+  if (цель.closest('input, textarea, select, [contenteditable], .composer, .side')) return true;
+  // Горизонтальная прокрутка внутри экрана — её жест, не наш. Сюда же
+  // попадает карта целей: пока она вписана в экран, свайп листает разделы,
+  // а увеличенную палец двигает внутри рамки.
+  if (mmPinch) return true;
+  for (var узел = цель; узел && узел !== document.body; узел = узел.parentElement){
+    if (узел.scrollWidth > узел.clientWidth + 2){
+      var ox = getComputedStyle(узел).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+    }
+  }
+  return false;
+}
+
+function листаемыеУзлы(){
+  var main = $('app'), out = [];
+  if (!main) return out;
+  for (var i = 0; i < main.children.length; i++){
+    var el = main.children[i];
+    if (getComputedStyle(el).position !== 'fixed') out.push(el);
+  }
+  return out;
+}
+
+function листаниеСдвиг(узлы, x, анимировать){
+  узлы.forEach(function(el){
+    el.style.transition = анимировать ? 'transform .2s cubic-bezier(.2,.8,.2,1), opacity .2s ease' : 'none';
+    el.style.transform = x ? 'translateX(' + x + 'px)' : '';
+  });
+}
+
+document.addEventListener('touchstart', function(event){
+  листание = null;
+  if (!inApp() || event.touches.length !== 1) return;
+  if (листаемыйРаздел() < 0) return;
+  var t = event.touches[0];
+  var w = window.innerWidth;
+  if (t.clientX < 24 || t.clientX > w - 24) return;
+  if (листаниеЗапрещено(event.target)) return;
+  var строка = event.target.closest('.swipe');
+  листание = {
+    x: t.clientX, y: t.clientY, t0: Date.now(),
+    // На строке задачи влево — её кнопки; открытая строка забирает оба направления.
+    строка: строка ? (строка.classList.contains('swiped') ? 'вся' : 'влево') : null,
+    решено: false, наше: false, dx: 0, узлы: null
+  };
+}, { passive: true });
+
+document.addEventListener('touchmove', function(event){
+  var л = листание;
+  if (!л) return;
+  var t = event.touches[0];
+  var dx = t.clientX - л.x, dy = t.clientY - л.y;
+  if (!л.решено){
+    if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+    л.решено = true;
+    л.наше = Math.abs(dx) > Math.abs(dy) * 1.4 &&
+      !(л.строка === 'вся') && !(л.строка === 'влево' && dx < 0);
+    if (!л.наше){ листание = null; return; }
+    // Свайп строки уже мог начаться на том же движении — гасим его.
+    if (typeof swipe !== 'undefined' && swipe){
+      swipe.карточка.classList.remove('swiping');
+      swipe.лицо.style.left = '';
+      swipe = null;
+    }
+    if (typeof бросить === 'function' && typeof НЕСУ !== 'undefined' && НЕСУ && !НЕСУ.активен) бросить();
+    л.узлы = листаемыеУзлы();
+  }
+  event.preventDefault();
+  var i = листаемыйРаздел();
+  var край = (dx > 0 && i === 0) || (dx < 0 && i === ПАНЕЛЬ_ПРИЛОЖЕНИЯ.length - 1);
+  // У края дальше листать некуда — резинка втрое туже, чтобы это читалось.
+  л.dx = край ? dx / 3 : dx;
+  листаниеСдвиг(л.узлы, л.dx, false);
+}, { passive: false });
+
+function листаниеКонец(){
+  var л = листание;
+  листание = null;
+  if (!л || !л.наше || !л.узлы) return;
+  var w = window.innerWidth;
+  var i = листаемыйРаздел();
+  var скорость = Math.abs(л.dx) / Math.max(1, Date.now() - л.t0);
+  var шаг = (Math.abs(л.dx) > w * 0.25 || (скорость > 0.5 && Math.abs(л.dx) > 40)) ? (л.dx < 0 ? 1 : -1) : 0;
+  var куда = ПАНЕЛЬ_ПРИЛОЖЕНИЯ[i + шаг];
+  if (!шаг || !куда){ листаниеСдвиг(л.узлы, 0, true); return; }
+
+  листаниеСдвиг(л.узлы, -шаг * w, true);
+  setTimeout(function(){
+    go(куда);
+    // Новый раздел въезжает с той стороны, куда ушёл палец.
+    var новые = листаемыеУзлы();
+    листаниеСдвиг(новые, шаг * w * 0.35, false);
+    новые.forEach(function(el){ el.style.opacity = '0'; });
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      листаниеСдвиг(новые, 0, true);
+      новые.forEach(function(el){ el.style.opacity = ''; });
+      setTimeout(function(){ новые.forEach(function(el){ el.style.transition = ''; }); }, 240);
+    }); });
+  }, 170);
+}
+document.addEventListener('touchend', листаниеКонец);
+document.addEventListener('touchcancel', листаниеКонец);
