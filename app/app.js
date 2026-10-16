@@ -2101,13 +2101,6 @@ function pushView(view){
     historyReady = true;
     return;
   }
-  // Переход из открытого меню занимает запись меню, а не кладёт новую
-  // поверх: иначе «назад» из раздела сперва попадало бы на ту же страницу,
-  // где меню уже закрыто, и нажимать приходилось дважды.
-  if (window.history.state && window.history.state.drawer){
-    window.history.replaceState(state, '', location.href);
-    return;
-  }
   // Повторный переход в тот же раздел записи не заслуживает.
   if (window.history.state && window.history.state.view === view) return;
   window.history.pushState(state, '', location.href);
@@ -2119,13 +2112,6 @@ window.addEventListener('popstate', function(event){
   if (modalOpen()){
     if (modalDepth > 0) modalDepth--;
     hideModal();
-    return;
-  }
-  // Открытое меню закрывается «назад» так же, как окно: системная кнопка
-  // должна убирать то, что сверху, а не уводить с экрана под ним.
-  if (S.more && inApp()){
-    S.more = false;
-    render();
     return;
   }
 
@@ -2216,6 +2202,7 @@ function render(){
      держат чистым, первым на нём стоит «Сегодня». Меню, язык и тема
      остаются в шапке остальных разделов — до них один тап по панели. */
   document.documentElement.classList.toggle('no-top', inApp() && S.view === 'tasks');
+  if (inApp()) краеваяЗона();
   // Полоса вкладок финансов прокручена вбок, и перерисовка сбрасывала её в
   // самое начало: нажал «Подписки» справа — и они уехали за край экрана.
   // Запоминаем сдвиг до перерисовки, возвращаем после.
@@ -12757,19 +12744,17 @@ var ACTS = {
     render();
   },
   more: function(){ S.more = !S.more; commit(); },
-  /* Меню приложения. Открытие кладёт запись в историю — тогда системное
-     «назад» закрывает меню, а не уходит с экрана. Закрытие крестиком или
-     тапом мимо снимает эту запись, чтобы следующее «назад» не тратилось
-     впустую. */
+  /* Меню приложения. Системное «назад» закрывает его через
+     window.synapseBack (его спрашивает MainActivity), а не через историю:
+     запись, положенную pushState после жеста, WebView иногда считает
+     пропускаемой, и «назад» сворачивало приложение с открытым меню. */
   drawer: function(){
     if (S.more) return ACTS['drawer-close']();
     S.more = true;
     тактильно('tap');
-    try { history.pushState({ view: S.view, drawer: 1 }, '', location.href); } catch (e){}
     commit();
   },
   'drawer-close': function(){
-    if (history.state && history.state.drawer){ history.back(); return; }
     S.more = false;
     commit();
   },
@@ -16490,7 +16475,11 @@ document.addEventListener('touchstart', function(event){
   if (листаемыйРаздел() < 0) return;
   var t = event.touches[0];
   var w = window.innerWidth;
-  if (t.clientX < 24 || t.clientX > w - 24) return;
+  // Края экрана — системный «назад». Исключение — левый край в финансах:
+  // оттуда, как на айфоне, вытягивают меню, и система этот край уступает
+  // (см. краеваяЗона).
+  var менюСКрая = листаемыйРаздел() === 0 && t.clientX < 24;
+  if ((t.clientX < 24 && !менюСКрая) || t.clientX > w - 24) return;
   if (листаниеЗапрещено(event.target)) return;
   var строка = event.target.closest('.swipe');
   листание = {
@@ -16523,6 +16512,14 @@ document.addEventListener('touchmove', function(event){
   }
   event.preventDefault();
   var i = листаемыйРаздел();
+  /* Слева от финансов разделов нет — там меню. Свайп вправо вытягивает
+     его за пальцем, а не упирается резинкой. */
+  if (i === 0 && (dx > 0 || л.меню)){
+    л.меню = true;
+    л.dx = dx;
+    менюТянуть(Math.max(0, dx));
+    return;
+  }
   var край = (dx > 0 && i === 0) || (dx < 0 && i === ПАНЕЛЬ_ПРИЛОЖЕНИЯ.length - 1);
   // У края дальше листать некуда — резинка втрое туже, чтобы это читалось.
   л.dx = край ? dx / 3 : dx;
@@ -16536,6 +16533,7 @@ function листаниеКонец(){
   var л = листание;
   листание = null;
   if (!л || !л.наше || !л.узлы) return;
+  if (л.меню){ менюОтпустить(л); return; }
   var w = window.innerWidth;
   var i = листаемыйРаздел();
   var скорость = Math.abs(л.dx) / Math.max(1, Date.now() - л.t0);
@@ -16558,5 +16556,64 @@ function листаниеКонец(){
     }); });
   }, 170);
 }
+/* Меню за пальцем. Панель и затемнение ведём прямо стилями, класс open
+   ставим только в конце: перерисовка меню посреди жеста сбросила бы
+   положение панели. */
+function менюУзлы(){
+  var d = $('drawer');
+  return d ? { панель: d.querySelector('.dr-panel'), фон: d.querySelector('.dr-scrim') } : null;
+}
+function менюТянуть(dx){
+  var у = менюУзлы();
+  if (!у || !у.панель) return;
+  var ширина = у.панель.offsetWidth || 300;
+  var x = Math.min(dx, ширина);
+  у.панель.style.transition = 'none';
+  у.панель.style.transform = 'translateX(' + (x - ширина) + 'px)';
+  у.фон.style.transition = 'none';
+  у.фон.style.opacity = String(x / ширина);
+  var дотянул = x > ширина * 0.35;
+  if (дотянул !== !!листание.дотянул) тактильно('tick');
+  листание.дотянул = дотянул;
+}
+function менюОтпустить(л){
+  var у = менюУзлы();
+  if (!у || !у.панель) return;
+  var скорость = л.dx / Math.max(1, Date.now() - л.t0);
+  var открыть = л.дотянул || скорость > 0.5;
+  у.панель.style.transition = 'transform .24s cubic-bezier(.2,.8,.2,1)';
+  у.фон.style.transition = 'opacity .24s ease';
+  у.панель.style.transform = открыть ? 'translateX(0)' : 'translateX(-104%)';
+  у.фон.style.opacity = открыть ? '1' : '0';
+  setTimeout(function(){
+    у.панель.style.cssText = '';
+    у.фон.style.cssText = '';
+    if (открыть && !S.more) ACTS.drawer();
+  }, 250);
+}
+
+/* Системное «назад» сначала спрашивает страницу. Открытое меню
+   закрывается само и ответ true говорит приложению, что шаг назад по
+   истории делать не надо: «назад» убирает то, что сверху. */
+window.synapseBack = function(){
+  if (S.more){ S.more = false; commit(); return true; }
+  return false;
+};
+
+/* Левый край в финансах отдаём меню, а не системному «назад».
+
+   На Android с жестами свайп от левого края забирает система, и до
+   страницы он не доходит. setSystemGestureExclusionRects просит её
+   уступить полосу — не больше 200 dp на край, поэтому берём середину
+   высоты. На остальных экранах край снова системный. */
+var краеваяЗонаВкл = null;
+function краеваяЗона(){
+  if (!window.AndroidBars || typeof window.AndroidBars.edge !== 'function') return;
+  var нужна = inApp() && S.view === ПАНЕЛЬ_ПРИЛОЖЕНИЯ[0] && !S.more;
+  if (нужна === краеваяЗонаВкл) return;
+  краеваяЗонаВкл = нужна;
+  try { window.AndroidBars.edge(нужна); } catch (e){}
+}
+
 document.addEventListener('touchend', листаниеКонец);
 document.addEventListener('touchcancel', листаниеКонец);

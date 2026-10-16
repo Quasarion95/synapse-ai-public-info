@@ -294,6 +294,25 @@ public class MainActivity extends AppCompatActivity {
                 Integer цвет = разобратьЦвет(css);
                 runOnUiThread(() -> покрасить(цвет));
             }
+
+            /* Левый край — меню, а не «назад» (только экран финансов).
+               Система уступает не больше 200 dp высоты на край, поэтому
+               полоса — посередине экрана, шириной 32 dp. */
+            @android.webkit.JavascriptInterface
+            public void edge(boolean вкл) {
+                if (android.os.Build.VERSION.SDK_INT < 29) return;
+                runOnUiThread(() -> {
+                    java.util.List<android.graphics.Rect> полосы = new java.util.ArrayList<>();
+                    if (вкл) {
+                        float dp = getResources().getDisplayMetrics().density;
+                        int h = web.getHeight();
+                        int высота = Math.round(200 * dp);
+                        int верх = Math.max(0, (h - высота) / 2);
+                        полосы.add(new android.graphics.Rect(0, верх, Math.round(32 * dp), верх + высота));
+                    }
+                    web.setSystemGestureExclusionRects(полосы);
+                });
+            }
         }, "AndroidBars");
 
         /* Тактильный отклик — системный, а не navigator.vibrate.
@@ -323,6 +342,17 @@ public class MainActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                /* Сначала спрашиваем страницу: открытое меню она закрывает
+                   сама и отвечает true. Только если закрывать нечего — шаг
+                   по истории или выход. */
+                web.evaluateJavascript(
+                        "(window.synapseBack && window.synapseBack()) ? 'y' : 'n'",
+                        ответ -> {
+                            if (!"\"y\"".equals(ответ)) назад();
+                        });
+            }
+
+            private void назад() {
                 if (web.canGoBack()) {
                     web.goBack();
                 } else {

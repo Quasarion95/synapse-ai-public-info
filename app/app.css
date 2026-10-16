@@ -3127,3 +3127,16 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
    остаётся тем же gap, когда экран низкий и прижимать некуда. */
 .dr-panel .dr-group:last-child{margin-top:auto}
 .dr-panel{padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 22px)}
+
+/* Строка «Новый подпункт» в раскрытой задаче занимала почти как сама
+   задача: высокое поле и крупная кнопка. В приложении — компактнее, кнопка
+   по высоте поля. */
+.in-app .item .rowadd{margin-top:6px; gap:6px; --inp-py:6px; --inp-px:11px; --inp-fs:14.5px}
+.in-app .item .rowadd .btn{padding:0 12px; height:32px; font-size:13px; border-radius:999px; box-shadow:none}
+
+/* Меню без карточек: пункты стоят прямо на фоне панели, как в айфоне.
+   Разделители между пунктами остаются — они держат строки. */
+.dr-group{background:none; border:0; border-radius:0; padding:0}
+.dr-row{padding:10px 6px}
+.dr-row + .dr-row::before{left:47px; right:6px}
+.dr-row:active{background:var(--soft); border-radius:12px}
