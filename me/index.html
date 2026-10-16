@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Кабинет партнёра Synapse</title>
+    <meta name="description" content="Статистика по партнёрской ссылке Synapse: переходы, оплаты, заработок и выплаты.">
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="../screens/mark.png?v=18ab930c">
+    <link rel="stylesheet" href="../site.css">
+    <script src="../theme.js"></script>
+    <style>
+      /* Поля, плитки и таблицы есть только в кабинете — в общий site.css их
+         не тащим. Всё на токенах сайта, чтобы попадать в тему. */
+      .key-form { display: grid; gap: 12px; max-width: 460px; }
+      .key-form input {
+        width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; color: inherit;
+        background: var(--surface-elevated); border: 1px solid var(--stroke);
+        border-radius: 14px; padding: 13px 15px;
+      }
+      .key-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      /* ── Деньги: крупная сумма к выплате + три спутника ── */
+      .sum { display: grid; gap: 16px; grid-template-columns: 1fr; }
+      @media (min-width: 680px) { .sum { grid-template-columns: 1.1fr 1fr; align-items: stretch; } }
+      .sum-main {
+        background: var(--accent-soft); border: 1px solid var(--stroke);
+        border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; justify-content: center;
+      }
+      .sum-lbl { font-size: 13px; font-weight: 700; letter-spacing: .02em; color: var(--accent); text-transform: uppercase; }
+      .sum-big {
+        font-size: clamp(34px, 8vw, 52px); font-weight: 700; line-height: 1.02;
+        color: var(--accent); font-variant-numeric: tabular-nums; margin: 8px 0 6px; letter-spacing: -.01em;
+      }
+      .sum-note { font-size: 13px; color: var(--muted); }
+      .sum-side { display: grid; gap: 12px; grid-template-columns: 1fr; align-content: center; }
+      @media (min-width: 420px) { .sum-side { grid-template-columns: 1fr 1fr; } }
+      @media (min-width: 680px) { .sum-side { grid-template-columns: 1fr; } }
+      .mini {
+        display: flex; align-items: center; gap: 12px;
+        background: var(--surface-elevated); border: 1px solid var(--stroke);
+        border-radius: 14px; padding: 12px 14px;
+      }
+      .mini .ic { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px;
+        background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; }
+      .mini .ic svg { width: 18px; height: 18px; }
+      .mini .txt { display: flex; flex-direction: column; min-width: 0; }
+      .mini .txt span { font-size: 12.5px; color: var(--muted); }
+      .mini .txt b { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--text); }
+      .mini .txt i { font-size: 11.5px; color: var(--muted); font-style: normal; opacity: .8; }
+      .refund { margin-top: 16px; font-size: 14px; color: var(--muted); }
+
+      /* ── Воронка ── */
+      .conv { display: flex; align-items: baseline; gap: 8px; margin: -2px 0 14px; flex-wrap: wrap; }
+      .conv b { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+      .conv span { font-size: 14px; color: var(--muted); }
+      .funnel { display: grid; gap: 12px; }
+      .step { display: grid; gap: 7px; }
+      .step-head { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text); }
+      .step-head b { font-variant-numeric: tabular-nums; }
+      .step-head .pct { color: var(--muted); font-weight: 400; }
+      .bar { height: 12px; border-radius: 999px; background: var(--track); overflow: hidden; }
+      .bar i { display: block; height: 100%; border-radius: 999px;
+        background: linear-gradient(90deg, var(--accent), var(--olive)); transition: width .5s cubic-bezier(.2,.8,.2,1); }
+
+      /* ── Таблицы ── */
+      table.rows { width: 100%; border-collapse: collapse; font-size: 14px; }
+      table.rows th, table.rows td { text-align: left; padding: 11px 6px; border-bottom: 1px solid var(--divider); }
+      table.rows thead th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
+      table.rows tbody tr:last-child td { border-bottom: none; }
+      table.rows td.num, table.rows th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      table.rows td.share { color: var(--accent); font-weight: 650; }
+      table.rows td.day b { font-weight: 600; }
+
+      .link-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .link-row code {
+        flex: 1; min-width: 240px; font-size: 14px; padding: 12px 14px;
+        background: var(--surface-elevated); border: 1px solid var(--stroke); border-radius: 14px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .codechip { display: inline-block; font-weight: 700; font-variant-numeric: tabular-nums;
+        background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 3px 10px; letter-spacing: .04em; }
+      .tip { margin-top: 16px; background: var(--accent-soft); border: 1px solid var(--stroke);
+        border-radius: 14px; padding: 13px 15px; font-size: 13.5px; color: var(--text-secondary); line-height: 1.55; }
+      .tip b { color: var(--text); }
+      .msgbox { background: var(--surface-elevated); border: 1px solid var(--stroke); border-radius: 14px;
+        padding: 14px 16px; font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+      .err { color: var(--error); font-size: 14px; }
+      .ebmark { width: 16px; height: 16px; border-radius: 4px; display: block; }
+      .updated { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <button class="theme-toggle" data-theme-toggle type="button" aria-label="Сменить тему" title="Сменить тему">☾</button>
+
+      <section class="hero">
+        <span class="eyebrow"><img class="ebmark" src="../screens/mark.png?v=18ab930c" alt="">Кабинет партнёра</span>
+        <h1 id="title">Ваша статистика</h1>
+        <p class="lead" id="subtitle">
+          Введите ключ, который мы выдали вместе с кодом. Он открывает только
+          ваши цифры и ничего больше.
+        </p>
+        <p class="updated" id="updated" hidden></p>
+      </section>
+
+      <section class="stack">
+
+        <article class="card" id="askCard">
+          <h2>Вход</h2>
+          <form class="key-form" id="keyForm">
+            <input id="keyInput" type="text" inputmode="text" autocomplete="off"
+                   spellcheck="false" placeholder="Ключ от кабинета" aria-label="Ключ от кабинета">
+            <button class="button" type="submit" id="enterButton">Показать статистику</button>
+            <p class="err" id="askError" hidden></p>
+          </form>
+          <p style="margin-top:16px; color:var(--muted); font-size:14px">
+            Нет ключа? Напишите в <a href="https://t.me/synapseapp">Telegram</a> —
+            выдадим. Об условиях — на <a href="../partners/">странице партнёрам</a>.
+          </p>
+        </article>
+
+        <article class="card" id="summaryCard" hidden>
+          <h2>Деньги</h2>
+          <div class="sum">
+            <div class="sum-main">
+              <span class="sum-lbl">Можно выплатить сейчас</span>
+              <b class="sum-big" id="sBig">—</b>
+              <span class="sum-note">прошло 30 дней после оплаты</span>
+            </div>
+            <div class="sum-side">
+              <div class="mini">
+                <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></span>
+                <span class="txt"><span>Заработано всего</span><b id="sEarned">—</b><i id="sShareLine"></i></span>
+              </div>
+              <div class="mini">
+                <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                <span class="txt"><span>Ждёт срока</span><b id="sHeld">—</b><i>на случай возврата</i></span>
+              </div>
+              <div class="mini">
+                <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7L9.5 17.5 4 12"/></svg></span>
+                <span class="txt"><span>Уже выплачено</span><b id="sPaid">—</b></span>
+              </div>
+            </div>
+          </div>
+          <p class="refund" id="refundNote" hidden></p>
+        </article>
+
+        <article class="card" id="linkCard" hidden>
+          <h2>Ваша ссылка и код</h2>
+          <p style="color:var(--muted); font-size:14px; margin-top:0">
+            По ссылке считаются переходы; она ведёт на сайт — человек пробует
+            бесплатно, а код закрепляется сам и подставляется в оплату.
+          </p>
+          <div class="link-row">
+            <code id="link">—</code>
+            <button class="button secondary" type="button" id="copyButton">Ссылку</button>
+          </div>
+          <div class="link-row" style="margin-top:10px">
+            <span style="flex:1; min-width:200px; font-size:14px; color:var(--muted)">
+              Код для оплаты: <span class="codechip" id="code">—</span>
+            </span>
+            <button class="button secondary" type="button" id="copyCode">Код</button>
+          </div>
+          <div class="tip">
+            <b>Давайте людям и ссылку, и код.</b> Код — ваша страховка: он засчитает
+            даже тех, кого ссылка упустила (открыл в другом браузере, купил с другого
+            устройства или прямо в приложении). Ссылка ловит сама, код — наверняка.
+          </div>
+          <p style="margin:16px 0 8px; font-size:14px; color:var(--text); font-weight:600">Готовое сообщение</p>
+          <div class="msgbox" id="msg">—</div>
+          <button class="button" type="button" id="copyMsg" style="margin-top:12px">Скопировать сообщение</button>
+        </article>
+
+        <article class="card" id="funnelCard" hidden>
+          <h2>Путь человека по вашей ссылке</h2>
+          <p class="conv"><b id="convPct">—</b><span id="convText"></span></p>
+          <div class="funnel" id="funnel"></div>
+          <p style="margin-top:16px; color:var(--muted); font-size:14px">
+            Переходы считаются по ссылке, оплаты — по подтверждённым платежам.
+            Один человек может перейти дважды — точное число покупателей ниже.
+          </p>
+        </article>
+
+        <article class="card" id="plansCard" hidden>
+          <h2>Что покупают</h2>
+          <table class="rows">
+            <thead>
+              <tr>
+                <th>Тариф</th>
+                <th class="num">Первых покупок</th>
+                <th class="num">Продлений</th>
+                <th class="num">Ваша доля</th>
+              </tr>
+            </thead>
+            <tbody id="plansBody"></tbody>
+          </table>
+        </article>
+
+        <article class="card" id="dailyCard" hidden>
+          <h2>По дням</h2>
+          <table class="rows">
+            <thead>
+              <tr>
+                <th>День</th>
+                <th class="num">Переходы</th>
+                <th class="num">Открыли оплату</th>
+                <th class="num">Нажали оплатить</th>
+              </tr>
+            </thead>
+            <tbody id="dailyBody"></tbody>
+          </table>
+          <p style="margin-top:14px; color:var(--muted); font-size:14px" id="dailyEmpty" hidden>
+            Переходов пока не было. Как только кто-то откроет вашу ссылку,
+            строка появится здесь.
+          </p>
+        </article>
+
+        <article class="card" id="exitCard" hidden>
+          <h2>Выход</h2>
+          <p style="color:var(--muted); font-size:14px; margin-top:0">
+            Ключ хранится только в этом браузере. Если открывали с чужого
+            устройства — выйдите.
+          </p>
+          <button class="button secondary" type="button" id="exitButton">Забыть ключ</button>
+        </article>
+
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img class="mark" src="../screens/mark.png?v=18ab930c" alt="" width="26" height="26">
+          <span>Synapse</span>
+        </div>
+        <nav class="footer-links">
+          <a href="../partners/">Партнёрам</a>
+          <a href="../app/">Открыть Synapse</a>
+          <a href="../pricing/">Тарифы</a>
+          <a href="../support/">Поддержка</a>
+          <a href="https://t.me/synapseapp">Telegram</a>
+        </nav>
+        <p class="copy">© 2026 Synapse. Все права защищены.</p>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var BACKEND = "https://api.synapseapp.ru";
+        var STORE_KEY = "synapse.partner.key";
+
+        var element = function (id) { return document.getElementById(id); };
+        var show = function (node, visible) { node.hidden = !visible; };
+
+        function money(kopecks) {
+          return Math.round((kopecks || 0) / 100).toLocaleString("ru-RU") + " ₽";
+        }
+
+        var PLAN_NAMES = {
+          "pro.weekly": "Неделя", "pro.monthly": "Месяц", "pro.yearly": "Год"
+        };
+
+        var MONTHS = ["января","февраля","марта","апреля","мая","июня",
+                      "июля","августа","сентября","октября","ноября","декабря"];
+
+        function humanDay(iso) {
+          var parts = String(iso || "").split("-");
+          if (parts.length !== 3) { return iso; }
+          return parseInt(parts[2], 10) + " " + MONTHS[parseInt(parts[1], 10) - 1];
+        }
+
+        /* Воронка рисуется от самого широкого шага, а не от ста процентов:
+           когда переходов четыре, полоса «купил один» в 25% ширины честнее
+           показывает картину, чем едва заметная чёрточка. */
+        function drawFunnel(data) {
+          var steps = [
+            { name: "Перешли по ссылке", value: data.clicks || 0 },
+            { name: "Открыли оплату", value: data.checkoutOpened || 0 },
+            { name: "Нажали «оплатить»", value: data.checkoutStarted || 0 },
+            { name: "Оплатили", value: data.sales || 0 }
+          ];
+          var top = Math.max.apply(null, steps.map(function (s) { return s.value; }).concat([1]));
+          var first = steps[0].value;
+
+          element("funnel").innerHTML = steps.map(function (step, i) {
+            var width = Math.round(step.value / top * 100);
+            var pct = (first > 0 && i > 0)
+              ? '<span class="pct"> · ' + Math.round(step.value / first * 100) + "%</span>"
+              : "";
+            return '<div class="step">' +
+              '<div class="step-head"><span>' + step.name + pct + "</span>" +
+              "<b>" + step.value + "</b></div>" +
+              '<div class="bar"><i style="width:' + width + '%"></i></div>' +
+              "</div>";
+          }).join("");
+
+          var clicks = data.clicks || 0, sales = data.sales || 0;
+          var conv = clicks > 0 ? Math.round(sales / clicks * 100) : 0;
+          element("convPct").textContent = conv + "%";
+          element("convText").textContent = clicks > 0
+            ? "переходов доходят до оплаты — " + sales + " из " + clicks
+            : "переходов пока нет";
+        }
+
+        function render(data) {
+          element("title").textContent = data.partner || "Ваша статистика";
+          element("subtitle").textContent = data.active
+            ? "Код " + data.code + ", ваша доля " + data.sharePercent + "% с каждой оплаты, включая продления."
+            : "Код " + data.code + " сейчас выключен. Напишите нам, если это неожиданно.";
+          element("updated").textContent = "Обновлено только что";
+          show(element("updated"), true);
+
+          show(element("askCard"), false);
+          ["summaryCard", "linkCard", "funnelCard", "plansCard", "dailyCard", "exitCard"]
+            .forEach(function (id) { show(element(id), true); });
+
+          element("link").textContent = data.link;
+          element("code").textContent = data.code;
+          element("msg").textContent =
+            "Пользуюсь Synapse — умным планировщиком с ИИ-ассистентом. Попробуй бесплатно:\n" +
+            data.link + "\nА когда захочешь оформить — вводи код " + data.code + ".";
+
+          element("sBig").textContent = money(data.availableKopecks);
+          element("sEarned").textContent = money(data.shareKopecks);
+          element("sShareLine").textContent = data.sharePercent + "% от " + money(data.revenueKopecks);
+          element("sHeld").textContent = money(data.heldKopecks);
+          element("sPaid").textContent = money(data.paidOutKopecks);
+
+          if (data.refundedKopecks) {
+            element("refundNote").textContent =
+              "Покупатели вернули " + money(data.refundedKopecks) +
+              ". Доли с возвращённых денег нет — их не осталось ни у нас, ни у вас.";
+            show(element("refundNote"), true);
+          } else {
+            show(element("refundNote"), false);
+          }
+
+          drawFunnel(data);
+
+          var plans = data.byPlan || [];
+          element("plansBody").innerHTML = plans.length
+            ? plans.map(function (row) {
+                return "<tr><td>" + (PLAN_NAMES[row.plan] || row.plan) + "</td>" +
+                  '<td class="num">' + row.firstSales + "</td>" +
+                  '<td class="num">' + row.renewals + "</td>" +
+                  '<td class="num share">' + money(row.netKopecks * data.sharePercent / 100) + "</td></tr>";
+              }).join("")
+            : '<tr><td colspan="4" style="color:var(--muted)">Оплат пока не было.</td></tr>';
+
+          var daily = (data.daily || []).slice().reverse();
+          element("dailyBody").innerHTML = daily.map(function (row) {
+            return '<tr><td class="day"><b>' + humanDay(row.day) + "</b></td>" +
+              '<td class="num">' + (row.click || 0) + "</td>" +
+              '<td class="num">' + (row.checkout || 0) + "</td>" +
+              '<td class="num">' + (row.started || 0) + "</td></tr>";
+          }).join("");
+          show(element("dailyEmpty"), daily.length === 0);
+        }
+
+        function load(token, button) {
+          if (button) { button.disabled = true; button.textContent = "Смотрим…"; }
+          show(element("askError"), false);
+
+          fetch(BACKEND + "/v1/synapse/partner/stats", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: token })
+          }).then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (body) {
+              return { status: response.status, body: body };
+            });
+          }).catch(function () {
+            return { status: 0, body: {} };
+          }).then(function (result) {
+            if (button) { button.disabled = false; button.textContent = "Показать статистику"; }
+
+            if (result.status === 200) {
+              try { localStorage.setItem(STORE_KEY, token); } catch (error) {}
+              render(result.body);
+              return;
+            }
+
+            var message = result.status === 0
+              ? "Не получается связаться с сервером. Проверьте интернет."
+              : result.status === 429
+                ? "Слишком много попыток подряд. Подождите минуту."
+                : (result.body && result.body.error) || "Что-то пошло не так.";
+            element("askError").textContent = message;
+            show(element("askError"), true);
+            if (result.status === 404) { try { localStorage.removeItem(STORE_KEY); } catch (error) {} }
+          });
+        }
+
+        element("keyForm").addEventListener("submit", function (event) {
+          event.preventDefault();
+          var token = element("keyInput").value.trim();
+          if (token.length < 16) {
+            element("askError").textContent = "Ключ короче, чем должен быть. Проверьте, что скопировали целиком.";
+            show(element("askError"), true);
+            return;
+          }
+          load(token, element("enterButton"));
+        });
+
+        function copyValue(value, button, okText, normalText) {
+          var done = function () {
+            button.textContent = okText;
+            setTimeout(function () { button.textContent = normalText; }, 2000);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(value).then(done, function () {});
+            return;
+          }
+          var field = document.createElement("textarea");
+          field.value = value;
+          document.body.appendChild(field);
+          field.select();
+          try { document.execCommand("copy"); done(); } catch (error) {}
+          document.body.removeChild(field);
+        }
+
+        element("copyButton").addEventListener("click", function () {
+          copyValue(element("link").textContent, this, "Готово", "Ссылку");
+        });
+        element("copyCode").addEventListener("click", function () {
+          copyValue(element("code").textContent, this, "Готово", "Код");
+        });
+        element("copyMsg").addEventListener("click", function () {
+          copyValue(element("msg").textContent, this, "Скопировано", "Скопировать сообщение");
+        });
+
+        element("exitButton").addEventListener("click", function () {
+          try { localStorage.removeItem(STORE_KEY); } catch (error) {}
+          location.reload();
+        });
+
+        // Ключ можно прислать ссылкой: …/me/?key=… — из адреса убираем сразу.
+        var fromLink = new URLSearchParams(location.search).get("key");
+        if (fromLink && window.history && window.history.replaceState) {
+          window.history.replaceState({}, "", location.pathname);
+        }
+        var saved = null;
+        try { saved = localStorage.getItem(STORE_KEY); } catch (error) {}
+        var initial = (fromLink || saved || "").trim();
+        if (initial.length >= 16) { load(initial, null); }
+      })();
+    </script>
+  </body>
+</html>

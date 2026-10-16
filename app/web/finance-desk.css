@@ -1,0 +1,191 @@
+/* ============ МОИ ФИНАНСЫ ОДНИМ ЭКРАНОМ — только веб ============
+
+   Разметку рисует web/finance-desk.js. Общее у дашбордов — колонка, сетка,
+   зона, плитки — в desk.css; здесь раскладка зон финансов и то, чего нет в
+   app.css. Полосы, кнопки «Оплатить» и строка ввода берутся оттуда как есть,
+   чтобы дашборд и вкладки выглядели одним разделом. */
+
+/* ---- сетка зон ----
+
+   Узко (до 1200):        Широко (от 1200):
+     итоги итоги итоги      итоги итоги итоги итоги
+     разбор разбор траты    разбор разбор разбор траты
+     конв  плат   траты     конв   плат   долги  траты
+     долги копилки ...      копилки ............ траты
+
+   Траты — колонка справа на несколько рядов: лента длинная по природе, и
+   ей нужна высота, а не ширина. */
+.desk.fin{
+  grid-template-areas:
+    "head head head"
+    "kpi  kpi  kpi"
+    "ana  ana  feed"
+    "env  pay  feed"
+    "debt jars jars";
+}
+.z-ana{grid-area:ana}
+.z-feed{grid-area:feed}
+.z-env{grid-area:env}
+.z-pay{grid-area:pay}
+.z-debt{grid-area:debt}
+.z-jars{grid-area:jars}
+
+@container desk (min-width:1200px){
+  .desk.fin{
+    grid-template-columns:repeat(3, minmax(0,1fr)) minmax(340px, 1.05fr);
+    grid-template-areas:
+      "head head head head"
+      "kpi  kpi  kpi  kpi"
+      "ana  ana  ana  feed"
+      "env  pay  debt feed"
+      "jars jars jars feed";
+  }
+}
+
+/* ---- разбор ---- */
+.dz-ana{display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.25fr); gap:26px}
+.dz-legend{display:inline-flex; align-items:center; gap:5px; text-transform:none; letter-spacing:0; font-weight:400}
+.dz-legend i{width:8px; height:8px; border-radius:2px; display:inline-block; margin-left:6px}
+.dz-legend i.in, .dc-b i.in{background:color-mix(in srgb, var(--pos,var(--ok)) 55%, transparent)}
+.dz-legend i.out, .dc-b i.out{background:var(--soft-2)}
+.dcols{display:flex; align-items:stretch; gap:6px; height:190px}
+.dcol{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:5px;
+  border-radius:10px; padding:4px 2px 2px}
+.dcol:hover{background:var(--soft)}
+.dc-v{font-size:10.5px; color:var(--fg-3); font-variant-numeric:tabular-nums; white-space:nowrap; min-height:13px}
+.dc-b{flex:1; width:100%; display:flex; align-items:flex-end; justify-content:center; gap:3px}
+.dc-b i{display:block; width:42%; max-width:18px; border-radius:5px 5px 0 0}
+.dcol.on .dc-b i.out{background:var(--accent)}
+.dcol.on .dc-t, .dcol.on .dc-v{color:var(--fg); font-weight:600}
+.dc-t{font-size:11px; color:var(--fg-3)}
+
+.dz-cats{display:flex; flex-direction:column; min-width:0}
+.dcat{display:grid; grid-template-columns:8px minmax(70px,1fr) 1.3fr 34px auto 58px;
+  align-items:center; gap:9px; padding:6px 8px; margin:0 -8px; border-radius:9px; text-align:left;
+  font-size:13px}
+.dcat:hover{background:var(--soft)}
+.dcat.on{background:var(--soft); box-shadow:inset 0 0 0 1.5px var(--fg-3)}
+.dcat-t{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--fg-2)}
+.dcat-p{font-size:11.5px; color:var(--fg-3); text-align:right; font-variant-numeric:tabular-nums}
+.dcat-v{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dcat em{font-style:normal; font-size:11.5px; text-align:right; color:var(--fg-3); font-variant-numeric:tabular-nums}
+.dcat em.up{color:var(--neg,var(--crit))}
+.dcat em.down{color:var(--pos,var(--ok))}
+.dz-pace{margin:16px 0 0; padding-top:12px; border-top:1px solid var(--line);
+  font-size:13px; line-height:1.5; color:var(--fg-2)}
+.dz-pace b{color:var(--fg); font-variant-numeric:tabular-nums}
+
+/* ---- траты ---- */
+.desk-add{margin-bottom:10px}
+.desk-add .finswitch{margin-bottom:8px}
+/* Строка ввода в зоне — без тени и белого ореола: у плавающей они отделяли
+   её от ленты под ней, а здесь она и так стоит в карточке. */
+.desk-add .say{box-shadow:none; border-width:1px; padding:5px 5px 5px 14px}
+.desk-add .say input{font-size:14px}
+.desk-add .say .ai, .desk-add .say .send{width:32px; height:32px}
+/* Свой микрофон — контуром, а не заливкой: правило app.css для .say .ai
+   заливает всё, что внутри кнопки. */
+.desk-add .say .ai svg.dmic{width:18px; height:18px; fill:none; stroke:currentColor;
+  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.desk-add .finwhen{margin:8px 0 0}
+.dz-filter{display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:12.5px; padding:6px 6px 6px 12px; margin-bottom:8px; border-radius:999px;
+  background:var(--soft); color:var(--fg-2)}
+.dz-filter button{width:22px; height:22px; border-radius:999px; display:grid; place-items:center;
+  font-size:11px; color:var(--fg-3)}
+.dz-filter button:hover{background:var(--card); color:var(--fg)}
+.dday{margin-bottom:12px}
+.dday-h{display:flex; justify-content:space-between; gap:10px; padding:4px 0 5px;
+  font-size:12px; color:var(--fg-3); position:sticky; top:0; background:var(--card); z-index:1}
+.dday-h b{font-weight:600; color:var(--fg-2)}
+.dday-h span{font-variant-numeric:tabular-nums}
+.drow{display:flex; align-items:center; gap:9px; padding:6px 0; border-top:1px solid var(--line)}
+.drow-t{flex:1; min-width:0; display:flex; align-items:baseline; gap:7px; text-align:left;
+  font-size:13.5px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.drow-t span{font-size:11.5px; color:var(--fg-3); flex:none}
+.drow-t:hover{text-decoration:underline; text-decoration-color:var(--fg-3); text-underline-offset:3px}
+.drow-v{font-size:13.5px; font-variant-numeric:tabular-nums; flex:none}
+.drow-v.up{color:var(--pos,var(--ok))}
+.drow .fr-x{width:22px; height:22px}
+@media (hover:hover) and (pointer:fine){
+  .drow .fr-x, .ddebt .fr-x{opacity:0; transition:opacity .14s ease}
+  .drow:hover .fr-x, .drow:focus-within .fr-x,
+  .ddebt:hover .fr-x, .ddebt:focus-within .fr-x{opacity:1}
+}
+
+/* ---- конверты ---- */
+.denv{padding:9px 0; border-top:1px solid var(--line)}
+.dz-list > :first-child{border-top:0; padding-top:0}
+.denv-h{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:6px}
+.denv-h button{font-size:13.5px; font-weight:600; text-align:left; min-width:0;
+  overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.denv-h span{font-size:12px; color:var(--fg-3); font-variant-numeric:tabular-nums; white-space:nowrap}
+.denv-f{margin-top:5px; font-size:12px; color:var(--fg-2)}
+.denv.over .denv-f{color:var(--crit)}
+
+/* ---- платежи ----
+
+   Две строки, как у долгов: зона узкая, и в одну строку значок, название,
+   сумма и «Оплатить» оставляли названию семьдесят пикселей — «ChatGPT Plus»
+   ломалось на два этажа. Сверху — что и сколько, снизу — срок и кнопка. */
+.dpay{display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"l t v" "l n a";
+  column-gap:10px; row-gap:4px; align-items:center; padding:9px 0; border-top:1px solid var(--line)}
+.dpay .tplmark{grid-area:l; align-self:start; margin-top:1px}
+.dpay-t{grid-area:t; min-width:0; text-align:left; font-size:13.5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dpay-v{grid-area:v; text-align:right; font-size:13.5px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dpay-n{grid-area:n; min-width:0; font-size:11.5px; color:var(--fg-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dpay-n.late{color:var(--crit)}
+.dpay .fr-pay{grid-area:a; justify-self:end; min-width:80px; font-size:12px; padding:4px 10px}
+.dpay .fr-pay.on{width:80px; height:24px}
+.dpay.paid .dpay-t, .dpay.paid .dpay-v{opacity:.6}
+
+/* ---- долги ----
+
+   Две строки, а не одна: зона узкая, и кнопка «Платёж» в одну строку с
+   именем выжимала подпись в четыре этажа. Сверху — кто и сколько, снизу —
+   срок и действия. */
+.ddebt{display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"t v" "n a";
+  column-gap:10px; row-gap:4px; align-items:center; padding:9px 0; border-top:1px solid var(--line)}
+.ddebt-t{grid-area:t; min-width:0; font-size:13.5px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.ddebt-n{grid-area:n; min-width:0; font-size:11.5px; color:var(--fg-3); line-height:1.35}
+.ddebt-n b.late{color:var(--crit); font-weight:600}
+.ddebt-v{grid-area:v; text-align:right; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap}
+.ddebt-v.mine{color:var(--warn)}
+.ddebt-v.owed{color:var(--pos,var(--ok))}
+.ddebt-a{grid-area:a; display:flex; align-items:center; gap:2px; justify-content:flex-end}
+.ddebt .fr-pay{min-width:74px; font-size:12px; padding:4px 10px}
+
+/* ---- копилки ---- */
+.djars{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:12px}
+.djar{border:1px solid var(--line); border-radius:14px; padding:13px 14px; display:flex; flex-direction:column; gap:7px}
+.djar.full{border-color:var(--ok)}
+.djar-h{display:flex; align-items:baseline; justify-content:space-between; gap:8px}
+.djar-h button{font-size:14px; font-weight:600; text-align:left; min-width:0;
+  overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.djar-h span{font-size:12px; color:var(--fg-3); font-variant-numeric:tabular-nums}
+.djar-s{font-size:12.5px; color:var(--fg-3)}
+.djar-s b{font-size:17px; color:var(--fg); letter-spacing:-.01em; font-variant-numeric:tabular-nums}
+.djar-n{font-size:12px; color:var(--fg-2); min-height:16px}
+.djar-n .late{color:var(--crit)}
+.djar-a{display:flex; gap:6px; margin-top:2px}
+
+/* Кнопка «Одним экраном» в конце полосы вкладок: отделена от вкладок, чтобы
+   не читаться ещё одной из них. */
+.fintab.desk-back{margin-left:auto; color:var(--accent-text,var(--accent)); font-weight:600}
+
+/* ---- курсы ----
+
+   Тонкая полоса в шапке между названием и месяцем: справка, а не зона.
+   Значок валюты, цена и изменение мелко — стрелка и процент приглушены и не
+   красятся в «хорошо/плохо»: рост доллара для одного удача, для другого
+   нет, и раскрашивать это за человека не нам. */
+.desk-rates{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0}
+.dr{display:inline-flex; align-items:baseline; gap:6px; padding:6px 11px; border-radius:999px;
+  background:var(--card); border:1px solid var(--stroke); font-size:13px; white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.dr i{font-style:normal; font-weight:700; color:var(--fg-3); font-size:12.5px}
+.dr b{font-weight:600}
+.dr em{font-style:normal; font-size:11px; color:var(--fg-3)}
+.dr em.up{color:var(--fg-2)}
+.dr-src, .dr-wait{font-size:11px; color:var(--fg-3); white-space:nowrap; padding:0 4px}
