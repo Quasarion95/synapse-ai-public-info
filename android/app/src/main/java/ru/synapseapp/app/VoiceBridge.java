@@ -96,7 +96,16 @@ public class VoiceBridge {
         recognizer.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) { событие("start", ""); }
             @Override public void onBeginningOfSpeech() { }
-            @Override public void onRmsChanged(float rms) { }
+            /* Громкость голоса — для волны при записи с зажатой кнопкой.
+               Движок присылает её десятки раз в секунду; странице хватает
+               пятнадцати, остальное только грело бы WebView. */
+            private long прошлаяГромкость = 0;
+            @Override public void onRmsChanged(float rms) {
+                long сейчас = System.currentTimeMillis();
+                if (сейчас - прошлаяГромкость < 66) return;
+                прошлаяГромкость = сейчас;
+                событие("rms", String.valueOf(rms));
+            }
             @Override public void onBufferReceived(byte[] buffer) { }
             @Override public void onEndOfSpeech() { }
             @Override public void onEvent(int type, Bundle params) { }

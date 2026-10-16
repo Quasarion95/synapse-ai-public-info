@@ -2079,6 +2079,8 @@ window.addEventListener('popstate', function(event){
    «без регистрации», а состояние входа всё равно лежит рядом с задачами.
    Вход есть, он живёт отдельным экраном и нужен для будущего аккаунта. */
 function render(){
+  // Пульс кнопки AI ставит карточка «Первые шаги», если она на экране.
+  document.documentElement.classList.remove('tour-hold');
   applyTheme();
 
   var view = VIEWS[S.view] || VIEWS.tasks;
@@ -5237,6 +5239,16 @@ var TOUR_STEPS = [
     done: function(){ return S.tasks.some(function(t){ return t.done || t.archived; }); }
   },
   {
+    /* Запись с зажатой кнопкой — самый быстрый вход в приложение, но
+       догадаться о ней нельзя: кнопка выглядит как обычная. Поэтому учим
+       ей отдельным шагом, а кнопка AI в это время мягко пульсирует. Где
+       распознавания речи нет, шаг считается пройденным сам. */
+    id: 'hold',
+    title: 'Зажми AI и скажи',
+    hint: 'Печатать не обязательно: зажми кнопку AI внизу, скажи, например, «завтра в 10 созвон с Олегом», и отпусти — Syn всё запишет сам. Передумал — уведи палец в сторону, и запись отменится.',
+    done: function(){ return !!S.holdVoiceUsed || !voiceSupported(); }
+  },
+  {
     id: 'goal',
     /* «Заведи цель» звучало канцелярски — цель ставят, а не заводят. */
     title: 'Поставь цель',
@@ -5288,6 +5300,9 @@ function vTour(){
   for (var i = 0; i < TOUR_STEPS.length; i++){
     if (!TOUR_STEPS[i].done()){ current = TOUR_STEPS[i]; break; }
   }
+
+  // Пока текущий шаг — «зажми AI», кнопка AI пульсирует: вот она.
+  document.documentElement.classList.toggle('tour-hold', !!(current && current.id === 'hold'));
 
   return '<section class="card tour">' +
     '<div class="tour-head">' +
@@ -9386,9 +9401,30 @@ document.addEventListener('focusin', function(e){
   if (e.target && e.target.id === 'syn-input' && e.isTrusted) synКлавиатура = true;
 });
 
+/* Клавиатуру спрятали, а поле осталось в фокусе.
+
+   На Android «назад» убирает клавиатуру, не снимая фокуса с поля, и
+   следующая перерисовка окна (ответ Syn, слово диктовки) звала focus() и
+   вытаскивала её снова. Признак того, что клавиатуру убрали, — экран снова
+   вырос до прежней высоты: тогда снимаем и признак, и фокус. */
+var synВысотаБезКлавиатуры = window.innerHeight;
+window.addEventListener('resize', function(){
+  var h = window.innerHeight;
+  if (h >= synВысотаБезКлавиатуры - 40){
+    synВысотаБезКлавиатуры = Math.max(synВысотаБезКлавиатуры, h);
+    var a = document.activeElement;
+    if (synКлавиатура && a && a.id === 'syn-input' && touchUI()){
+      synКлавиатура = false;
+      a.blur();
+    }
+  }
+});
+
 function synRender(draft, error){
-  // Первое открытие окна — без клавиатуры: нажать на поле человек успеет.
-  if (!$('syn-log')) synКлавиатура = false;
+  /* Первое открытие окна на телефоне — без клавиатуры: нажать на поле
+     человек успеет. На компьютере клавиатура не выезжает и ничего не
+     заслоняет — там курсор, как и раньше, сразу в поле. */
+  if (!$('syn-log')) synКлавиатура = !touchUI();
   openModal(modalSyn(draft, error), synКлавиатура ? true : 'none');
   var field = $('syn-input');
   if (field){
@@ -14814,6 +14850,277 @@ document.addEventListener('click', function(event){
    «назад». Перерисовка из состояния лечит оба случая разом. */
 window.addEventListener('pageshow', function(event){
   if (event.persisted) render();
+});
+
+/* ============ ЗАПИСЬ С ЗАЖАТОЙ КНОПКОЙ AI ============ */
+
+/* Быстрый голос: зажал AI — говоришь, отпустил — ушло Syn.
+
+   Окно ассистента с полем и микрофоном — это три шага там, где хватает
+   одного: открыть, нажать микрофон, дождаться. Здесь как в мессенджерах:
+   палец на кнопке — идёт запись, над строкой ввода волна и текст, который
+   уже расслышан; отпустил — фраза уходит Syn, и окно открывается уже с
+   ответом. Увёл палец в сторону — панель краснеет, и если отпустить там,
+   запись отменяется: передумать можно в любой момент, ничего не отправив.
+
+   Короткое нажатие остаётся прежним — открывает окно Syn. */
+var БГ_ПОРОГ = 260;      // мс удержания, после которых нажатие — запись
+var БГ_ОТМЕНА = 80;      // px от места касания, дальше которых — отмена
+var бг = null;
+var бгГлушитьКлик = 0;
+var бгУровень = 0, бгКадр = null;
+
+function бгПанель(){
+  var el = $('holdvoice');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'holdvoice';
+  el.className = 'holdvoice';
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
+  var bars = '';
+  for (var i = 0; i < 32; i++) bars += '<i></i>';
+  el.innerHTML = '<div class="hv-top"><span class="hv-dot"></span><b class="hv-title"></b></div>' +
+    '<div class="hv-wave" aria-hidden="true">' + bars + '</div>' +
+    '<p class="hv-text"></p><p class="hv-hint"></p>';
+  document.body.appendChild(el);
+  return el;
+}
+
+function бгРисовать(){
+  var el = бгПанель();
+  if (!бг || !бг.идёт){ el.classList.remove('on', 'cancel', 'sending'); document.documentElement.classList.remove('hv-on'); return; }
+  el.classList.add('on');
+  el.classList.toggle('cancel', !!бг.отмена);
+  el.classList.toggle('sending', !!бг.отпущен && !бг.отмена);
+  document.documentElement.classList.add('hv-on');
+  var comp = document.querySelector('.composer');
+  if (comp) el.style.bottom = Math.max(12, window.innerHeight - comp.getBoundingClientRect().top + 10) + 'px';
+  el.querySelector('.hv-title').textContent = SynI18n.tr(бг.отмена ? 'Отпустите — запись отменится'
+    : бг.отпущен ? 'Отправляю Syn…' : 'Слушаю');
+  var text = бгТекст();
+  el.querySelector('.hv-text').textContent = text || SynI18n.tr(бг.отмена ? '' : 'Говорите…');
+  el.querySelector('.hv-text').classList.toggle('empty', !text);
+  el.querySelector('.hv-hint').textContent = SynI18n.tr(бг.отмена ? 'Верните палец к кнопке, чтобы продолжить'
+    : 'Отпустите — отправить · уведите палец в сторону — отмена');
+}
+
+function бгТекст(){
+  if (!бг) return '';
+  return ((бг.накоплено || '') + ' ' + (бг.текст || '')).replace(/\s+/g, ' ').trim();
+}
+
+/* Волна: высота столбиков от громкости голоса. На Android громкость шлёт
+   оболочка (событие rms), в браузере её нет — там волна дышит сама и
+   подскакивает на каждом новом расслышанном слове. */
+function бгВолна(){
+  var el = $('holdvoice');
+  if (!бг || !бг.идёт || !el){ бгКадр = null; return; }
+  var bars = el.querySelectorAll('.hv-wave i');
+  var t = Date.now() / 1000;
+  бгУровень *= 0.9;
+  var level = бг.отпущен ? 0.08 : Math.max(0.12, бгУровень);
+  for (var i = 0; i < bars.length; i++){
+    var wave = 0.5 + 0.5 * Math.sin(t * 7 + i * 0.55) * Math.sin(t * 3.1 + i * 0.21);
+    var h = 0.14 + level * (0.35 + 0.65 * wave);
+    bars[i].style.transform = 'scaleY(' + Math.min(1, h).toFixed(3) + ')';
+  }
+  бгКадр = requestAnimationFrame(бгВолна);
+}
+
+function бгНачать(){
+  if (!бг) return;
+  бг.идёт = true;
+  бг.накоплено = ''; бг.текст = ''; бг.итог = null;
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch (e){}
+  // Окно Syn и обычная диктовка не должны слушать одновременно с нами.
+  if (voice.on) voiceStop();
+  synКлавиатура = false;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  бгРисовать();
+  if (!бгКадр) бгКадр = requestAnimationFrame(бгВолна);
+  бгСлушать();
+}
+
+function бгСлушать(){
+  var родной = voiceNative();
+  if (родной){
+    voice.cancelled = false;
+    родной.start();
+    return;
+  }
+  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition){ бгЗакрыть(); toast('На этом устройстве нет распознавания речи'); return; }
+  var rec = new Recognition();
+  rec.lang = 'ru-RU';
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.onresult = function(event){
+    if (!бг || бг.rec !== rec) return;
+    var finalText = '', interim = '';
+    for (var i = 0; i < event.results.length; i++){
+      if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+      else interim += event.results[i][0].transcript;
+    }
+    бг.накоплено = finalText; бг.текст = interim;
+    бгУровень = 1;
+    бгРисовать();
+  };
+  rec.onerror = function(event){
+    if (!бг || бг.rec !== rec) return;
+    if (event && event.error === 'not-allowed'){ бгЗакрыть(); toast('Нет доступа к микрофону'); }
+  };
+  rec.onend = function(){
+    if (!бг || бг.rec !== rec) return;
+    if (бг.отпущен) бгОтправить();
+    else { try { rec.start(); } catch (e){} }  // браузер сам замолк — слушаем дальше
+  };
+  бг.rec = rec;
+  try { rec.start(); } catch (e){ бгЗакрыть(); }
+}
+
+function бгЗавершить(){
+  бг.отпущен = true;
+  бгРисовать();
+  var родной = voiceNative();
+  if (родной) родной.stop();
+  else if (бг.rec){ try { бг.rec.stop(); } catch (e){ бгОтправить(); } }
+  // Итог может не прийти вовсе (тишина, сбой движка) — не ждём вечно.
+  var этот = бг;
+  setTimeout(function(){ if (бг === этот) бгОтправить(); }, 1800);
+}
+
+function бгОтправить(){
+  if (!бг || бг.отправлено) return;
+  бг.отправлено = true;
+  var text = бгТекст();
+  бгЗакрыть();
+  if (!text){ toast('Ничего не расслышал — зажмите и скажите ещё раз'); return; }
+  S.holdVoiceUsed = true;
+  S.synIntent = '';
+  S.synGoalCreate = false;
+  synRender('', '');
+  synSend(text);
+  if (tourCheck()) toast('Первые шаги пройдены');
+}
+
+function бгОтменить(){
+  if (!бг) return;
+  var родной = voiceNative();
+  if (родной){
+    voice.cancelled = true;
+    if (родной.cancel) родной.cancel(); else родной.stop();
+  } else if (бг.rec){
+    var rec = бг.rec;
+    rec.onresult = rec.onerror = rec.onend = null;
+    try { rec.abort(); } catch (e){}
+  }
+  var шла = бг.идёт;
+  бгЗакрыть();
+  if (шла) toast('Запись отменена');
+}
+
+function бгЗакрыть(){
+  if (бг && бг.timer) clearTimeout(бг.timer);
+  бг = null;
+  бгРисовать();
+}
+
+/* События оболочки перехватываем раньше окна Syn (фаза захвата) и
+   дальше не пускаем: иначе Syn принял бы нашу фразу за свою диктовку. */
+window.addEventListener('android-voice', function(event){
+  if (!бг || !бг.идёт) return;
+  event.stopImmediatePropagation();
+  var d = event.detail || {};
+  if (d.kind === 'rms'){
+    // Громкость движка — примерно от −2 до 10 дБ; переводим в 0…1.
+    var v = (parseFloat(d.text) + 2) / 10;
+    if (!isNaN(v)) бгУровень = Math.max(бгУровень, Math.min(1, Math.max(0, v)));
+    return;
+  }
+  if (d.kind === 'start'){
+    if (бг.отпущен && !бг.накоплено && !бг.текст) бгОтправить();
+    return;
+  }
+  if (d.kind === 'partial'){ бг.текст = d.text || ''; бгУровень = Math.max(бгУровень, 0.6); бгРисовать(); return; }
+  if (d.kind === 'final'){
+    бг.накоплено = ((бг.накоплено || '') + ' ' + (d.text || бг.текст || '')).trim();
+    бг.текст = '';
+    if (бг.отпущен){ бгОтправить(); return; }
+    // Движок закончил фразу на паузе, а палец ещё на кнопке — слушаем дальше.
+    бгРисовать();
+    бгПерезапуск();
+    return;
+  }
+  if (d.kind === 'error'){
+    if (бг.отпущен){ бгОтправить(); return; }
+    /* Пока кнопка зажата, ошибки движка — не повод бросать запись.
+
+       На тишине движок Android сам завершает фразу, а на слишком быстром
+       перезапуске отвечает «занят» или «сбой клиента». Человек при этом
+       держит кнопку и просто подбирает слова — показывать ему ошибку
+       нельзя. Перезапускаемся с паузой. Сдаёмся только когда микрофон
+       запрещён: тут ждать бесполезно. */
+    if (/доступа к микрофону/.test(d.text || '')){ бгЗакрыть(); toast(d.text); return; }
+    бгПерезапуск();
+  }
+}, true);
+
+function бгПерезапуск(){
+  var этот = бг;
+  setTimeout(function(){
+    if (бг !== этот || !бг.идёт || бг.отпущен) return;
+    var родной = voiceNative();
+    if (родной){ voice.cancelled = false; родной.start(); }
+  }, 300);
+}
+
+function бгКнопка(target){
+  return target && target.closest ? target.closest('.say .ai[data-act="ai"]') : null;
+}
+
+document.addEventListener('pointerdown', function(event){
+  var btn = бгКнопка(event.target);
+  if (!btn || event.button > 0 || !voiceSupported()) return;
+  бг = { кнопка: btn, x: event.clientX, y: event.clientY, id: event.pointerId };
+  try { btn.setPointerCapture(event.pointerId); } catch (e){}
+  бг.timer = setTimeout(бгНачать, БГ_ПОРОГ);
+});
+document.addEventListener('pointermove', function(event){
+  if (!бг || event.pointerId !== бг.id) return;
+  var dx = event.clientX - бг.x, dy = event.clientY - бг.y;
+  var dist = Math.sqrt(dx * dx + dy * dy);
+  if (!бг.идёт){
+    // Сдвинул палец раньше, чем началась запись, — это не удержание.
+    if (dist > 14){ clearTimeout(бг.timer); бг = null; }
+    return;
+  }
+  var отмена = dist > БГ_ОТМЕНА;
+  if (отмена !== !!бг.отмена){
+    бг.отмена = отмена;
+    try { if (отмена && navigator.vibrate) navigator.vibrate([8, 40, 8]); } catch (e){}
+    бгРисовать();
+  }
+});
+function бгОтпустить(event, сорван){
+  if (!бг || (event && event.pointerId !== бг.id)) return;
+  clearTimeout(бг.timer);
+  if (!бг.идёт){ бг = null; return; }   // короткое нажатие — обычный клик
+  бгГлушитьКлик = Date.now();
+  if (сорван || бг.отмена) бгОтменить();
+  else бгЗавершить();
+}
+document.addEventListener('pointerup', function(event){ бгОтпустить(event, false); });
+document.addEventListener('pointercancel', function(event){ бгОтпустить(event, true); });
+// Клик после удержания не должен ещё и открывать окно Syn.
+document.addEventListener('click', function(event){
+  if (Date.now() - бгГлушитьКлик < 700 && бгКнопка(event.target)){
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+}, true);
+document.addEventListener('contextmenu', function(event){
+  if (бгКнопка(event.target)) event.preventDefault();
 });
 
 /* ============ УСТАНОВКА И РАБОТА БЕЗ СЕТИ ============ */
