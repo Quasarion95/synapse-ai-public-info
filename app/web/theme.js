@@ -13,7 +13,7 @@
        светлее, яркий фирменный цвет с градиентом.
 
    Палитра больше не красит бумагу, а задаёт фирменную пару цветов для
-   градиента: «Бумага» — индиго с фиолетовым (основная тема), «Лес» —
+   градиента: «Индиго» — основная тема, «Лес» —
    изумруд, «Бордо» — малиновый, «Море» — бирюза, «Уголь» — строгий
    монохром… Пары подобраны руками для каждой палитры и для каждой темы:
    формулой «добавить насыщенности» половина выходила грязной.
@@ -32,21 +32,19 @@
   /* Фирменная пара на палитру: [светлая тема], [тёмная тема]. Первый цвет —
      основной (кнопки, выбранное), второй — конец градиента. */
   var BRANDS = {
-    paper:       [['#5B5BF6', '#8B6CFF'], ['#7C5CFF', '#3E8BFF']],
     graphite:    [['#3E6AE1', '#56A0F5'], ['#6A8CFF', '#45B4FF']],
     forest:      [['#0E9F6E', '#2BC48A'], ['#34D399', '#22C1A6']],
     brass:       [['#C98A0B', '#E8AE36'], ['#F5B83D', '#FFD36B']],
     burgundy:    [['#D6334D', '#F0567A'], ['#FF5C7A', '#FF8A9F']],
-    tobacco:     [['#CF6418', '#EF8F3C'], ['#FF9550', '#FFB36B']],
-    indigo:      [['#4F46E5', '#6D7BFF'], ['#7B83FF', '#5AA2FF']],
+    /* Пара прежней «Бумаги»: «Индиго» заняла её место темы по умолчанию,
+       и выбранный по макетам вид не должен был сдвинуться ни на тон. */
+    indigo:      [['#5B5BF6', '#8B6CFF'], ['#7C5CFF', '#3E8BFF']],
     plum:        [['#A23DD1', '#D05ADF'], ['#C77DFF', '#E879F9']],
     sea:         [['#0B95A3', '#22C3C9'], ['#2DD4D9', '#38BDF8']],
     charcoal:    [['#1C1F26', '#4A5263'], ['#F1F2F5', '#B7BCC8']],
     nightbark:   [['#0082CC', '#1FB0F2'], ['#4FB6FF', '#7FD0FF']],
     ember:       [['#EA5418', '#FF8A3D'], ['#FF7A3D', '#FFA05C']],
     slate:       [['#2F8FD8', '#4FB3F0'], ['#6CBFFF', '#8FD3FF']],
-    editorial:   [['#C2522A', '#E07B45'], ['#F08B5E', '#FFAA7F']],
-    neon:        [['#1E9E2C', '#46C22A'], ['#A3FF3D', '#5CFF8A']],
     kraft:       [['#EE6234', '#FF8F5C'], ['#FF8A5C', '#FFB089']],
     ultraviolet: [['#7048E8', '#9B6BFF'], ['#A78BFA', '#C4B5FD']],
     atheneum:    [['#A9822F', '#CFAA5C'], ['#D9B66B', '#EED39A']],
@@ -54,7 +52,6 @@
     hunter:      [['#1C7A4C', '#2FA36A'], ['#5FD39A', '#3CC9A0']],
     wineclub:    [['#A3243B', '#C7425B'], ['#F2788E', '#FF9AAE']],
     navy:        [['#1E4C8A', '#2F6FC0'], ['#7FA8E6', '#9CC2FF']],
-    camel:       [['#AA7434', '#D09A55'], ['#E0B07A', '#F2CB98']],
     ivory:       [['#5F7F50', '#8FAE7A'], ['#A9C79A', '#C3DDB5']],
     study:       [['#A27A10', '#C99A2E'], ['#E2B84A', '#F2D27A']]
   };
@@ -154,7 +151,7 @@
   }
 
   function brandPair(id, dark){
-    var b = BRANDS[id] || BRANDS.paper;
+    var b = BRANDS[id] || BRANDS[FALLBACK];
     var pair = b[dark ? 1 : 0];
     var one = soften(hex(pair[0]), dark);
     // Концы градиента ближе друг к другу: остаётся перелив, а не переход
@@ -245,18 +242,52 @@
     });
   }
 
+  /* Темы, убранные из веб-версии по решению владельца. В app.js они
+     остаются — он общий с андроидом, — а здесь вынимаются из списка
+     PALETTES до того, как его кто-то покажет.
+
+     «Бумага» была первой: темой по умолчанию, одной из двух бесплатных и
+     запасной для неизвестного id (paletteOf отдаёт PALETTES[0]). Её место
+     занимает «Индиго» — ближайшая по цвету к прежней индиго-фиолетовой
+     паре «Бумаги», так что новый человек видит то же, что раньше.
+     Бесплатные теперь «Индиго» и «Графит». */
+  var REMOVED = ['paper', 'camel', 'editorial', 'neon', 'tobacco'];
+  var FALLBACK = 'indigo';
+
+  function prunePalettes(){
+    if (typeof PALETTES === 'undefined') return;
+    for (var i = PALETTES.length - 1; i >= 0; i--){
+      if (REMOVED.indexOf(PALETTES[i].id) !== -1) PALETTES.splice(i, 1);
+    }
+    for (var j = 0; j < PALETTES.length; j++){
+      if (PALETTES[j].id === FALLBACK){ PALETTES.unshift(PALETTES.splice(j, 1)[0]); break; }
+    }
+  }
+
+  /* Кто сидел на убранной теме — переезжает на «Индиго». Проверяем при
+     каждой перекраске, а не один раз: тема может вернуться из резервной
+     копии или с телефона. Сохранится со следующим изменением настроек. */
+  function migratePalette(){
+    if (typeof S !== 'undefined' && S && REMOVED.indexOf(S.palette) !== -1) S.palette = FALLBACK;
+  }
+
   /* applyTheme объявлен в app.js, который грузится после этого файла.
      Оборачиваем его, когда страница разобрана, и сразу перекрашиваем — первая
      отрисовка уже прошла со старыми цветами, и без этого вызова новые
      появились бы только со следующей. */
   function install(){
     if (typeof global.applyTheme !== 'function') return;
+    prunePalettes();
+    migratePalette();
     var base = global.applyTheme;
     global.applyTheme = function(){
+      migratePalette();
       base.apply(this, arguments);
       try { apply(); } catch (e){}
     };
+    base();
     apply();
+    if (typeof S !== 'undefined' && S.view === 'settings' && typeof global.render === 'function') global.render();
     var app = document.getElementById('app');
     if (app && global.MutationObserver){
       new MutationObserver(markMap).observe(app, { childList: true });
