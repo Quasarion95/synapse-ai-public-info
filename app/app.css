@@ -2993,3 +2993,24 @@ h1, h2, h3, .fr-t, .pr-t, .tilebtn .tt, .goalcard-h .gt, .listtile h3{
    просвечивать. */
 .in-app .item:not(.dragging){border-radius:0}
 .in-app .swipe:not(.swiping):not(.swiped) > .side{visibility:hidden}
+
+/* Значки строки задачи в приложении — как на айфоне: символ и подпись. */
+.in-app .item .chips .mi{display:inline-flex; align-items:center; gap:3px; font-size:11.5px; font-weight:500;
+  color:var(--fg-2); white-space:nowrap; min-width:0}
+.in-app .item .chips .mi > span{overflow:hidden; text-overflow:ellipsis}
+.in-app .item .chips .mi svg{width:11px; height:11px; flex:none; fill:none; stroke:currentColor; stroke-width:2.1;
+  stroke-linecap:round; stroke-linejoin:round}
+/* «не выполнено» — красная обведённая метка, как TaskOverdueBadge. */
+.in-app .item .chips .mi.late{color:var(--danger); font-weight:600; font-size:11px; padding:1px 5px;
+  border:1px solid var(--danger); border-radius:6.5px}
+/* Стрелка подпунктов: вниз, а у раскрытой задачи — вверх. */
+.in-app .item .chips .mi.exp{font-weight:600}
+.in-app .item .chips .mi.exp .car{display:inline-grid; transition:transform .18s ease}
+.in-app .item .chips .mi.exp .car .nav-ic{width:12px; height:12px; stroke-width:2.4}
+.in-app .item.open .chips .mi.exp .car{transform:rotate(180deg)}
+/* Несколько значков справа — столбиком, а не в строку: время над
+   повтором. В строку оба обрывались («08:… каждую нед…»), а столбик
+   уходит в высоту, которой у строки с длинным названием и так две строки. */
+.in-app .item .chips{flex-direction:column; align-items:flex-end; gap:2px; max-width:44%}
+.in-app .item .chips .mi{max-width:100%}
+.in-app .item .chips .mi:first-child{flex:none}

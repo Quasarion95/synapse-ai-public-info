@@ -5675,6 +5675,44 @@ function itemRow(t, внутриЦели){
 
   var expandable = t.subtasks.length || t.note;
 
+  /* Строка задачи в приложении — значки как на айфоне.
+
+     Там у каждого признака свой маленький символ: календарик у даты,
+     часики у времени, стрелки по кругу у повтора, флажок у срока. Подпись
+     рядом — мелко и тихо. Просрочка — красной обведённой меткой «не
+     выполнено», а подпункты и описание — стрелкой вниз с числом. Цели в
+     строке нет: название цели не помещалось и обрывалось на полуслове, а
+     к какой цели относится задача, видно в раскрытой задаче. Порядок тот
+     же, что на айфоне, только весь ряд — справа от названия. */
+  if (inApp()){
+    var мета = function(icon, text, cls){
+      return '<span class="mi' + (cls ? ' ' + cls : '') + '">' + icon + '<span>' + esc(text) + '</span></span>';
+    };
+    var знак = function(path){ return '<svg viewBox="0 0 24 24" aria-hidden="true">' + path + '</svg>'; };
+    var календарик = знак('<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/>');
+    var часики = знак('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>');
+    var повтор = знак('<path d="M5 9a7 7 0 0 1 12.2-3.2L19 7.5M19 3.5v4h-4M19 15a7 7 0 0 1-12.2 3.2L5 16.5M5 20.5v-4h4"/>');
+    var флажок = знак('<path d="M6 21V4M6 4.5h10.5l-2 4 2 4H6"/>');
+    meta = [];
+    if (t.date && !датаЛишняя){
+      var дт = dateOf(t.date);
+      var мес = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+      meta.push(мета(календарик, дт ? дт.getDate() + ' ' + мес[дт.getMonth()] + ', ' + WEEKDAYS_SHORT[(дт.getDay() + 6) % 7] : humanDate(t.date)));
+    }
+    if (t.windowFrom && t.windowFrom.time){
+      meta.push(мета(часики, t.windowFrom.time + (t.windowTo && t.windowTo.time ? '–' + t.windowTo.time : '')));
+    } else if (t.time){
+      meta.push(мета(часики, t.time));
+    }
+    if (t.repeat) meta.push(мета(повтор, repeatLabel(t.repeat, t)));
+    if (t.deadline && (t.deadline.date || t.deadline.time)) meta.push(мета(флажок, deadlineText(t.deadline)));
+    if (isOverdue(t)) meta.push('<span class="mi late">не выполнено</span>');
+    if (expandable){
+      meta.push('<span class="mi exp"><span class="car">' + NAV_ICONS.caret + '</span>' +
+        (t.subtasks.length ? '<span>' + subDone + '/' + t.subtasks.length + '</span>' : '<span>описание</span>') + '</span>');
+    }
+  }
+
   /* Внутренность рисуется всегда, а не только у раскрытой карточки: чтобы
      раскрытие было плавным, элемент должен быть в дереве заранее — иначе
      анимировать нечего, он появляется уже готовым. Высоту схлопывает CSS
