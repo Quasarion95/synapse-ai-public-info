@@ -3051,3 +3051,20 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 .in-app .item .tsub .car{display:inline-grid; transition:transform .18s ease}
 .in-app .item .tsub .car .nav-ic{width:12px; height:12px; stroke-width:2.4}
 .in-app .item.open .tsub .car{transform:rotate(180deg)}
+
+/* ---- заголовки дней и строка ввода — в цвет темы (приложение) ----
+   Темы стали яркими, а заголовки «Сегодня», «Завтра»… оставались чёрными:
+   смена палитры на главном экране почти не читалась. Теперь название дня
+   залито фирменным градиентом, значок и стрелка — акцентом. Пустые дни
+   приглушены, чтобы цветом выделялось то, где есть дела. */
+.in-app .group-h h3{background:var(--grad, var(--accent)); -webkit-background-clip:text; background-clip:text;
+  color:transparent; -webkit-text-fill-color:transparent}
+.in-app .group-h .group-ic, .in-app .group-h .car{color:var(--accent-text, var(--accent))}
+.in-app .group.empty .group-h h3, .in-app .group.empty .group-h .group-ic{opacity:.55}
+
+/* Граница строки ввода на светлых палитрах сливалась с фоном: --line
+   слишком тихий для поля, в которое человек пишет каждый день. Тонкая
+   рамка с примесью акцента и лёгкая тень делают поле видимым в любой
+   теме, не превращая его в кнопку. */
+.in-app .say{border:1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  background:var(--card); box-shadow:0 4px 14px -8px color-mix(in srgb, var(--accent) 45%, transparent)}
