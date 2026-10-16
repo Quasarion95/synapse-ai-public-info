@@ -343,10 +343,9 @@ function seed(){
        остаётся: состояние сохраняется. Записанная задача сама раскрывает свой
        блок, так что первый ввод ни во что не упирается.
 
-       В браузере оставляем как было: там экран большой и разворачивать нечего.
-       Признак — inApp(), а не touchUI(): мобильный сайт должен остаться тем же
-       сайтом. */
-    closed: inApp() ? свёрнутыеБлоки() : {},
+       На компьютере оставляем как было: там экран большой и разворачивать
+       нечего. Сайт с телефона — как приложение (appLook). */
+    closed: appLook() ? свёрнутыеБлоки() : {},
     open: {},
     activeGoal: null,
     activeList: null,
@@ -2529,6 +2528,18 @@ function inApp(){
   return !!(window.AndroidVoice);
 }
 
+/* Вид приложения: в самом приложении и на сайте, открытом с телефона.
+
+   inApp() отвечает на вопрос «это apk?» — и нужен там, где работает именно
+   оболочка: уведомления, service worker, сверка подписки. А вид и поведение
+   приложения — компактное меню, оглавление настроек, свёрнутые дни — нужны
+   и мобильному сайту: им пользуются тем же пальцем на том же экране.
+   Признак мобильного сайта ставит web/mobile-app.js; в андроиде его нет,
+   и там appLook() — ровно inApp(). */
+function appLook(){
+  return inApp() || !!window.SynMobileApp;
+}
+
 /* Свайп решается наличием пальца, а не тем, приложение это или браузер.
 
    Сперва я развёл по «приложение против веба» и ошибся: с телефона сайт
@@ -2557,8 +2568,16 @@ function жестПальцем(){
   return inApp() || touchUI();
 }
 
+/* Своя «Назад» не нужна там, где есть системная: в приложении и в мобильном
+   браузере (кнопка или жест от края). Сайт, добавленный на экран «Домой»,
+   открывается без браузерной обвязки — там своя кнопка остаётся
+   (SynMobileBack ставит web/mobile-app.js). */
+function systemBack(){
+  return inApp() || !!window.SynMobileBack;
+}
+
 function head(sub, title, backView){
-  return (backView && !inApp() ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
+  return (backView && !systemBack() ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
     (sub ? '<p class="hi">' + esc(sub) + '</p>' : '') +
     (title ? '<h1 class="page">' + esc(title) + '</h1>' : '');
 }
@@ -4846,7 +4865,7 @@ function vTasks(){
      живёт в обучении. */
   if (tourVisible()){
     html += vTour();
-  } else if (!liveTasks().length && !inApp()){
+  } else if (!liveTasks().length && !appLook()){
     html += blank(NAV_ICONS.tasks, 'Задач пока нет',
       'Напиши первую в строке внизу. День и время можно сказать прямо там: «купить молоко завтра в 9 утра».');
   }
@@ -4889,7 +4908,7 @@ function vTasks(){
         ' aria-expanded="' + !closed + '">' +
         // Значок дня — только в приложении: в браузере заголовки крупные и
         // стоят просторно, там рисунок ничего не ускоряет.
-        (inApp() ? '<span class="group-ic">' + (BUCKET_ICONS[b.id] || '') + '</span>' : '') +
+        (appLook() ? '<span class="group-ic">' + (BUCKET_ICONS[b.id] || '') + '</span>' : '') +
         '<h3>' + esc(b.title) + '</h3><span class="car">' + NAV_ICONS.caret + '</span>' +
         '<span class="n">' + (mine.length ? taskCount(mine.length) : 'пусто') + '</span>' +
       '</button>' +
@@ -7432,7 +7451,7 @@ function vSettings(){
      профиль и список разделов, каждый открывается своей страницей, а
      системная «назад» возвращает к списку. В вебе экран широкий и всё видно
      сразу — там разделы остаются раскрытыми, как были. */
-  if (inApp()){
+  if (appLook()){
     html += '<p class="setgroup-t">Настройки</p>' +
       '<button class="setprofile" data-act="go" data-view="profile">' + avatarHTML() +
         '<span class="sl-text"><b>' + esc(S.profile.name || 'Ваш профиль') + '</b>' +
@@ -7665,7 +7684,7 @@ function строкаПереключателя(название, действи
 
 function vSettingsView(){
   // В приложении страница открывается из оглавления — ей нужен свой заголовок.
-  return head('', '', 'settings') + (inApp() ? '<p class="setgroup-t">Оформление</p>' : '') + телоВида();
+  return head('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Оформление</p>' : '') + телоВида();
 }
 
 /* Напоминания — свой раздел, а не начало «Вида».
@@ -7809,7 +7828,7 @@ function телоВида(){
 /* ---- данные ---- */
 
 function vSettingsData(){
-  return head('', '', 'settings') + (inApp() ? '<p class="setgroup-t">Данные</p>' : '') + телоДанных();
+  return head('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Данные</p>' : '') + телоДанных();
 }
 
 function телоДанных(){
@@ -12143,7 +12162,7 @@ var ACTS = {
        эту щель кнопки правки и удаления успевали моргнуть. Вешаем на время
        анимации отдельный признак и снимаем его, когда всё улеглось. */
     var сворачиваем = !!S.open[d.task];
-    if (inApp() && сворачиваем){
+    if (appLook() && сворачиваем){
       var к = document.querySelector('.item[data-task="' + d.task + '"]');
       if (к){
         к.classList.add('folding');
@@ -12156,7 +12175,7 @@ var ACTS = {
        время перестройки высоты незачем: панель меряется по верхней строке в
        момент касания, а при сворачивании строка та же, только карточка вокруг
        другая. Проще начать жест заново, чем следить за согласованностью. */
-    if (inApp()) swipeCloseAll(null);
+    if (appLook()) swipeCloseAll(null);
     S.open[d.task] = !S.open[d.task];
     save();
     var card = document.querySelector('.item[data-task="' + d.task + '"]');
@@ -13819,9 +13838,10 @@ function registerServiceWorker(){
 
    Часть отличий приложения от сайта чисто оформительская: отступ, размер,
    плотность. Городить ради каждого такого ветку в разметке дороже, чем один
-   класс, по которому их разбирает CSS. Именно inApp(), а не touchUI(): сайт с
-   телефона остаётся сайтом, меняется только то, что внутри apk. */
-if (inApp()) document.documentElement.classList.add('in-app');
+   класс, по которому их разбирает CSS. Признак — appLook(), а не touchUI():
+   вид приложения получает сайт с телефона, но не планшет и не ноутбук с
+   сенсорным экраном. */
+if (appLook()) document.documentElement.classList.add('in-app');
 /* Отдельный признак сенсорного ввода. Перетаскивание пальцем нужно и на сайте,
    открытом с телефона: там оно единственный способ переложить задачу, а
    браузерный механизм на сенсоре не работает вовсе. Стили жеста висят на нём,
