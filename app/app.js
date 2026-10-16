@@ -538,8 +538,12 @@ function починитьЗаписи(данные){
    чем стёртые данные. */
 var данныеОтложены = '';
 var хранилищеЗаперто = false;
+// Отдельно от данныеОтложены (тот гасится, как только сказан): синхронизации
+// надо знать, что в S сейчас заготовка, а не прежние данные. См. syncLastHash.
+var синхроПослеОтложенных = false;
 function отложитьНечитаемое(raw){
   if (!raw) return;
+  синхроПослеОтложенных = true;
   try {
     localStorage.setItem(KEY + '.broken-' + Date.now(), raw);
     данныеОтложены = 'Прежние данные не прочитались и отложены в сторону — они не стёрты';
@@ -812,9 +816,40 @@ if (typeof document !== 'undefined'){
   document.addEventListener('visibilitychange', function(){
     if (document.hidden) return;
     if (S.lastOpened === isoOf(todayDate())) return;
+    if (синхроЖдёт()) return;   // перекатит приём синхронизации, см. перекатПосле
     rolloverIfNeeded();
     render();
   });
+}
+
+/* Перекат — после приёма синхронизации, а не до него.
+
+   Перекат переписывает блок, дату и счётчик переносов у многих задач разом.
+   Сделанный до приёма, он выглядел местной правкой этих задач: слияние
+   оставляло местные копии, и галочка, поставленная ночью на айфоне, терялась.
+   Не учитывать эти поля при сверке опаснее: настоящий перенос даты руками
+   тогда тоже считался бы «не менялось» и затирался серверным. Поэтому сначала
+   приём (здесь ничего не менялось — серверное принимается целиком), потом
+   перекат уже по свежим данным, и его итог уходит обычной авто-отправкой.
+   Сеть не ответила за 8 секунд — перекатываем, не дожидаясь: слияние после
+   этого всё равно ничего не сотрёт. */
+function синхроЖдёт(){
+  try {
+    return localStorage.getItem('synapse.sync.enabled') === '1' &&
+      !!localStorage.getItem('synapse.sync.token') && !!localStorage.getItem('synapse.sync.dataKey');
+  } catch (e) { return false; }
+}
+function перекатПосле(приём){
+  var сделан = false;
+  function перекат(){
+    if (сделан) return;
+    сделан = true;
+    if (S.lastOpened === isoOf(todayDate()) && !данныеОтложены) return;
+    rolloverIfNeeded();
+    render();
+  }
+  Promise.resolve(приём).then(перекат, перекат);
+  setTimeout(перекат, 8000);
 }
 
 /* Плотный список — признаком на корне, как тема и начертание.
@@ -974,26 +1009,30 @@ function lookOpen(kind, index){
   return index < (FREE_LOOKS[kind] || 0);
 }
 
-/* Подписка кончилась — платное оформление снимается само.
+/* Подписка кончилась — платное оформление не показывается.
 
    Замки стоят на кнопках выбора, но выбранное раньше так и лежало в S:
-   тема, форма и цвет отметки, звук, режим помодоро оставались платными
-   навсегда. Проверка дешёвая, поэтому делаем её на каждой перерисовке и
-   ставим вместо закрытого первое открытое. */
-function снятьЗакрытоеОформление(){
-  if (isPro()) return;
-  if (!lookOpen('palettes', PALETTES.map(function(p){ return p.id; }).indexOf(S.palette))) S.palette = PALETTES[0].id;
-  if (!lookOpen('boxes', BOXES.map(function(b){ return b.id; }).indexOf(S.box))) S.box = BOXES[0].id;
-  if (S.markColor && S.markColor !== 'default') S.markColor = 'default';
-  if (S.meditation && !lookOpen('sounds', SOUNDS.indexOf(soundOf(S.meditation.sound)))){
-    S.meditation.sound = SOUNDS[0].title;
-    if (medAudio && (med.running || med.preview)) medAudioPlay();
-  }
-  if (S.pomodoro && !lookOpen('pomoModes', порядковыйРежима(S.pomodoro.mode))){
-    stopTicker();
-    S.pomodoro.mode = 'focus';
-    remaining = null;
-  }
+   тема, форма и цвет отметки, звук оставались платными навсегда. Раньше
+   это чинилось на каждой перерисовке прямо в S — и стирало выбор насовсем,
+   стоило isPro() на минуту стать ложным: срок только что вышел, а тихая
+   сверка ещё не продлила; две недели без сети в приложении. Заодно
+   останавливался идущий перерыв помодоро. Теперь выбор в S не трогаем, а
+   рисуем бесплатную замену; вернулась подписка — вернулось и выбранное.
+   Режим помодоро не подменяем: начатый счёт доживает своё, а запустить
+   закрытый режим не даёт замок на «Старт» (см. pomo-toggle). */
+function видимаяПалитра(){
+  return lookOpen('palettes', PALETTES.map(function(p){ return p.id; }).indexOf(S.palette)) ? S.palette : PALETTES[0].id;
+}
+function видимаяФорма(){
+  var box = S.box || 'square';
+  return lookOpen('boxes', BOXES.map(function(b){ return b.id; }).indexOf(box)) ? box : BOXES[0].id;
+}
+function видимыйЦветОтметки(){
+  return isPro() ? S.markColor : 'default';
+}
+function видимыйЗвук(){
+  var звук = S.meditation && S.meditation.sound;
+  return lookOpen('sounds', SOUNDS.indexOf(soundOf(звук))) ? звук : SOUNDS[0].title;
 }
 
 var LIMIT_WORDS = {
@@ -1362,7 +1401,10 @@ function parseSchedule(text, fallbackBucket){
        и «разделить на два» — тоже часы. «На 3 дня» — это три дня, поэтому
        «дня» после «на» временем не считается, а «на 8 вечера» — считается.
        «В два раза» и «в 3 раза» — тоже не время. */
-    var withPeriod = take(new RegExp(WORD_START + '(?:(?:в|к)\\s*([01]?\\d|2[0-3])\\s+(утра|дня|вечера|ночи)|на\\s*([01]?\\d|2[0-3])\\s+(утра|вечера|ночи))' + WORD_END));
+    // «В 2 часа дня» — со словом «час» между числом и частью суток, как у
+    // часа словами ниже. Без него «позвонить в 2 часа дня» давало 02:00 и
+    // название «Позвонить дня».
+    var withPeriod = take(new RegExp(WORD_START + '(?:(?:в|к)\\s*([01]?\\d|2[0-3])(?:\\s+час(?:а|ов)?)?\\s+(утра|дня|вечера|ночи)|на\\s*([01]?\\d|2[0-3])(?:\\s+час(?:а|ов)?)?\\s+(утра|вечера|ночи))' + WORD_END));
     if (withPeriod){
       time = clock(adjustHour(Number(withPeriod[2] || withPeriod[4]), withPeriod[3] || withPeriod[5]), 0);
     } else {
@@ -2587,7 +2629,7 @@ function separated(surface, background, minDelta){
 }
 
 function themeColors(){
-  var pal = paletteOf(S.palette);
+  var pal = paletteOf(видимаяПалитра());
   var dark = isDarkNow();
   var spec = PALETTE_SPEC[pal.id];
   if (spec){
@@ -2668,7 +2710,6 @@ function поверх(fill){
 }
 
 function applyTheme(){
-  снятьЗакрытоеОформление();
   var c = themeColors();
   var root = document.documentElement.style;
   root.setProperty('--background', rgb(c.background));
@@ -2755,7 +2796,7 @@ function applyTheme(){
   // в rem, тянется за ним; значения в px остаются как есть.
   // Цвет отметки живёт своей переменной: --ok используется ещё в полутора
   // десятках мест, и красить ими всё подряд человек не просил.
-  var mark = markColorOf(S.markColor);
+  var mark = markColorOf(видимыйЦветОтметки());
   if (mark.css){
     document.documentElement.style.setProperty('--mark', mark.css);
     var mm = mark.css.match(/^#(..)(..)(..)$/);
@@ -2771,7 +2812,7 @@ function applyTheme(){
   root.setProperty('--scale', String(fontSizeOf(S.fontSize).scale));
 
   document.documentElement.setAttribute('data-dark', c.dark ? '1' : '0');
-  document.documentElement.setAttribute('data-box', S.box || 'square');
+  document.documentElement.setAttribute('data-box', видимаяФорма());
 
   /* Полосы телефона — под новую тему сразу. Оболочка спрашивала цвет только
      при загрузке страницы, и после смены темы часы и батарея оставались на
@@ -3056,7 +3097,9 @@ function trashRestore(id){
     for (var k = 0; k < S.tasks.length; k++) естьID[S.tasks[k].id] = true;
     for (var si = 0; si < свои.length; si++){
       if (естьID[свои[si].id]) continue;
-      вернутьВБлок(свои[si]);
+      // Выполненное и убранное в архив остаётся в архиве со своей датой:
+      // иначе цель возвращалась вместе с давно сделанным, поднятым в «Сегодня».
+      if (!(свои[si].done && свои[si].archived)) вернутьВБлок(свои[si]);
       S.tasks.push(свои[si]);
       естьID[свои[si].id] = true;
     }
@@ -3223,7 +3266,7 @@ function finMoney(kopecks, opts){
 }
 
 /* Разбор строки: «кофе 350», «350 кофе», «зарплата 90 000», «такси 1.5к».
-   Сумма — последнее или первое число; всё остальное становится названием, а
+   Сумма — число со значком денег или самое большое; остальное — название, а
    по названию угадывается категория. Человек пишет как говорит, а не
    заполняет три поля. */
 /* Валюта и повисший предлог — не часть названия траты.
@@ -3273,19 +3316,36 @@ function finParse(raw, kind){
   var joined = multiplied.replace(/(\d)[   ](?=\d{3}\b)/g, '$1');
   /* Чисел бывает несколько: «2 кофе 350». Раньше бралось первое, и два кофе
      стоили два рубля. Теперь сумма — число со значком денег рядом (₽, «р»,
-     «руб», множитель «к»/«тыс»), а если такого нет — последнее: сумму
-     называют в конце, а количество — в начале. */
+     «руб», множитель «к»/«тыс»), а если такого нет — самое большое из тех,
+     что похожи на деньги. Последнее брать нельзя: «такси 300 на 2 человек»
+     стоило два рубля, «стрижка 1500 в 3 часа» — три, «бензин 2000 92» —
+     девяносто два. Число с мерой после него (человек, штук, часов, месяцев,
+     кг, %) — количество, а «в 3», «к 9», «18:30» — время, а не сумма. */
   // Число перед названием месяца — дата («к 8 марта»), а не сумма.
-  var numRe = /-?\d+(?:[.,]\d{1,2})?/g, all = [], m;
+  var numRe = /-?\d+(?:[.,]\d{1,2})?/g, all = [], похожи = [], m;
+  var МЕРА = /^\s*(?:%|(?:человек[а-яё]*|чел|шт|штук[а-яё]*|раз|раза|час|часа|часов|мин|минут[а-яё]*|дн|дня|дней|день|недел[а-яё]*|мес|месяц[а-яё]*|год|года|лет|кг|г|гр|л|мл)(?![а-яёa-z]))/i;
   while ((m = numRe.exec(joined))){
-    if (!/^\s*(?:январ|феврал|март|апрел|ма[яй]|июн|июл|август|сентябр|октябр|ноябр|декабр)/i
-          .test(joined.slice(m.index + m[0].length))) all.push(m);
+    var дальше = joined.slice(m.index + m[0].length), раньше = joined.slice(0, m.index);
+    if (/^\s*(?:январ|феврал|март|апрел|ма[яй]|июн|июл|август|сентябр|октябр|ноябр|декабр)/i.test(дальше)) continue;
+    all.push(m);
+    if (дальше.charAt(0) === '\u0001') { похожи.push(m); continue; }
+    if (МЕРА.test(дальше)) continue;
+    if (/^:\d\d/.test(дальше) || /\d:$/.test(раньше)) continue;
+    if (/(?:^|[^а-яёa-z])(?:в|к|на|за)\s+$/i.test(раньше) && Math.abs(parseFloat(m[0])) <= 24 &&
+        /^\s*(?:$|утра|вечера|дня|ночи)/i.test(дальше)) continue;
+    похожи.push(m);
   }
   if (!all.length) return null;
-  var found = all[all.length - 1];
+  if (!похожи.length) похожи = all;
+  var found = null;
   for (var n = 0; n < all.length; n++){
     var after = joined.slice(all[n].index + all[n][0].length);
     if (/^(?:\u0001|\s*(?:₽|руб|р\.?(?![а-яёa-z])|\$|€|₸))/i.test(after)){ found = all[n]; break; }
+  }
+  var числом = function(x){ return Math.abs(parseFloat(x[0].replace(',', '.'))); };
+  if (!found){
+    found = похожи[0];
+    for (var b = 1; b < похожи.length; b++) if (числом(похожи[b]) > числом(found)) found = похожи[b];
   }
 
   var amount = Math.round(Math.abs(parseFloat(found[0].replace(',', '.'))) * 100);
@@ -3446,7 +3506,14 @@ function finRunRecurring(){
        с 29 февраля уезжало на 1 марта навсегда. Теперь n-я дата — это «начало
        плюс n шагов» с числом, прижатым к длине месяца, как в finSubNext. */
     var n = 0, when = finRecNth(rule.since, every, 0), guard = 0;
-    while (rule.lastRun && when && when <= rule.lastRun && guard++ < 2000) when = finRecNth(rule.since, every, ++n);
+    /* Месячное и годовое пропускаем и по месяцу, а не только по дню. У правил,
+       начатых 29–31 числа, прежний шаг уводил lastRun на 1–3 число следующего
+       месяца (с 31 января — на 3 октября), и сетка заново ставила 31 октября:
+       в переходный месяц аренда списывалась дважды. В одном месяце у такого
+       правила одна дата, так что уже списанный месяц — пропуск. */
+    var помесячно = every !== FIN_EVERY.week, месяцСписан = rule.lastRun ? finMonthKey(rule.lastRun) : '';
+    while (rule.lastRun && when && (when <= rule.lastRun || (помесячно && finMonthKey(when) <= месяцСписан)) && guard++ < 2000)
+      when = finRecNth(rule.since, every, ++n);
     guard = 0;
     while (when && when <= today && guard++ < 400){
       S.finance.ops.push({
@@ -7700,7 +7767,7 @@ function medAudioPlay(){
     medAudio.loop = true;
     medAudio.preload = 'none';
   }
-  var file = 'audio/' + soundOf(S.meditation.sound).id + '.m4a';
+  var file = 'audio/' + soundOf(видимыйЗвук()).id + '.m4a';
   if (medAudio.getAttribute('src') !== file){
     medAudio.setAttribute('src', file);
     medAudio.load();
@@ -10470,6 +10537,13 @@ synAct('complete_task mark_task_done reopen_task uncomplete_task', function(a, d
   // syncCompletion на ближайшем сохранении видел открытые подпункты и
   // возвращал задачу обратно — Syn отчитывался «закрыта», а она висела.
   if (closing && task.subtasks) task.subtasks.forEach(function(sub){ sub.done = true; });
+  // Открытие — как снятие галочки (ACTS.toggle): все подпункты закрыты —
+  // открываем последний. Иначе syncCompletion закрывал задачу обратно, а
+  // повторяющаяся ставила следующую в серии второй раз.
+  if (!closing && task.subtasks && task.subtasks.length &&
+      task.subtasks.every(function(sub){ return sub.done; })){
+    task.subtasks[task.subtasks.length - 1].done = false;
+  }
   // Та же логика, что у галочки на карточке: закрытая повторяющаяся задача
   // ставит следующую в серии, иначе повтор кончается на первом разе.
   if (closing) spawnNextOccurrence(task);
@@ -14889,7 +14963,8 @@ if (жестПальцем()) document.documentElement.classList.add('touch');
 // поверх всего, читается как поломка, а не как выбранный экран.
 if (S.mm) { S.mm.full = false; }
 
-rolloverIfNeeded();
+// С включённой синхронизацией — после первого приёма (см. перекатПосле).
+if (!синхроЖдёт()) rolloverIfNeeded();
 /* Регулярные операции догоняются при открытии, а не по таймеру: вкладку могли
    не открывать неделю, и пропущенные списания всё равно должны появиться —
    каждое своим днём. Сохраняем сразу, иначе следующий заход добавит их снова. */
@@ -15086,7 +15161,11 @@ function syncДоложитьМестное(пришли, местные, нес
 /* Снимок сервера → записи веба, уже слитые с местными полями. Сам S здесь не
    меняется: решать, применить их целиком или слить с правками, — вызывающему. */
 function syncRemoteToWeb(envelope){
-  return SynSyncBridge.localIndex(S).then(function(idx){
+  // В карту UUID → местный id идут и ключи базы: стёртое навсегда (или
+  // удалённое здесь) иначе вернулось бы под UUID как новая запись.
+  var база = syncBase(), прежние = [];
+  if (база) ['t', 'g', 'l', 'n'].forEach(function(k){ for (var id in (база[k] || {})) прежние.push(id); });
+  return SynSyncBridge.localIndex(S, прежние).then(function(idx){
     var snap = (envelope && envelope.value) || {};
     var conv = изКопииПриложения({ workspace: snap });
     var есть = snap.trashedTasks !== undefined;
@@ -15329,7 +15408,10 @@ function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete
   SYNC.joinOpen = false; return syncPullApply().then(function(){ SYNC.status = 'Устройство связано. Данные подтянуты.'; }); }); }); }); }
 function syncNow(){ return syncDo(function(){ return syncPullApply().then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизировано.'; }); }); }
 function syncDeleteRemote(){ return syncDo(function(){ return syncSerial('delete', function(){ return syncApiDelete(); }).then(function(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('dataKey', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Копия с сервера удалена. Данные в браузере остались.'; }); }); }
-function syncPullOnLoad(){ if (syncEnabled() && syncReady()) syncDo(function(){ return syncPullApply(); }); }
+function syncPullOnLoad(){
+  if (syncEnabled() && syncReady()) перекатПосле(syncDo(function(){ return syncPullApply(); }));
+  else if (синхроЖдёт()) перекатПосле(null);
+}
 
 /* ---- экран в разделе «Данные» ---- */
 function разделСинхро(){
@@ -15375,6 +15457,18 @@ function разделСинхро(){
    Рядом — хэши отдельных записей на тот момент (база для слияния). */
 function syncReadLastHash(){ try { return syncStore('lastHash') || null; } catch (e) { return null; } }
 var syncLastHash = syncReadLastHash();
+/* Прежние данные не прочитались, и в S заготовка. Хэш и время сервера остались
+   от прошлого сеанса, и заготовка выглядела бы неотправленной правкой: приём
+   слил бы её с сервером, а авто-отправка разнесла бы пустоту по устройствам.
+   Поэтому базу забываем, а заготовку считаем уже «отправленной»: первый приём
+   примет серверную копию целиком, а отправка молчит, пока человек сам что-то
+   не изменит. Изменит раньше приёма — приём сольёт без базы, ничего не стирая. */
+if (синхроПослеОтложенных){
+  syncForgetSynced();
+  syncStoreSet('lastServerUpdatedAt', null);
+  syncLastHash = syncContentHash(S);
+  syncStoreSet('lastHash', syncLastHash);
+}
 var syncAutoTimer = null;
 function syncHashOf(value){
   var str = JSON.stringify(value === undefined ? null : value);
@@ -15436,7 +15530,7 @@ if (typeof document !== 'undefined' && !window.__syncVisHandler){
   window.__syncVisHandler = true;
   document.addEventListener('visibilitychange', function(){
     if (!document.hidden && syncEnabled() && syncToken() && syncDataKeyRaw()){
-      syncPullApply().catch(function(){});
+      перекатПосле(syncPullApply());
     }
     // Вкладку держат открытой сутками — сверка подписки не только при запуске.
     if (!document.hidden && typeof сверитьПодписку === 'function') сверитьПодписку();
@@ -15468,7 +15562,7 @@ ACTS['sync-delete'] = function(){
 };
 ACTS['sync-delete-confirm'] = function(){ closeModal(); syncDeleteRemote(); };
 
-try { syncPullOnLoad(); } catch (e) {}
+try { syncPullOnLoad(); } catch (e) { if (синхроЖдёт()) перекатПосле(null); }
 
 /* Окно плавно едет вслед за клавиатурой.
 
