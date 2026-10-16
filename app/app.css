@@ -2949,3 +2949,47 @@ html.tour-hold:not(.hv-on) .say .ai{animation:ai-hint 1.6s ease-in-out infinite}
    white-space:nowrap, правило ничего не меняет. */
 h1, h2, h3, .fr-t, .pr-t, .tilebtn .tt, .goalcard-h .gt, .listtile h3{
   -webkit-hyphens:auto; hyphens:auto}
+
+/* ---- Экран задач в приложении — плотный, как на айфоне ----
+
+   Каждая задача была отдельной карточкой с рамкой, тенью и полями, а дата
+   и время — «таблетками» второй строкой. На телефоне это съедало экран:
+   четыре-пять задач, и общей картины дня не видно. На айфоне задачи лежат
+   прямо на фоне экрана, без рамок, в одну строку: название слева, время
+   мелко справа. Здесь так же. Перетаскивание и свайп не меняются: поднятая
+   задача по-прежнему становится карточкой с тенью (правила .dragging выше). */
+.in-app .tasklist{gap:0}
+.in-app .item{background:transparent; border:0; box-shadow:none; border-radius:14px}
+.in-app .item.done{background:transparent}
+.in-app .item.swipe > .swipe-face{background:var(--bg); padding:7px 4px 7px 2px}
+.in-app .item:not(.swipe){padding:7px 4px 7px 2px}
+.in-app .item.swipe.open > .detail-wrap{padding:0 4px 8px 2px}
+.in-app .item-main{align-items:center; gap:10px}
+.in-app .item .box{width:20px; height:20px; border-radius:6px; margin-top:0}
+.in-app .item .body{display:flex; align-items:center; gap:10px; min-width:0}
+.in-app .item .t{flex:1; min-width:0; font-size:15px; font-weight:500; line-height:1.3; letter-spacing:-.01em}
+/* Значки — мелким текстом справа, без подложек, в одну строку. */
+.in-app .item .chips{flex:0 1 auto; max-width:48%; margin:0; gap:8px; flex-wrap:nowrap; justify-content:flex-end; overflow:hidden}
+.in-app .item .chips .chip{background:none; box-shadow:none; padding:0; border:0; border-radius:0; font-size:11.5px;
+  color:var(--fg-2); gap:3px; min-width:0; overflow:hidden; text-overflow:ellipsis}
+.in-app .item .chips .chip.late{color:var(--danger); background:none; border:0; font-weight:600}
+.in-app .item .chips .chip.goal{max-width:96px; color:var(--accent-text, var(--accent))}
+.in-app .item .chips .chip.rep svg{width:11px; height:11px}
+.in-app .item .chips .chip.sub .car{display:none}
+.in-app .item.done .chips{opacity:.6}
+/* Раскрытая задача — подпункты под названием, без верхней черты-рамки. */
+.in-app .item .detail{margin:4px 0 2px 30px; padding-top:4px; border-top:0}
+/* Под перетаскиванием — снова карточка. */
+.in-app .item.dragging.lifted{background:var(--card); border-radius:14px}
+.in-app .item.dragging.lifted > .swipe-face{background:var(--card); padding-left:8px; padding-right:8px}
+/* Заголовки блоков чуть компактнее: строки стали ниже, и прежний отступ
+   под заголовком выглядел провалом. */
+.in-app .group-h{margin-bottom:4px}
+.in-app .group + .group{margin-top:14px}
+/* Кнопки свайпа лежат под строкой. Без рамки карточки их цвет
+   просвечивал по скруглённому краю тонкими дугами. В покое их не видно
+   вовсе — они проявляются, только когда строку двигают или она
+   отодвинута; и у лежащей строки нет скругления, по которому могло бы
+   просвечивать. */
+.in-app .item:not(.dragging){border-radius:0}
+.in-app .swipe:not(.swiping):not(.swiped) > .side{visibility:hidden}
