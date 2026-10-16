@@ -4315,6 +4315,204 @@ function vFinSummaryApp(){
   return html;
 }
 
+/* ---- остальные вкладки в приложении — как на айфоне ----
+
+   Над каждой — строка-итог раздела (если есть что сказать) и большая
+   кнопка «+ …» во всю ширину. Ниже — карточки, у каждой по две кнопки
+   действия одинаковой ширины: главное залито цветом, второе — мягкой
+   подложкой. Удаление — свайпом влево, как у трат. */
+var ICON_PLUS = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M12 5v14M5 12h14"/></svg>';
+var ICON_BACKARROW = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>';
+var ICON_TICK = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+var ICON_PEN = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M14.5 5.5l4 4L8 20H4v-4z"/></svg>';
+var ICON_MINUS = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M5 12h14"/></svg>';
+
+function finAddButton(act, подпись, лимит, extra){
+  return '<button class="fa-act primary fa-add" data-act="' + act + '"' + (extra || '') + '>' + ICON_PLUS + esc(подпись) + '</button>' +
+    (лимит ? '<div class="fa-free">' + finLeftHint(лимит) + '</div>' : '');
+}
+
+function finCardBtn(act, attrs, подпись, значок, цвет, главная){
+  return '<button class="fa-btn' + (главная ? ' primary' : '') + '" style="--c:' + цвет + '" data-act="' + act + '"' + attrs + '>' +
+    значок + '<span>' + esc(подпись) + '</span></button>';
+}
+
+function finSubtitle(text){
+  return text ? '<p class="fa-subt">' + text + '</p>' : '';
+}
+
+/// Карточка с удалением свайпом: кнопки под ней, лицо уезжает влево.
+function finSwipeCard(cls, killAct, attr, inner){
+  return '<div class="fa-swipe swipe ' + cls + '">' +
+    '<div class="side"><button class="kill" data-act="' + killAct + '"' + attr + ' aria-label="Удалить">' + ICON.kill + '</button></div>' +
+    '<div class="swipe-face fa-card">' + inner + '</div></div>';
+}
+
+function vFinBudgetsApp(){
+  var rows = finBudgetRows();
+  var html = '<section class="fa-card fa-mini">' + finMonthSwitch() + '</section>' +
+    finAddButton('fin-budget-new', 'Новый конверт', 'budgets');
+  if (!rows.length){
+    return html + finEmptyApp('Конвертов пока нет',
+      'Конверт — это сколько ты кладёшь на категорию в месяц: он говорит, сколько ещё можно потратить, а не куда ушло.');
+  }
+  var plan = 0, spent = 0;
+  rows.forEach(function(r){ plan += r.plan; spent += r.spent; });
+  html += '<div class="fa-metrics">' +
+    finMetric('Разложено', finMoney(plan), '') +
+    finMetric('Потрачено', finMoney(spent), '') +
+    finMetric('Осталось', finMoney(plan - spent), plan - spent < 0 ? 'bad' : 'good') +
+  '</div>';
+  return html + rows.map(function(row){
+    var over = row.left < 0;
+    return finSwipeCard('fa-env', 'fin-budget-kill', ' data-cat="' + row.cat + '"',
+      '<div class="fa-env-h"><i style="background:' + finColor(row.cat) + '"></i><b>' + esc(row.title) + '</b>' +
+        '<span>' + finMoney(row.spent) + ' / ' + finMoney(row.plan) + '</span></div>' +
+      '<span class="fa-bar"><i style="width:' + Math.min(100, row.share) + '%;background:' +
+        (over ? 'var(--danger)' : finColor(row.cat)) + '"></i></span>' +
+      '<div class="fa-env-f"><span class="' + (over ? 'bad' : '') + '">' +
+        (over ? 'перерасход ' + finMoney(-row.left) : 'осталось ' + finMoney(row.left)) + '</span>' +
+        finCardBtn('fin-budget-edit', ' data-cat="' + row.cat + '"', 'Править', ICON_PEN, 'var(--accent)', false) +
+      '</div>');
+  }).join('');
+}
+
+function finMetric(подпись, значение, тон){
+  return '<div class="fa-metric"><em>' + esc(подпись) + '</em><b class="' + тон + '">' + значение + '</b></div>';
+}
+
+function finEmptyApp(заголовок, подсказка){
+  return '<div class="fa-empty">' + NAV_ICONS.finance + '<b>' + esc(заголовок) + '</b><p>' + esc(подсказка) + '</p></div>';
+}
+
+function vFinDebtsApp(){
+  var sums = finDebtSums();
+  var open = S.finance.debts.filter(function(d){ return !d.closed; });
+  var closed = S.finance.debts.filter(function(d){ return d.closed; });
+  var сегодня = isoOf(todayDate());
+  var html = finSubtitle(open.length ? 'Я должен ' + finMoney(sums.owe) + ' · Мне должны ' + finMoney(sums.owed) : '') +
+    finAddButton('fin-debt-new', 'Записать долг');
+  if (!open.length && !closed.length){
+    return html + finEmptyApp('Долгов нет', 'Запиши, кто кому должен и до какого числа, — Syn напомнит.');
+  }
+  html += open.map(function(d){
+    var left = Math.max(0, d.amount - (d.paid || 0));
+    var просрочен = d.due && d.due < сегодня;
+    return finSwipeCard('fa-debt', 'fin-debt-kill', ' data-debt="' + d.id + '"',
+      '<div class="fa-debt-h"><b translate="no">' + esc(d.who) + '</b>' +
+        '<span class="' + (d.mine ? 'mine' : 'owed') + '">' + finMoney(left) + '</span></div>' +
+      '<em class="fa-k">' + (d.mine ? 'Я должен' : 'Мне должны') + '</em>' +
+      (d.paid ? '<span class="fa-bar"><i style="width:' + Math.min(100, d.paid * 100 / d.amount).toFixed(1) +
+          '%;background:var(--accent)"></i></span>' +
+        '<em class="fa-k">' + (d.mine ? 'Отдал' : 'Вернули') + ': ' + finMoney(d.paid) + ' из ' + finMoney(d.amount) + '</em>' : '') +
+      (d.due ? '<em class="fa-k' + (просрочен ? ' late' : '') + '">' +
+        (просрочен ? 'Просрочен с ' : 'Когда вернуть: ') + esc(humanDate(d.due)) + '</em>' : '') +
+      '<div class="fa-btns">' +
+        // Коротко: на узком экране «Записать возврат» резалось до «Записать воз…».
+        finCardBtn('fin-debt-pay', ' data-debt="' + d.id + '"', d.mine ? 'Платёж' : 'Возврат', ICON_BACKARROW, 'var(--accent)', false) +
+        finCardBtn('fin-debt-close', ' data-debt="' + d.id + '"', 'Закрыть', ICON_TICK, 'var(--ok)', true) +
+      '</div>');
+  }).join('');
+  // Закрытые — короткой строкой с возвратом в открытые: на айфоне их нет на
+  // экране вовсе, но здесь закрытый по ошибке долг иначе не вернуть.
+  if (closed.length){
+    html += '<p class="fa-lbl">Закрытые</p><div class="fa-card fa-closed">' + closed.map(function(d){
+      return '<div class="fa-cl"><span translate="no">' + esc(d.who) + '</span><em>' + finMoney(d.amount) + '</em>' +
+        '<button data-act="fin-debt-open" data-debt="' + d.id + '" aria-label="Вернуть в открытые">' + ICON_BACKARROW + '</button>' +
+        '<button data-act="fin-debt-kill" data-debt="' + d.id + '" aria-label="Удалить">' + ICON.kill + '</button></div>';
+    }).join('') + '</div>';
+  }
+  return html;
+}
+
+function vFinJarsApp(){
+  var jars = S.finance.jars;
+  var html = finSubtitle(jars.length ? 'Накоплено ' + finMoney(finSaved()) : '') +
+    finAddButton('fin-jar-new', 'Новая копилка');
+  if (!jars.length){
+    if (S.jarsIntroHidden) return html + finEmptyApp('Копилок пока нет', 'Заведи копилку под цель — Syn подскажет, сколько откладывать в месяц.');
+    return html + '<div class="fa-intro">' +
+      '<button class="fa-intro-b" data-act="fin-jar-intro">' +
+        '<span class="fa-intro-ic">' + ICON_FIN.jar + '</span>' +
+        '<span><b>Начни копить</b><em>Заведи копилку под цель — Syn подскажет, сколько откладывать в месяц.</em></span></button>' +
+      '<button class="fa-intro-x" data-act="fin-jar-intro-x" aria-label="Закрыть">✕</button></div>';
+  }
+  return html + jars.map(function(jar){
+    var saved = jar.saved || 0;
+    var доля = jar.target ? Math.min(1, saved / jar.target) : 0;
+    var pace = finJarPace(jar);
+    var темп = '';
+    if (saved >= jar.target) темп = '<em class="fa-k ok">Собрано.</em>';
+    else if (pace && pace.late) темп = '<em class="fa-k bad">Срок прошёл ' + esc(humanDate(jar.due)) + ' · не хватает ' + finMoney(pace.left) + '</em>';
+    else if (pace && !pace.done && jar.due) темп = '<em class="fa-k">К ' + esc(humanDate(jar.due)) + ' · чтобы успеть — ' + finMoney(pace.perMonth) + ' в месяц</em>';
+    // «Снять» — под свайпом рядом с удалением: в карточке, как на айфоне, две
+    // кнопки, а три на узком экране резались до «Прав…» и «Отло…».
+    return '<div class="fa-swipe swipe fa-jarc">' +
+      '<div class="side">' +
+        (saved > 0 ? '<button data-act="fin-jar-take" data-jar="' + jar.id + '" aria-label="Снять">' + ICON_MINUS + '</button>' : '') +
+        '<button class="kill" data-act="fin-jar-kill" data-jar="' + jar.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+      '</div><div class="swipe-face fa-card' + (saved > 0 ? ' two' : '') + '">' + (
+      '<div class="fa-jar-h"><span class="fa-jar-ic">' + (доля >= 1 ? ICON_TICK : ICON_FIN.jar) + '</span>' +
+        '<span class="fa-jar-n"><b translate="no">' + esc(jar.title) + '</b><em>из ' + finMoney(jar.target) + '</em></span>' +
+        '<span class="fa-jar-v"><b>' + finMoney(saved) + '</b><em>' + Math.round(доля * 100) + '%</em></span></div>' +
+      '<span class="fa-bar fat"><i style="width:' + (доля * 100).toFixed(1) + '%;background:var(--ok)"></i></span>' +
+      темп +
+      '<em class="fa-k">Осталось ' + finMoney(Math.max(0, jar.target - saved)) + '</em>' +
+      '<div class="fa-btns">' +
+        finCardBtn('fin-jar-edit', ' data-jar="' + jar.id + '"', 'Править', ICON_PEN, 'var(--accent)', false) +
+        finCardBtn('fin-jar-put', ' data-jar="' + jar.id + '"', 'Отложить', ICON_PLUS, 'var(--ok)', true) +
+      '</div>') + '</div></div>';
+  }).join('');
+}
+
+function vFinSubsApp(){
+  var key = finMonthKey();
+  var duty = S.finPayTab === 'duty';
+  var rows = finSubsOf(duty);
+  var вМесяц = 0;
+  rows.forEach(function(sub){ if (!sub.off && finSubKnown(sub)) вМесяц += finPerMonth(sub); });
+  var html = '<div class="fa-seg">' +
+      '<button class="' + (duty ? '' : 'on') + '" data-act="fin-pay-tab" data-kind="subs">Подписки</button>' +
+      '<button class="' + (duty ? 'on' : '') + '" data-act="fin-pay-tab" data-kind="duty">Платежи</button>' +
+    '</div>' +
+    finSubtitle(rows.length ? finMoney(вМесяц) + ' в месяц' : '') +
+    finAddButton('fin-sub-new', duty ? 'Новый платёж' : 'Новая подписка', 'subs', ' data-duty="' + (duty ? '1' : '') + '"');
+  if (!rows.length){
+    return html + finEmptyApp(duty ? 'Платежей пока нет' : 'Подписок пока нет',
+      duty ? 'Квартплата, кредиты, детский сад — то, что уйдёт в любом случае. В день списания появится задача «Оплатить».'
+           : 'Добавь подписки — в день списания появится задача «Оплатить».');
+  }
+  var сегодня = isoOf(todayDate());
+  return html + '<div class="fa-card fa-subs">' + rows.map(function(sub){
+    var paid = finSubPaidIn(sub, key);
+    var next = finSubNext(sub);
+    var every = FIN_EVERY[sub.every] || FIN_EVERY.month;
+    var сумма = finSubKnown(sub) ? (finSubVaries(sub) ? '≈ ' : '') + finMoney(finSubTypical(sub)) : 'по счётчику';
+    var строка = '', цвет = '';
+    if (!sub.off){
+      if (paid){ строка = 'Оплачено за этот месяц' + (next ? ' · дальше ' + humanDate(next) : ''); цвет = 'ok'; }
+      else if (next && next < сегодня){ строка = 'Не оплачено, списание было ' + humanDate(next); цвет = 'warn'; }
+      else if (next === сегодня){ строка = 'Списание сегодня'; цвет = 'warn'; }
+      else if (next){ строка = 'Списание ' + humanDate(next); цвет = 'acc'; }
+    }
+    return '<div class="fa-sub swipe' + (sub.off ? ' off' : '') + '">' +
+      '<div class="side">' +
+        '<button data-act="fin-sub-edit" data-sub="' + sub.id + '" aria-label="Править">' + ICON.edit + '</button>' +
+        '<button class="kill" data-act="fin-sub-kill" data-sub="' + sub.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+      '</div>' +
+      '<div class="swipe-face">' +
+        (sub.off ? '' : '<button class="fa-paid' + (paid ? ' on' : '') + '" data-act="fin-sub-pay" data-sub="' + sub.id + '" aria-label="' +
+          (paid ? 'Снять отметку об оплате' : 'Отметить оплаченной') + '">' + (paid ? ICON_TICK : '') + '</button>') +
+        '<span class="fa-logo">' + finSubLogo(sub) + '</span>' +
+        '<button class="fa-sub-t" data-act="fin-sub-edit" data-sub="' + sub.id + '"><b translate="no">' + esc(sub.title) + '</b>' +
+          '<em>' + сумма + ' · ' + esc(every.title) + '</em>' +
+          (строка ? '<small class="' + цвет + '">' + esc(строка) + '</small>' : '') + '</button>' +
+        '<button class="fa-onoff' + (sub.off ? ' off' : '') + '" data-act="fin-sub-toggle" data-sub="' + sub.id + '">' +
+          (sub.off ? 'Включить' : 'Отключить') + '</button>' +
+      '</div></div>';
+  }).join('') + '</div>';
+}
+
 function finPill(подпись, сумма, значок){
   return '<span class="fa-pill"><span class="fa-pill-l">' + значок + esc(подпись) + '</span><b>' + finMoney(сумма) + '</b></span>';
 }
@@ -4567,6 +4765,7 @@ function vFinOps(){
 }
 
 function vFinBudgets(){
+  if (inApp()) return vFinBudgetsApp();
   var rows = finBudgetRows();
   var html = finMonthBar();
 
@@ -4717,6 +4916,7 @@ function finLeftHint(kind){
 }
 
 function vFinDebts(){
+  if (inApp()) return vFinDebtsApp();
   var sums = finDebtSums();
   var html = '';
 
@@ -4792,6 +4992,7 @@ function vFinDebts(){
 }
 
 function vFinJars(){
+  if (inApp()) return vFinJarsApp();
   var html = '<div class="acts center" style="margin:0 0 14px">' +
     '<button class="btn" data-act="fin-jar-new">+ Новая копилка</button></div>';
 
@@ -4834,6 +5035,7 @@ function vFinJars(){
 }
 
 function vFinSubs(){
+  if (inApp()) return vFinSubsApp();
   var key = finShownMonth();
   var duty = S.finPayTab === 'duty';
   var html = finMonthBar();
@@ -14019,6 +14221,8 @@ var ACTS = {
     if (лимит) openModal(modalPaywall(лимит));
   },
   'tour-hide': function(){ S.tourDone = true; commit('Первые шаги скрыты'); },
+  'fin-jar-intro': function(){ S.jarsIntroHidden = true; save(); ACTS['fin-jar-new']({}); },
+  'fin-jar-intro-x': function(){ S.jarsIntroHidden = true; тактильно('tick'); commit(); },
   'fin-hint-hide': function(){ S.finance.openingHidden = true; commit('Подсказка скрыта'); },
   toggle: function(d){
     var t = findTask(d.task);

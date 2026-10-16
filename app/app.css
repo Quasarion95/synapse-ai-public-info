@@ -3343,3 +3343,116 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 .fa-pills{gap:6px}
 .fa-pill{padding:8px 8px}
 .fa-pill-l{font-size:10.5px; letter-spacing:-.01em}
+
+/* ---- Конверты, Долги, Копилки, Подписки в приложении — как на айфоне ---- */
+.fa-mini{padding:10px 12px}
+.fa-subt{margin:0 4px 10px; font-size:15px; font-weight:600; color:var(--fg-2)}
+.fa-add{width:100%; margin:0 0 12px; height:46px; font-size:14.5px}
+.fa-add .nav-ic{width:16px; height:16px; stroke-width:2.6}
+.fa-free{text-align:center; margin:-6px 0 12px; font-size:11.5px; color:var(--fg-2)}
+.fa-lbl{margin:6px 6px 8px; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--fg-2)}
+
+.fa-swipe{position:relative; margin-bottom:12px; border-radius:20px; overflow:hidden}
+.fa-swipe > .swipe-face.fa-card{margin:0; display:flex; flex-direction:column; gap:8px}
+.in-app .fa-swipe > .side{padding:0 0 0 6px; gap:6px}
+.in-app .fa-swipe > .side button{width:86px; border-radius:18px}
+
+.fa-btn{flex:1; min-width:0; height:44px; display:flex; align-items:center; justify-content:center; gap:6px; padding:0 12px;
+  border-radius:12px; font-size:14px; font-weight:600; color:var(--c); background:color-mix(in srgb, var(--c) 14%, transparent)}
+.fa-btn span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-btn .nav-ic{width:14px; height:14px; stroke-width:2.6; flex:none}
+.fa-btn.primary{background:var(--c); color:#fff}
+.fa-btn:active, .fa-act:active{transform:scale(.97); opacity:.85}
+.fa-btns{display:flex; gap:10px; margin-top:4px}
+.fa-k{font-style:normal; font-size:11.5px; color:var(--fg-2)}
+.fa-k.late, .fa-k.warn{color:var(--warn); font-weight:600}
+.fa-k.bad{color:var(--danger)}
+.fa-k.ok{color:var(--ok)}
+
+.fa-metrics{display:flex; gap:10px; margin-bottom:12px}
+.fa-metric{flex:1; min-width:0; padding:12px; border-radius:16px; background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow)}
+.fa-metric em{display:block; font-style:normal; font-size:10.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--fg-2)}
+.fa-metric b{display:block; margin-top:4px; font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-metric b.good{color:var(--ok)}
+.fa-metric b.bad{color:var(--danger)}
+.fa-env-h{display:flex; align-items:center; gap:8px}
+.fa-env-h i{width:9px; height:9px; border-radius:50%; flex:none}
+.fa-env-h b{font-size:15px; font-weight:600; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-env-h span{font-size:13px; font-weight:500; color:var(--fg-2); white-space:nowrap}
+.fa-env-f{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.fa-env-f span{font-size:12px; font-weight:500; color:var(--fg-2)}
+.fa-env-f span.bad{color:var(--danger); font-weight:600}
+.fa-env-f .fa-btn{flex:none; height:34px; padding:0 12px; font-size:13px}
+
+.fa-debt-h{display:flex; align-items:baseline; gap:10px}
+.fa-debt-h b{flex:1; min-width:0; font-size:17px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-debt-h span{font-size:17px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums}
+.fa-debt-h span.mine{color:var(--warn)}
+.fa-debt-h span.owed{color:var(--ok)}
+.fa-debt .fa-k:first-of-type{margin-top:-6px}
+.fa-closed{padding:4px 14px}
+.fa-cl{display:flex; align-items:center; gap:10px; padding:8px 0; color:var(--fg-2)}
+.fa-cl + .fa-cl{border-top:1px solid var(--line)}
+.fa-cl span{flex:1; min-width:0; font-size:14px; text-decoration:line-through; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-cl em{font-style:normal; font-size:13px}
+.fa-cl button{width:32px; height:32px; border-radius:50%; display:grid; place-items:center; background:var(--soft); color:var(--fg-2)}
+.fa-cl button svg, .fa-cl button .nav-ic{width:15px; height:15px}
+
+.fa-intro{position:relative; display:flex; gap:12px; padding:16px; border-radius:20px;
+  background:color-mix(in srgb, var(--ok) 12%, transparent); border:1.5px solid color-mix(in srgb, var(--ok) 45%, transparent)}
+.fa-intro-b{flex:1; display:flex; gap:12px; text-align:left; color:var(--fg)}
+.fa-intro-ic{color:var(--ok); flex:none}
+.fa-intro-ic .nav-ic{width:28px; height:28px; stroke-width:1.9}
+.fa-intro-b b{display:block; font-size:17px; font-weight:700}
+.fa-intro-b em{display:block; font-style:normal; font-size:13px; color:var(--fg-2); margin-top:4px; line-height:1.35}
+.fa-intro-x{width:28px; height:28px; border-radius:50%; flex:none; background:var(--card); color:var(--fg-2); font-size:12px; font-weight:700}
+
+.fa-jarc > .swipe-face.fa-card{border:1.5px solid color-mix(in srgb, var(--ok) 35%, transparent)}
+.fa-jar-h{display:flex; align-items:flex-start; gap:12px}
+.fa-jar-ic{color:var(--ok); flex:none; margin-top:1px}
+.fa-jar-ic .nav-ic{width:30px; height:30px; stroke-width:1.9}
+.fa-jar-n{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+.fa-jar-n b{font-size:18px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-jar-n em, .fa-jar-v em{font-style:normal; font-size:13px; font-weight:500; color:var(--fg-2)}
+.fa-jar-v{text-align:right; display:flex; flex-direction:column; gap:2px}
+.fa-jar-v b{font-size:22px; font-weight:700; color:var(--ok); white-space:nowrap}
+.fa-jar-v em{font-weight:700}
+.fa-bar.fat{height:10px}
+
+.fa-seg{display:flex; padding:3px; margin-bottom:12px; border-radius:12px; background:color-mix(in srgb, var(--card) 60%, transparent)}
+.fa-seg button{flex:1; height:34px; border-radius:9px; font-size:14px; font-weight:600; color:var(--fg-2)}
+.fa-seg button.on{background:var(--card); color:var(--fg); box-shadow:var(--shadow)}
+.fa-subs{padding:0 14px}
+.fa-sub{position:relative; overflow:hidden}
+.fa-sub + .fa-sub{border-top:1px solid var(--line)}
+.fa-sub > .swipe-face{display:flex; align-items:center; gap:10px; padding:9px 0; background:var(--card)}
+.fa-paid{width:24px; height:24px; border-radius:50%; flex:none; border:1.8px solid var(--fg-3); display:grid; place-items:center; color:#fff}
+.fa-paid.on{background:var(--ok); border-color:var(--ok)}
+.fa-paid .nav-ic{width:14px; height:14px; stroke-width:3}
+.fa-logo{flex:none; display:grid}
+.fa-logo .tplmark{width:34px; height:34px; border-radius:50%}
+.fa-sub.off .fa-logo{opacity:.45}
+.fa-sub-t{flex:1; min-width:0; text-align:left; display:flex; flex-direction:column; gap:2px}
+.fa-sub-t b{font-size:15px; font-weight:600; color:var(--fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-sub.off .fa-sub-t b{color:var(--fg-2); text-decoration:line-through}
+.fa-sub-t em{font-style:normal; font-size:12px; color:var(--fg-2)}
+.fa-sub-t small{font-size:12px; font-weight:600}
+.fa-sub-t small.ok{color:var(--ok)}
+.fa-sub-t small.warn{color:var(--warn)}
+.fa-sub-t small.acc{color:var(--accent-text, var(--accent))}
+.fa-onoff{flex:none; height:32px; padding:0 12px; border-radius:999px; font-size:12px; font-weight:600;
+  color:var(--fg-2); background:color-mix(in srgb, var(--fg-2) 14%, transparent)}
+.fa-onoff.off{color:var(--ok); background:color-mix(in srgb, var(--ok) 14%, transparent)}
+/* Две кнопки под свайпом копилки (снять, удалить) делят те же 92 px. */
+.in-app .fa-jarc > .side button{width:40px; border-radius:14px}
+.in-app .fa-jarc > .side:has(button + button) button{width:40px}
+.in-app .fa-jarc > .side button:only-child{width:86px; border-radius:18px}
+.in-app .fa-jarc > .side button:not(.kill){background:var(--soft-2); color:var(--fg)}
+/* Логотип подписки — круг 34 px с картинкой 20 px по центру. */
+.fa-logo{position:relative; width:34px; height:34px; border-radius:50%; overflow:hidden; display:grid; place-items:center;
+  background:var(--soft); border:1px solid var(--line)}
+.fa-logo .tpllogo{position:relative; width:34px; height:34px; display:grid; place-items:center}
+.fa-logo .tplmark{width:34px; height:34px; border-radius:50%; font-size:12px}
+.fa-logo .tpllogo img{position:absolute; left:7px; top:7px; width:20px; height:20px; border-radius:5px}
+.fa-seg{background:var(--soft); border:1px solid var(--line)}
+.fa-seg button.on{background:var(--card); border:1px solid var(--line)}
