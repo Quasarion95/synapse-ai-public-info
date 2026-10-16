@@ -3105,3 +3105,12 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 .dr-ch{color:var(--fg-3); display:grid}
 .dr-ch .nav-ic{width:13px; height:13px; stroke-width:2.4}
 @media (prefers-reduced-motion:reduce){ .dr-panel, .dr-scrim{transition:none} }
+
+/* Экран задач в приложении — без шапки (класс no-top ставит render). Отступ
+   сверху заменяет высоту шапки, чтобы «Сегодня» не прилипало к строке
+   состояния. */
+.in-app.no-top #top{display:none}
+.in-app.no-top main{padding-top:calc(env(safe-area-inset-top, 0px) + 18px)}
+/* В финансах в шапке есть кнопка валюты, и название не влезало —
+   обрезалось до «Synaps…». Там остаётся один логотип. */
+.in-app .top-in:has(.cur) .brand .nm{display:none}
