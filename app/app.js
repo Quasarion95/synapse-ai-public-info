@@ -527,12 +527,56 @@ function починитьЗаписи(данные){
   return данные;
 }
 
-function load(){
+/* Нечитаемые данные не затираются заготовкой.
+
+   Раньше любое исключение в разборе ниже (например, pomodoro: null из
+   поправленного руками файла) возвращало seed(), и первое же save() молча
+   записывало пустую заготовку поверх настоящих задач. Теперь строка из
+   хранилища сначала откладывается под отдельный ключ, и человеку говорится,
+   где она. Не удалось отложить (нет места) — заготовку в хранилище не пишем
+   вовсе, пока человек сам что-нибудь не решит: лучше несохраняющаяся вкладка,
+   чем стёртые данные. */
+var данныеОтложены = '';
+var хранилищеЗаперто = false;
+function отложитьНечитаемое(raw){
+  if (!raw) return;
   try {
-    var raw = localStorage.getItem(KEY);
+    localStorage.setItem(KEY + '.broken-' + Date.now(), raw);
+    данныеОтложены = 'Прежние данные не прочитались и отложены в сторону — они не стёрты';
+  } catch (e) {
+    хранилищеЗаперто = true;
+    данныеОтложены = 'Прежние данные не прочитались. Чтобы их не затереть, изменения сейчас не сохраняются';
+  }
+}
+
+/* Верхние поля, которых нет или которые не того вида, берутся из заготовки —
+   до разбора, а не после: разбор ниже читает parsed.pomodoro.goal и
+   parsed.meditation.volume без оглядки. Только объекты и списки: у простых
+   полей (tourDone, currencyAsked, fontSize…) свои переносы ниже, и подставь
+   мы умолчание заранее, они бы не сработали. */
+function дополнитьИзЗаготовки(parsed){
+  var заготовка = seed();
+  for (var ключ in заготовка){
+    if (!заготовка.hasOwnProperty(ключ) || ключ === 'closed') continue;
+    var надо = заготовка[ключ], было = parsed[ключ];
+    if (!надо || typeof надо !== 'object') continue;
+    var нужен = Array.isArray(надо);
+    if (было == null || typeof было !== 'object' || Array.isArray(было) !== нужен) parsed[ключ] = надо;
+  }
+  return parsed;
+}
+
+function load(){
+  var raw = null;
+  try {
+    raw = localStorage.getItem(KEY);
     if (!raw) return seed();
     var parsed = JSON.parse(raw);
-    if (!parsed || parsed.version !== 2 || !parsed.tasks) return seed();
+    if (!parsed || parsed.version !== 2 || !Array.isArray(parsed.tasks)){
+      отложитьНечитаемое(raw);
+      return seed();
+    }
+    дополнитьИзЗаготовки(parsed);
     починитьЗаписи(parsed);
     // Поля, которых могло не быть в раньше сохранённом состоянии.
     parsed.drag = null;
@@ -649,6 +693,7 @@ function load(){
     if (parsed.view === 'auth') parsed.view = 'settings';
     return parsed;
   } catch (e) {
+    отложитьНечитаемое(raw);
     return seed();
   }
 }
@@ -658,6 +703,7 @@ function load(){
 /// бросают исключение, поэтому про них надо сказать вслух.
 var storageBroken = false;
 function save(){
+  if (хранилищеЗаперто) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(S));
     storageBroken = false;
@@ -680,6 +726,8 @@ var S = load();
    Дата последнего открытия хранится рядом с данными, поэтому переезд
    случается ровно один раз в день, а не на каждую перерисовку. */
 function rolloverIfNeeded(){
+  // Сказать про отложенные данные: load() идёт раньше, чем заводится тост.
+  if (данныеОтложены){ pendingToast = данныеОтложены; данныеОтложены = ''; }
   var today = isoOf(todayDate());
   if (S.lastOpened === today) return;
   if (S.pomodoro) S.pomodoro.doneToday = 0;   // «сессий сегодня» — значит, с утра заново
@@ -859,6 +907,30 @@ function isPro(){
     if (until && until < Date.now()) return false;
   }
   return true;
+}
+
+/* Пора ли молча сверить подписку с сервером — и в приложении, и в браузере.
+
+   Раньше сайт не сверялся никогда: продлённая подписка доживала до старого
+   expiresAt, и Pro выключался у человека, который исправно платит. Теперь
+   спрашиваем, когда отметки сверки нет, когда она из будущего (часы
+   переводили назад — по такой отметке срок годности не истечёт никогда), раз
+   в трое суток и когда срок подписки истёк или истекает в ближайшие сутки.
+   Без кода сверять нечем — такой признак остаётся как есть. */
+var последняяПопыткаСверки = 0;
+function подпискуПораСверить(){
+  if (!S.pro || !S.pro.active || !S.pro.code) return false;
+  var сейчас = Date.now();
+  // Сервер не ответил — не долбим его на каждое возвращение во вкладку.
+  if (сейчас - последняяПопыткаСверки < 10 * 60 * 1000) return false;
+  var когда = Number(S.pro.checkedAt) || 0;
+  var нужно = !когда || когда > сейчас + 60 * 1000 || сейчас - когда >= ПОДТВЕРЖДАТЬ_ЧЕРЕЗ;
+  if (!нужно && S.pro.expiresAt){
+    var until = Date.parse(S.pro.expiresAt);
+    if (until && until - сейчас < 24 * 3600 * 1000) нужно = true;
+  }
+  if (нужно) последняяПопыткаСверки = сейчас;
+  return нужно;
 }
 
 /// Сколько ещё можно завести бесплатно. -1 значит «сколько угодно».
@@ -11153,17 +11225,58 @@ function importBackup(text){
   if (!Array.isArray(parsed.tasks)){
     throw new Error('Это не копия Synapse');
   }
-  var fresh = seed();
-  var fields = ['tasks', 'goals', 'lists', 'notes', 'pomodoro', 'meditation', 'palette', 'theme', 'closed', 'open', 'trash'];
-  for (var i = 0; i < fields.length; i++){
-    if (parsed[fields[i]] !== undefined) fresh[fields[i]] = parsed[fields[i]];
+  var fresh;
+  if (изПриложения){
+    /* С айфона приходят только задачи, цели, списки и заметки. Остальное —
+       финансы, подписка, профиль, оформление, корзина — здесь своё, и
+       заменять его заготовкой значило бы стереть то, чего в файле не было. */
+    fresh = JSON.parse(JSON.stringify(S));
+    fresh.tasks = parsed.tasks; fresh.goals = parsed.goals;
+    fresh.lists = parsed.lists; fresh.notes = parsed.notes;
+  } else {
+    /* Своя копия переносится вся, а не одиннадцать полей из списка: раньше
+       финансы, профиль, валюта, напоминания и подписка из файла молча
+       выбрасывались. Берём каждое знакомое поле, если оно того же вида, что в
+       заготовке: null там, где ждут объект, — это не данные, а поломка. */
+    fresh = seed();
+    var ПЕРЕНОСИМЫЕ = Object.keys(fresh).concat(['currency', 'mm', 'proOfferShown', 'lastView']);
+    var НЕ_ПЕРЕНОСИМ = ['version', 'view', 'sub', 'drag', 'more', 'draft', 'finPending', 'finDate',
+      'pro', 'installID', 'activeGoal', 'activeList', 'activeNote'];
+    for (var i = 0; i < ПЕРЕНОСИМЫЕ.length; i++){
+      var ключ = ПЕРЕНОСИМЫЕ[i];
+      if (НЕ_ПЕРЕНОСИМ.indexOf(ключ) !== -1) continue;
+      var было = parsed[ключ], надо = fresh[ключ];
+      if (было == null) continue;
+      if (надо != null){
+        if (typeof было !== typeof надо) continue;
+        if (typeof надо === 'object' && Array.isArray(было) !== Array.isArray(надо)) continue;
+      }
+      fresh[ключ] = было;
+    }
+    // Подписка и номер установки привязаны к этому устройству: из файла берём,
+    // только если здесь своих нет.
+    fresh.installID = S.installID || (typeof parsed.installID === 'string' ? parsed.installID : '');
+    fresh.pro = (S.pro && S.pro.active) || !parsed.pro || typeof parsed.pro !== 'object' ? S.pro : parsed.pro;
   }
   // Файл мог быть сохранён версией, в которой части полей ещё не существовало.
   починитьЗаписи(fresh);
   fresh.view = 'profile';
   fresh.lastOpened = isoOf(todayDate());
+  /* Прежнее состояние — под отдельный ключ: «заменить» больше не означает
+     «потерять без возврата». Не влезает в хранилище — откладку убираем, иначе
+     она вытеснила бы сами загруженные данные. */
+  var отложено = false;
+  try { localStorage.setItem(KEY + '.before-import', JSON.stringify(S)); отложено = true; } catch (e) {}
+  хранилищеЗаперто = false;
   S = fresh;
   save();
+  if (storageBroken && отложено){
+    try { localStorage.removeItem(KEY + '.before-import'); } catch (e) {}
+    save();
+  }
+  // Прогоняем через ту же загрузку, что и при открытии: она доводит старые
+  // копии до нынешнего вида (финансы, напоминания, помодоро…).
+  if (!storageBroken){ S = load(); S.view = 'profile'; }
   return изПриложения;
 }
 
@@ -13045,7 +13158,7 @@ var ACTS = {
         openModal(
           '<h3>Заменить данные копией?</h3>' +
           '<p class="s">Файл: ' + esc(file.name) + '</p>' +
-          '<p class="s">Всё, что сейчас в этом браузере — задачи, цели, списки, заметки, — будет заменено содержимым файла. Отменить это будет нельзя.</p>' +
+          '<p class="s">Копия из этого приложения заменит всё, что сейчас здесь: задачи, цели, списки, заметки, корзину, финансы, профиль, напоминания и оформление. Копия с айфона заменит только задачи, цели, списки и заметки — финансы и настройки останутся. Прежнее состояние не сотрётся, а будет отложено в сторону.</p>' +
           '<button class="btn full" data-act="import-confirm">Заменить</button>' +
           '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>'
         );
@@ -14561,11 +14674,11 @@ registerServiceWorker();
    Сервер не ответил — молчим и пробуем в следующий раз: признак живёт по
    сроку годности, и одна неудачная попытка ничего не решает. */
 function сверитьПодписку(){
-  if (!inApp() || !S.pro || !S.pro.active || !S.pro.code) return;
-  if (S.pro.checkedAt && Date.now() - S.pro.checkedAt < ПОДТВЕРЖДАТЬ_ЧЕРЕЗ) return;
+  if (!подпискуПораСверить()) return;
   proActivate(S.pro.code).then(function(pro){
-    // Подписки больше нет — перерисовываем, чтобы замки встали на место.
-    if (!pro.active) render();
+    // Перерисовываем в обе стороны: замки встают на место или снимаются
+    // (продлённая подписка снова открывает платное).
+    render();
   }).catch(function(){});
 }
 
@@ -14626,12 +14739,23 @@ pomoСверить();
 var SYNC = { code: '', status: '', busy: false, joinOpen: false };
 
 function syncStore(k){ return localStorage.getItem('synapse.sync.' + k); }
-function syncStoreSet(k, v){ if (v == null) localStorage.removeItem('synapse.sync.' + k); else localStorage.setItem('synapse.sync.' + k, v); }
+// Хранилище может отказать (нет места, приватный режим) — не бросаем, а
+// возвращаем false: вызывающий решает, можно ли продолжать.
+function syncStoreSet(k, v){
+  try {
+    if (v == null) localStorage.removeItem('synapse.sync.' + k); else localStorage.setItem('synapse.sync.' + k, v);
+    return true;
+  } catch (e) { return false; }
+}
 function syncEnabled(){ return syncStore('enabled') === '1'; }
 function syncToken(){ return syncStore('token'); }
 function syncDeviceID(){ var d = syncStore('deviceID'); if (!d){ d = 'web-' + Math.random().toString(36).slice(2); syncStoreSet('deviceID', d); } return d; }
 function syncDataKeyRaw(){ var b = syncStore('dataKey'); return b ? SynSyncCrypto.unb64(b) : null; }
-function syncEnsureDataKey(){ if (!syncStore('dataKey')) syncStoreSet('dataKey', SynSyncCrypto.b64(SynSyncCrypto.newDataKey())); }
+function syncEnsureDataKey(){
+  if (syncStore('dataKey')) return;
+  if (!syncStoreSet('dataKey', SynSyncCrypto.b64(SynSyncCrypto.newDataKey())))
+    throw new Error('Браузер не даёт сохранить ключ синхронизации: нет места. Освободите место и попробуйте снова.');
+}
 
 /* ---- сеть (переиспользуем synFetch/synSession) ---- */
 function syncApiEnable(){ return synSession().then(function(sess){ return synFetch('/v1/synapse/sync/enable', {}, sess); }).then(function(d){ syncStoreSet('token', d.token); syncStoreSet('syncID', d.syncID); return d; }); }
@@ -14653,8 +14777,16 @@ function syncApiPull(){ return syncAuthed(function(){ return synFetch('/v1/synap
 function syncApiDelete(){ return synFetch('/v1/synapse/sync/delete', {}, syncToken()); }
 
 /* ---- шифр конверта: форма на проводе = PersistedEnvelope<WorkspaceSnapshot> ---- */
-function syncEncryptEnvelope(){
-  return SynSyncBridge.toSnapshot(S).then(function(snapshot){
+/* Отправляется ровно та копия, хэш которой потом запомнится как «отправлено».
+   Раньше снимок собирался из живого S через await'ы, а хэш брался от S уже
+   после ответа сервера — правка, сделанная за время запроса, считалась
+   отправленной и не уходила никогда. */
+function syncFreeze(){
+  return JSON.parse(JSON.stringify({ tasks: S.tasks || [], goals: S.goals || [], lists: S.lists || [],
+    notes: S.notes || [], trash: S.trash || [], finance: S.finance || {}, _iosFolders: S._iosFolders || [] }));
+}
+function syncEncryptEnvelope(st){
+  return SynSyncBridge.toSnapshot(st || S).then(function(snapshot){
     var envelope = { value: snapshot, updatedAt: new Date().toISOString(), deviceID: syncDeviceID() };
     return SynSyncCrypto.sealText(JSON.stringify(envelope), syncDataKeyRaw());
   });
@@ -14665,40 +14797,156 @@ function syncDecryptEnvelope(cipher){
     try { return JSON.parse(json); } catch (e){ return null; }
   });
 }
-/* Применить пришедший снимок — ТОЛЬКО задачи/цели/списки/заметки. Финансы,
-   помодоро и прочее в этом браузере оставляем как есть. */
-function syncApplyEnvelope(envelope){
-  var conv = изКопииПриложения({ workspace: envelope.value });
-  S.tasks = conv.tasks; S.goals = conv.goals; S.lists = conv.lists; S.notes = conv.notes;
-  // Финансы: применяем, только если пришли; счета и правила регулярных у веба
-  // локальные — сохраняем их.
-  if (envelope.value && envelope.value.finance && typeof SynSyncBridge !== 'undefined'){
-    S.finance = SynSyncBridge.financeFromSnapshot(envelope.value.finance, S.finance);
-  }
-  // Корзина: задачные записи приходят в snapshot.trashedTasks (форма айфона).
-  // Конвертируем их тем же изКопииПриложения (как активные задачи), оборачиваем
-  // в записи корзины и заменяем задачные записи, СОХРАНЯЯ веб-локальные
-  // (цели/списки/заметки в корзине — их у айфона в снимке нет).
-  if (envelope.value && envelope.value.trashedTasks !== undefined){
-    var iosTrash = envelope.value.trashedTasks || [];
-    var convT = изКопииПриложения({ workspace: { tasks: iosTrash, goals: [], lists: [], notes: [] } });
-    var webTrashTasks = (convT && convT.tasks) || [];
-    var сохранённые = (S.trash || []).filter(function(e){ return e && e.kind !== 'task'; });
-    for (var ti = 0; ti < webTrashTasks.length; ti++){
-      var src = iosTrash[ti] || {};
-      var atMs = src.trashedAt ? new Date(src.trashedAt).getTime() : Date.now();
-      if (isNaN(atMs)) atMs = Date.now();
-      сохранённые.push({ id: uid(), kind: 'task', at: atMs,
-        title: String((webTrashTasks[ti] && webTrashTasks[ti].title) || 'Без названия'),
-        data: webTrashTasks[ti], extra: null });
+
+/* Слияние пришедшей записи с местной по id. Мост несёт только часть полей
+   задачи (название, заметку, блок, дату, время, готовность, цель/этап,
+   подзадачи); повтор, правило, серия, дедлайн, окно, напоминание, архив,
+   переносы, потраченное время и всё, что появится потом, у айфона не живут.
+   Раньше приём заменял задачи целиком, и всё это пропадало. Теперь берём
+   пришедшее и докладываем местные поля, которых мост не несёт. */
+var SYNC_НЕСЁТ = {
+  tasks: ['id', 'title', 'note', 'bucket', 'date', 'time', 'done', 'goalId', 'stageId', 'subtasks', '_ios'],
+  goals: ['id', 'title', 'purpose', 'horizon', 'sphere', 'pinned', 'stages', '_ios'],
+  lists: ['id', 'title', 'note', 'items', '_ios'],
+  notes: ['id', 'title', 'body', '_ios']
+};
+function syncДоложитьМестное(пришли, местные, несёт){
+  var поId = {};
+  (местные || []).forEach(function(r){ if (r && r.id != null) поId[String(r.id)] = r; });
+  (пришли || []).forEach(function(r){
+    var было = поId[String(r.id)];
+    if (!было) return;
+    for (var k in было){
+      if (было.hasOwnProperty(k) && несёт.indexOf(k) === -1) r[k] = было[k];
     }
-    сохранённые.sort(function(a, b){ return (b.at || 0) - (a.at || 0); });   // новые сверху
-    S.trash = сохранённые;
-  }
+    // Архив — это «выполнено и убрано»; снятую на айфоне галочку не прячем.
+    if (r.archived && !r.done) r.archived = false;
+  });
+  return пришли;
+}
+
+/* Снимок сервера → записи веба, уже слитые с местными полями. Сам S здесь не
+   меняется: решать, применить их целиком или слить с правками, — вызывающему. */
+function syncRemoteToWeb(envelope){
+  return SynSyncBridge.localIndex(S).then(function(idx){
+    var snap = (envelope && envelope.value) || {};
+    var conv = изКопииПриложения({ workspace: snap });
+    var есть = snap.trashedTasks !== undefined;
+    var convT = есть ? изКопииПриложения({ workspace: { tasks: snap.trashedTasks || [], goals: [], lists: [], notes: [] } }) : null;
+    var папки = SynSyncBridge.adoptIncoming(snap, conv, convT, idx);
+    var r = {
+      tasks: syncДоложитьМестное(conv.tasks, S.tasks, SYNC_НЕСЁТ.tasks),
+      goals: syncДоложитьМестное(conv.goals, S.goals, SYNC_НЕСЁТ.goals),
+      lists: syncДоложитьМестное(conv.lists, S.lists, SYNC_НЕСЁТ.lists),
+      notes: syncДоложитьМестное(conv.notes, S.notes, SYNC_НЕСЁТ.notes),
+      trash: null, finance: null, folders: папки
+    };
+    // Финансы: применяем, только если пришли; счета и правила регулярных у веба
+    // локальные — сохраняем их, записи сливаем по id (см. financeFromSnapshot).
+    if (snap.finance) r.finance = SynSyncBridge.financeFromSnapshot(snap.finance, S.finance, idx);
+    // Корзина: задачные записи приходят в snapshot.trashedTasks (форма айфона).
+    // Оборачиваем их в записи корзины, СОХРАНЯЯ веб-локальные (цели/списки/
+    // заметки в корзине — их у айфона в снимке нет).
+    if (есть){
+      var iosTrash = snap.trashedTasks || [];
+      var webTrashTasks = (convT && convT.tasks) || [];
+      var местныеЗадачи = (S.trash || []).filter(function(e){ return e && e.kind === 'task' && e.data; }).map(function(e){ return e.data; });
+      syncДоложитьМестное(webTrashTasks, местныеЗадачи, SYNC_НЕСЁТ.tasks);
+      var сохранённые = (S.trash || []).filter(function(e){ return e && e.kind !== 'task'; });
+      for (var ti = 0; ti < webTrashTasks.length; ti++){
+        var src = iosTrash[ti] || {};
+        var atMs = src.trashedAt ? new Date(src.trashedAt).getTime() : Date.now();
+        if (isNaN(atMs)) atMs = Date.now();
+        сохранённые.push({ id: uid(), kind: 'task', at: atMs,
+          title: String((webTrashTasks[ti] && webTrashTasks[ti].title) || 'Без названия'),
+          data: webTrashTasks[ti], extra: null });
+      }
+      сохранённые.sort(function(a, b){ return (b.at || 0) - (a.at || 0); });   // новые сверху
+      r.trash = сохранённые;
+    }
+    // Те же умолчания, что получит S, — чтобы хэши записей сравнивались честно.
+    починитьЗаписи(r);
+    if (!есть) r.trash = null;
+    return r;
+  });
+}
+
+/* Применить пришедшее целиком — когда здесь нет неотправленных правок. */
+function syncApplyRemote(r){
+  S.tasks = r.tasks; S.goals = r.goals; S.lists = r.lists; S.notes = r.notes;
+  if (r.finance) S.finance = r.finance;
+  if (r.trash) S.trash = r.trash;
+  S._iosFolders = r.folders || [];
   починитьЗаписи(S);
   save();
-  syncLastHash = syncContentHash();   // применили чужое — не гнать его обратно
-  render();                            // показать подтянутое
+  syncMarkSynced(S);   // применили чужое — не гнать его обратно
+  render();            // показать подтянутое
+}
+
+/* Слить пришедшее с местными правками — когда здесь есть неотправленное.
+
+   По записям, а не целиком: запись, которую здесь меняли с последней
+   синхронизации, остаётся местной; не менявшаяся берётся с сервера; новая с
+   любой стороны добавляется; удалённая с одной стороны (была в прошлой
+   синхронизации, теперь её нет) удаляется, если другая её не трогала. Что
+   «меняли», видно по хэшам записей на момент прошлой синхронизации (base).
+   Базы нет (первая связка) — объединяем, при совпадении id побеждает местная.
+   Финансы и корзину целиком: менялись здесь — остаются местные, нет — серверные. */
+function syncMergeList(местные, пришли, база){
+  var поId = {}, итог = [], видели = {};
+  (пришли || []).forEach(function(r){ поId[String(r.id)] = r; });
+  (местные || []).forEach(function(l){
+    var id = String(l.id), r = поId[id];
+    var менялась = !база || !база.hasOwnProperty(id) || syncHashOf(l) !== база[id];
+    видели[id] = true;
+    if (r){ итог.push(менялась ? l : r); return; }
+    if (база && база.hasOwnProperty(id) && !менялась) return;   // удалена там
+    итог.push(l);
+  });
+  (пришли || []).forEach(function(r){
+    var id = String(r.id);
+    if (видели[id]) return;
+    if (база && база.hasOwnProperty(id)) return;                 // удалена здесь
+    итог.push(r);
+  });
+  return итог;
+}
+function syncMergeRemote(r){
+  var база = syncBase();
+  S.tasks = syncMergeList(S.tasks, r.tasks, база && база.t);
+  S.goals = syncMergeList(S.goals, r.goals, база && база.g);
+  S.lists = syncMergeList(S.lists, r.lists, база && база.l);
+  S.notes = syncMergeList(S.notes, r.notes, база && база.n);
+  if (r.finance && база && syncHashOf(syncFinPart(S)) === база.f) S.finance = r.finance;
+  if (r.trash && база && syncHashOf(syncTrashPart(S)) === база.tr) S.trash = r.trash;
+  S._iosFolders = r.folders || S._iosFolders || [];
+  починитьЗаписи(S);
+  save();
+  // База — то, что сейчас на сервере: следующая сверка отличит настоящие
+  // местные правки от только что принятого.
+  syncSetBase(r);
+  render();
+}
+
+/* Последняя серверная копия, поверх которой пишем при конфликте, — в сторону.
+   Только одна (прежнюю убираем), и если из-за неё не влезает основное
+   состояние, убираем и её: основное важнее. */
+function syncStashConflict(text){
+  try {
+    for (var i = localStorage.length - 1; i >= 0; i--){
+      var k = localStorage.key(i);
+      if (k && k.indexOf('synapse.sync.conflict-') === 0) localStorage.removeItem(k);
+    }
+    localStorage.setItem('synapse.sync.conflict-' + Date.now(), text);
+  } catch (e) {}
+}
+function syncDropConflictStash(){
+  try {
+    for (var i = localStorage.length - 1; i >= 0; i--){
+      var k = localStorage.key(i);
+      if (k && k.indexOf('synapse.sync.conflict-') === 0) localStorage.removeItem(k);
+    }
+  } catch (e) {}
 }
 
 /* ---- оркестровка ---- */
@@ -14711,44 +14959,119 @@ function syncDo(promiseFn){
     else SYNC.status = (e && e.message) ? e.message : 'Не получилось. Попробуйте ещё раз.';
   }).then(function(){ SYNC.busy = false; render(); });
 }
-function syncPullApply(){
+
+/* Приём и отправка идут строго по очереди.
+
+   Раньше таймер, возврат на вкладку и авто-отправка запускали их внахлёст:
+   приём проверял «нет ли местных правок», потом ждал сеть и расшифровку, и
+   применял снимок поверх правки, сделанной за эти полсекунды. Теперь одна
+   цепочка; ещё не начавшийся такой же запрос не ставится второй раз. */
+var syncОчередь = { цепь: Promise.resolve(), pull: null, push: null };
+function syncSerial(вид, fn){
+  var q = syncОчередь;
+  if (q[вид] && !q[вид].started) return q[вид].promise;
+  var job = { started: false, promise: null };
+  job.promise = q.цепь.then(function(){ job.started = true; return fn(); });
+  q[вид] = job;
+  var снять = function(){ if (q[вид] === job) q[вид] = null; };
+  job.promise.then(снять, снять);
+  q.цепь = job.promise.catch(function(){});
+  return job.promise;
+}
+function syncReady(){ return !!(syncToken() && syncDataKeyRaw()); }
+function syncLocalDirty(){ return syncLastHash === null || syncContentHash() !== syncLastHash; }
+
+function syncPullApply(){ return syncSerial('pull', syncPullInner); }
+function syncPullInner(){
+  if (!syncReady()) return Promise.resolve();
   return syncApiPull().then(function(d){
-    if (!d.snapshot || !d.snapshot.cipher) return;
-    if (d.updatedAt && d.updatedAt === syncStore('lastServerUpdatedAt')) return;   // сервер не менялся
-    // Есть местные правки, ещё не ушедшие на сервер? Не затираем — их отправит
-    // авто-пуш, расхождение разрулит push.
-    if (syncLastHash !== null && syncContentHash() !== syncLastHash) return;
+    if (!d.snapshot || !d.snapshot.cipher){
+      if (syncLocalDirty()) syncScheduleAutoPush();
+      return;
+    }
+    if (d.updatedAt && d.updatedAt === syncStore('lastServerUpdatedAt')){
+      // Сервер не менялся. Неотправленное (например, с прошлого открытия) — отправить.
+      if (syncLocalDirty()) syncScheduleAutoPush();
+      return;
+    }
     return syncDecryptEnvelope(d.snapshot.cipher).then(function(env){
       if (!env){ SYNC.status = 'Не удалось расшифровать данные с сервера. Свяжите устройство заново по коду.'; return; }
-      syncApplyEnvelope(env);
-      syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
-    });
-  });
-}
-function syncPushCurrent(){
-  return syncEncryptEnvelope().then(function(cipher){
-    return syncApiPush(cipher, syncStore('lastServerUpdatedAt')).then(function(d){
-      syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
-      syncLastHash = syncContentHash();
-    }).catch(function(e){
-      if (e && e.status === 409 && e.data){
-        // Наши правки побеждают: выкладываем поверх, база = версия сервера.
-        return syncEncryptEnvelope().then(function(cipher2){
-          return syncApiPush(cipher2, e.data.updatedAt);
-        }).then(function(d2){ syncStoreSet('lastServerUpdatedAt', d2.updatedAt || ''); syncLastHash = syncContentHash(); });
-      }
-      throw e;
+      return syncRemoteToWeb(env).then(function(r){
+        // Проверка — здесь, вплотную к записи в S, а не до сети: правка могла
+        // случиться, пока шёл запрос и расшифровка.
+        if (syncLocalDirty()){
+          syncMergeRemote(r);
+          syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+          syncScheduleAutoPush();
+        } else {
+          syncApplyRemote(r);
+          syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+        }
+      });
     });
   });
 }
 
-function syncTurnOn(){ return syncDo(function(){ return syncApiEnable().then(function(){ syncEnsureDataKey(); syncStoreSet('enabled', '1'); return syncPullApply(); }).then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизация включена.'; }); }); }
-function syncTurnOff(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); SYNC.code = ''; SYNC.status = 'Синхронизация отключена. Данные в этом браузере остались.'; render(); }
-function syncShowCode(){ return syncDo(function(){ var ready = syncToken() ? Promise.resolve() : syncApiEnable().then(function(){ syncEnsureDataKey(); syncStoreSet('enabled', '1'); }); return ready.then(function(){ var code = SynSyncCrypto.newCode(); return SynSyncCrypto.wrap(syncDataKeyRaw(), code).then(function(wrapped){ return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiStorePair(lookup, wrapped); }).then(function(){ SYNC.code = code; SYNC.status = 'Введите этот код на другом устройстве — код живёт 10 минут.'; }); }); }); }); }
-function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete(code)){ SYNC.status = 'Код неполный. Проверьте, что ввели его целиком.'; return; } return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiRedeem(lookup); }).then(function(res){ return SynSyncCrypto.unwrap(res.wrappedKey, code).then(function(key){ if (!key){ SYNC.status = 'Код не подошёл.'; return; } syncStoreSet('dataKey', SynSyncCrypto.b64(key)); syncStoreSet('token', res.token); syncStoreSet('syncID', res.syncID); syncStoreSet('enabled', '1'); syncStoreSet('lastServerUpdatedAt', null); SYNC.joinOpen = false; return syncPullApply().then(function(){ SYNC.status = 'Устройство связано. Данные подтянуты.'; }); }); }); }); }
+function syncPushCurrent(){ return syncSerial('push', function(){ return syncPushInner(true); }); }
+function syncPushInner(можноСлить){
+  if (!syncReady()) return Promise.resolve();
+  var копия = syncFreeze();
+  return syncEncryptEnvelope(копия).then(function(cipher){
+    return syncApiPush(cipher, syncStore('lastServerUpdatedAt')).then(function(d){
+      syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+      syncMarkSynced(копия);
+    }).catch(function(e){
+      if (e && e.status === 409 && можноСлить) return syncResolveConflict();
+      throw e;
+    });
+  });
+}
+/* Конфликт: на сервере версия новее нашей базы — другое устройство успело
+   записать. Раньше мы молча писали поверх, и его правки пропадали. Теперь
+   забираем серверную копию, кладём её в сторону (на всякий случай), сливаем по
+   записям и отправляем уже слитое — один раз; повторный конфликт уходит
+   ошибкой, и следующая авто-отправка попробует снова. */
+function syncResolveConflict(){
+  return syncApiPull().then(function(d){
+    if (!d.snapshot || !d.snapshot.cipher){
+      syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+      return syncPushInner(false);
+    }
+    return syncDecryptEnvelope(d.snapshot.cipher).then(function(env){
+      syncStashConflict(env ? JSON.stringify(env) : d.snapshot.cipher);
+      if (!env){
+        // Нечем слить — пишем своё, как раньше; серверная копия отложена.
+        syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+        return syncPushInner(false);
+      }
+      return syncRemoteToWeb(env).then(function(r){
+        syncMergeRemote(r);
+        if (storageBroken){ syncDropConflictStash(); save(); }
+        syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+        return syncPushInner(false);
+      });
+    });
+  });
+}
+
+function syncTurnOn(){ return syncDo(function(){ return syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); return syncPullApply(); }).then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизация включена.'; }); }); }
+function syncTurnOff(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Синхронизация отключена. Данные в этом браузере остались.'; render(); }
+function syncShowCode(){ return syncDo(function(){ var ready = syncToken() ? Promise.resolve() : syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); }); return ready.then(function(){ var code = SynSyncCrypto.newCode(); return SynSyncCrypto.wrap(syncDataKeyRaw(), code).then(function(wrapped){ return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiStorePair(lookup, wrapped); }).then(function(){ SYNC.code = code; SYNC.status = 'Введите этот код на другом устройстве — код живёт 10 минут.'; }); }); }); }); }
+function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete(code)){ SYNC.status = 'Код неполный. Проверьте, что ввели его целиком.'; return; } return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiRedeem(lookup); }).then(function(res){ return SynSyncCrypto.unwrap(res.wrappedKey, code).then(function(key){ if (!key){ SYNC.status = 'Код не подошёл.'; return; }
+  // Сначала ключ, потом «включено»: не влез ключ — не включаем вовсе, иначе
+  // синхронизация считалась бы включённой без ключа.
+  if (!syncStoreSet('dataKey', SynSyncCrypto.b64(key)) || !syncStoreSet('token', res.token) || !syncStoreSet('syncID', res.syncID)){
+    syncStoreSet('dataKey', null); syncStoreSet('token', null);
+    SYNC.status = 'Браузер не даёт сохранить ключ синхронизации: нет места. Освободите место и попробуйте снова.'; return;
+  }
+  // Новая группа — прежняя база не про неё: первая сверка объединит местное
+  // с пришедшим, ничего не стирая.
+  syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced();
+  if (!syncStoreSet('enabled', '1')){ SYNC.status = 'Браузер не даёт сохранить настройки синхронизации: нет места.'; return; }
+  SYNC.joinOpen = false; return syncPullApply().then(function(){ SYNC.status = 'Устройство связано. Данные подтянуты.'; }); }); }); }); }
 function syncNow(){ return syncDo(function(){ return syncPullApply().then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизировано.'; }); }); }
-function syncDeleteRemote(){ return syncDo(function(){ return syncApiDelete().then(function(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('dataKey', null); syncStoreSet('lastServerUpdatedAt', null); SYNC.code = ''; SYNC.status = 'Копия с сервера удалена. Данные в браузере остались.'; }); }); }
-function syncPullOnLoad(){ if (syncEnabled() && syncToken() && syncDataKeyRaw()) syncDo(function(){ return syncPullApply(); }); }
+function syncDeleteRemote(){ return syncDo(function(){ return syncSerial('delete', function(){ return syncApiDelete(); }).then(function(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('dataKey', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Копия с сервера удалена. Данные в браузере остались.'; }); }); }
+function syncPullOnLoad(){ if (syncEnabled() && syncReady()) syncDo(function(){ return syncPullApply(); }); }
 
 /* ---- экран в разделе «Данные» ---- */
 function разделСинхро(){
@@ -14785,24 +15108,65 @@ function разделСинхро(){
 
 /* Авто-синхронизация: отправляем при изменении (с задержкой), подтягиваем по
    таймеру. Хэш содержимого гасит пинг-понг между двумя активными устройствами:
-   применил чужое → записал хэш → авто-отправка видит тот же хэш и молчит. */
-var syncLastHash = null;
+   применил чужое → записал хэш → авто-отправка видит тот же хэш и молчит.
+
+   Хэш последней синхронизации живёт в localStorage, а не только в памяти.
+   Раньше после каждой перезагрузки он был пуст, и первый же приём затирал
+   правки, не успевшие уйти до закрытия вкладки. Нет хэша — значит, не знаем,
+   что отправлено, и считаем местное неотправленным: сливаем, а не затираем.
+   Рядом — хэши отдельных записей на тот момент (база для слияния). */
+function syncReadLastHash(){ try { return syncStore('lastHash') || null; } catch (e) { return null; } }
+var syncLastHash = syncReadLastHash();
 var syncAutoTimer = null;
-function syncContentHash(){
-  var f = S.finance || {};
-  // Корзина (только задачные записи — они синхронизируются) тоже входит в хэш:
-  // иначе удаление/восстановление/очистка не считались бы изменением, и авто-
-  // пуш их бы не отправлял, а входящий pull мог бы затереть местную корзину.
-  var tr = (S.trash || []).filter(function(e){ return e && e.kind === 'task'; })
-    .map(function(e){ return { i: e.data && e.data.id, a: e.at, d: !!(e.data && e.data.done) }; });
-  var str = JSON.stringify({ t: S.tasks||[], g: S.goals||[], l: S.lists||[], n: S.notes||[], tr: tr,
-    fo: f.ops||[], fd: f.debts||[], fj: f.jars||[], fs: f.subs||[], fb: f.budgets||{}, fc: f.cats||[], fop: f.opening||0 });
+function syncHashOf(value){
+  var str = JSON.stringify(value === undefined ? null : value);
   var h = 5381; for (var i = 0; i < str.length; i++){ h = ((h << 5) + h + str.charCodeAt(i)) >>> 0; }
   return '' + h;
 }
+function syncFinPart(st){
+  var f = (st && st.finance) || {};
+  return { fo: f.ops||[], fd: f.debts||[], fj: f.jars||[], fs: f.subs||[], fb: f.budgets||{}, fc: f.cats||[], fop: f.opening||0 };
+}
+// Корзина (только задачные записи — они синхронизируются) тоже входит в хэш:
+// иначе удаление/восстановление/очистка не считались бы изменением, и авто-
+// пуш их бы не отправлял, а входящий pull мог бы затереть местную корзину.
+function syncTrashPart(st){
+  return ((st && st.trash) || []).filter(function(e){ return e && e.kind === 'task'; })
+    .map(function(e){ return { i: e.data && e.data.id, a: e.at, d: !!(e.data && e.data.done) }; });
+}
+function syncContentHash(st){
+  st = st || S;
+  var f = syncFinPart(st);
+  return syncHashOf({ t: st.tasks||[], g: st.goals||[], l: st.lists||[], n: st.notes||[], tr: syncTrashPart(st),
+    fo: f.fo, fd: f.fd, fj: f.fj, fs: f.fs, fb: f.fb, fc: f.fc, fop: f.fop });
+}
+function syncRecHashes(arr){
+  var m = {};
+  (arr || []).forEach(function(r){ if (r && r.id != null) m[String(r.id)] = syncHashOf(r); });
+  return m;
+}
+function syncBase(){
+  try { var b = syncStore('base'); return b ? JSON.parse(b) : null; } catch (e) { return null; }
+}
+function syncSetBase(st){
+  var b = { t: syncRecHashes(st.tasks), g: syncRecHashes(st.goals), l: syncRecHashes(st.lists), n: syncRecHashes(st.notes) };
+  if (st.finance) b.f = syncHashOf(syncFinPart(st));
+  if (st.trash) b.tr = syncHashOf(syncTrashPart(st));
+  syncStoreSet('base', JSON.stringify(b));
+}
+function syncMarkSynced(st){
+  syncLastHash = syncContentHash(st);
+  syncStoreSet('lastHash', syncLastHash);
+  syncSetBase(st);
+}
+function syncForgetSynced(){
+  syncLastHash = null;
+  syncStoreSet('lastHash', null);
+  syncStoreSet('base', null);
+}
 function syncAutoPush(){
-  if (!syncEnabled() || !syncToken() || !syncDataKeyRaw()) return;
-  if (syncContentHash() === syncLastHash) return;   // не менялось — молчим
+  if (!syncEnabled() || !syncReady()) return;
+  if (!syncLocalDirty()) return;                    // не менялось — молчим
   syncPushCurrent().catch(function(){});            // тихо; ошибка — таймер повторит
 }
 function syncScheduleAutoPush(){
@@ -14816,6 +15180,8 @@ if (typeof document !== 'undefined' && !window.__syncVisHandler){
     if (!document.hidden && syncEnabled() && syncToken() && syncDataKeyRaw()){
       syncPullApply().catch(function(){});
     }
+    // Вкладку держат открытой сутками — сверка подписки не только при запуске.
+    if (!document.hidden && typeof сверитьПодписку === 'function') сверитьПодписку();
   });
 }
 if (typeof window !== 'undefined' && !window.__syncPullTimer){
@@ -14832,6 +15198,16 @@ ACTS['sync-code'] = function(){ syncShowCode(); };
 ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; render(); };
 ACTS['sync-join-do'] = function(){ var el = document.getElementById('sync-code-input'); syncJoin(el ? el.value : ''); };
 ACTS['sync-now'] = function(){ syncNow(); };
-ACTS['sync-delete'] = function(){ syncDeleteRemote(); };
+/* Удаление копии с сервера необратимо и касается всех связанных устройств —
+   поэтому своим окном, как «Стереть навсегда» в корзине. */
+ACTS['sync-delete'] = function(){
+  openModal(
+    '<h3>Удалить копию с сервера?</h3>' +
+    '<p class="s">Зашифрованная копия удалится с сервера насовсем, и синхронизация остановится на всех связанных устройствах — айфоне, андроиде и других браузерах. Чтобы синхронизироваться снова, их придётся связать заново по новому коду.</p>' +
+    '<p class="s">Данные на каждом устройстве останутся на месте. Ключ шифрования этого браузера тоже будет удалён.</p>' +
+    '<button class="btn full danger" data-act="sync-delete-confirm">Удалить копию</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+};
+ACTS['sync-delete-confirm'] = function(){ closeModal(); syncDeleteRemote(); };
 
 try { syncPullOnLoad(); } catch (e) {}
