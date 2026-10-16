@@ -2851,3 +2851,22 @@ body.mm-screen::after{display:none}
 .tour-step.on .tour-mark, .fr-pay.on{color:var(--on-ok, #fff)}
 .say input::placeholder{color:var(--fg-2); opacity:1}
 .radio.pal .sw{border-color:var(--stroke)}
+
+/* Окно — над полноэкранной картой. Раньше карта (80) стояла выше окна (70),
+   и подтверждение, открытое с неё, пряталось под картой. */
+.modal{z-index:85}
+
+/* «Меньше движения» — для всего разом: часть анимаций (сдвиг карточки,
+   полосы прогресса, стрелки) системную настройку не слушала. */
+@media (prefers-reduced-motion:reduce){
+  *, *::before, *::after{transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important}
+}
+
+/* На совсем узком телефоне боковой отступ 20 px съедал восьмую часть
+   ширины: названия в таблице платежей резались до трёх букв. */
+@media (max-width:380px){ :root{--pad:16px} }
+
+/* Мелкие крестики «удалить» и стрелки месяца — зона касания не меньше
+   44 px, без изменения вида: прозрачное поле вокруг значка. */
+.touch :is(.subline .kill, .stage-h .kill, .line .kill, .fr-x, .finmonth button){position:relative}
+.touch :is(.subline .kill, .stage-h .kill, .line .kill, .fr-x, .finmonth button)::before{content:''; position:absolute; inset:-10px}
