@@ -3140,3 +3140,73 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 .dr-row{padding:10px 6px}
 .dr-row + .dr-row::before{left:47px; right:6px}
 .dr-row:active{background:var(--soft); border-radius:12px}
+
+/* ============ ФОКУС ДНЯ В ПРИЛОЖЕНИИ — как на айфоне ============ */
+.fx-card{background:var(--card); border:1px solid var(--line); border-radius:24px; padding:16px;
+  box-shadow:var(--shadow); margin-bottom:14px}
+.fx-top{display:flex; align-items:flex-start; gap:12px}
+.fx-main{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px}
+.fx-kicker{font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--accent-text, var(--accent))}
+.fx-title{font-size:21px; font-weight:700; line-height:1.18; color:var(--fg); text-align:left; letter-spacing:-.01em;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.fx-sub{display:flex; align-items:center; gap:6px; margin-top:2px; font-size:12px; color:var(--fg-2); font-weight:500}
+.fx-refresh{display:inline-flex; align-items:center; gap:4px; height:24px; min-width:24px; padding:0 6px; justify-content:center;
+  border-radius:999px; background:var(--accent-soft); color:var(--accent-text, var(--accent)); font-size:11.5px; font-weight:700}
+.fx-refresh .nav-ic{width:12px; height:12px; stroke-width:2.6}
+.fx-spin{width:12px; height:12px; border-radius:50%; border:2px solid var(--accent-soft); border-top-color:var(--accent); animation:fx-spin .8s linear infinite}
+@keyframes fx-spin{to{transform:rotate(360deg)}}
+.fx-pct{flex:none; text-align:right; color:var(--accent-text, var(--accent))}
+.fx-pct.on{color:var(--ok)}
+.fx-pct b{display:block; font-size:46px; line-height:.95; font-weight:900; letter-spacing:-.03em; font-variant-numeric:tabular-nums}
+.fx-pct small{font-size:23px; font-weight:800; margin-left:1px}
+.fx-pct span{display:block; font-size:12px; font-weight:700; color:var(--fg-2); margin-top:3px}
+.fx-secs{display:flex; flex-direction:column; gap:12px; margin-top:14px}
+.fx-sec b{display:block; font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--accent-text, var(--accent)); margin-bottom:3px}
+.fx-sec b.fx-warn{color:var(--warn)}
+.fx-sec p{font-size:14px; font-weight:500; line-height:1.4; color:var(--fg); margin:0}
+.fx-secs.clamp .fx-sec p{display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden}
+.fx-more{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; height:44px; margin-top:12px;
+  border-radius:14px; background:var(--accent-soft); color:var(--accent-text, var(--accent)); font-size:15px; font-weight:600}
+.fx-chev{display:grid; transition:transform .2s ease}
+.fx-chev.up{transform:rotate(180deg)}
+.fx-chev .nav-ic{width:14px; height:14px; stroke-width:2.6}
+.fx-err{margin:12px 0 0; font-size:11.5px; color:var(--warn); font-weight:500}
+.fx-listen{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px 0; margin-top:14px;
+  border-radius:16px; background:var(--soft); border:1px solid var(--line); color:var(--fg); font-size:15px; font-weight:600}
+.fx-listen.on{color:var(--accent-text, var(--accent)); border-color:color-mix(in srgb, var(--accent) 50%, transparent)}
+.fx-strips{padding:18px; display:flex; flex-direction:column; gap:12px}
+.fx-h{display:flex; align-items:center; gap:10px}
+.fx-h > b{font-size:17px; font-weight:700; color:var(--fg)}
+.fx-hic{width:30px; height:30px; border-radius:9px; display:grid; place-items:center; flex:none;
+  background:var(--accent-soft); color:var(--accent-text, var(--accent))}
+.fx-hic .nav-ic{width:16px; height:16px; stroke-width:2}
+.fx-of{margin-left:auto; font-size:15px; font-weight:600; color:var(--fg-2)}
+.fx-of b{font-size:22px; font-weight:700; color:var(--fg)}
+.fx-seg{display:flex; gap:4px; height:20px}
+.fx-seg i{flex:1; min-width:6px; border-radius:6px; background:var(--line)}
+.fx-seg i.done{background:var(--ok)}
+.fx-seg i.late{background:var(--warn)}
+.fx-note{margin:-4px 0 0; font-size:12px; font-weight:500; color:var(--fg-2)}
+.fx-note-top{margin:-6px 0 0}
+.fx-empty{display:flex; align-items:center; justify-content:center; gap:8px; height:44px; border-radius:12px;
+  border:1.2px dashed var(--line); color:var(--fg-2); font-size:14px; font-weight:500}
+.fx-empty .nav-ic{width:15px; height:15px}
+.fx-chips{display:flex; gap:8px}
+.fx-chip{flex:1; min-width:0; text-align:center; padding:8px 4px; border-radius:12px;
+  background:color-mix(in srgb, var(--c) 12%, transparent)}
+.fx-chip span{display:flex; align-items:center; justify-content:center; gap:5px}
+.fx-chip i{width:7px; height:7px; border-radius:50%; background:var(--c)}
+.fx-chip b{font-size:18px; font-weight:700; color:var(--fg); font-variant-numeric:tabular-nums}
+.fx-chip em{display:block; font-style:normal; font-size:11px; font-weight:500; color:var(--fg-2); margin-top:2px}
+.fx-split{height:1px; background:var(--line); margin:6px 0}
+.fx-hz{display:flex; align-items:flex-end; gap:3px}
+.fx-d{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 0; border-radius:10px}
+.fx-d.now{background:var(--accent-soft)}
+.fx-dot{width:6px; height:6px; border-radius:50%}
+.fx-dot.on{background:var(--accent-warm, var(--warn))}
+.fx-track{position:relative; width:10px; height:46px; border-radius:999px; background:color-mix(in srgb, var(--line) 70%, transparent); overflow:hidden}
+.fx-track i{position:absolute; left:0; right:0; bottom:0; border-radius:999px; background:color-mix(in srgb, var(--accent) 45%, transparent)}
+.fx-d.now .fx-track i{background:var(--accent)}
+.fx-d em{font-style:normal; font-size:10.5px; font-weight:500; color:var(--fg-2); line-height:1}
+.fx-d b{font-size:12px; font-weight:600; color:var(--fg); line-height:1}
+.fx-d.now b{color:var(--accent-text, var(--accent)); font-weight:700}

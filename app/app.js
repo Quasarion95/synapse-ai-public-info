@@ -1943,6 +1943,10 @@ var NAV_ICONS = {
   // Отправить — стрелка вверх, как в строке создания.
   send: navIcon('<path d="M12 19.5V5"/><path d="M5.5 11.5L12 5l6.5 6.5"/>'),
   // Тема: солнце и месяц.
+  // Обновить — круговая стрелка (собрать брифинг заново).
+  refresh: navIcon('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/>'),
+  // Календарь — горизонт на две недели.
+  calendar: navIcon('<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>'),
   sun: navIcon('<circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.2M12 19v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.8 12h2.2M19 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>'),
   moon: navIcon('<path d="M20 13.5A8.2 8.2 0 0 1 10.5 4a8.2 8.2 0 1 0 9.5 9.5z"/>'),
   // Этап цели — ромб: шаг на пути, а не отметка.
@@ -6014,6 +6018,7 @@ function addTask(){
    работает — вместо выдуманного текста экран показывает то, что можно
    посчитать по самим задачам, и прямо говорит, откуда это взялось. */
 function vFocus(){
+  if (inApp()) return vFocusApp();
   var today = liveTasks().filter(function(t){ return t.bucket === 'today'; });
   var todayDone = today.filter(function(t){ return t.done; }).length;
   var overdue = liveTasks().filter(isOverdue).length;
@@ -6061,6 +6066,168 @@ function vFocus(){
   }
 
   return html;
+}
+
+/* ============ ФОКУС ДНЯ В ПРИЛОЖЕНИИ — как на айфоне ============
+
+   Повторяет CoachView из iOS: сверху то, на чём сосредоточиться, и крупный
+   процент дня; под ними брифинг Syn, свёрнутый до двух разделов; затем одна
+   карточка «День + Горизонт». Счётчиков и списка «Требуют внимания» здесь
+   нет, как и на айфоне: счётчики повторяли плашки под полосой дня, а
+   забытая цель сама встаёт заголовком карточки. */
+var фокусРазвёрнут = false;
+
+/* На чём сосредоточиться — порядок из SynapseDayFocus.hottest:
+   1. то, что Syn назвал главным в брифинге, если это задача или цель;
+   2. задача, просроченная дольше всех;
+   3. цель, у которой нет ни одной задачи (на айфоне — дольше всех без
+      движения; времени правки у целей здесь нет, «без задач» — тот же смысл);
+   4. ближайшая по времени задача дня, или просто первая открытая;
+   5. первая незакрытая цель. */
+function фокусГлавное(today, brief){
+  var главное = String((brief && brief.main) || '').trim().toLowerCase();
+  if (главное){
+    var g0 = S.goals.filter(function(g){ return String(g.title).toLowerCase() === главное; })[0];
+    if (g0) return { title: g0.title, goal: true, id: g0.id };
+    var t0 = liveTasks().filter(function(t){ return !t.done && String(t.title).toLowerCase() === главное; })[0];
+    if (t0) return { title: t0.title, id: t0.id };
+  }
+  var просрочены = liveTasks().filter(isOverdue).sort(function(a, b){
+    return (a.date + ' ' + a.time) < (b.date + ' ' + b.time) ? -1 : 1;
+  });
+  if (просрочены.length) return { title: просрочены[0].title, id: просрочены[0].id };
+  var забыта = S.goals.filter(function(g){
+    return g.title && g.status !== 'done' && !tasksOfGoal(g.id).length;
+  })[0];
+  if (забыта) return { title: забыта.title, goal: true, id: забыта.id };
+  var открытые = today.filter(function(t){ return !t.done; });
+  var сейчас = new Date();
+  var часы = ('0' + сейчас.getHours()).slice(-2) + ':' + ('0' + сейчас.getMinutes()).slice(-2);
+  var поВремени = открытые.filter(function(t){ return t.time && t.time >= часы; })
+    .sort(function(a, b){ return a.time < b.time ? -1 : 1; });
+  var следующая = поВремени[0] || открытые[0];
+  if (следующая) return { title: следующая.title, id: следующая.id };
+  var цель = S.goals.filter(function(g){ return g.title && g.status !== 'done'; })[0];
+  return цель ? { title: цель.title, goal: true, id: цель.id } : null;
+}
+
+function vFocusApp(){
+  var today = liveTasks().filter(function(t){ return t.bucket === 'today'; });
+  var done = today.filter(function(t){ return t.done; }).length;
+  var overdue = today.filter(isOverdue).length;
+  var open = Math.max(0, today.length - done - overdue);
+  var percent = pct(done, today.length);
+
+  var сегодня = isoOf(todayDate());
+  var brief = S.briefing && S.briefing.text && S.briefing.date === сегодня ? S.briefing : null;
+  var отказ = S.briefing && S.briefing.error && S.briefing.errorDate === сегодня ? S.briefing.error : '';
+  var главное = фокусГлавное(today, brief);
+
+  // Подпись под заголовком: собран ли разбор, а если нет — сколько задач.
+  var подпись = BRIEFING.busy ? 'Syn собирает брифинг…'
+    : brief ? 'Syn собрал ' + esc(brief.at || '')
+    : today.length ? 'Сегодня в фокусе ' + taskCount(today.length)
+    : 'Можно задать спокойный ритм';
+
+  // Разделы: брифинг, а пока его нет — та же сводка, что в вебе.
+  var разделы = brief ? briefingLines(brief.text) : фокусСводка(today, done, overdue);
+  var длинный = разделы.length > 2 || разделы.map(function(l){ return l[1]; }).join(' ').length > 320;
+  var видно = (длинный && !фокусРазвёрнут) ? разделы.slice(0, 2) : разделы;
+
+  var html = '<section class="fx-card">' +
+    '<div class="fx-top">' +
+      '<div class="fx-main">' +
+        (главное
+          ? '<span class="fx-kicker">' + (главное.goal ? 'Сфокусируйся на цели' : 'Сфокусируйся на задаче') + '</span>' +
+            '<button class="fx-title" data-act="' + (главное.goal ? 'open-goal" data-goal="' : 'fx-task" data-task="') +
+              главное.id + '" translate="no">' + esc(главное.title) + '</button>'
+          : '<span class="fx-title">День свободен</span>') +
+        '<div class="fx-sub"><span>' + подпись + '</span>' +
+          (BRIEFING.busy ? '<i class="fx-spin"></i>'
+            : '<button class="fx-refresh" data-act="briefing" aria-label="' +
+                (brief ? 'Собрать брифинг заново' : 'Собрать брифинг') + '">' + NAV_ICONS.refresh +
+                (brief ? '' : '<span>Брифинг</span>') + '</button>') +
+        '</div>' +
+      '</div>' +
+      '<div class="fx-pct' + (percent > 0 ? ' on' : '') + '"><b>' + percent + '<small>%</small></b><span>Прогресс дня</span></div>' +
+    '</div>' +
+    '<div class="fx-secs' + (длинный && !фокусРазвёрнут ? ' clamp' : '') + '">' +
+      видно.map(function(l){
+        return '<div class="fx-sec">' + (l[0] && l[0] !== 'SYN' ? '<b class="' + (l[2] ? 'fx-' + l[2] : '') + '">' + esc(l[0]) + '</b>' : '') +
+          '<p>' + esc(l[1]) + '</p></div>';
+      }).join('') +
+    '</div>' +
+    (длинный ? '<button class="fx-more" data-act="fx-more">' + (фокусРазвёрнут ? 'Свернуть' : 'Показать полностью') +
+      '<span class="fx-chev' + (фокусРазвёрнут ? ' up' : '') + '">' + NAV_ICONS.caret + '</span></button>' : '') +
+    (отказ && !BRIEFING.busy ? '<p class="fx-err">Брифинг не собрался — ' + esc(отказ) + '</p>' : '') +
+    (brief && speechSupported()
+      ? '<button class="fx-listen' + (speech.on ? ' on' : '') + '" data-act="briefing-say"' + (speech.busy ? ' disabled' : '') + '>' +
+          '<span class="listen-ic">' + (speech.on ? (ICON.stop || '■') : '▶') + '</span>' +
+          (speech.busy ? 'Готовлю голос…' : speech.on ? 'Остановить' : 'Прослушать отчёт') + '</button>'
+      : '') +
+  '</section>';
+
+  // День и горизонт — одной карточкой: что сегодня и что дальше.
+  html += '<section class="fx-card fx-strips">' +
+    '<div class="fx-h"><span class="fx-hic">' + NAV_ICONS.sun + '</span><b>День</b>' +
+      (today.length ? '<span class="fx-of"><b>' + done + '</b> из ' + today.length + '</span>' : '') + '</div>' +
+    (today.length
+      ? '<div class="fx-seg">' + today.map(function(t){
+          return '<i class="' + (t.done ? 'done' : isOverdue(t) ? 'late' : 'open') + '" title="' + esc(t.title) + '"></i>';
+        }).join('') + '</div><p class="fx-note">Каждый блок — одна задача на сегодня</p>'
+      : '<div class="fx-empty">' + NAV_ICONS.meditation + 'На сегодня пусто</div>') +
+    '<div class="fx-chips">' +
+      фокусПлашка('var(--ok)', done, 'закрыто') +
+      (overdue ? фокусПлашка('var(--warn)', overdue, 'просрочено') : '') +
+      фокусПлашка('var(--fg-2)', open, 'осталось') +
+    '</div>' +
+    '<div class="fx-split"></div>' +
+    фокусГоризонт() +
+  '</section>';
+  return html;
+}
+
+function фокусСводка(today, done, overdue){
+  var строки = [];
+  строки.push(['ДЕНЬ', today.length
+    ? done + ' из ' + today.length + ' ' + plural(done, 'закрыта', 'закрыты', 'закрыто') +
+      '. Осталось ' + taskCount(today.length - done) + '.'
+    : 'На сегодня ничего не назначено. Можно задать спокойный ритм.']);
+  var сВременем = today.filter(function(t){ return t.time && !t.done; })
+    .sort(function(a, b){ return a.time < b.time ? -1 : 1; });
+  if (сВременем.length) строки.push(['БЛИЖАЙШЕЕ', сВременем[0].time + ' — ' + сВременем[0].title]);
+  if (overdue) строки.push(['ПРОСРОЧЕНО', taskCount(overdue) + ' ' +
+    plural(overdue, 'уже просрочена', 'уже просрочены', 'уже просрочено') + '.', 'warn']);
+  return строки;
+}
+
+function фокусПлашка(цвет, число, подпись){
+  return '<div class="fx-chip" style="--c:' + цвет + '"><span><i></i><b>' + число + '</b></span><em>' + esc(подпись) + '</em></div>';
+}
+
+/* Горизонт: 14 дней вперёд. Столбик стоит на подложке во всю высоту —
+   видно и полный день, и свободный; сегодня подсвечено целиком; точка —
+   задача с точным временем. */
+function фокусГоризонт(){
+  var дни = [], пик = 1;
+  for (var i = 0; i < 14; i++){
+    var d = new Date(todayDate().getTime());
+    d.setDate(d.getDate() + i);
+    var iso = isoOf(d);
+    var задачи = liveTasks().filter(function(t){ return t.date === iso; });
+    дни.push({ n: задачи.length, срок: задачи.some(function(t){ return !!t.time; }),
+      день: d.getDate(), нед: WEEKDAYS_SHORT[(d.getDay() + 6) % 7], сегодня: i === 0 });
+    if (задачи.length > пик) пик = задачи.length;
+  }
+  return '<div class="fx-h"><span class="fx-hic">' + NAV_ICONS.calendar + '</span><b>Горизонт</b></div>' +
+    '<p class="fx-note fx-note-top">14 дней вперёд: столбик — сколько задач, точка — задача со временем</p>' +
+    '<div class="fx-hz">' + дни.map(function(д){
+      var h = д.n ? 6 + (д.n / пик) * 40 : 4;
+      return '<div class="fx-d' + (д.сегодня ? ' now' : '') + '">' +
+        '<i class="fx-dot' + (д.срок ? ' on' : '') + '"></i>' +
+        '<span class="fx-track"><i style="height:' + h.toFixed(0) + 'px"></i></span>' +
+        '<em>' + д.нед + '</em><b>' + д.день + '</b></div>';
+    }).join('') + '</div>';
 }
 
 /// «Фокус дня» — заголовок с процентом справа и несколько строк «МЕТКА: текст»,
@@ -12796,6 +12963,18 @@ var ACTS = {
     synSend(field ? field.value.trim() : '');
   },
   briefing: function(){ briefingRun(); },
+  'fx-more': function(){ фокусРазвёрнут = !фокусРазвёрнут; тактильно('tick'); render(); },
+  // Главная задача фокуса открывает задачи и раскрывает её карточку.
+  'fx-task': function(d){
+    var t = findTask(d.task);
+    if (!t) return;
+    if (S.closed) S.closed[t.bucket] = false;
+    go('tasks');
+    setTimeout(function(){
+      var it = document.querySelector('.item[data-task="' + d.task + '"]');
+      if (it) it.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 60);
+  },
   'briefing-say': function(){
     if (speech.on){ speechStop(); render(); return; }
     // Перерисовываем по окончании: кнопка должна вернуться в «Прослушать»
