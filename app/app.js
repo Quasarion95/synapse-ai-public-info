@@ -2232,6 +2232,118 @@ var PALETTES = [
     surf: [237,234,223,34,43,35] }
 ];
 
+
+/* Цветовые решения тем — заново, по правилам, а не на глаз.
+
+   Почему переделано. Все двадцать пять тем стояли на одном и том же
+   нейтральном фоне, а цвет нёс только едва заметный оттенок карточки (три
+   процента акцента). В итоге темы отличались, по словам владельца, «на
+   полтона»: тот же белый лист, та же серая карточка, чуть другая кнопка.
+
+   На что опираемся.
+   — Роли по ступеням светлоты, как в шкале Radix: у фона, карточки,
+     подложки, обводки, заливки и текста свои места на лестнице, одни и те
+     же во всех темах. Темы различаются цветом, а не устройством.
+   — Окрашенные поверхности, как в Material 3: фон и карточки берут оттенок
+     темы, а не нейтральный серый. Фон тонирован заметно, карточка над ним —
+     почти белая с тем же оттенком: тема видна сразу, а заливка не утомляет.
+   — Пространство OKLCH: одинаковая «светлота» в нём выглядит одинаково
+     для любого оттенка, поэтому синяя и жёлтая темы получаются одного веса.
+     Контраст текста при этом проверяется отдельно, по WCAG.
+
+   Каждая тема — пять чисел: оттенок и насыщенность поверхностей (h, c),
+   оттенок, насыщенность и светлота акцента (ah, ac, aL), плюс тёплый
+   второй акцент (wh) и характер (tone: soft — мягче, crisp — резче).
+   Прежние массивы PALETTES остаются: из них берутся служебные цвета и
+   названия, и они же совпадают с приложением на айфоне. */
+function oklchToRgb(L, C, h){
+  function conv(c){
+    var a = c * Math.cos(h * Math.PI / 180), b = c * Math.sin(h * Math.PI / 180);
+    var l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    var m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    var s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+    var l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+    var r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+    var g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+    var bb = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+    return [r, g, bb];
+  }
+  function inGamut(v){ return v.every(function(x){ return x >= -0.0005 && x <= 1.0005; }); }
+  var lo = 0, hi = C, lin = conv(C);
+  if (!inGamut(lin)){
+    for (var i = 0; i < 24; i++){ var mid = (lo + hi) / 2; if (inGamut(conv(mid))) lo = mid; else hi = mid; }
+    lin = conv(lo);
+  }
+  return lin.map(function(x){
+    x = Math.min(1, Math.max(0, x));
+    var v = x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
+    return Math.round(v * 255);
+  });
+}
+
+var PALETTE_SPEC = {
+  paper:      { h: 85,  c: 0.016, ah: 140, ac: 0.075, aL: 0.43, wh: 75 },
+  graphite:   { h: 255, c: 0.008, ah: 255, ac: 0.075, aL: 0.45, wh: 60, tone: 'crisp' },
+  forest:     { h: 155, c: 0.022, ah: 158, ac: 0.095, aL: 0.44, wh: 85 },
+  brass:      { h: 82,  c: 0.026, ah: 78,  ac: 0.115, aL: 0.52, wh: 55, tone: 'soft' },
+  burgundy:   { h: 12,  c: 0.018, ah: 12,  ac: 0.14,  aL: 0.42, wh: 60 },
+  tobacco:    { h: 58,  c: 0.024, ah: 52,  ac: 0.085, aL: 0.44, wh: 80, tone: 'soft' },
+  indigo:     { h: 275, c: 0.022, ah: 275, ac: 0.17,  aL: 0.47, wh: 330 },
+  plum:       { h: 322, c: 0.022, ah: 322, ac: 0.14,  aL: 0.46, wh: 20 },
+  sea:        { h: 205, c: 0.024, ah: 200, ac: 0.10,  aL: 0.50, wh: 60 },
+  charcoal:   { h: 60,  c: 0.003, ah: 60,  ac: 0.006, aL: 0.25, wh: 60, tone: 'crisp' },
+  nightbark:  { h: 245, c: 0.028, ah: 238, ac: 0.135, aL: 0.52, wh: 280 },
+  ember:      { h: 55,  c: 0.026, ah: 42,  ac: 0.17,  aL: 0.58, wh: 80 },
+  slate:      { h: 232, c: 0.012, ah: 236, ac: 0.075, aL: 0.48, wh: 200, tone: 'crisp' },
+  editorial:  { h: 90,  c: 0.012, ah: 27,  ac: 0.165, aL: 0.50, wh: 90 },
+  neon:       { h: 285, c: 0.012, ah: 135, ac: 0.20,  aL: 0.62, wh: 300, tone: 'crisp' },
+  kraft:      { h: 68,  c: 0.034, ah: 40,  ac: 0.14,  aL: 0.56, wh: 145, tone: 'soft' },
+  ultraviolet:{ h: 295, c: 0.03,  ah: 295, ac: 0.19,  aL: 0.50, wh: 350 },
+  atheneum:   { h: 100, c: 0.010, ah: 240, ac: 0.07,  aL: 0.45, wh: 75, tone: 'soft' },
+  cobalt:     { h: 262, c: 0.02,  ah: 262, ac: 0.20,  aL: 0.48, wh: 80 },
+  hunter:     { h: 140, c: 0.024, ah: 155, ac: 0.075, aL: 0.38, wh: 85 },
+  wineclub:   { h: 8,   c: 0.022, ah: 5,   ac: 0.15,  aL: 0.38, wh: 70 },
+  navy:       { h: 255, c: 0.016, ah: 255, ac: 0.11,  aL: 0.34, wh: 65 },
+  camel:      { h: 72,  c: 0.03,  ah: 65,  ac: 0.09,  aL: 0.52, wh: 145, tone: 'soft' },
+  ivory:      { h: 92,  c: 0.016, ah: 40,  ac: 0.09,  aL: 0.52, wh: 85, tone: 'soft' },
+  study:      { h: 112, c: 0.02,  ah: 150, ac: 0.08,  aL: 0.42, wh: 85 }
+};
+
+/// Роли одной стороны темы по общей лестнице светлоты (OKLCH).
+function построитьТему(sp, dark){
+  var soft = sp.tone === 'soft', crisp = sp.tone === 'crisp';
+  var c = sp.c;
+  if (!dark){
+    var bgL = soft ? 0.962 : crisp ? 0.972 : 0.966;
+    return {
+      background: oklchToRgb(bgL, c, sp.h),
+      panel: oklchToRgb(0.992, c * 0.4, sp.h),
+      panelStrong: oklchToRgb(bgL - 0.035, c * 1.15, sp.h),
+      stroke: oklchToRgb(crisp ? 0.86 : 0.885, c * 1.3, sp.h),
+      text: oklchToRgb(0.23, Math.min(0.03, c * 1.4), sp.h),
+      textSecondary: oklchToRgb(0.45, Math.min(0.045, c * 1.6), sp.h),
+      textTertiary: oklchToRgb(0.56, Math.min(0.04, c * 1.4), sp.h),
+      accent: oklchToRgb(sp.aL, sp.ac, sp.ah),
+      accentWarm: oklchToRgb(0.55, 0.11, sp.wh)
+    };
+  }
+  /* Тёмной стороне оттенка нужно больше, чем светлой: на почти чёрном
+     та же насыщенность не видна, и тёмные темы снова выходили одинаковыми. */
+  var dc = Math.max(c * 1.5, c ? 0.012 : 0);
+  var dL = crisp ? 0.155 : 0.175;
+  return {
+    background: oklchToRgb(dL, dc * 0.9, sp.h),
+    panel: oklchToRgb(dL + 0.055, dc * 0.95, sp.h),
+    panelStrong: oklchToRgb(dL + 0.105, dc, sp.h),
+    stroke: oklchToRgb(dL + 0.16, dc * 1.05, sp.h),
+    text: oklchToRgb(0.95, Math.min(0.02, c * 0.6), sp.h),
+    textSecondary: oklchToRgb(0.76, Math.min(0.035, c * 1.1), sp.h),
+    textTertiary: oklchToRgb(0.64, Math.min(0.035, c * 1.1), sp.h),
+    accent: oklchToRgb(sp.ac < 0.01 ? 0.93 : Math.max(0.74, sp.aL + 0.28), sp.ac * 0.85, sp.ah),
+    accentWarm: oklchToRgb(0.76, 0.1, sp.wh)
+  };
+}
+
 /* Значки на карточке задачи. Раньше здесь стояли символы шрифта — ⇅, ✎, ✕:
    они наследовали начертание, в разных браузерах выходили разной толщины, а
    «перенести в блок» из двойной стрелки не читалось. Рисунок свой и один на
@@ -2477,6 +2589,25 @@ function separated(surface, background, minDelta){
 function themeColors(){
   var pal = paletteOf(S.palette);
   var dark = isDarkNow();
+  var spec = PALETTE_SPEC[pal.id];
+  if (spec){
+    var t = построитьТему(spec, dark);
+    return {
+      dark: dark,
+      background: t.background,
+      panel: t.panel,
+      panelStrong: t.panelStrong,
+      stroke: t.stroke,
+      text: t.text,
+      textSecondary: t.textSecondary,
+      textTertiary: t.textTertiary,
+      accent: t.accent,
+      accentWarm: t.accentWarm,
+      focusGreen: themedStatus(paletteColor(pal, dark ? 'focusGreenDark' : 'focusGreen'), t.accent, t.panel),
+      focusBlue: themedStatus(paletteColor(pal, dark ? 'focusBlueDark' : 'focusBlue'), t.accent, t.panel),
+      focusOrange: themedStatus(paletteColor(pal, dark ? 'focusOrangeDark' : 'focusOrange'), t.accent, t.panel)
+    };
+  }
   var background = paletteColor(pal, dark ? 'darkBackground' : 'lightBackground');
   var accent = paletteColor(pal, dark ? 'accentDark' : 'accent');
 
@@ -2529,6 +2660,13 @@ function themeColors(){
   };
 }
 
+/// Чем писать поверх заливки: белым или почти чёрным — что контрастнее.
+/// Порог по светлоте ошибался на средних тонах: белый на терракоте «Крафта»
+/// давал 3,4:1, хотя чёрный там читается лучше.
+function поверх(fill){
+  return contrastRatio([255, 255, 255], fill) >= contrastRatio([16, 16, 16], fill) ? '#FFFFFF' : '#101010';
+}
+
 function applyTheme(){
   снятьЗакрытоеОформление();
   var c = themeColors();
@@ -2538,7 +2676,18 @@ function applyTheme(){
   root.setProperty('--panel-strong', rgb(c.panelStrong));
   root.setProperty('--stroke', rgb(c.stroke));
   root.setProperty('--text', rgb(c.text));
-  root.setProperty('--text-2', rgb(c.textSecondary));
+  /* Вторичный текст — не меньше 4,5:1 на самой тёмной из подложек, где он
+     лежит (чипы, поля, сегменты). Раньше он проверялся только «на глаз», и в
+     светлых «Графите», «Угле» и «Индиго» мелкие подписи на чипах давали
+     3,1–3,3:1. Третий уровень — настоящий, а не копия второго: он для
+     подсказок и подписей покрупнее, ему достаточно 3:1. */
+  root.setProperty('--text-2', rgb(readableOn(c.textSecondary, c.panelStrong, 4.5)));
+  root.setProperty('--text-3', rgb(readableOn(c.textTertiary || c.textSecondary, c.panel, 3)));
+  /* Край пустого чекбокса и полей — 3:1 к карточке, как требует WCAG для
+     элементов управления: обычная обводка давала 1,1–1,9:1, и пустой
+     квадратик задачи было почти не видно. Разделители (--line) остаются
+     тонкими, это не элементы управления. */
+  root.setProperty('--control-edge', rgb(readableOn(c.stroke, c.panel, 3)));
   root.setProperty('--accent', rgb(c.accent));
   root.setProperty('--accent-soft', rgba(c.accent, c.dark ? 0.2 : 0.12));
 
@@ -2548,7 +2697,7 @@ function applyTheme(){
      были тёмными. Среди новых тем есть кислотный лайм и светлое золото —
      белая иконка на них исчезает. Порог по светлоте, а не по яркости RGB:
      жёлтый и синий одной яркости читаются по-разному. */
-  root.setProperty('--on-accent', rgbToLab(c.accent)[0] > 62 ? '#101010' : '#FFFFFF');
+  root.setProperty('--on-accent', поверх(c.accent));
 
   /* Акцент как заливка и акцент как текст — разные требования.
 
@@ -2568,6 +2717,9 @@ function applyTheme(){
      появления новых: кнопку просто никто не смотрел в тёмной теме. */
   root.setProperty('--accent-warm', rgb(c.accentWarm));
   root.setProperty('--focus-green', rgb(c.focusGreen));
+  /* Галочка на зелёном — белая или чёрная по замеру, а не всегда белая: в
+     тёмной теме зелёный светлый, и белая галочка давала 1,4–2,6:1. */
+  root.setProperty('--on-ok', поверх(c.focusGreen));
   root.setProperty('--focus-blue', rgb(c.focusBlue));
   /* Тревожный цвет — настоящий красный, а не янтарь.
 
@@ -2578,9 +2730,9 @@ function applyTheme(){
      сюда, тёпло-кирпичный, чтобы не резал, но отделялся; в тёмной теме — светлее
      для контраста. Мягкое предупреждение остаётся за `--warn` (accentWarm).
      `focusOrange` живёт своей `--danger`-независимой переменной ниже. */
-  var dangerRGB = c.dark ? [240, 132, 122] : [176, 57, 49];
+  var dangerRGB = readableOn(c.dark ? [240, 132, 122] : [176, 57, 49], c.panelStrong, 4.5);
   root.setProperty('--danger', rgb(dangerRGB));
-  root.setProperty('--on-danger', rgbToLab(dangerRGB)[0] > 62 ? '#101010' : '#FFFFFF');
+  root.setProperty('--on-danger', поверх(dangerRGB));
   root.setProperty('--focus-orange', rgb(c.focusOrange));
   /* Живая зелёная и красная ДЛЯ ЗНАЧЕНИЙ (деньги, статусы), отдельные от --ok
      и --mark. Родная focusGreen (63,107,82) по светлоте почти как тёмный текст —
@@ -2588,13 +2740,15 @@ function applyTheme(){
      Здесь берём светлее и насыщеннее, ровно чтобы «плюс» и «минус» считывались
      мгновенно; в тёмной теме — ещё светлее для контраста. Галочки и прочие --ok
      не трогаем: их владелец намеренно держит приглушёнными. */
-  root.setProperty('--pos', c.dark ? 'rgb(112,201,151)' : 'rgb(38,132,86)');
+  root.setProperty('--pos', rgb(readableOn(c.dark ? [112, 201, 151] : [38, 132, 86], c.panelStrong, 4.5)));
   root.setProperty('--neg', rgb(dangerRGB));
   /* Янтарный «внимание» — тоже живее родного accentWarm. accentWarm (138,110,53)
      на тёплых палитрах почти неотличим от вторичного текста, и «В работе»,
      «я должен», «не выполнено» не читались как сигнал. Берём насыщенный янтарь;
      в тёмной теме — светлее. --accent-warm оставляем как есть для декора. */
-  root.setProperty('--warn', c.dark ? 'rgb(232,184,92)' : 'rgb(198,128,26)');
+  /* Янтарь «внимания» на светлом давал 2,2–2,9:1 — им набраны «В работе» и
+     «я должен». Доводим до 4,5 на той подложке, где он стоит. */
+  root.setProperty('--warn', rgb(readableOn(c.dark ? [232, 184, 92] : [198, 128, 26], c.panelStrong, 4.5)));
 
   // Начертание и размер — из тех же трёх вариантов, что в приложении.
   // Размер меняется одним множителем на корне, поэтому вся вёрстка, набранная
@@ -2602,8 +2756,14 @@ function applyTheme(){
   // Цвет отметки живёт своей переменной: --ok используется ещё в полутора
   // десятках мест, и красить ими всё подряд человек не просил.
   var mark = markColorOf(S.markColor);
-  if (mark.css) document.documentElement.style.setProperty('--mark', mark.css);
-  else document.documentElement.style.removeProperty('--mark');
+  if (mark.css){
+    document.documentElement.style.setProperty('--mark', mark.css);
+    var mm = mark.css.match(/^#(..)(..)(..)$/);
+    if (mm) document.documentElement.style.setProperty('--on-mark', поверх([parseInt(mm[1], 16), parseInt(mm[2], 16), parseInt(mm[3], 16)]));
+  } else {
+    document.documentElement.style.removeProperty('--mark');
+    document.documentElement.style.removeProperty('--on-mark');
+  }
 
   var f = fontOf(S.font);
   root.setProperty('--display', f.css);

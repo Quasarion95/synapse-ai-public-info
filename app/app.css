@@ -33,7 +33,7 @@
   --soft-2:var(--stroke);
   --fg:var(--text);
   --fg-2:var(--text-2);
-  --fg-3:var(--text-2);
+  --fg-3:var(--text-3, var(--text-2));
   --line:var(--stroke);
   --ok:var(--focus-green);
   --warn:var(--accent-warm);
@@ -435,7 +435,7 @@ select.inp{appearance:none}
 .box{width:20px; height:20px; border:2px solid var(--soft-2); border-radius:7px; flex:none; display:grid; place-items:center; font-size:10px; color:transparent; background:none; margin-top:1px; transition:background .14s ease, border-color .14s ease}
 /* --mark задаётся, только когда человек выбрал свой цвет; иначе действует
    запасное значение и отметка красится темой, как раньше. */
-.box.on{background:var(--mark, var(--ok)); border-color:var(--mark, var(--ok)); color:#fff}
+.box.on{background:var(--mark, var(--ok)); border-color:var(--mark, var(--ok)); color:var(--on-mark, var(--on-ok, #fff))}
 /* Кружок «готово» рисуется на 20px, а пальцем в него попадают плохо: у Apple
    и Google минимум 44px, и это самая частая кнопка приложения. Растим ТОЛЬКО
    область попадания — прозрачным слоем поверх, — вид не меняется ни на пиксель.
@@ -2844,3 +2844,10 @@ html.in-app body::after{height:calc(var(--dock) + 108px)}
 .mmscreen .mmctl{right:calc(var(--pad) + 2px); bottom:14px}
 body.mm-screen{overflow:hidden}
 body.mm-screen::after{display:none}
+
+/* Контраст по замеру (переменные считает applyTheme): пустой чекбокс с
+   видимым краем, галочки и отметки — цветом «поверх» своей заливки. */
+.box:not(.on){border-color:var(--control-edge, var(--soft-2))}
+.tour-step.on .tour-mark, .fr-pay.on{color:var(--on-ok, #fff)}
+.say input::placeholder{color:var(--fg-2); opacity:1}
+.radio.pal .sw{border-color:var(--stroke)}
