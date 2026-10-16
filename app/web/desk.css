@@ -1,0 +1,103 @@
+/* ============ ОБЩЕЕ ДЛЯ ДАШБОРДОВ — только веб ============
+
+   Разделы, которые на широком окне показываются одним экраном, — сейчас это
+   «Мои финансы» (finance-desk.css). Здесь — то, что не зависит от
+   содержимого: широкая колонка, сетка, шапка, зона, плитки итогов. Раскладку
+   зон по сетке раздел задаёт сам. */
+
+/* Ширину рабочей области дашборду даёт layout.css (body.deskpage — во всю
+   ширину справа от меню). Здесь только хвост страницы: плавающей строки
+   ввода на дашборде нет — она внутри зоны, и место под ней внизу не нужно. */
+body.deskpage main{padding-bottom:56px}
+
+/* ---- сетка ----
+
+   Раскладка считается от ширины самого дашборда, а не окна: размер шрифта в
+   настройках задаётся через zoom, и по окну зоны переключались бы не там.
+   Обёртка нужна потому, что контейнер не может запрашивать сам себя. */
+.desk-wrap{container-type:inline-size; container-name:desk}
+.desk{
+  display:grid; gap:var(--gap, 16px);
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  /* Зоны одного ряда — одной высоты: карточки, кончающиеся на разной высоте,
+     читаются как рассыпанные, а не как панель. */
+  align-items:stretch;
+}
+.desk-head{grid-area:head}
+.z-kpi{grid-area:kpi}
+
+/* Высокая зона — колонка справа на несколько рядов (лента трат).
+   Её содержимое вынуто из потока и прокручивается внутри, а высоту задают
+   соседи слева. Без этого длинный список растягивал соседние зоны до своей
+   высоты, и под их содержимым зияла пустота. */
+.dz-tall{position:relative; min-height:440px}
+.dz-tall > .dz-inner{position:absolute; inset:0; padding:inherit; display:flex; flex-direction:column; min-height:0}
+.dz-scroll{flex:1; min-height:0; overflow-y:auto; margin:0 -18px; padding:0 18px; scrollbar-width:thin}
+
+/* ---- шапка ----
+
+   Три колонки: название с месяцем под ним — слева, курсы — ровно по
+   центру, переключатель вида — справа. Крайние колонки равной ширины
+   (1fr), иначе «по центру» значило бы «по центру остатка», и курсы
+   съезжали бы от середины экрана на ширину названия. */
+.desk-head{display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center; gap:12px 20px; margin-bottom:2px}
+.desk-title{min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:4px}
+.desk-title h1.page{margin:0; font-size:30px}
+/* Месяц под названием прижат влево: стрелка встаёт под первую букву. */
+.desk-head .finmonth{margin:0 0 0 -7px; justify-content:flex-start}
+.desk-head .finmonth b{min-width:0; text-align:left; padding:0 6px}
+.desk-head .desk-rates{justify-self:center; justify-content:center}
+.desk-switch{flex:none; justify-self:end}
+
+/* Узкий дашборд: курсам посередине тесно — они уходят второй строкой под
+   название и переключатель, по центру. */
+@container desk (max-width:860px){
+  .desk-head{grid-template-columns:minmax(0,1fr) auto}
+  .desk-head .desk-rates{grid-column:1 / -1; grid-row:2}
+}
+
+/* ---- зона ---- */
+.desk-zone{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg);
+  box-shadow:var(--shadow); padding:16px 18px; min-width:0; display:flex; flex-direction:column}
+.dz-head{display:flex; align-items:baseline; gap:10px; margin-bottom:12px}
+.dz-head h3{font-size:16px; margin:0; flex:none}
+.dz-note{flex:1; min-width:0; text-align:right; font-size:12.5px; color:var(--fg-3);
+  font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dz-note b{color:var(--fg); font-weight:600}
+.dz-head h3 + .dz-add{margin-left:auto}
+.dz-note b.bad, .dz-pace b.bad{color:var(--neg,var(--crit))}
+.dz-note b.good{color:var(--pos,var(--ok))}
+.dz-add{flex:none; width:26px; height:26px; border-radius:999px; display:grid; place-items:center;
+  background:var(--soft); color:var(--fg-2); font-size:17px; line-height:1; align-self:center}
+.dz-add:hover{background:var(--fg); color:var(--bg)}
+.dz-empty{flex:1; display:flex; flex-direction:column; align-items:flex-start; gap:10px; justify-content:center}
+.dz-empty p, .dz-quiet{margin:0; font-size:13px; line-height:1.5; color:var(--fg-3)}
+.dz-list{display:flex; flex-direction:column}
+.dz-foot{display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin-top:auto; padding-top:12px; font-size:12.5px; color:var(--fg-3)}
+.dz-foot b{color:var(--fg); font-variant-numeric:tabular-nums}
+.dz-more{display:inline-flex; align-items:center; gap:4px; font-size:12.5px; color:var(--fg-2)}
+.dz-more:hover{color:var(--fg)}
+.dz-more svg{width:12px; height:12px; fill:none; stroke:currentColor; stroke-width:2}
+.dz-sub{display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg-3);
+  font-weight:600; margin-bottom:10px}
+.dz-sub span{text-transform:none; letter-spacing:0; font-weight:400}
+
+/* ---- итоги ---- */
+.z-kpi{padding:0; overflow:hidden}
+.desk-kpi{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1px; background:var(--line)}
+@container desk (min-width:1000px){ .desk-kpi{grid-template-columns:repeat(6, minmax(0,1fr))} }
+.dk{background:var(--card); padding:14px 18px; text-align:left; display:flex; flex-direction:column; gap:3px; min-width:0}
+button.dk:hover{background:var(--soft)}
+.dk-c{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--fg-3); font-weight:500}
+.dk-v{font-size:22px; letter-spacing:-.02em; font-variant-numeric:tabular-nums; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis}
+.dk-n{font-size:12px; color:var(--fg-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dk.bad .dk-v{color:var(--neg,var(--crit))}
+.dk.warn .dk-v{color:var(--warn)}
+.dk.good .dk-v{color:var(--pos,var(--ok))}
+.dk-n.warn{color:var(--warn)}
+.dk-n.good{color:var(--pos,var(--ok))}
+.dk-n.bad{color:var(--neg,var(--crit))}

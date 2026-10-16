@@ -2203,9 +2203,15 @@ function render(){
 
   // Платный раздел не подменяется тарифами молча: у него свой экран, с тем же
   // названием в шапке, — иначе нажатие в меню выглядит как промах.
+  var finLocked = PRO_ONLY.finance && !isPro();
+  // Дашборду финансов нужна колонка шире обычной — класс на body её даёт.
+  // Сам дашборд — в web/, см. desk.js и finance-desk.js.
+  document.body.classList.toggle('deskpage', !!(window.SynDesk && SynDesk.active(S.view)) &&
+    !(PRO_ONLY[S.view] && !isPro()));
   $('app').innerHTML = SynI18n.tr((PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render());
-  // Строка записи трат живёт внизу экрана, как строка создания задач.
-  if (S.view === 'finance' && S.finTab === 'ops' && !(PRO_ONLY[S.view] && !isPro())){
+  // Строка записи трат живёт внизу экрана, как строка создания задач. На
+  // дашборде её нет: там строка стоит прямо в зоне трат.
+  if (S.view === 'finance' && S.finTab === 'ops' && !finLocked && !finDesk()){
     $('app').insertAdjacentHTML('beforeend', SynI18n.tr(vFinComposer()));
   }
   restoreTabStrip(stripLeft);
@@ -3895,12 +3901,24 @@ var FIN_TABS = [
   // рубли среди задач читаются как чужая колонка.
 ];
 
+/* Широкое окно браузера показывает раздел одним экраном, без вкладок.
+
+   Сам дашборд живёт в web/finance-desk.js — это часть только веб-версии:
+   внутри андроид-обёртки index.html её не подключает, и SynFinDesk там не
+   существует вовсе. Отсюда к нему ровно два хода — эта проверка и кнопка
+   возврата в полосе вкладок; все суммы дашборд считает функциями этого файла. */
+function finDesk(){
+  return !!(window.SynFinDesk && SynFinDesk.on());
+}
+
 function vFinance(){
+  if (finDesk()) return SynFinDesk.render();
+
   var tab = S.finTab || 'sum';
   var html = '<div class="fintabs">' + FIN_TABS.map(function(t){
     return '<button class="fintab' + (t.id === tab ? ' on' : '') + '" data-act="fin-tab" data-tab="' + t.id + '">' +
       esc(t.title) + '</button>';
-  }).join('') + '</div>';
+  }).join('') + (window.SynFinDesk ? SynFinDesk.backButton() : '') + '</div>';
 
   if (tab === 'ops') return html + vFinOps();
   if (tab === 'budgets') return html + vFinBudgets();
