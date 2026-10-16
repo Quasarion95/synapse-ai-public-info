@@ -3114,3 +3114,16 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 /* В финансах в шапке есть кнопка валюты, и название не влезало —
    обрезалось до «Synaps…». Там остаётся один логотип. */
 .in-app .top-in:has(.cur) .brand .nm{display:none}
+
+/* Кнопки под свайпом — скруглёнными плашками с промежутком, как на айфоне.
+   Квадратные блоки во всю высоту строки смотрелись грубо на фоне круглых
+   флажков и чипов. Ширина сходится с SWIPE_OPEN (92 px): отступ 6 + 40 +
+   промежуток 6 + 40. */
+.in-app .swipe > .side{padding:3px 0 3px 6px; gap:6px}
+.in-app .swipe > .side button{width:40px; border-radius:12px}
+
+/* Меню как на айфоне: разделы для работы — сверху, служебное (подписка,
+   настройки, корзина, поддержка) прижато к низу. Промежуток между группами
+   остаётся тем же gap, когда экран низкий и прижимать некуда. */
+.dr-panel .dr-group:last-child{margin-top:auto}
+.dr-panel{padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 22px)}

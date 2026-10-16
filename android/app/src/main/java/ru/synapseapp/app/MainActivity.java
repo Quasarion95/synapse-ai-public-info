@@ -296,6 +296,22 @@ public class MainActivity extends AppCompatActivity {
             }
         }, "AndroidBars");
 
+        /* Тактильный отклик — системный, а не navigator.vibrate.
+
+           Вибромотор из веба умеет только «жужжать заданное число
+           миллисекунд», и даже 10 мс ощущаются грубо. performHapticFeedback
+           даёт те же короткие щелчки, что у системной клавиатуры и
+           переключателей, и сам слушается настройки «Вибрация при касании»:
+           кто её выключил, не получит отклика и от нас. Это и есть поведение
+           айфона. Виды названы по смыслу, константы подбираем по версии
+           системы: CONFIRM и REJECT появились только в Android 11. */
+        web.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public void tap(String вид) {
+                runOnUiThread(() -> web.performHapticFeedback(видОтклика(вид)));
+            }
+        }, "AndroidHaptic");
+
         setContentView(web);
 
         /* Кнопка «назад» ходит по разделам, а не закрывает приложение.
@@ -525,5 +541,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         web.saveState(outState);
+    }
+
+    /** Смысловой вид отклика → системная константа. */
+    private static int видОтклика(String вид) {
+        boolean r = android.os.Build.VERSION.SDK_INT >= 30;
+        switch (вид == null ? "" : вид) {
+            case "confirm": return r ? android.view.HapticFeedbackConstants.CONFIRM
+                                     : android.view.HapticFeedbackConstants.VIRTUAL_KEY;
+            case "reject":  return r ? android.view.HapticFeedbackConstants.REJECT
+                                     : android.view.HapticFeedbackConstants.LONG_PRESS;
+            case "long":    return android.view.HapticFeedbackConstants.LONG_PRESS;
+            case "tap":     return android.view.HapticFeedbackConstants.KEYBOARD_TAP;
+            default:        return android.view.HapticFeedbackConstants.CLOCK_TICK;
+        }
     }
 }
