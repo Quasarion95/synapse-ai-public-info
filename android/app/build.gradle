@@ -33,11 +33,16 @@ android {
             def файл = new File(System.getProperty('user.home'), '.synapse-ops/android-signing.properties')
             if (файл.exists()) {
                 def свойства = new Properties()
-                файл.withInputStream { свойства.load(it) }
+                // Читаем как UTF-8: Properties.load из потока понимает только
+                // Latin-1, и путь к ключу с русскими буквами («ОЧЕНЬ ВАЖНО»)
+                // превращался в кракозябры — сборка не находила файл.
+                файл.withReader('UTF-8') { свойства.load(it) }
                 storeFile file(свойства['storeFile'])
                 storePassword свойства['storePassword']
                 keyAlias свойства['keyAlias']
-                keyPassword свойства['keyPassword']
+                // Пароль ключа почти всегда тот же, что у хранилища, — тогда
+                // его можно не дублировать в файле.
+                keyPassword свойства['keyPassword'] ?: свойства['storePassword']
             }
         }
     }
