@@ -364,3 +364,27 @@ body { background: var(--bg); }
 :root[data-theme="dark"] .plan-hero .btn-plan-primary:hover {
   background: #10161a; color: #ffffff; box-shadow: 0 14px 30px -14px rgba(0, 0, 0, 0.6);
 }
+
+/* ---- главные кнопки — глубокий изумруд ----
+   Градиент от --b1 к --b2 уходил в светло-зелёный: белый текст на светлом
+   конце терял контраст, и кнопка «Открыть Synapse в браузере» выглядела
+   выцветшей — владелец попросил поправить. Теперь основа — глубокий
+   фирменный цвет, как у годовой карточки, и лишь лёгкий перелив сверху. */
+.btn-primary, .btn-app, .btn-web,
+.hero .btn-web {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0) 55%),
+    linear-gradient(135deg, var(--b1), color-mix(in srgb, var(--b1) 82%, #000));
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 12px 26px -14px var(--b1);
+}
+.btn-primary:hover, .btn-app:hover, .btn-web:hover { filter: brightness(1.08); }
+/* В тёмной теме фирменный цвет светлый — кнопка мятная с тёмным текстом. */
+:root[data-theme="dark"] .btn-primary, :root[data-theme="dark"] .btn-app, :root[data-theme="dark"] .btn-web {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 55%),
+    var(--b1);
+  color: #0b1512;
+  box-shadow: 0 12px 26px -14px var(--b1);
+}
