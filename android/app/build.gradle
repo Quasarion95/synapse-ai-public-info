@@ -8,8 +8,8 @@ android {
         applicationId 'ru.synapseapp.app'
         minSdk 24            // Android 7: ниже WebView слишком стар для нашего JS
         targetSdk 34
-        versionCode 10
-        versionName '2.0'
+        versionCode 11
+        versionName '2.1'
     }
 
     /* Файлы веб-версии не лежат в репозитории дважды.
@@ -84,6 +84,11 @@ dependencies {
     // Custom Tabs: оплата открывается вкладкой поверх приложения — с адресом и
     // замком в строке, но без выхода из Synapse. См. MainActivity.открытьСнаружи.
     implementation 'androidx.browser:browser:1.8.0'
+    /* RuStore: оценка внутри приложения и обновление без похода в магазин.
+       Редакция RuStore смотрит, встроены ли они, когда отбирает приложения в
+       подборки, а оценка в один тап собирает отзывы, по которым считаются топы. */
+    implementation 'ru.rustore.sdk:review:6.0.0'
+    implementation 'ru.rustore.sdk:appupdate:7.0.0'
 }
 
 /* Забираем веб-версию перед сборкой.

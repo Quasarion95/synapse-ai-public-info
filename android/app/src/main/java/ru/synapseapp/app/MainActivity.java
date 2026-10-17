@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView web;
     private VoiceBridge голос;
+    private StoreBridge магазин;
     private NotifyBridge напоминания;
 
     /* Выбор файла в WebView.
@@ -192,6 +193,9 @@ public class MainActivity extends AppCompatActivity {
                 // Код из ссылки ждал загрузки страницы: раньше её функций
                 // просто не существовало.
                 отдатьКодСтранице();
+                // Новая версия в RuStore — спрашиваем, когда страница уже
+                // умеет показать плашку «Обновить».
+                if (магазин != null) магазин.проверить();
                 view.evaluateJavascript(
                         "getComputedStyle(document.body).backgroundColor",
                         value -> покрасить(разобратьЦвет(value)));
@@ -330,6 +334,10 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(() -> web.performHapticFeedback(видОтклика(вид)));
             }
         }, "AndroidHaptic");
+
+        // Оценка и обновление через RuStore (StoreBridge).
+        магазин = new StoreBridge(this, web);
+        web.addJavascriptInterface(магазин, "AndroidStore");
 
         setContentView(web);
 
@@ -544,6 +552,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         if (голос != null) голос.освободить();
+        if (магазин != null) магазин.освободить();
         super.onDestroy();
     }
 

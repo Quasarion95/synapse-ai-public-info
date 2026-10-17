@@ -2207,6 +2207,7 @@ function render(){
      остаются в шапке остальных разделов — до них один тап по панели. */
   document.documentElement.classList.toggle('no-top', inApp() && S.view === 'tasks');
   if (inApp()) краеваяЗона();
+  if (inApp() && $('storeupd')) рисоватьОбновление();
   // Полоса вкладок финансов прокручена вбок, и перерисовка сбрасывала её в
   // самое начало: нажал «Подписки» справа — и они уехали за край экрана.
   // Запоминаем сдвиг до перерисовки, возвращаем после.
@@ -12485,7 +12486,9 @@ function importBackup(text){
     fresh = seed();
     var ПЕРЕНОСИМЫЕ = Object.keys(fresh).concat(['currency', 'mm', 'proOfferShown', 'lastView']);
     var НЕ_ПЕРЕНОСИМ = ['version', 'view', 'sub', 'drag', 'more', 'draft', 'finPending', 'finDate',
-      'pro', 'installID', 'activeGoal', 'activeList', 'activeNote'];
+      'pro', 'installID', 'activeGoal', 'activeList', 'activeNote',
+      // Когда просили оценку — своё у каждого устройства: магазин у каждого свой.
+      'оценка'];
     for (var i = 0; i < ПЕРЕНОСИМЫЕ.length; i++){
       var ключ = ПЕРЕНОСИМЫЕ[i];
       if (НЕ_ПЕРЕНОСИМ.indexOf(ключ) !== -1) continue;
@@ -14229,6 +14232,7 @@ var ACTS = {
     if (!t) return;
     t.done = !t.done;
     тактильно(t.done ? 'confirm' : 'tick');
+    if (t.done) оценкаПослеДела();
     // Родитель ведёт за собой подпункты. Без этого syncCompletion пересчитал
     // бы задачу обратно по незакрытым подпунктам — нажатие выглядело бы
     // как не сработавшее.
@@ -17226,3 +17230,72 @@ function краеваяЗона(){
 
 document.addEventListener('touchend', листаниеКонец);
 document.addEventListener('touchcancel', листаниеКонец);
+
+
+/* ============ RUSTORE: ОЦЕНКА И ОБНОВЛЕНИЕ (приложение) ============
+
+   Оценку просим в хорошую минуту, а не на запуске: человек только что закрыл
+   дело, и это пятое закрытое с прошлой просьбы. Ещё три условия, чтобы не
+   надоесть: приложением пользуются хотя бы три дня, с прошлой просьбы прошёл
+   месяц, и всего просим не больше трёх раз. Окно показывает сам RuStore; если
+   человек уже оценивал, RuStore его просто не покажет.
+
+   Обновление: оболочка при запуске спрашивает RuStore о новой версии и шлёт
+   событие store-update. Тогда над экраном появляется плашка «Обновить»; после
+   загрузки она меняется на «Перезапустить». Закрыть плашку можно — до
+   следующего запуска. */
+function оценкаПослеДела(){
+  if (!window.AndroidStore) return;
+  var o = S.оценка || (S.оценка = { с: Date.now(), дел: 0, раз: 0, когда: 0 });
+  o.дел = (o.дел || 0) + 1;
+  var день = 86400000;
+  if (o.дел < 5 || (o.раз || 0) >= 3) return;
+  if (Date.now() - (o.с || Date.now()) < 3 * день) return;
+  if (o.когда && Date.now() - o.когда < 30 * день) return;
+  o.дел = 0; o.раз = (o.раз || 0) + 1; o.когда = Date.now();
+  save();
+  // Пусть галочка и отклик отыграют — окно поверх сразу после касания резко.
+  setTimeout(function(){ try { window.AndroidStore.review(); } catch (e){} }, 1200);
+}
+
+var обновление = { версия: '', готово: false, процент: -1, скрыто: false };
+
+function рисоватьОбновление(){
+  var el = $('storeupd');
+  var нужно = inApp() && !обновление.скрыто && (обновление.версия || обновление.готово);
+  if (!нужно){ if (el) el.remove(); return; }
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'storeupd';
+    el.className = 'storeupd';
+    document.body.appendChild(el);
+  }
+  var текст = обновление.готово ? 'Новая версия скачана'
+    : обновление.процент >= 0 ? 'Скачиваю обновление… ' + обновление.процент + '%'
+    : 'Вышла версия ' + (обновление.версия || 'новее');
+  el.innerHTML = SynI18n.tr('<span class="su-t">' + esc(текст) + '</span>' +
+    (обновление.процент >= 0 && !обновление.готово ? ''
+      : '<button class="su-go" data-act="' + (обновление.готово ? 'store-install' : 'store-update') + '">' +
+          (обновление.готово ? 'Перезапустить' : 'Обновить') + '</button>') +
+    '<button class="su-x" data-act="store-hide" aria-label="Скрыть">' + NAV_ICONS.close + '</button>');
+  // Над строкой ввода, если она на экране, иначе — над нижней панелью: так
+  // плашка не закрывает кнопку AI и отправку.
+  var якорь = document.querySelector('.composer') || $('tabbar');
+  if (якорь) el.style.bottom = Math.max(12, window.innerHeight - якорь.getBoundingClientRect().top + 10) + 'px';
+}
+
+ACTS['store-update'] = function(){
+  обновление.процент = 0; рисоватьОбновление();
+  try { window.AndroidStore.update(); } catch (e){}
+};
+ACTS['store-install'] = function(){ try { window.AndroidStore.install(); } catch (e){} };
+ACTS['store-hide'] = function(){ обновление.скрыто = true; рисоватьОбновление(); };
+
+window.addEventListener('store-update', function(e){ обновление.версия = e.detail || ''; рисоватьОбновление(); });
+window.addEventListener('store-update-progress', function(e){ обновление.процент = Number(e.detail) || 0; рисоватьОбновление(); });
+window.addEventListener('store-update-ready', function(){ обновление.готово = true; обновление.процент = -1; рисоватьОбновление(); });
+window.addEventListener('store-update-cancel', function(){ обновление.процент = -1; рисоватьОбновление(); });
+window.addEventListener('store-update-failed', function(){
+  обновление.процент = -1; рисоватьОбновление();
+  toast('Обновление не скачалось. Попробуйте позже или обновите в RuStore.');
+});
