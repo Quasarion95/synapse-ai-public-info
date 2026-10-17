@@ -13808,6 +13808,20 @@ function registerServiceWorker(){
     // Первая установка управления — это не обновление, а первое открытие
     // вообще: перезагружать нечего.
     if (!hadController || reloading) return;
+    /* Не чаще раза в полминуты — и это переживает саму перезагрузку.
+
+       Флаг reloading живёт до перезагрузки, а после неё обнуляется. Если
+       браузер почему-то снова считает worker новым (Safari так делал после
+       серии выкладок подряд), страница перезагружалась опять, и опять — веб
+       «обновлялся без остановки». Метка в sessionStorage обрывает такую
+       петлю: в худшем случае свежая версия покажется со следующего
+       открытия, а не сразу. */
+    try {
+      var KEY = 'synapse.swReloadAt';
+      var last = Number(sessionStorage.getItem(KEY) || 0);
+      if (Date.now() - last < 30000) return;
+      sessionStorage.setItem(KEY, String(Date.now()));
+    } catch (e) {}
     reloading = true;
     location.reload();
   });

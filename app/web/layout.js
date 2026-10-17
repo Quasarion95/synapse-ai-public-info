@@ -42,12 +42,17 @@
     // место. Слушаем обычный resize, а не событие медиазапроса: в части
     // окружений (эмуляция размера в инструментах разработчика) оно не
     // приходит. Пауза — чтобы не перерисовывать на каждом пикселе.
-    var timer = null;
+    // Не чаще раза в полторы секунды: если перерисовка сама поменяет ширину
+    // (появилась или пропала полоса прокрутки), это не должно зациклиться.
+    var timer = null, lastRedraw = 0;
     global.addEventListener('resize', function(){
       clearTimeout(timer);
       timer = setTimeout(function(){
         var inRail = !!document.querySelector('#tabbar .top-acts');
-        if (inRail !== wide() && typeof global.render === 'function') global.render();
+        if (inRail === wide() || typeof global.render !== 'function') return;
+        if (Date.now() - lastRedraw < 1500) return;
+        lastRedraw = Date.now();
+        global.render();
       }, 150);
     });
   }
