@@ -48,7 +48,7 @@
         <h1>What happens to your data.</h1>
         <p class="lead">
           The web version and the phone apps work differently, so they are
-          described separately below. Version of 17 October 2026.
+          described separately below. Version of 18 October 2026.
         </p>
         <div class="actions">
           <a class="button secondary" href="../../">Home</a>
@@ -239,9 +239,11 @@
             minute ago. Syn's memory is built from your own messages: goals,
             motives, difficulties, habits. The conversation and memory are kept
             until you erase them in settings or ask us to. The server also keeps
-            technical events and usage statistics tied to a hash of the
-            installation identifier — with no IP address in plain form and no
-            content of your records; they are kept for up to 30 days. No tasks,
+            a log of the app's technical events — launch, switching sections, a
+            request to Syn, crashes — with no content of your records, carrying
+            a hash of the installation identifier and a hash of the IP address;
+            it is kept for 30 days. And the usage statistics described in
+            section 6 are kept for up to 13 months. No tasks,
             goals, notes or finance records remain on the server, except the
             encrypted copy if you have turned on sync.
           </p>
@@ -291,10 +293,18 @@
             written.
           </p>
           <p>
-            The iPhone and Android apps have no Yandex Metrica, just as they
-            have no advertising SDKs and no advertising identifier: they don't
-            track you across other apps. The apps send technical events only to
-            our own server (see section 4).
+            The iPhone and Android apps have no Yandex Metrica or any other
+            third-party counter, just as they have no advertising SDKs and no
+            advertising identifier: they don't track you across other apps. The
+            apps send technical events only to our own server (see section 4).
+            From those events the server counts how many installations use the
+            app and whether they come back. For that it keeps the installation
+            identifier as an irreversible hash, the dates of the first and last
+            visit and of the first and last request to Syn, and marks for which
+            of the first two months' days the app was opened. No IP address, no
+            content and no link to an account; an installation that has not
+            appeared for 13 months is forgotten. This data is not shared with
+            anyone and is not used for advertising.
           </p>
         </article>
 
