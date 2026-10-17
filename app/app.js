@@ -10406,6 +10406,7 @@ function synSend(text, onDone){
   voiceStop();
 
   SYN.busy = true;
+  метка('syn_request');
   synChatPush('user', text, null);
   save();
   synRedraw('', '');
@@ -10894,6 +10895,7 @@ function proActivate(code){
       // Отметка живого подтверждения: от неё считается срок годности признака.
       checkedAt: Date.now()
     };
+    if (S.pro.active) метка('pro_activated');
     save();
     return S.pro;
   });
@@ -14232,7 +14234,7 @@ var ACTS = {
     if (!t) return;
     t.done = !t.done;
     тактильно(t.done ? 'confirm' : 'tick');
-    if (t.done) оценкаПослеДела();
+    if (t.done){ оценкаПослеДела(); метка('task_done'); }
     // Родитель ведёт за собой подпункты. Без этого syncCompletion пересчитал
     // бы задачу обратно по незакрытым подпунктам — нажатие выглядело бы
     // как не сработавшее.
@@ -16084,6 +16086,7 @@ function бгЗавершить(){
 }
 
 function бгОтправить(){
+  метка('voice_hold');
   if (!бг || бг.отправлено) return;
   бг.отправлено = true;
   var text = бгТекст();
@@ -17299,3 +17302,38 @@ window.addEventListener('store-update-failed', function(){
   обновление.процент = -1; рисоватьОбновление();
   toast('Обновление не скачалось. Попробуйте позже или обновите в RuStore.');
 });
+
+
+/* ============ АНАЛИТИКА (MyTracker, приложение) ============
+
+   Только названия действий — «закрыл задачу», «спросил Syn». Ни текста задач,
+   ни сумм, ни названий целей в аналитику не уходит. Оболочка пропускает лишь
+   имена из своего списка и без ключа MyTracker не шлёт ничего.
+
+   Создание задач, целей и записей о деньгах ловим по росту счётчиков после
+   commit: путей создать задачу десяток (строка, голос, Syn, повтор), и
+   метить каждый — значит рано или поздно пропустить новый. */
+function метка(имя){
+  try { if (window.AndroidAnalytics) window.AndroidAnalytics.event(имя); } catch (e){}
+}
+
+var счётАналитики = null;
+function сверитьСчётАналитики(){
+  if (!window.AndroidAnalytics) return;
+  var сейчас = { t: S.tasks.length, g: S.goals.length, f: (S.finance && S.finance.ops || []).length };
+  if (счётАналитики){
+    if (сейчас.t > счётАналитики.t) метка('task_added');
+    if (сейчас.g > счётАналитики.g) метка('goal_created');
+    if (сейчас.f > счётАналитики.f) метка('fin_op_added');
+  }
+  счётАналитики = сейчас;
+}
+(function(){
+  var прежний = commit;
+  commit = function(){
+    var итог = прежний.apply(this, arguments);
+    try { сверитьСчётАналитики(); } catch (e){}
+    return итог;
+  };
+  try { сверитьСчётАналитики(); } catch (e){}
+})();

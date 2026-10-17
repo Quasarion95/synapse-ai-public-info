@@ -1,4 +1,6 @@
 // Корневой файл намеренно пустой: модуль один, и всё, что можно, живёт в нём.
 plugins {
     id 'com.android.application' version '8.5.2' apply false
+    // Tracer — отчёты о падениях. Подключается в app, только когда есть ключи.
+    id 'ru.ok.tracer' version '1.5.1' apply false
 }

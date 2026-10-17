@@ -339,6 +339,23 @@ public class MainActivity extends AppCompatActivity {
         магазин = new StoreBridge(this, web);
         web.addJavascriptInterface(магазин, "AndroidStore");
 
+        /* События для MyTracker. Страница шлёт только названия действий;
+           здесь пропускаем лишь знакомые, чтобы в аналитику по ошибке не
+           ушло ничего, кроме них. Без ключа MyTracker не запущен — молчим. */
+        if (!BuildConfig.MYTRACKER_KEY.isEmpty()) {
+            final java.util.Set<String> известные = new java.util.HashSet<>(java.util.Arrays.asList(
+                    "task_added", "task_done", "goal_created", "fin_op_added",
+                    "syn_request", "voice_hold", "pro_activated"));
+            web.addJavascriptInterface(new Object() {
+                @android.webkit.JavascriptInterface
+                public void event(String имя) {
+                    if (имя != null && известные.contains(имя)) {
+                        try { com.my.tracker.MyTracker.trackEvent(имя); } catch (Throwable ignored) { }
+                    }
+                }
+            }, "AndroidAnalytics");
+        }
+
         setContentView(web);
 
         /* Кнопка «назад» ходит по разделам, а не закрывает приложение.

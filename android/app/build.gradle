@@ -1,8 +1,33 @@
 plugins { id 'com.android.application' }
 
+/* Ключи аналитики — в файле вне репозитория, как и подпись.
+
+   ~/.synapse-ops/analytics.properties:
+     tracerAppToken=…     ключ приложения в Tracer (отчёты о падениях)
+     tracerPluginToken=…  ключ загрузки сборок в Tracer
+     mytrackerKey=…       SDK-ключ приложения в MyTracker
+
+   Нет файла или ключа — сборка всё равно собирается, просто без этой части:
+   отладочные сборки и чужие компьютеры ничего никуда не шлют. */
+def аналитика = new Properties()
+def файлАналитики = new File(System.getProperty('user.home'), '.synapse-ops/analytics.properties')
+if (файлАналитики.exists()) файлАналитики.withReader('UTF-8') { аналитика.load(it) }
+def tracerВключён = аналитика['tracerAppToken'] && аналитика['tracerPluginToken']
+if (tracerВключён) {
+    apply plugin: 'ru.ok.tracer'
+    tracer {
+        defaultConfig {
+            pluginToken = аналитика['tracerPluginToken']
+            appToken = аналитика['tracerAppToken']
+            // Код не сжимается (minifyEnabled false) — загружать нечего.
+            uploadMapping = false
+        }
+    }
+}
+
 android {
     namespace 'ru.synapseapp.app'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId 'ru.synapseapp.app'
@@ -10,7 +35,10 @@ android {
         targetSdk 34
         versionCode 11
         versionName '2.1'
+        buildConfigField 'String', 'MYTRACKER_KEY', '"' + (аналитика['mytrackerKey'] ?: '') + '"'
     }
+
+    buildFeatures { buildConfig true }
 
     /* Файлы веб-версии не лежат в репозитории дважды.
 
@@ -89,6 +117,12 @@ dependencies {
        подборки, а оценка в один тап собирает отзывы, по которым считаются топы. */
     implementation 'ru.rustore.sdk:review:6.0.0'
     implementation 'ru.rustore.sdk:appupdate:7.0.0'
+    // Tracer — только вместе с ключами: без них библиотека не находит
+    // настроек, которые генерирует плагин, и падала бы на старте.
+    if (tracerВключён) implementation 'ru.ok.tracer:tracer-crash-report:1.5.1'
+    // MyTracker: откуда приходят люди и возвращаются ли. Только события
+    // по названию («закрыл задачу»), без текста задач, целей и сумм.
+    implementation 'com.my.tracker:mytracker-sdk:3.6.0'
 }
 
 /* Забираем веб-версию перед сборкой.
