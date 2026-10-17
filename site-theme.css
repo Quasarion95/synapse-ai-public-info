@@ -320,3 +320,47 @@ body { background: var(--bg); }
    спорить с заголовком. */
 .section-title { text-align: center; margin-inline: auto; text-wrap: balance; }
 .section > .hint, .band > .hint, .fineprint { text-align: center; }
+
+/* ---- кнопки тарифов ----
+   Замер: все четыре кнопки стоят одинаково (21 от краёв, 63 от низа), но
+   годовая выглядела «не на месте»: слой выше покрасил её тем же зелёным
+   градиентом, что и саму карточку, и она растворялась в ней. Возвращаем
+   задуманное в landing.css: на тёмной карточке кнопка белая, текст —
+   фирменным цветом. Остальные три были белыми на белой карточке и тоже
+   терялись — теперь они цвета кружков с галочками: мятная подложка и
+   зелёный текст. */
+.plan .btn-plan.btn-ghost:not(.btn-disabled) {
+  background: var(--b-soft);
+  color: var(--b1);
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 700;
+  transition: background .15s ease, transform .15s ease;
+}
+.plan .btn-plan.btn-ghost:not(.btn-disabled):hover {
+  background: color-mix(in srgb, var(--b1) 18%, var(--surface));
+  color: var(--b1);
+  transform: translateY(-1px);
+}
+.plan .btn-plan.btn-disabled {
+  background: var(--b-soft);
+  color: var(--b1);
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 700;
+  opacity: .75;
+}
+.plan-hero .btn-plan-primary,
+.plan-hero .btn-plan-primary:hover {
+  background: #ffffff;
+  color: var(--b1);
+  filter: none;
+  font-weight: 700;
+  box-shadow: 0 14px 30px -12px rgba(0, 0, 0, 0.45);
+}
+.plan-hero .btn-plan-primary:hover { transform: translateY(-1px); background: #f2fbf7; }
+/* В тёмной теме годовая карточка светлая (мятная) — кнопка на ней тёмная. */
+:root[data-theme="dark"] .plan-hero .btn-plan-primary,
+:root[data-theme="dark"] .plan-hero .btn-plan-primary:hover {
+  background: #10161a; color: #ffffff; box-shadow: 0 14px 30px -14px rgba(0, 0, 0, 0.6);
+}
