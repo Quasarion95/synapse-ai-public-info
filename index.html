@@ -31,6 +31,7 @@
     <link rel="preload" as="font" type="font/woff2" href="./fonts/Manrope-cyrillic.woff2" crossorigin>
     <link rel="stylesheet" href="./fonts/fonts.css">
     <link rel="stylesheet" href="./landing.css">
+    <link rel="stylesheet" href="./site-theme.css">
       <!-- Yandex.Metrika counter -->
     <script type="text/javascript">
       (function(m,e,t,r,i,k,a){
@@ -145,7 +146,7 @@
                      проявляется по загрузке — пока его нет, виден макет, и
                      страница ни секунды не показывает пустой прямоугольник. -->
                 <div class="screen-inner">
-                <img class="webshot-img" src="./screens/web-1.png?v=02d82fed" alt="Веб-версия Synapse: экран задач"
+                <img class="webshot-img" src="./screens/web-1.png?v=4a16fc83" data-dark-src="./screens/web-1-dark.png?v=8fdb8faa" alt="Веб-версия Synapse: экран задач"
                      loading="eager" onload="this.classList.add('ok')">
                 <div class="webshot">
                   <div class="ws-top">
@@ -182,7 +183,7 @@
             <div class="duo-phone">
               <div class="device">
                 <div class="device-screen">
-                  <img src="./screens/app-1.png?v=b19745e2" alt="Приложение Synapse на iPhone: экран задач"
+                  <img src="./screens/app-1.png?v=0b44676b" data-dark-src="./screens/app-1-dark.png?v=949cb5bd" alt="Synapse на телефоне: экран задач"
                        width="552" height="1200" fetchpriority="high"
                        onerror="this.onerror=null; this.src='./screens/screen-1.png'">
                   <span class="device-island" aria-hidden="true"></span>
@@ -234,46 +235,41 @@
         </div>
       </section>
 
+      <!-- Галерея как в App Store: настоящие снимки приложения для iPhone
+           (симулятор, демо-данные, палитра «Лес») в карточках с подписью.
+           Раньше здесь стояли четыре телефона без подписей — в ряд их больше
+           не влезало, а показать хотелось больше разделов. Лента листается
+           пальцем, колесом и стрелками. -->
       <section class="section screens">
         <h2 class="section-title">День, цель и путь — в одном месте</h2>
-        <div class="shots">
-          <figure>
-            <div class="device">
-              <div class="device-screen">
-                <img src="./screens/screen-2.png?v=a555bd45" alt="Экран целей: обзор, фильтры и цели с этапами" loading="lazy" width="552" height="1200">
-                <span class="device-island" aria-hidden="true"></span>
-              </div>
-            </div>
-            <figcaption><b>Цели с этапами</b>Большое разложено на понятные части</figcaption>
-          </figure>
-          <figure>
-            <div class="device">
-              <div class="device-screen">
-                <img src="./screens/screen-3.png?v=9512d8d8" alt="Экран «Мой фокус»: брифинг Syn, прогресс дня и горизонт на две недели" loading="lazy" width="552" height="1200">
-                <span class="device-island" aria-hidden="true"></span>
-              </div>
-            </div>
-            <figcaption><b>Фокус дня</b>Одно главное дело вместо двадцати</figcaption>
-          </figure>
-          <figure>
-            <div class="device">
-              <div class="device-screen">
-                <img src="./screens/screen-4.png?v=4656f744" alt="Экран «Карта целей»: цели, этапы и задачи одним деревом" loading="lazy" width="552" height="1200">
-                <span class="device-island" aria-hidden="true"></span>
-              </div>
-            </div>
-            <figcaption><b>Карта целей</b>Весь путь на одном полотне</figcaption>
-          </figure>
-          <figure>
-            <div class="device">
-              <div class="device-screen">
-                <img src="./screens/screen-5.png?v=a9247840" alt="Экран списков: шаблоны и списки с прогрессом" loading="lazy" width="552" height="1200">
-                <span class="device-island" aria-hidden="true"></span>
-              </div>
-            </div>
-            <figcaption><b>Списки</b>Покупки, книги, сборы — рядом с планом</figcaption>
-          </figure>
+        <div class="gallery">
+          <ul class="gallery-track" id="gallery" tabindex="0" aria-label="Экраны приложения для iPhone">
+            <li class="gallery-card"><img src="./screens/cards/tasks.webp?v=14314eeb" alt="Задачи: все дела по дням — сегодня, завтра, на неделе" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="./screens/cards/finance.webp?v=14bc9e62" alt="Мои финансы: свободный остаток, копилки, долги и итоги месяца" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="./screens/cards/syn.webp?v=03e0d4ee" alt="Ассистент Syn: пиши или говори — план меняется сам" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="./screens/cards/focus.webp?v=ae47b66e" alt="Мой фокус: главное на день и отчёт Syn" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="./screens/cards/spending.webp?v=1cc6f761" alt="Траты: «кофе 350» — и записано" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="./screens/cards/goals.webp?v=05d0bfab" alt="Цели: большие цели по шагам" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="./screens/cards/map.webp?v=ee013726" alt="Карта целей: цели, этапы и задачи на одном полотне" loading="lazy" width="660" height="1434"></li>
+          </ul>
+          <button class="gallery-nav prev" type="button" data-gallery="-1" aria-label="Назад">‹</button>
+          <button class="gallery-nav next" type="button" data-gallery="1" aria-label="Дальше">›</button>
         </div>
+        <script>
+          (function () {
+            var track = document.getElementById('gallery');
+            if (!track) return;
+            function step() {
+              var card = track.querySelector('.gallery-card');
+              return card ? card.getBoundingClientRect().width + 20 : 320;
+            }
+            document.addEventListener('click', function (e) {
+              var b = e.target.closest ? e.target.closest('[data-gallery]') : null;
+              if (!b) return;
+              track.scrollBy({ left: step() * Number(b.getAttribute('data-gallery')), behavior: 'smooth' });
+            });
+          })();
+        </script>
       </section>
 
 
@@ -304,8 +300,8 @@
             <p>Скажи словами: «перенеси созвон на пятницу», «разбери мой день».</p>
           </div>
           <div class="feature">
-            <h3>Повторы без возни</h3>
-            <p>Каждый день, по будням, раз в неделю или по числам месяца.</p>
+            <h3>Мои финансы</h3>
+            <p>Траты строкой «кофе 350», конверты, копилки, долги и обязательные платежи.</p>
           </div>
           <div class="feature">
             <h3>Голосом</h3>
@@ -317,7 +313,7 @@
           </div>
           <div class="feature">
             <h3>Помодоро и медитация</h3>
-            <p>Таймер фокуса и звуки: дождь, лес, костёр. Работают офлайн.</p>
+            <p>Таймер фокуса и двенадцать звуков — от дождя до камина. Работают офлайн.</p>
           </div>
         </div>
       </section>
@@ -334,26 +330,26 @@
         <div class="grid">
           <div class="feature">
             <h3>Записи остаются у вас</h3>
-            <p>Задачи, цели, заметки и деньги лежат на самом устройстве. Мы их не собираем.</p>
+            <p>Задачи, цели, заметки и деньги лежат на вашем устройстве, а с телефона копия уходит разве что в ваш iCloud или резервную копию Google. Мы их не собираем.</p>
           </div>
           <div class="feature">
             <h3>Что видит ассистент</h3>
-            <p>Чтобы ответить, Syn получает срез задач и целей. Переписку можно стереть в настройках.</p>
+            <p>Чтобы ответить, Syn получает срез задач, целей, списков и заметок, а в брифинге и вопросах о деньгах — и финансов. Переписку можно стереть в настройках.</p>
           </div>
           <div class="feature">
-            <h3>Ни одного рекламного трекера</h3>
-            <p>Никаких рекламных SDK и слежки за вами. Данные мы не продаём.</p>
+            <h3>Без рекламы внутри</h3>
+            <p>Никаких рекламных SDK в приложениях. Данные мы не продаём.</p>
           </div>
           <div class="feature">
             <h3>Синхронизация — зашифрованная</h3>
-            <p>Между устройствами записи переносит синхронизация: уходит на сервер зашифрованной, ключ только у вас. Или одним файлом в «Настройки → Данные».</p>
+            <p>В Pro записи между устройствами переносит синхронизация: уходит на сервер зашифрованной, ключ только у вас. Или одним файлом в «Настройки → Данные».</p>
           </div>
         </div>
         <p class="hint">Подробности — в <a href="./privacy/">политике конфиденциальности</a>.</p>
       </section>
 
       <section class="section band" id="pricing">
-        <h2 class="section-title">Система бесплатная.<br>Платный — ассистент</h2>
+        <h2 class="section-title">Система бесплатная.<br>Платно — больше ассистента и без потолков</h2>
 
         <div class="plans">
           <article class="plan">
@@ -361,12 +357,12 @@
             <p class="plan-price">0 ₽</p>
             <p class="plan-per">навсегда, без карты и регистрации</p>
             <ul class="plan-list">
-              <li><b>6</b> обращений к Syn в сутки в браузере, <b>3</b> — в приложении</li>
-              <li class="off">Брифинг утром и вечером</li>
-              <li class="off">Память ассистента</li>
-              <li><b>2</b> цели, <b>2</b> списка, <b>2</b> заметки; в приложении ещё <b>3</b> повтора</li>
+              <li><b>20</b> обращений к Syn в сутки</li>
+              <li>Брифинг дня от Syn</li>
+              <li>Память ассистента</li>
+              <li><b>2</b> цели, <b>2</b> списка, <b>2</b> заметки; в «Моих финансах» — по <b>2</b> записи каждого вида</li>
               <li>«Помодоро» и медитации — один режим и один звук</li>
-              <li><b>2</b> палитры оформления из десяти</li>
+              <li><b>2</b> темы оформления из двадцати</li>
               <li>Задачи и аналитика без ограничений</li>
             </ul>
             <span class="btn btn-ghost btn-plan btn-disabled">Уже доступно</span>
@@ -377,11 +373,12 @@
             <p class="plan-price">149 ₽<span class="plan-unit">/нед</span></p>
             <p class="plan-per">попробовать, не платя за месяц</p>
             <ul class="plan-list">
-              <li><b>50</b> обращений к Syn в сутки</li>
-              <li>Брифинг утром и вечером</li>
+              <li><b>180</b> обращений к Syn в сутки</li>
+              <li>Брифинг дня от Syn</li>
               <li>Память ассистента</li>
-              <li>Цели, списки, заметки и повторы <b>без ограничений</b></li>
-              <li>Все палитры, режимы и звуки</li>
+              <li>Цели, списки, заметки и «Мои финансы» <b>без ограничений</b></li>
+              <li>Синхронизация устройств — зашифрованная</li>
+              <li>Все 20 тем, 6 форм отметки, 12 звуков медитации и все режимы помодоро</li>
             </ul>
             <a class="btn btn-ghost btn-plan" href="./checkout/?plan=pro.weekly">Оформить на неделю</a>
           </article>
@@ -391,11 +388,12 @@
             <p class="plan-price">590 ₽<span class="plan-unit">/мес</span></p>
             <p class="plan-per">списывается раз в месяц</p>
             <ul class="plan-list">
-              <li><b>50</b> обращений к Syn в сутки</li>
-              <li>Брифинг утром и вечером</li>
+              <li><b>180</b> обращений к Syn в сутки</li>
+              <li>Брифинг дня от Syn</li>
               <li>Память ассистента</li>
-              <li>Цели, списки, заметки и повторы <b>без ограничений</b></li>
-              <li>Все палитры, режимы и звуки</li>
+              <li>Цели, списки, заметки и «Мои финансы» <b>без ограничений</b></li>
+              <li>Синхронизация устройств — зашифрованная</li>
+              <li>Все 20 тем, 6 форм отметки, 12 звуков медитации и все режимы помодоро</li>
               <li>Дешевле недельного при том же наборе</li>
             </ul>
             <a class="btn btn-ghost btn-plan" href="./checkout/?plan=pro.monthly">Оформить на месяц</a>
@@ -407,11 +405,12 @@
             <p class="plan-price">4 990 ₽<span class="plan-unit">/год</span></p>
             <p class="plan-per">это 416 ₽ в месяц — на 2 090 ₽ дешевле</p>
             <ul class="plan-list">
-              <li><b>100</b> обращений к Syn в сутки — вдвое больше</li>
-              <li>Брифинг утром и вечером</li>
+              <li><b>500</b> обращений к Syn в сутки — почти втрое больше</li>
+              <li>Брифинг дня от Syn</li>
               <li>Память ассистента</li>
-              <li>Цели, списки, заметки и повторы <b>без ограничений</b></li>
-              <li>Все палитры, режимы и звуки</li>
+              <li>Цели, списки, заметки и «Мои финансы» <b>без ограничений</b></li>
+              <li>Синхронизация устройств — зашифрованная</li>
+              <li>Все 20 тем, 6 форм отметки, 12 звуков медитации и все режимы помодоро</li>
               <li><b>Самая низкая цена месяца</b> — 416 ₽</li>
             </ul>
             <a class="btn btn-plan btn-plan-primary" href="./checkout/?plan=pro.yearly">Оформить на год</a>
@@ -461,6 +460,7 @@
           <div class="footer-col">
             <p class="footer-h">Помощь</p>
             <a href="./support/">Поддержка</a>
+            <a href="./pro/">Как включить Pro</a>
             <a href="https://t.me/synapseapp">Telegram</a>
           </div>
           <div class="footer-col">

@@ -1,0 +1,252 @@
+/*
+  Новая стилистика сайта — та же, что в веб-версии приложения (app/web/theme.js).
+
+  Прежний «Quiet Intelligence» — бумага, тёмный лес, латунь — разошёлся с
+  продуктом: приложение уже живёт на чистом светлом фоне с белыми карточками
+  и одном фирменном цвете с мягким градиентом, а в тёмной теме — на глубоком
+  графите. Сайт, на котором скриншоты одного цвета, а страница другого,
+  выглядит как реклама чужого приложения.
+
+  Файл подключается на каждой странице после landing.css или site.css и только
+  переопределяет переменные и несколько компонентов: разметку и прежние стили
+  не трогаем, откатить — убрать одну строку <link>.
+
+  Фирменный цвет — одна пара (основной и конец градиента) на тему. Насыщенность
+  приглушена, как в приложении после правки «слишком ядовито»: цвет должен
+  читаться дорогим, а не кричащим. Нейтрали по-прежнему занимают большую часть
+  экрана, цвет — на кнопках, акцентах и одной тёмной секции.
+
+  Фирменный цвет — изумруд («дорогой зелёный»): из четырёх примеренных
+  вариантов (изумруд, индиго, сапфир, графит) выбран он, 17 октября 2026. */
+
+:root {
+  /* ---- фирменная пара: светлая тема ---- */
+  --b1: #0f6e55;            /* emerald: глубокий изумруд */
+  --b2: #2a9d78;
+  --b-deep: #0a3d30;        /* тёмная секция */
+  --b-soft: #e3f1ec;
+
+  /* ---- нейтральная основа: «Чистый светлый» ---- */
+  --bg: #f4f6f5;
+  --surface: #ffffff;
+  --surface-2: #eceff0;
+  --surface-elevated: #ffffff;
+  --bg-band: #eceff0;
+  --text: #0e1424;
+  --muted: #4b5466;
+  --muted-strong: #424b5c;
+  --disabled: #9aa2b1;
+  --stroke: #e1e5ea;
+  --stroke-strong: #cfd5dd;
+  --divider: #e7eaef;
+  --track: #e3e7ec;
+
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 12px 32px -12px rgba(16, 24, 40, 0.12);
+}
+
+
+/* ---- тёмная тема: «Тёмный премиум» ----
+   Глубокий графит, но не чёрный: на чистом #0b0e10 владелец сказал «слишком
+   чёрный фон». Фон поднят до #151a1e, карточки — на ступень светлее. */
+:root[data-theme="dark"] {
+  --b1: #4cc39b;
+  --b2: #2fb0a0;
+  --b-deep: #0d2a22;
+  --b-soft: rgba(76, 195, 155, 0.14);
+
+  --bg: #151a1e;
+  --surface: #1c2227;
+  --surface-2: #232a30;
+  --surface-elevated: #283037;
+  --bg-band: #181e22;
+  --text: #f2f4f8;
+  --muted: #a6aec0;
+  --muted-strong: #b4bbcb;
+  --disabled: #6b7385;
+  --stroke: #2d353d;
+  --stroke-strong: #3a434c;
+  --divider: #272e35;
+  --track: #2b333a;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 16px 40px -18px rgba(0, 0, 0, 0.7);
+}
+/* То же для системной тёмной темы, пока выбор не сделан явно. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --b1: #4cc39b;
+    --b2: #2fb0a0;
+    --b-deep: #0d2a22;
+    --b-soft: rgba(76, 195, 155, 0.14);
+  
+    --bg: #151a1e;
+    --surface: #1c2227;
+    --surface-2: #232a30;
+    --surface-elevated: #283037;
+    --bg-band: #181e22;
+    --text: #f2f4f8;
+    --muted: #a6aec0;
+    --muted-strong: #b4bbcb;
+    --disabled: #6b7385;
+    --stroke: #2d353d;
+    --stroke-strong: #3a434c;
+    --divider: #272e35;
+    --track: #2b333a;
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 16px 40px -18px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Старые имена landing.css — на новую пару. Лес становится фирменным цветом,
+   латунь — вторым концом градиента: и там и там это «главный акцент». */
+:root {
+  --forest: var(--b1);
+  --forest-deep: color-mix(in srgb, var(--b1) 86%, #000);
+  --forest-active: color-mix(in srgb, var(--b1) 74%, #000);
+  --olive: color-mix(in srgb, var(--b1) 55%, var(--muted));
+  --brass: var(--b2);
+  --brass-light: color-mix(in srgb, var(--b2) 60%, #fff);
+  --accent: var(--b1);
+  --accent-deep: var(--b1);
+  --accent-strong: var(--b1);
+  --accent-soft: var(--b-soft);
+  --bg-dark: var(--b-deep);
+  --text-on-dark: #ffffff;
+  --muted-on-dark: rgba(255, 255, 255, 0.78);
+  --ink-on-forest: #ffffff;
+  --ink-on-forest-soft: rgba(255, 255, 255, 0.86);
+  --brass-on-forest: #ffffff;
+  --tick-on-forest: rgba(255, 255, 255, 0.24);
+  --success: var(--b1);
+  --success-soft: var(--b-soft);
+  --grad: linear-gradient(135deg, var(--b1), var(--b2));
+
+  /* Имена site.css (поддержка, документы, кабинет). */
+  --panel: var(--surface);
+  --panel-strong: var(--surface-2);
+  --text-secondary: var(--muted);
+  --info: var(--muted);
+}
+/* В тёмной теме фирменный цвет светлый — текст на нём тёмный. */
+:root[data-theme="dark"] {
+  --forest-deep: color-mix(in srgb, var(--b1) 88%, #fff);
+  --forest-active: color-mix(in srgb, var(--b1) 76%, #fff);
+  --text-on-dark: #ffffff;
+  --ink-on-forest: #10161a;
+  --ink-on-forest-soft: rgba(11, 14, 16, 0.82);
+  --brass-on-forest: #0b0e10;
+  --tick-on-forest: rgba(11, 14, 16, 0.2);
+}
+
+body { background: var(--bg); }
+
+/* ---- кнопки ----
+   Главные — фирменным градиентом с мягкой цветной тенью, как в приложении.
+   Градиент короткий (два близких тона), поэтому читается переливом, а не
+   «радугой ИИ-стартапа». */
+.btn-primary, .btn-app, .btn-web, .btn-ios, .btn-android, .btn-plan-primary {
+  background: var(--grad);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 10px 24px -12px var(--b1);
+  transition: transform .15s ease, filter .15s ease;
+}
+.btn-primary:hover, .btn-app:hover, .btn-web:hover, .btn-ios:hover, .btn-android:hover, .btn-plan-primary:hover {
+  filter: brightness(1.05); transform: translateY(-1px);
+}
+/* Магазины — вторичные: белая кнопка с обводкой, чтобы главной оставалась
+   «Открыть в браузере». */
+.hero .btn-ios, .hero .btn-android {
+  background: var(--surface); color: var(--text); border: 1px solid var(--stroke); box-shadow: var(--shadow);
+}
+:root[data-theme="dark"] .btn-primary, :root[data-theme="dark"] .btn-app, :root[data-theme="dark"] .btn-web,
+:root[data-theme="dark"] .btn-plan-primary { color: var(--ink-on-forest); }
+.btn-ghost { background: var(--surface); border-color: var(--stroke); }
+.btn-ghost:hover { border-color: var(--b1); color: var(--b1); }
+
+/* ---- шапка ---- */
+.nav { background: color-mix(in srgb, var(--bg) 82%, transparent); }
+
+/* ---- первый экран ----
+   Акцентное слово заголовка — градиентом бренда. */
+.hero h1 em {
+  background: var(--grad);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.eyebrow { background: var(--b-soft); color: var(--b1); }
+/* Сцена под скриншотами — мягкое цветное свечение вместо бумажного пятна. */
+.hero-shot::before {
+  background: radial-gradient(60% 60% at 60% 45%, color-mix(in srgb, var(--b2) 30%, transparent), transparent 70%) !important;
+}
+
+/* ---- тёмная секция «Создавай причины» ----
+   Глубокий тон бренда со свечением в углу — как баннер подписки в приложении. */
+.creed {
+  background:
+    radial-gradient(80% 120% at 100% 0%, color-mix(in srgb, var(--b2) 45%, transparent), transparent 60%),
+    linear-gradient(160deg, var(--b-deep), color-mix(in srgb, var(--b-deep) 70%, #000));
+  color: #fff;
+  box-shadow: 0 30px 60px -30px color-mix(in srgb, var(--b1) 60%, transparent);
+}
+.creed-kicker { color: color-mix(in srgb, var(--b2) 55%, #fff) !important; }
+
+/* ---- карточки ---- */
+.plan, .card, .feature, .diff-card { background: var(--surface); border-color: var(--stroke); }
+.plan-soft { background: var(--surface); border: 1.5px solid color-mix(in srgb, var(--b1) 35%, var(--stroke)); }
+.plan-hero {
+  background:
+    radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--b2) 70%, transparent), transparent 70%),
+    linear-gradient(160deg, var(--b1), color-mix(in srgb, var(--b1) 70%, #000));
+  box-shadow: 0 26px 60px -24px var(--b1);
+}
+:root[data-theme="dark"] .plan-hero {
+  background:
+    radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--b2) 60%, transparent), transparent 70%),
+    var(--b1);
+}
+.plan-badge { background: var(--grad) !important; color: #fff !important; }
+:root[data-theme="dark"] .plan-badge { color: var(--ink-on-forest) !important; }
+
+/* ---- полосы-секции ---- */
+.band { background: var(--bg-band); }
+
+/* ---- рамка телефона ----
+   Была латунно-бежевой — под бумагу. Теперь графит, как у настоящего
+   iPhone: рамка не спорит с фирменным цветом и одинаково смотрится на
+   светлой и тёмной странице. Под снимком — фон страницы, а не бумага. */
+.device {
+  background: linear-gradient(160deg, #3a3f47 0%, #5a606a 20%, #22262c 58%, #474c55 100%);
+  box-shadow: 0 30px 60px -24px rgba(16, 24, 40, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .device {
+  background: linear-gradient(160deg, #2c3138 0%, #4b515b 20%, #181b20 58%, #3a3f47 100%);
+  box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.device-screen { background: var(--bg); }
+.device-island { background: #0b0d10; }
+
+/* ---- галерея экранов (как в App Store) ----
+   Карточки — готовые картинки со своей подписью и телефоном, поэтому здесь
+   только лента: горизонтальная прокрутка с примагничиванием, края гаснут,
+   на широком экране — стрелки. */
+.gallery { position: relative; max-width: 1180px; margin: 0 auto; }
+.gallery-track {
+  list-style: none; margin: 0; padding: 8px 24px 28px;
+  display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory;
+  scroll-padding-inline: 24px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+}
+.gallery-track::-webkit-scrollbar { display: none; }
+.gallery-card { flex: 0 0 clamp(220px, 26vw, 300px); scroll-snap-align: start; }
+.gallery-card img {
+  width: 100%; height: auto; display: block; border-radius: 26px;
+  box-shadow: 0 24px 48px -24px rgba(8, 43, 32, 0.55);
+}
+.gallery-nav {
+  position: absolute; top: 44%; width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--stroke); background: var(--surface); color: var(--text);
+  font-size: 26px; line-height: 1; cursor: pointer; box-shadow: var(--shadow);
+  display: grid; place-items: center; padding-bottom: 3px;
+}
+.gallery-nav.prev { left: -6px; }
+.gallery-nav.next { right: -6px; }
+.gallery-nav:hover { border-color: var(--b1); color: var(--b1); }
+@media (hover: none), (max-width: 760px) { .gallery-nav { display: none; } }

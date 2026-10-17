@@ -24,6 +24,7 @@
     <link rel="alternate" hreflang="x-default" href="https://synapseapp.ru/en/privacy/">
     <meta name="description" content="What data Synapse AI processes in the web version and in the apps, where it goes, what is stored on the server and how to delete it all.">
     <link rel="stylesheet" href="../../site.css">
+    <link rel="stylesheet" href="../../site-theme.css">
       <!-- Yandex.Metrika counter -->
     <script type="text/javascript">
       (function(m,e,t,r,i,k,a){
@@ -47,7 +48,7 @@
         <h1>What happens to your data.</h1>
         <p class="lead">
           The web version and the phone apps work differently, so they are
-          described separately below. Version of 15 October 2026.
+          described separately below. Version of 17 October 2026.
         </p>
         <div class="actions">
           <a class="button secondary" href="../../">Home</a>
@@ -62,10 +63,12 @@
           <p>
             Your records — tasks, goals, lists, notes, finances — live on your
             device: in your browser's storage if you use the web version, or on
-            the phone itself if you use the app. We don't create an account for
-            you, don't ask for your name and don't ask for your phone number.
-            The only things sent to the server are what the assistant needs to
-            answer and what is needed to process a payment.
+            the phone itself if you use the app. The planner works without any
+            sign-in. We ask for your phone number only when you pay — for the
+            receipt. On iPhone you can optionally sign in with Apple so that your
+            subscription follows you to a new phone. What goes to the server is
+            what the assistant needs to answer, what is needed to process a
+            payment and — if you turn it on — an encrypted copy for sync.
           </p>
         </article>
 
@@ -81,7 +84,8 @@
           </p>
           <p>
             The web version has no sign-in at all: we ask for neither your email
-            nor your phone number. A subscription is recognised by a code you
+            nor your phone number (the phone number is needed only when you pay —
+            for the receipt). A subscription is recognised by a code you
             enter yourself. Sync with your other devices is optional — how it
             works is described in section 3.
           </p>
@@ -89,8 +93,9 @@
             In your profile you can add a name and a photo, so that you are
             addressed by name rather than as "user". This is optional, and they
             stay in the same place as your tasks: in your browser's storage. The
-            name and photo are not sent to the server and are not passed to the
-            assistant either. The phone apps have no name field at all.
+            photo never leaves your browser. The name, if you add one, is
+            included in the daily briefing so that Syn can address you by name;
+            it goes nowhere else. The phone apps have no name field at all.
           </p>
           <p>
             The "My finances" section follows the same rules: spending and
@@ -98,8 +103,20 @@
             savings jars, envelopes, subscriptions and recurring payments are
             kept in your browser's storage. The service does not connect to any
             bank accounts or cards and will not do so — you enter the numbers
-            yourself. These records are not sent to the server; there is one
-            exception, described in the section on the assistant.
+            yourself. These records are not sent to the server; there are two
+            exceptions — asking Syn about money and the daily briefing — both
+            described in the section on the assistant.
+          </p>
+          <p>
+            Exchange rates on the wide-screen finance dashboard are requested by
+            your browser directly from cbr-xml-daily.ru (US dollar and euro at
+            the Central Bank of Russia rate), CoinGecko and Binance (bitcoin).
+            These services see your IP address, but not your records.
+          </p>
+          <p>
+            Voice input in the web version uses your browser's speech
+            recognition: in Chrome and Safari the audio may be processed on
+            Google's or Apple's servers. We receive only the resulting text.
           </p>
         </article>
 
@@ -108,8 +125,23 @@
           <p>
             <b>On iPhone.</b> Tasks, goals, stages, lists, notes, finances and
             settings are stored on the device, in a file that the system
-            encrypts together with your passcode. You can move them between your
-            devices with sync — see below.
+            encrypts together with your passcode. If iCloud is turned on on the
+            phone, a copy of your records is kept in your personal iCloud
+            storage — it is run by Apple and we have no access to it. You can
+            also move records between your devices with sync — see below.
+          </p>
+          <p>
+            Optionally, you can sign in with Apple so that your subscription
+            follows you to a new phone. We receive only an anonymised Apple
+            identifier and store its hash — no name and no email. You can delete
+            the account in the app's settings.
+          </p>
+          <p>
+            <b>Syn hints on the main screen.</b> When you open the app, the
+            titles of your tasks and goals with their due dates and completion
+            marks are sent to the server. The server looks for overdue tasks and
+            stalled goals using fixed rules, without an AI model, and does not
+            store this slice. Hints can be turned off in the app's settings.
           </p>
           <p>
             The app may ask for access to notifications, the microphone, speech
@@ -118,13 +150,18 @@
             itself; the app never sees them.
           </p>
           <p>
-            <b>On Android.</b> Records are stored inside the app itself and, by
-            default, are not copied anywhere: there is no automatic cloud backup
-            here. You can move them to another device with sync (see below) or
-            by saving a file in "Settings → Data" — the same file also protects
-            your records if the app is uninstalled. The only permission the app
-            asks for is the microphone, and only at the moment you tap it in the
-            assistant window; declining it doesn't break anything else. One
+            <b>On Android.</b> Records are stored inside the app itself. If
+            backup is turned on in Android settings, the system saves them to
+            your Google backup together with other apps' data. You can move them
+            to another device with sync (see below) or by saving a file in
+            "Settings → Data" — the same file also protects your records if the
+            app is uninstalled. The app asks for two permissions, each only when
+            it is needed: the microphone — when you tap it in the assistant
+            window, and notifications — when the first reminder is set.
+            Declining doesn't break anything else. The app also restores
+            reminders after the phone restarts. Voice is transcribed by the
+            phone's system speech recognition service (usually Google's); only
+            the text reaches our server. One
             difference from iPhone, stated plainly: there, records are kept in a
             file that the system encrypts together with the device passcode,
             while on Android they are stored inside the app — the system shields
@@ -151,8 +188,9 @@
           <p>
             When you talk to Syn, the request goes to our server and from there
             to the model provider. Along with the text of your request, a slice
-            of your workspace is sent: tasks and goals with their dates and
-            titles, and in the web version also lists and notes. Without it the
+            of your workspace is sent: tasks with their dates, descriptions and
+            subtasks, goals with their stages, and in the web version also lists
+            with their items and the beginnings of notes. Without it the
             assistant wouldn't know what to reschedule or what you're asking
             about.
           </p>
@@ -161,11 +199,20 @@
             money records are added to the slice: open debts with names and
             remaining amounts, the names of savings jars, subscriptions and
             recurring payments, the month's totals for spending and income, and
-            the five largest categories. This is the only case in which finance
-            records leave your browser, and it happens only when you make a
-            request — the section itself sends nothing anywhere. If you don't want
-            to share these figures with a third-party model provider, keep your
-            finances without the assistant: the whole section works without it.
+            the five largest categories.
+          </p>
+          <p>
+            <strong>When you build the daily briefing</strong>, the slice includes
+            the name from your profile (if set), your available balance, open
+            debts with names and due dates, charges due within the next week,
+            the month's totals and largest categories, and savings jars with the
+            amounts saved. These are the two cases in which finance records
+            leave your browser, and both happen only on your action — the
+            section itself sends nothing anywhere. If you listen to the
+            briefing, its text is sent to our server and from there to a
+            speech synthesis provider. If you don't want to share these figures
+            with a third-party model provider, keep your finances without the
+            assistant and the briefing: the whole section works without them.
           </p>
           <p>
             <strong>On iPhone</strong> you can reach Syn not only in the app but
@@ -189,8 +236,14 @@
             and its term; records of completed payments; <strong>the conversation
             with the assistant itself</strong> and its memory between
             conversations — without them Syn wouldn't remember what was said a
-            minute ago. The conversation and memory can be erased in settings. No
-            tasks, goals, notes or finance records remain on the server.
+            minute ago. Syn's memory is built from your own messages: goals,
+            motives, difficulties, habits. The conversation and memory are kept
+            until you erase them in settings or ask us to. The server also keeps
+            technical events and usage statistics tied to a hash of the
+            installation identifier — with no IP address in plain form and no
+            content of your records; they are kept for up to 30 days. No tasks,
+            goals, notes or finance records remain on the server, except the
+            encrypted copy if you have turned on sync.
           </p>
         </article>
 
@@ -198,10 +251,20 @@
           <h2>5. Payment</h2>
           <p>
             Payments are accepted by YooKassa; card details are processed by
-            YooKassa and never reach us. We store the fact of purchase, the
-            subscription term, the access code as an irreversible hash and — if
-            auto-renewal is on — the payment method identifier and the last four
-            digits of the card, so we can show you exactly what is being renewed.
+            YooKassa and never reach us. We store the fact of purchase and the
+            amount, the subscription term, the phone number given for the
+            receipt (with it and the last digits of the card you can find your
+            subscription without the code), the access code — as a hash and in
+            encrypted form, so we can show it to you on the "Subscription" page —
+            the partner code, if one was used, and — if auto-renewal is on — the
+            payment method identifier and the last four digits of the card, so
+            we can show you exactly what is being renewed.
+          </p>
+          <p>
+            If you came through a partner's link, the partner's code is kept in
+            your browser's storage for 30 days and sent along with the payment,
+            so that the purchase is credited to the partner. The partner learns
+            nothing about you — only the number of visits and payments.
           </p>
           <p>
             You can unlink the card and turn off auto-renewal yourself on the
@@ -214,8 +277,9 @@
           <h2>6. Website and analytics</h2>
           <p>
             The synapseapp.ru website pages use Yandex Metrica: it counts visits
-            and records anonymised sessions (Session Replay), so we can see where
-            pages are unclear.
+            and records anonymised sessions (Session Replay) — except on the
+            payment and subscription pages, where it is turned off — so we can
+            see where pages are unclear.
           </p>
           <p>
             In the web version of the planner at <a href="../../app/">/app/</a>
@@ -227,9 +291,10 @@
             written.
           </p>
           <p>
-            The iPhone and Android apps have no analytics counter at all, just as
-            they have no advertising SDKs and no advertising identifier: they
-            don't track you across other apps.
+            The iPhone and Android apps have no Yandex Metrica, just as they
+            have no advertising SDKs and no advertising identifier: they don't
+            track you across other apps. The apps send technical events only to
+            our own server (see section 4).
           </p>
         </article>
 
@@ -237,15 +302,18 @@
           <h2>7. What you can delete and how</h2>
           <p>
             In the web version: "Settings → Data → Erase everything in this
-            browser" — and no records remain anywhere, because they were never
-            anywhere else. In the app: delete any record, erase the assistant's
-            memory, delete the account entirely.
+            browser" — and no records remain anywhere, if sync was never turned
+            on. The encrypted sync copy is removed with the "Delete the copy from
+            the server" button in the same section. In the app: delete any
+            record, erase the assistant's memory, and on iPhone delete the
+            account entirely.
           </p>
           <p>
             To have us delete what is stored on the server (subscription,
             counters, assistant memory), write to
             <a href="mailto:support@synapseapp.ru">support@synapseapp.ru</a> —
-            we'll do it and confirm.
+            we'll do it and confirm. Data disappears from the nightly database
+            backups once those backups are rotated out.
           </p>
         </article>
 
@@ -254,9 +322,11 @@
           <p>
             The operator is Arslan Temirkhanov, a self-employed individual in
             Russia (payer of the professional income tax), taxpayer ID (INN)
-            862001541373. The server is located in Russia. Model responses are
-            produced by a third-party AI provider; it receives the text of your
-            request and the workspace slice described above.
+            862001541373. The Synapse server is located in Russia. Model
+            responses are produced by third-party AI providers through the
+            OpenRouter service; their servers are located outside Russia. They
+            receive the text of your request and the workspace slice described
+            above, and — when you listen to the briefing — its text.
           </p>
           <p>
             Full details are on the

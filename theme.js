@@ -40,12 +40,27 @@
   function apply(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#1d2420' : '#f5f1e8');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#151a1e' : '#f4f6f5');
     var buttons = document.querySelectorAll('[data-theme-toggle]');
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].setAttribute('aria-label', theme === 'dark' ? LABELS.toLight : LABELS.toDark);
       buttons[i].setAttribute('title', theme === 'dark' ? LABELS.light : LABELS.dark);
       buttons[i].textContent = theme === 'dark' ? '☀' : '☾';
+    }
+    swapShots(theme);
+  }
+
+  /* Скриншоты — в цвет темы страницы. У картинки со снимком приложения есть
+     пара: data-dark-src. На тёмной странице светлый снимок горел самым ярким
+     пятном экрана и выглядел чужим. Светлый адрес запоминаем в
+     data-light-src, чтобы вернуть его при обратном переключении. */
+  function swapShots(theme) {
+    var shots = document.querySelectorAll('img[data-dark-src]');
+    for (var i = 0; i < shots.length; i++) {
+      var img = shots[i];
+      if (!img.getAttribute('data-light-src')) img.setAttribute('data-light-src', img.getAttribute('src'));
+      var want = theme === 'dark' ? img.getAttribute('data-dark-src') : img.getAttribute('data-light-src');
+      if (img.getAttribute('src') !== want) img.setAttribute('src', want);
     }
   }
 
