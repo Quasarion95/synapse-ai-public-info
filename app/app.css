@@ -33,7 +33,7 @@
   --soft-2:var(--stroke);
   --fg:var(--text);
   --fg-2:var(--text-2);
-  --fg-3:var(--text-2);
+  --fg-3:var(--text-3, var(--text-2));
   --line:var(--stroke);
   --ok:var(--focus-green);
   --warn:var(--accent-warm);
@@ -184,7 +184,9 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
    ноутбука, и растянутый на весь монитор телефон там читается как недоделка.
    Разметка при этом одна и та же — меняется только раскладка (см. --rail). */
 .warnbar{max-width:var(--col); margin:0 auto; padding:10px var(--pad) 12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:13.5px; color:var(--danger)}
-.warnbar span{flex:1; min-width:200px}
+/* 200 — основа: уже неё текст уходит отдельной строкой над кнопкой. Минимума
+   нет, чтобы в узком контейнере строка не вылезала за край. */
+.warnbar span{flex:1 1 200px; min-width:0}
 
 main{max-width:var(--col); margin:0 auto; padding:24px var(--pad) 230px}
 
@@ -288,6 +290,10 @@ select.inp{appearance:none}
 /* Стрелка, а не кнопка с кружком: круглая плашка спорила с самим заголовком.
    Размер средний — 20 пикселей, видно, но заголовок не перебивает. */
 .group-h .car{color:var(--fg-2); margin-bottom:6px; font-size:20px; line-height:1; flex:none; transition:transform .18s ease}
+/* Стрелка — рисунок размером в строку, а не буква. */
+.car{display:inline-grid; place-items:center; vertical-align:middle}
+.car .nav-ic{width:1em; height:1em; stroke-width:2.2}
+.group-h .car .nav-ic{width:18px; height:18px}
 .group-h:hover .car{color:var(--fg)}
 .group-h.closed .car{transform:rotate(-90deg)}
 .group-h .n{margin-left:auto; font-size:12.5px; color:var(--fg-3); margin-bottom:7px; flex:none; white-space:nowrap}
@@ -311,7 +317,11 @@ select.inp{appearance:none}
 .in-app .group.closed .group-h{margin-bottom:0}
 /* Свёрнутый блок раньше просто исчезал через display:none — переход по такому
    не проигрывается. Теперь высоту ведёт та же обёртка, что у карточек. */
-.tasklist-wrap{overflow:hidden; transition:height .24s ease, opacity .2s ease}
+.tasklist-wrap{transition:height .24s ease, opacity .2s ease}
+/* Обрезка — только пока блок свёрнут или едет. Постоянный overflow:hidden
+   срезал тень последней карточки: снизу у неё был ровный край вместо мягкой
+   тени, как будто карточку подрезали ножницами. */
+.group.closed .tasklist-wrap, .tasklist-wrap.folding{overflow:hidden}
 .group.closed .tasklist-wrap{height:0; opacity:0}
 @media (prefers-reduced-motion:reduce){ .tasklist-wrap{transition:none} }
 .group-sub{font-size:12.5px; color:var(--fg-3); margin:-6px 0 12px}
@@ -427,7 +437,7 @@ select.inp{appearance:none}
 .box{width:20px; height:20px; border:2px solid var(--soft-2); border-radius:7px; flex:none; display:grid; place-items:center; font-size:10px; color:transparent; background:none; margin-top:1px; transition:background .14s ease, border-color .14s ease}
 /* --mark задаётся, только когда человек выбрал свой цвет; иначе действует
    запасное значение и отметка красится темой, как раньше. */
-.box.on{background:var(--mark, var(--ok)); border-color:var(--mark, var(--ok)); color:#fff}
+.box.on{background:var(--mark, var(--ok)); border-color:var(--mark, var(--ok)); color:var(--on-mark, var(--on-ok, #fff))}
 /* Кружок «готово» рисуется на 20px, а пальцем в него попадают плохо: у Apple
    и Google минимум 44px, и это самая частая кнопка приложения. Растим ТОЛЬКО
    область попадания — прозрачным слоем поверх, — вид не меняется ни на пиксель.
@@ -713,6 +723,9 @@ select.inp{appearance:none}
    заметнее: панель должна читаться на любом фоне и в любой теме. */
 .say{display:flex; gap:8px; align-items:center; background:var(--soft); border:1.5px solid var(--fg-3); border-radius:999px; padding:7px 7px 7px 18px; box-shadow:var(--shadow-lift), 0 0 0 5px var(--bg)}
 .say input{flex:1; border:0; background:none; outline:0; font-size:15px; min-width:0}
+/* Подсказка в поле на узком экране обрывалась посреди слова («…в 9 ут»):
+   многоточие хотя бы показывает, что фраза длиннее. */
+.say input{text-overflow:ellipsis}
 .say input::placeholder{color:var(--fg-3); opacity:.85}
 /* Кнопка ассистента слева от отправки: тише её, но заметнее обычной иконки.
    Фон — карточный, а не soft: сама панель уже soft, и кружок на ней пропадал. */
@@ -1012,6 +1025,7 @@ body.mm-open{overflow:hidden}
 /* ============ ПРОФИЛЬ ============ */
 .avatar{width:34px; height:34px; border-radius:999px; background:var(--soft); background-size:cover; background-position:center; display:grid; place-items:center; font-family:var(--display); font-weight:700; font-size:14px; color:var(--fg-2); flex:none}
 .avatar.lg{width:82px; height:82px; font-size:31px}
+.avatar.anon .nav-ic{width:58%; height:58%; stroke-width:1.8}
 .iconbtn.av{padding:0; overflow:hidden}
 .iconbtn.av .avatar{width:100%; height:100%; background-color:transparent}
 .iconbtn.on .avatar{color:var(--bg)}
@@ -1180,7 +1194,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 .modal.on{display:flex}
 /* Высота окна тоже по живому вьюпорту, иначе на телефоне оно вырастает выше
    экрана и последняя кнопка оказывается под сгибом. */
-.modal-in{background:var(--card); border-radius:var(--r-xl); width:100%; max-width:470px; max-height:min(86vh, calc(100dvh - 32px)); overflow-y:auto; overscroll-behavior:contain; padding:24px; animation:pop .18s ease}
+.modal-in{background:var(--card); border-radius:var(--r-xl); width:100%; max-width:470px; max-height:min(86vh, calc(100dvh - 32px)); overflow-y:auto; overscroll-behavior:contain; --mpad:24px; padding:var(--mpad); animation:pop .18s ease}
 @keyframes pop{from{opacity:0; transform:translateY(12px) scale(.98)}to{opacity:1; transform:none}}
 @media (prefers-reduced-motion:reduce){ .modal-in{animation:none} }
 /* Подвал прилипает ко дну окна, поля прокручиваются под ним.
@@ -1189,8 +1203,12 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    должны к его дну, а не к дну экрана — иначе на большом окне они уедут в
    середину. Фон обязателен: без него поля просвечивают сквозь кнопки. */
 .modal-in{display:flex; flex-direction:column}
-.modal-foot{position:sticky; bottom:-24px; z-index:2; background:var(--card);
-  padding:10px 0 0; margin-top:auto;
+.modal-foot{position:sticky; z-index:2; background:var(--card); margin-top:auto;
+  /* Прилипает к самому дну окна вместе с нижним отступом. Раньше отступ был
+     вписан числом 24, а на телефоне окно с отступом 16 — подвал уезжал за
+     край на 8 px, и «Отмена» стояла срезанной скруглением окна. */
+  bottom:calc(-1 * var(--mpad)); margin-bottom:calc(-1 * var(--mpad));
+  padding:10px 0 var(--mpad);
   /* Мягкая граница вместо линии: снизу под кнопками должно быть видно, что
      список продолжается, но линия поперёк окна выглядела бы швом. */
   box-shadow:0 -14px 16px -12px rgba(0,0,0,.16)}
@@ -1205,11 +1223,24 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 
    Не спрятано и не выключено: человек должен видеть, что выбор есть и он
    больше двух тем. Спрятанное не продаёт, а выключенное выглядит поломкой. */
-.radio.locked, .soundcard.locked, .mode.locked{position:relative; opacity:.55}
-.radio.locked::after, .soundcard.locked::after, .mode.locked::after{
-  content:'🔒'; position:absolute; top:2px; right:5px; font-size:9px; opacity:.75; line-height:1}
-.radio.pal.locked::after, .radio.boxpick.locked::after, .radio.markpick.locked::after{
-  top:1px; right:3px}
+/* Закрытое — приглушено текстом, а не прозрачностью всей кнопки.
+
+   Было opacity .55 на всё сразу: кружок с цветом темы бледнел вместе с
+   подписью, и то, ради чего кнопка показывается, — какой это цвет, —
+   разглядеть было нельзя. Замок-эмодзи в 9 px при этом становился точкой:
+   на андроиде цветной эмодзи такого размера не читается вовсе, и закрытые
+   темы выглядели просто сломанными. Теперь цвет виден полностью, подпись
+   приглушена, а в углу — ярлык «Pro» шрифтом приложения. */
+.radio.locked, .soundcard.locked, .mode.locked{position:relative; color:var(--fg-3)}
+.radio.locked::before, .soundcard.locked::before, .mode.locked::before{
+  content:'Pro'; position:absolute; top:-6px; right:6px; padding:1px 6px; border-radius:999px;
+  background:var(--fg); color:var(--bg); font-family:var(--body); font-size:9px; font-weight:700;
+  letter-spacing:.04em; line-height:1.35}
+/* Ярлык — на ::before: ::after у этих кнопок занят пустышкой, которая
+   центрирует подпись, и прежний замок на нём перебивался ею же — на палитрах
+   его не было видно никогда. */
+.radio.pal.locked::before, .radio.boxpick.locked::before, .radio.markpick.locked::before{
+  top:-6px; right:4px}
 
 .paywall-price{display:grid; grid-template-columns:auto 1fr; gap:4px 10px;
   align-items:baseline; margin:14px 0 4px; padding:12px 14px;
@@ -1226,6 +1257,10 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    приложении внизу и панель разделов, и композер, поэтому поднимаем заметно
    выше. */
 .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; background:var(--fg); color:var(--bg); border-radius:999px; padding:11px 20px; font-size:14px; z-index:90; box-shadow:var(--shadow-lift); max-width:calc(100% - 32px)}
+/* Ширина — по тексту, а не по остатку экрана. С left:50% и без ширины
+   браузер отводил плашке только правую половину экрана, и на телефоне даже
+   «Задача в блоке «Сегодня»» ломалась на две строки в узком столбике. */
+.toast{width:max-content; text-align:center; border-radius:22px}
 
 /* ============ ТАРИФЫ И ЗАМКИ ============ */
 
@@ -1296,7 +1331,7 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    остаётся строке. */
 .syn-win{display:flex; flex-direction:column; min-height:0}
 .syn-top{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px}
-.syn-top h3{margin:0; font-size:18px; white-space:nowrap}
+.syn-top h3{margin:0; font-size:18px; white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis}
 .syn-top .btn{flex:none}
 
 .syn-log{flex:1; min-height:100px; max-height:min(46vh, 44dvh); overflow-y:auto; overscroll-behavior:contain;
@@ -1482,56 +1517,6 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 /* Строка может не влезть на узком экране — тогда переносится целиком, а не
    разрывает дату посередине. */
 .item .expand{display:flex; flex-wrap:wrap; align-items:baseline; row-gap:2px}
-
-/* ============ ПЕРВЫЕ ШАГИ ============ */
-
-/* Обучение выглядит как карточка задач, а не как баннер поверх них: это часть
-   работы, а не реклама самой себя. Раскрыт всегда один шаг — текущий. */
-.card.tour{border-color:var(--accent-text,var(--accent))}
-.tour-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px}
-.tour-head h3{margin:0}
-.tour-hide{flex:none; width:28px; height:28px; border-radius:999px; color:var(--fg-3); display:grid; place-items:center; font-size:13px}
-.tour-hide:hover{background:var(--soft); color:var(--fg)}
-
-.tour-bar{height:4px; border-radius:999px; background:var(--soft); overflow:hidden; margin:14px 0 4px}
-.tour-bar i{display:block; height:100%; border-radius:999px; background:var(--accent); transition:width .3s ease}
-
-.tour-steps{display:flex; flex-direction:column}
-.tour-step{display:flex; gap:12px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line)}
-.tour-step:last-child{border-bottom:0; padding-bottom:0}
-.tour-mark{flex:none; width:22px; height:22px; border-radius:999px; border:2px solid var(--soft-2); color:#fff;
-  display:grid; place-items:center; font-size:11px; margin-top:1px}
-.tour-step.on .tour-mark{background:var(--ok); border-color:var(--ok)}
-.tour-step.on .tour-body b{color:var(--fg-3); text-decoration:line-through}
-.tour-step.now .tour-mark{border-color:var(--accent-text,var(--accent))}
-.tour-body{min-width:0}
-.tour-body b{font-size:14.5px; display:block}
-.tour-body p{font-size:13px; color:var(--fg-2); line-height:1.45; margin-top:4px}
-.tour-body .btn{margin-top:10px}
-
-/* ============ НАСТРОЙКИ ВИДА ============ */
-
-/* Каждая настройка — карточка с названием и одной строкой объяснения. Плоский
-   список «подпись — ряд кнопок — подпись — ряд» сливался в полотно: не было
-   видно, где кончается одна настройка и начинается следующая. */
-.setblock{padding:18px}
-.setblock + .setblock{margin-top:12px}
-.setblock-h{margin-bottom:14px}
-.setblock-h h3{font-size:16.5px}
-.setblock-h .sub{margin-top:4px}
-
-/* Подряд идущие ряды внутри одной карточки — «Начертание» и «Размер». Разделены
-   чертой, а не только отступом: иначе два ряда кнопок читаются как один
-   длинный, перенесённый на вторую строку. */
-.subrow + .subrow{margin-top:14px; padding-top:14px; border-top:1px solid var(--line)}
-.subrow-l{display:block; font-size:12.5px; color:var(--fg-3); margin-bottom:9px}
-
-/* Превью — отдельный сюжет. Показывает задачу целиком: отметка, название,
-   подпись, чипы. Раньше показывало только текст, и выбранная форма отметки
-   проверялась взглядом на кнопку, а не на результат. */
-.card.preview{margin-top:0}
-.preview-task{display:flex; gap:11px; align-items:flex-start}
-.preview-task h3{font-size:16px}
 
 /* Строка названия задачи и мета справа от него.
 
@@ -1767,7 +1752,11 @@ a.tab{text-decoration:none; color:var(--fg-3)}
    листают месяц в любом календаре, и объяснять это не нужно. */
 .finmonth{display:flex; align-items:center; justify-content:center; gap:8px;
   margin:0 0 14px}
-.finmonth b{font-size:14px; min-width:132px; text-align:center}
+/* Ширина 132 — чтобы стрелки не прыгали от «Мая» к «Сентябрю», но это
+   основа, а не минимум: на узком экране название сжимается с многоточием,
+   а не выталкивает стрелки за край. */
+.finmonth b{font-size:14px; flex:0 1 132px; min-width:0; text-align:center;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .finmonth button{width:30px; height:30px; border-radius:999px; display:grid; place-items:center;
   color:var(--fg-2); font-size:17px; line-height:1}
 .finmonth button:hover:not(:disabled){background:var(--soft); color:var(--fg)}
@@ -2280,8 +2269,6 @@ button.fintile:hover{background:var(--soft)}
 .switchrow:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:8px}
 @media (prefers-reduced-motion:reduce){ .sw-knob, .sw-knob::after{transition:none} }
 
-.in-app .toast{bottom:188px}
-
 /* Под курсором карточка не раздувается: мышью её не сдвигают вбок, и лишние
    двенадцать пикселей ширины только сбивают прицел. Тень и слой остаются —
    поднятой она должна выглядеть в любом случае. */
@@ -2489,7 +2476,7 @@ html[data-dense="1"] .titleline{gap:6px}
    съедали по 24 точки с каждой стороны, и строке ввода оставалось меньше
    двухсот. */
 @media (max-width:560px){
-  .modal-in{padding:16px}
+  .modal-in{--mpad:16px}
   .syn-top h3{font-size:17px}
   .syn-mic,.syn-go{width:38px; height:38px}
   .syn-mic svg{width:18px; height:18px}
@@ -2604,3 +2591,897 @@ html[data-dense="1"] .titleline{gap:6px}
 .acc-h .kill{flex:none}
 .acc-body{padding:2px 16px 14px; border-top:1px solid var(--line)}
 .acc-body .lines{margin-top:10px}
+
+/* Под карточкой знакомства сразу шёл заголовок «Сегодня» — вплотную, и они
+   читались одним блоком. */
+.card.tour{margin-bottom:22px}
+
+/* Подложка под нижними кнопками в приложении.
+
+   Поле ввода и меню висят над списком отдельными плашками, и в щели между
+   ними просвечивал текст: заголовок «На неделе» резался пополам, строки
+   задач торчали между полем и меню. Плавное затухание в цвет фона убирает
+   этот шум, а сам список по-прежнему виден до самого поля. */
+html.in-app body::after{content:''; position:fixed; left:0; right:0; bottom:0; z-index:30;
+  height:calc(var(--dock) + 124px); pointer-events:none;
+  background:linear-gradient(to bottom, transparent, var(--bg) 58%)}
+html.in-app.kbd body::after{height:calc(var(--vv-shift, 0px) + 74px)}
+
+/* Карточка знакомства — крупно и мягко.
+
+   Первое, что видит человек, поставивший приложение. Прежде она была собрана
+   как служебный блок: тёмная обводка цвета акцента, шаги через тонкие черты,
+   мелкая кнопка «Пропустить» у левого края. Теперь — без резкой рамки, с
+   большим скруглением и воздухом, текущий шаг лежит на своей подложке, а
+   обе кнопки — во всю ширину, по центру, высотой с палец. */
+.card.tour{border-color:var(--stroke); border-radius:var(--r-xl); padding:22px 20px 20px}
+.tour-head h3{font-size:21px; letter-spacing:-.02em}
+.tour-head .sub{margin-top:3px}
+.tour-hide{width:36px; height:36px; background:var(--soft); font-size:14px; margin:-4px -4px 0 0}
+.tour-bar{height:6px; margin:16px 0 10px}
+.tour-steps{gap:4px}
+.tour-step{border-bottom:0; padding:12px; border-radius:var(--r-md); align-items:center}
+.tour-step:last-child{padding-bottom:12px}
+.tour-step.now{background:var(--soft); align-items:flex-start; padding:16px 14px}
+.tour-mark{width:26px; height:26px; font-size:12px; margin-top:0}
+.tour-step.now .tour-mark{margin-top:-1px}
+.tour-body{flex:1}
+.tour-body b{font-size:15.5px; line-height:1.3}
+.tour-step.on .tour-body b{text-decoration:none}
+.tour-body p{font-size:13.5px; line-height:1.5; margin-top:6px}
+.tour-body .btn.tour-go{display:flex; width:100%; justify-content:center; margin-top:14px; padding:13px 18px; font-size:14.5px; border-radius:999px}
+.btn.tour-skip{display:flex; width:100%; justify-content:center; margin-top:14px; padding:14px 18px; font-size:14.5px; border-radius:999px; box-shadow:none}
+
+/* Оглавление настроек в приложении.
+
+   Профиль — крупной карточкой с аватаром, под ним разделы: у каждого своя
+   плашка со значком, название и одна строка о том, что внутри. Всё по
+   центру по вертикали, высота строки — с палец, края мягкие. */
+.setprofile, .setcat{
+  display:flex; align-items:center; gap:14px; width:100%; text-align:left; color:inherit; font:inherit;
+  background:var(--card); border:1px solid var(--stroke); box-shadow:var(--shadow)}
+.setprofile{padding:16px 16px 16px 14px; border-radius:var(--r-xl); margin:8px 0 22px}
+.setprofile .avatar{width:56px; height:56px; font-size:21px}
+.setprofile .sl-text{flex:1}
+.setprofile .sl-text b{font-size:17px; font-weight:700}
+.setcats{display:flex; flex-direction:column; gap:10px}
+.setcat{padding:14px 16px 14px 14px; border-radius:var(--r-lg); min-height:72px}
+.setcat .sl-text{flex:1}
+.setcat .sl-text b{font-size:15.5px; font-weight:700}
+.setcat .sl-text i{font-size:12.5px; color:var(--fg-3); line-height:1.35}
+.setcat-ic{flex:none; width:44px; height:44px; border-radius:14px; background:var(--soft);
+  display:grid; place-items:center; color:var(--accent-text,var(--accent))}
+.setcat-ic .nav-ic{width:22px; height:22px; stroke-width:1.7}
+.setprofile:active, .setcat:active{transform:scale(.985); transition:transform .08s ease}
+.setprofile .sl-arrow .nav-ic, .setcat .sl-arrow .nav-ic{width:18px; height:18px}
+
+/* Уголок растягивания у многострочных полей — инструмент мыши. На телефоне
+   его не потянешь, а в окне он торчал серой засечкой в углу поля. */
+.touch textarea, .in-app textarea{resize:none}
+
+/* Вводный текст Syn при открытой клавиатуре.
+
+   Окно сжимается, лента получает место на три строки, и последняя строка
+   вступления резалась полем ввода посередине букв — как поломка. Пока в
+   ленте только вступление, низ мягко гаснет: видно, что текст продолжается и
+   его можно прокрутить. В переписке маски нет — последнее сообщение должно
+   читаться целиком. */
+.syn-log:has(> .syn-empty:only-child){
+  -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+          mask-image:linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+  padding-bottom:10px}
+
+/* Плитки валют — ровной сеткой.
+
+   «Белорусский рубль» переносился на две строки, его плитка вырастала, и
+   знаки в ряду вставали на разной высоте: Br выше, с и $ ниже. Теперь все
+   ряды одной высоты, знак стоит на одной линии сверху, название — под ним.
+   А «Без значка», оставшийся один в последнем ряду рядом с пустой клеткой,
+   растягивается на две: ряд закрыт, дырки нет. */
+.curgrid{grid-auto-rows:1fr}
+.curcell{justify-content:flex-start; padding:14px 6px 12px; gap:6px}
+.curcell .cc-sign{height:22px; display:grid; place-items:center}
+@media (max-width:420px){
+  .curgrid .curcell:last-child:nth-child(3n+2){grid-column:span 2}
+}
+
+/* Подсказка в финансах — той же мягкой карточкой, что «Первые шаги»:
+   тёмная обводка цвета акцента выделяла её как предупреждение, а это просто
+   первый шаг. */
+.card.finhint{border-color:var(--stroke); border-radius:var(--r-xl); padding:22px 20px 20px}
+
+/* Полоса вкладок финансов листается вбок, но край у неё был обрезан ровно —
+   «Долг…» обрывалось, и не было понятно, что дальше есть ещё вкладки. Края
+   гаснут: видно, что полоса продолжается. */
+.fintabs{-webkit-mask-image:linear-gradient(to right, #000 calc(100% - 28px), transparent);
+          mask-image:linear-gradient(to right, #000 calc(100% - 28px), transparent)}
+.fintabs.at-end{-webkit-mask-image:none; mask-image:none}
+
+/* Тень подвала окна — только пока под ним есть прокручиваемое (класс
+   .scrolls ставит foldModalActions). */
+.modal-foot{box-shadow:none; transition:box-shadow .15s ease}
+.modal-in.scrolls .modal-foot{box-shadow:0 -14px 16px -12px rgba(0,0,0,.16)}
+
+/* «+ Новая запись», «+ Новый список», «+ Новый конверт» — в приложении во
+   всю ширину и по центру, высотой с палец. Маленькой таблеткой у левого края
+   они выглядели случайной кнопкой, а это главное действие экрана. */
+.in-app .btn:is([data-act="new-note"], [data-act="new-list"], [data-act="fin-budget-new"],
+  [data-act="fin-debt-new"], [data-act="fin-jar-new"], [data-act="fin-sub-new"], [data-act="fin-rec-new"]):not(.blank > .btn){
+  display:flex; width:100%; justify-content:center; padding:14px 18px; font-size:15px; border-radius:999px}
+
+/* Переключатель вида списков — одним ровным рядом из четырёх.
+
+   На узком телефоне кнопки шли потоком и «Столбик» падал на вторую строку
+   один, под «Доской». Теперь четыре равные доли, подписи по центру. */
+.listseg{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); flex:1 1 100%}
+.listseg .lv-btn{text-align:center; padding-left:4px; padding-right:4px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+@media (max-width:380px){ .listseg .lv-btn{font-size:12.5px} }
+
+/* Знак в шапке — картинка иконки на белой плитке. В светлой теме плитка
+   сливается с фоном, и виден только знак; в тёмной она горела ярким белым
+   квадратом — самым светлым пятном экрана. Инвертируем: тёмная плитка,
+   светлый знак — видно то же, что днём. */
+html[data-dark="1"] .brand .mark{filter:invert(1)}
+
+/* Нижнее меню в приложении — компактнее.
+
+   Панель с подписями занимала 63 px из 637 видимых — десятую часть экрана,
+   и вместе со строкой ввода над ней съедала почти пятую. Значки и подписи
+   читаются и в меньшем размере: поля внутри урезаны, значки 21 px вместо 24,
+   подписи на полпикселя мельче. Строка ввода опускается вслед за панелью. */
+.in-app .tabbar{padding:4px 6px; border-radius:20px}
+.in-app .tab{padding:5px 2px 4px; gap:2px; font-size:10px; border-radius:14px}
+.in-app .tab .ic{width:22px; height:22px}
+.in-app .tab .nav-ic{width:21px; height:21px}
+.in-app .composer{bottom:calc(var(--dock) + 62px + var(--vv-shift, 0px))}
+.in-app .kbd .composer, html.in-app.kbd .composer{bottom:calc(6px + var(--vv-shift, 0px))}
+/* Всплывающее сообщение в приложении — одно правило вместо двух.
+
+   Было два .in-app .toast с разными числами (188 и 166), и действовало то,
+   что ниже по файлу, — правка первого ничего не меняла. Теперь высота
+   считается от того же --dock, что и строка ввода: та стоит на dock + 62 и
+   высотой ~55, сообщение — на dock + 150, с зазором над ней. */
+html.in-app .toast{bottom:calc(var(--dock) + 150px + var(--vv-shift, 0px))}
+/* Открыта клавиатура: панели разделов нет, строка ввода прижата к клавиатуре
+   (6 px + сдвиг). Сообщение — сразу над строкой, а не посреди экрана. */
+html.in-app.kbd .toast{bottom:calc(78px + var(--vv-shift, 0px))}
+html.in-app body::after{height:calc(var(--dock) + 108px)}
+
+/* Кнопка ассистента — заметная.
+
+   Она стояла светлым кружком с бледной надписью рядом с тёмной кнопкой
+   отправки и терялась: главный инструмент приложения выглядел как
+   второстепенная иконка. Теперь — заливка цветом акцента, лёгкое свечение
+   и белая надпись: видно с первого взгляда, но отправку не перебивает. */
+.say .ai, .rowadd .ai{width:40px; height:40px; border:0;
+  background:var(--accent); color:var(--on-accent,#fff);
+  background:linear-gradient(140deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent));
+  box-shadow:0 0 0 3px var(--accent-soft), 0 6px 14px -4px color-mix(in srgb, var(--accent) 60%, transparent)}
+.say .ai:hover, .rowadd .ai:hover{background:var(--accent); border:0; filter:brightness(1.06)}
+.say .ai:active, .rowadd .ai:active{transform:scale(.94)}
+.say .ai .ai-mark, .rowadd .ai .ai-mark{color:inherit; letter-spacing:.02em}
+/* «Слушаю» в строке трат — та же кнопка, поэтому отличается движением:
+   кольцо вокруг пульсирует, пока идёт запись. */
+.say .ai.on{animation:ai-listen 1.2s ease-in-out infinite}
+@keyframes ai-listen{
+  0%, 100%{box-shadow:0 0 0 3px var(--accent-soft)}
+  50%{box-shadow:0 0 0 7px var(--accent-soft)}
+}
+@media (prefers-reduced-motion:reduce){ .say .ai.on{animation:none} }
+.ai-mark{display:inline-flex; align-items:center; gap:1px}
+.ai-spark{width:9px; height:9px; fill:currentColor; margin:-7px 0 0 -2px}
+.say .ai svg.ai-spark, .rowadd .ai svg.ai-spark{width:10px; height:10px; margin:-8px 1px 0 -1px}
+
+/* ---- Карта целей: рамка, масштаб, легенда ---- */
+
+/* Рамка карты с кнопками масштаба поверх. */
+.mmbox{position:relative; margin-bottom:var(--gap)}
+.mmbox .mmwrap{margin-bottom:0}
+.mmfull .mmbox{flex:1; display:flex; min-height:0; margin:0}
+.mmfull .mmbox .mmwrap{flex:1}
+/* Внутри рамки жест двумя пальцами — масштаб карты, а не страницы. */
+.mmwrap{touch-action:pan-x pan-y}
+
+.mmctl{position:absolute; right:10px; bottom:10px; display:flex; flex-direction:column; gap:8px; z-index:2}
+.mmctl button{width:40px; height:40px; border-radius:14px; display:grid; place-items:center;
+  background:var(--card); color:var(--fg); border:1px solid var(--stroke); box-shadow:var(--shadow-lift)}
+.mmctl button:active{transform:scale(.94)}
+.mmctl svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round}
+
+/* Легенда — плашки своего цвета, а не серый текст с точками. */
+.mmlegend{display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 0; font-size:13px; color:var(--fg)}
+.mmkey{display:inline-flex; align-items:center; gap:7px; padding:6px 11px 6px 8px; border-radius:999px; font-size:12.5px;
+  background:var(--soft); border:1px solid var(--line); font-weight:600}
+.mmkey i{width:16px; height:16px; border-radius:6px; border:1.5px solid var(--stroke); flex:none; margin:0}
+.mmhint{flex-basis:100%; margin:4px 2px 0; font-size:12.5px; color:var(--fg-3); line-height:1.4}
+.mmfull .mmlegend{gap:6px}
+
+/* «Развернуть карту» — во всю ширину, по центру. */
+.btn.mm-open-btn{display:flex; width:100%; justify-content:center; gap:8px; margin:14px 0 var(--gap);
+  padding:14px 18px; font-size:15px; border-radius:999px}
+
+/* Карта целей в приложении — весь экран без рамки (см. vMindMap). */
+.mmscreen .mmbox{margin:0 calc(-1 * var(--pad))}
+.mmscreen .mmwrap{border:0; border-radius:0; box-shadow:none; background:transparent; padding:0}
+.mmscreen .mmctl{right:calc(var(--pad) + 2px); bottom:14px}
+body.mm-screen{overflow:hidden}
+body.mm-screen::after{display:none}
+
+/* Контраст по замеру (переменные считает applyTheme): пустой чекбокс с
+   видимым краем, галочки и отметки — цветом «поверх» своей заливки. */
+.box:not(.on){border-color:var(--control-edge, var(--soft-2))}
+.tour-step.on .tour-mark, .fr-pay.on{color:var(--on-ok, #fff)}
+.say input::placeholder{color:var(--fg-2); opacity:1}
+.radio.pal .sw{border-color:var(--stroke)}
+
+/* Окно — над полноэкранной картой. Раньше карта (80) стояла выше окна (70),
+   и подтверждение, открытое с неё, пряталось под картой. */
+.modal{z-index:85}
+
+/* «Меньше движения» — для всего разом: часть анимаций (сдвиг карточки,
+   полосы прогресса, стрелки) системную настройку не слушала. */
+@media (prefers-reduced-motion:reduce){
+  *, *::before, *::after{transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important}
+}
+
+/* На совсем узком телефоне боковой отступ 20 px съедал восьмую часть
+   ширины: названия в таблице платежей резались до трёх букв. */
+@media (max-width:380px){ :root{--pad:16px} }
+
+/* Мелкие крестики «удалить» и стрелки месяца — зона касания не меньше
+   44 px, без изменения вида: прозрачное поле вокруг значка. */
+.touch :is(.subline .kill, .stage-h .kill, .line .kill, .fr-x, .finmonth button){position:relative}
+.touch :is(.subline .kill, .stage-h .kill, .line .kill, .fr-x, .finmonth button)::before{content:''; position:absolute; inset:-10px}
+
+/* Панели записи голосом стоят над строкой ввода (140 px от низа) и
+   закрывали бы сообщение — пока они на экране, оно поднимается над ними.
+   Числа — с запасом на самую высокую панель: три строки текста. */
+html.in-app:has(#voiceresult.on) .toast{bottom:300px}
+html.in-app:has(#holdvoice.on) .toast{bottom:350px}
+
+/* ---- Запись с зажатой кнопкой AI ---- */
+.holdvoice{position:fixed; left:12px; right:12px; bottom:140px; z-index:60; max-width:560px; margin:0 auto;
+  background:var(--card); border:1px solid var(--stroke); border-radius:24px; box-shadow:var(--shadow-lift);
+  padding:14px 16px 12px; opacity:0; transform:translateY(12px) scale(.98); pointer-events:none;
+  transition:opacity .16s ease, transform .2s cubic-bezier(.2,.8,.2,1), background .15s ease, border-color .15s ease}
+.holdvoice.on{opacity:1; transform:none}
+.hv-top{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--fg-2)}
+.hv-title{font-weight:700; color:var(--fg)}
+.hv-dot{width:9px; height:9px; border-radius:999px; background:var(--danger); animation:hv-blink 1s ease-in-out infinite}
+@keyframes hv-blink{50%{opacity:.35}}
+.hv-wave{display:flex; align-items:center; gap:3px; height:44px; margin:10px 0 8px}
+.hv-wave i{flex:1; height:100%; border-radius:999px; background:var(--accent); transform:scaleY(.15); transform-origin:center; transition:transform .08s linear}
+.hv-text{font-size:16px; line-height:1.4; color:var(--fg); min-height:1.4em; max-height:4.2em; overflow:hidden;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical}
+.hv-text.empty{color:var(--fg-3)}
+.hv-hint{font-size:12px; color:var(--fg-3); margin-top:6px}
+/* Палец увели — отмена: панель и волна красные. */
+.holdvoice.cancel{background:color-mix(in srgb, var(--danger) 12%, var(--card)); border-color:var(--danger)}
+.holdvoice.cancel .hv-wave i{background:var(--danger)}
+.holdvoice.cancel .hv-title{color:var(--danger)}
+.holdvoice.sending .hv-dot{animation:none; background:var(--accent)}
+/* Кнопка AI во время записи — крупнее и с кольцом, чтобы было видно, что держишь её. */
+.say .ai{touch-action:none; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none}
+html.hv-on .say .ai{transform:scale(1.18); box-shadow:0 0 0 6px var(--accent-soft), 0 8px 18px -4px var(--accent)}
+/* Шаг обучения «Зажми AI» — кнопка мягко пульсирует. */
+html.tour-hold:not(.hv-on) .say .ai{animation:ai-hint 1.6s ease-in-out infinite}
+@keyframes ai-hint{0%,100%{box-shadow:0 0 0 3px var(--accent-soft)} 50%{box-shadow:0 0 0 10px var(--accent-soft)}}
+@media (prefers-reduced-motion:reduce){ .hv-dot, html.tour-hold .say .ai{animation:none} }
+
+/* Итог записи с зажатой AI — карточка над строкой ввода. */
+.voiceresult{position:fixed; left:12px; right:12px; bottom:140px; z-index:60; max-width:560px; margin:0 auto;
+  display:flex; gap:12px; align-items:flex-start; text-align:left; width:auto;
+  background:var(--card); border:1px solid var(--stroke); border-radius:22px; box-shadow:var(--shadow-lift);
+  padding:12px 14px; opacity:0; transform:translateY(12px); pointer-events:none;
+  transition:opacity .18s ease, transform .22s cubic-bezier(.2,.8,.2,1)}
+.voiceresult.on{opacity:1; transform:none; pointer-events:auto}
+.vr-ic{flex:none; width:30px; height:30px; border-radius:999px; display:grid; place-items:center;
+  background:var(--ok); color:var(--on-ok, #fff); font-weight:800; font-size:14px}
+.voiceresult.wait .vr-ic{background:var(--accent-soft)}
+.voiceresult.err .vr-ic{background:var(--danger); color:var(--on-danger, #fff)}
+.vr-spin{width:16px; height:16px; border-radius:999px; border:2px solid var(--accent); border-right-color:transparent; animation:vr-spin .8s linear infinite}
+@keyframes vr-spin{to{transform:rotate(360deg)}}
+.vr-body{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1}
+.vr-body b{font-size:14.5px}
+.vr-said{font-size:12.5px; color:var(--fg-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.vr-text{font-size:14px; color:var(--fg); line-height:1.4; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+.vr-more{font-size:12.5px; color:var(--accent-text, var(--accent)); font-weight:600}
+
+/* ============ ПОСЛЕДНЯЯ ПОЛИРОВКА ============ */
+
+/* Зона касания у мелких кнопок — не меньше 44 px, без изменения вида.
+
+   Тот же приём, что у крестиков выше: прозрачное поле на ::before. Но не
+   inset:-10px во все стороны: значки в .side стоят через 1 px, чипы — через
+   6–7, и поле соседа накрывало бы край кнопки слева — палец попадал бы не в
+   ту. Поэтому поле — ровно 44 px по высоте, по центру кнопки, а вбок оно
+   выходит только в зазор (чипы, кнопки шапки) или только наружу у крайних
+   значков ряда. ::before у всех этих кнопок свободен (проверено поиском);
+   аватарку в шапке не трогаем — у неё overflow:hidden, поле обрезалось бы
+   всё равно. */
+:is(.touch, .in-app) :is(button.chip, .chip[data-act],
+  .listcol-h .side button, .acc-h .side button,
+  .item:not(.swipe) .side button, .row-card:not(.swipe) .side button,
+  .top-acts .iconbtn:not(.av)){position:relative}
+:is(.touch, .in-app) :is(button.chip, .chip[data-act],
+  .listcol-h .side button, .acc-h .side button,
+  .item:not(.swipe) .side button, .row-card:not(.swipe) .side button,
+  .top-acts .iconbtn:not(.av))::before{
+  content:''; position:absolute; top:50%; height:44px; margin-top:-22px; left:0; right:0}
+/* Чипы — вбок на 3 px, в половину зазора между ними. Ряд шаблонов подписок
+   прокручивается вбок: поле в 44 px у чипа высотой ~30 выходит на 7 px
+   вниз и укладывается в нижний отступ ряда (8 px) — лишней вертикальной
+   прокрутки не появляется. */
+:is(.touch, .in-app) :is(button.chip, .chip[data-act])::before{left:-3px; right:-3px}
+/* Кнопки шапки — квадрат 44 по центру: зазор между ними 6 px, поля соседей
+   сходятся в нём и на сами кнопки не заходят. */
+:is(.touch, .in-app) .top-acts .iconbtn:not(.av)::before{left:50%; right:auto; width:44px; margin-left:-22px}
+/* Значки в .side — наружу только у крайних: между собой они через 1 px. */
+:is(.touch, .in-app) :is(.listcol-h, .acc-h, .item:not(.swipe), .row-card:not(.swipe)) .side button:first-child::before{left:-8px}
+:is(.touch, .in-app) :is(.listcol-h, .acc-h, .item:not(.swipe), .row-card:not(.swipe)) .side button:last-child::before{right:-8px}
+
+/* Таблица платежей на самом узком телефоне: сумма — под названием.
+
+   На 320–380 px три колонки (название, 84 на сумму, 104 на кнопки) оставляли
+   названию 20–60 px, и длинное название резалось до трёх-четырёх букв.
+   Теперь название идёт во всю ширину строки, а под ним — сумма слева и
+   кнопки справа. Шапка повторяет ту же раскладку: «Название» сверху,
+   «В месяц» под ним — подпись стоит над тем, что подписывает. Сумма сдвинута
+   на ширину логотипа (20 + 10), чтобы стоять ровно под текстом названия. */
+@media (max-width:380px){
+  .payhead, .payrow,
+  .payrow.swipe > .swipe-face{
+    grid-template-columns:minmax(0,1fr) var(--pay-act);
+    grid-template-areas:"m m" "v a"; row-gap:4px}
+  .payhead{row-gap:2px}
+  .payhead span:nth-child(1), .payrow .pr-main{grid-area:m}
+  .payhead span:nth-child(2), .payrow .pr-v:not(.year){grid-area:v; text-align:left}
+  .payhead span:nth-child(4), .payrow .pr-a{grid-area:a}
+  .payhead span:nth-child(4){display:none}
+  .payrow .pr-v:not(.year){padding-left:30px}
+}
+
+/* Перенос по слогам в заголовках и названиях карточек. Длинное русское слово
+   («Самообразование», «Переоформление») в плитке на половину экрана не
+   влезало и рвалось где придётся: overflow-wrap ломает посреди слога. Язык
+   страницы — ru, словарь переносов браузер берёт по нему. Там, где стоит
+   white-space:nowrap, правило ничего не меняет. */
+h1, h2, h3, .fr-t, .pr-t, .tilebtn .tt, .goalcard-h .gt, .listtile h3{
+  -webkit-hyphens:auto; hyphens:auto}
+
+/* ---- Экран задач в приложении — плотный, как на айфоне ----
+
+   Каждая задача была отдельной карточкой с рамкой, тенью и полями, а дата
+   и время — «таблетками» второй строкой. На телефоне это съедало экран:
+   четыре-пять задач, и общей картины дня не видно. На айфоне задачи лежат
+   прямо на фоне экрана, без рамок, в одну строку: название слева, время
+   мелко справа. Здесь так же. Перетаскивание и свайп не меняются: поднятая
+   задача по-прежнему становится карточкой с тенью (правила .dragging выше). */
+.in-app .tasklist{gap:0}
+.in-app .item{background:transparent; border:0; box-shadow:none; border-radius:14px}
+.in-app .item.done{background:transparent}
+.in-app .item.swipe > .swipe-face{background:var(--bg); padding:7px 4px 7px 2px}
+.in-app .item:not(.swipe){padding:7px 4px 7px 2px}
+.in-app .item.swipe.open > .detail-wrap{padding:0 4px 8px 2px}
+.in-app .item-main{align-items:center; gap:10px}
+.in-app .item .box{width:20px; height:20px; border-radius:6px; margin-top:0}
+.in-app .item .body{display:flex; align-items:center; gap:10px; min-width:0}
+.in-app .item .t{flex:1; min-width:0; font-size:15px; font-weight:500; line-height:1.3; letter-spacing:-.01em}
+/* Значки — мелким текстом справа, без подложек, в одну строку. */
+.in-app .item .chips{flex:0 1 auto; max-width:48%; margin:0; gap:8px; flex-wrap:nowrap; justify-content:flex-end; overflow:hidden}
+.in-app .item .chips .chip{background:none; box-shadow:none; padding:0; border:0; border-radius:0; font-size:11.5px;
+  color:var(--fg-2); gap:3px; min-width:0; overflow:hidden; text-overflow:ellipsis}
+.in-app .item .chips .chip.late{color:var(--danger); background:none; border:0; font-weight:600}
+.in-app .item .chips .chip.goal{max-width:96px; color:var(--accent-text, var(--accent))}
+.in-app .item .chips .chip.rep svg{width:11px; height:11px}
+.in-app .item .chips .chip.sub .car{display:none}
+.in-app .item.done .chips{opacity:.6}
+/* Раскрытая задача — подпункты под названием, без верхней черты-рамки. */
+.in-app .item .detail{margin:4px 0 2px 30px; padding-top:4px; border-top:0}
+/* Под перетаскиванием — снова карточка. */
+.in-app .item.dragging.lifted{background:var(--card); border-radius:14px}
+.in-app .item.dragging.lifted > .swipe-face{background:var(--card); padding-left:8px; padding-right:8px}
+/* Заголовки блоков чуть компактнее: строки стали ниже, и прежний отступ
+   под заголовком выглядел провалом. */
+.in-app .group-h{margin-bottom:4px}
+.in-app .group + .group{margin-top:14px}
+/* Кнопки свайпа лежат под строкой. Без рамки карточки их цвет
+   просвечивал по скруглённому краю тонкими дугами. В покое их не видно
+   вовсе — они проявляются, только когда строку двигают или она
+   отодвинута; и у лежащей строки нет скругления, по которому могло бы
+   просвечивать. */
+.in-app .item:not(.dragging){border-radius:0}
+.in-app .swipe:not(.swiping):not(.swiped) > .side{visibility:hidden}
+
+/* Значки строки задачи в приложении — как на айфоне: символ и подпись. */
+.in-app .item .chips .mi{display:inline-flex; align-items:center; gap:3px; font-size:11.5px; font-weight:500;
+  color:var(--fg-2); white-space:nowrap; min-width:0}
+.in-app .item .chips .mi > span{overflow:hidden; text-overflow:ellipsis}
+.in-app .item .chips .mi svg{width:11px; height:11px; flex:none; fill:none; stroke:currentColor; stroke-width:2.1;
+  stroke-linecap:round; stroke-linejoin:round}
+/* «не выполнено» — красная обведённая метка, как TaskOverdueBadge. */
+.in-app .item .chips .mi.late{color:var(--danger); font-weight:600; font-size:11px; padding:1px 5px;
+  border:1px solid var(--danger); border-radius:6.5px}
+/* Стрелка подпунктов: вниз, а у раскрытой задачи — вверх. */
+.in-app .item .chips .mi.exp{font-weight:600}
+.in-app .item .chips .mi.exp .car{display:inline-grid; transition:transform .18s ease}
+.in-app .item .chips .mi.exp .car .nav-ic{width:12px; height:12px; stroke-width:2.4}
+.in-app .item.open .chips .mi.exp .car{transform:rotate(180deg)}
+/* Несколько значков справа — столбиком, а не в строку: время над
+   повтором. В строку оба обрывались («08:… каждую нед…»), а столбик
+   уходит в высоту, которой у строки с длинным названием и так две строки. */
+.in-app .item .chips{flex-direction:column; align-items:flex-end; gap:2px; max-width:44%}
+.in-app .item .chips .mi{max-width:100%}
+.in-app .item .chips .mi:first-child{flex:none}
+
+/* ---- Поле окна Syn — как в Telegram ----
+   Одна капсула во всю ширину: текст и одна кнопка справа. Пусто —
+   микрофон (держать, чтобы записать), есть текст — «отправить». */
+.syn-bar{align-items:flex-end; gap:0; background:var(--soft); border:1px solid var(--stroke);
+  border-radius:24px; padding:4px 4px 4px 6px}
+.syn-bar textarea{background:none; border:0; box-shadow:none; outline:0; min-height:38px; padding:9px 8px;
+  font-size:15px; line-height:1.35}
+.syn-bar textarea:focus{box-shadow:none; border:0}
+.syn-bar .syn-mic, .syn-bar .syn-go{width:38px; height:38px; margin:0}
+.syn-bar .syn-mic{background:var(--accent); color:var(--on-accent,#fff); touch-action:none;
+  -webkit-touch-callout:none; -webkit-user-select:none; user-select:none}
+.syn-bar .syn-mic svg{width:19px; height:19px}
+.syn-bar .syn-go{display:none}
+.syn-bar.has-text .syn-go{display:grid}
+.syn-bar.has-text .syn-mic{display:none}
+html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--accent-soft)}
+/* Панель записи и итог — поверх окна, когда записывают из него. */
+.holdvoice, .voiceresult{z-index:90}
+
+/* ---- Строка создания задачи над меню — тоньше ----
+   Капсула с полем и двумя кнопками по 40 px занимала внизу почти 60 px.
+   Кнопки 34 px, поля капсулы меньше: строка ниже на треть, а цели нажатия
+   остаются удобными. */
+.in-app .say{padding:3px 3px 3px 15px; border-width:1px}
+.in-app .say input{font-size:15px}
+.in-app .say .ai, .in-app .say .send{width:34px; height:34px}
+.in-app .say .send .nav-ic{width:17px; height:17px}
+.in-app .say .ai svg.ai-spark{width:9px; height:9px}
+.in-app .say .ai .ai-mark{font-size:11px}
+
+/* Подпункты и описание — под названием задачи. */
+.in-app .item .tcol{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px}
+.in-app .item .tsub .mi{display:inline-flex; align-items:center; gap:3px; font-size:11.5px; font-weight:600; color:var(--fg-2)}
+.in-app .item .tsub .car{display:inline-grid; transition:transform .18s ease}
+.in-app .item .tsub .car .nav-ic{width:12px; height:12px; stroke-width:2.4}
+.in-app .item.open .tsub .car{transform:rotate(180deg)}
+
+/* ---- заголовки дней и строка ввода — в цвет темы (приложение) ----
+   Темы стали яркими, а заголовки «Сегодня», «Завтра»… оставались чёрными:
+   смена палитры на главном экране почти не читалась. Теперь название дня
+   залито фирменным градиентом, значок и стрелка — акцентом. Пустые дни
+   приглушены, чтобы цветом выделялось то, где есть дела. */
+.in-app .group-h h3{background:var(--grad, var(--accent)); -webkit-background-clip:text; background-clip:text;
+  color:transparent; -webkit-text-fill-color:transparent}
+.in-app .group-h .group-ic, .in-app .group-h .car{color:var(--accent-text, var(--accent))}
+.in-app .group.empty .group-h h3, .in-app .group.empty .group-h .group-ic{opacity:.55}
+
+/* Граница строки ввода на светлых палитрах сливалась с фоном: --line
+   слишком тихий для поля, в которое человек пишет каждый день. Тонкая
+   рамка с примесью акцента и лёгкая тень делают поле видимым в любой
+   теме, не превращая его в кнопку. */
+.in-app .say{border:1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  background:var(--card); box-shadow:0 4px 14px -8px color-mix(in srgb, var(--accent) 45%, transparent)}
+
+/* ============ ВЫДВИЖНОЕ МЕНЮ (приложение) ============
+   Пять разделов внизу без «Ещё», остальное — в панели слева, как на айфоне.
+   Панель выезжает от левого края, фон за ней темнеет; тап мимо, крестик или
+   системное «назад» закрывают её. */
+.in-app .tabs-main{grid-template-columns:repeat(5, 1fr)}
+.in-app .menubtn{border-radius:13px; margin-right:-2px}
+.in-app .menubtn .nav-ic{width:19px; height:19px; stroke-width:2}
+.drawer{position:fixed; inset:0; z-index:80; pointer-events:none}
+.drawer.open{pointer-events:auto}
+.dr-scrim{position:absolute; inset:0; background:rgba(8,10,16,.42); opacity:0; transition:opacity .26s ease}
+.drawer.open .dr-scrim{opacity:1}
+.dr-panel{position:absolute; top:0; bottom:0; left:0; width:min(300px, 82vw); overflow-y:auto;
+  background:var(--bg); padding:calc(env(safe-area-inset-top, 0px) + 18px) 14px 26px;
+  box-shadow:12px 0 32px -12px rgba(0,0,0,.28); transform:translateX(-104%);
+  transition:transform .3s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; gap:18px}
+.drawer.open .dr-panel{transform:none}
+.dr-head{display:flex; align-items:flex-start; justify-content:space-between; padding:6px 4px 4px}
+.dr-brand{display:flex; align-items:center; gap:10px}
+.dr-brand img{border-radius:10px; display:block}
+.dr-brand b{display:block; font-size:18px; font-weight:800; letter-spacing:-.02em; color:var(--fg)}
+.dr-brand span{display:block; font-size:11.5px; color:var(--fg-3); margin-top:1px}
+.dr-x{width:32px; height:32px; border-radius:11px; display:grid; place-items:center; background:var(--soft); color:var(--fg)}
+.dr-x .nav-ic{width:15px; height:15px; stroke-width:2.2}
+.dr-group{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:4px 0; overflow:hidden}
+.dr-row{display:flex; align-items:center; gap:11px; width:100%; padding:9px 12px; text-align:left;
+  color:var(--fg); text-decoration:none; position:relative; font-size:15px; font-weight:500}
+.dr-row + .dr-row::before{content:''; position:absolute; top:0; left:53px; right:12px; height:1px; background:var(--line)}
+.dr-row:active{background:var(--soft)}
+.dr-row.on .dr-tx{color:var(--accent-text, var(--accent)); font-weight:650}
+.dr-ic{width:30px; height:30px; border-radius:9px; display:grid; place-items:center; flex:none;
+  background:linear-gradient(160deg, color-mix(in srgb, var(--c) 82%, #fff), var(--c)); color:#fff}
+.dr-ic .nav-ic{width:16px; height:16px; stroke-width:2.1}
+.dr-tx{flex:1; min-width:0}
+.dr-ch{color:var(--fg-3); display:grid}
+.dr-ch .nav-ic{width:13px; height:13px; stroke-width:2.4}
+@media (prefers-reduced-motion:reduce){ .dr-panel, .dr-scrim{transition:none} }
+
+/* Экран задач в приложении — без шапки (класс no-top ставит render). Отступ
+   сверху заменяет высоту шапки, чтобы «Сегодня» не прилипало к строке
+   состояния. */
+.in-app.no-top #top{display:none}
+.in-app.no-top main{padding-top:calc(env(safe-area-inset-top, 0px) + 18px)}
+/* В финансах в шапке есть кнопка валюты, и название не влезало —
+   обрезалось до «Synaps…». Там остаётся один логотип. */
+.in-app .top-in:has(.cur) .brand .nm{display:none}
+
+/* Кнопки под свайпом — скруглёнными плашками с промежутком, как на айфоне.
+   Квадратные блоки во всю высоту строки смотрелись грубо на фоне круглых
+   флажков и чипов. Ширина сходится с SWIPE_OPEN (92 px): отступ 6 + 40 +
+   промежуток 6 + 40. */
+.in-app .swipe > .side{padding:3px 0 3px 6px; gap:6px}
+.in-app .swipe > .side button{width:40px; border-radius:12px}
+
+/* Меню как на айфоне: разделы для работы — сверху, служебное (подписка,
+   настройки, корзина, поддержка) прижато к низу. Промежуток между группами
+   остаётся тем же gap, когда экран низкий и прижимать некуда. */
+.dr-panel .dr-group:last-child{margin-top:auto}
+.dr-panel{padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 22px)}
+
+/* Строка «Новый подпункт» в раскрытой задаче занимала почти как сама
+   задача: высокое поле и крупная кнопка. В приложении — компактнее, кнопка
+   по высоте поля. */
+.in-app .item .rowadd{margin-top:6px; gap:6px; --inp-py:6px; --inp-px:11px; --inp-fs:14.5px}
+.in-app .item .rowadd .btn{padding:0 12px; height:32px; font-size:13px; border-radius:999px; box-shadow:none}
+
+/* Меню без карточек: пункты стоят прямо на фоне панели, как в айфоне.
+   Разделители между пунктами остаются — они держат строки. */
+.dr-group{background:none; border:0; border-radius:0; padding:0}
+.dr-row{padding:10px 6px}
+.dr-row + .dr-row::before{left:47px; right:6px}
+.dr-row:active{background:var(--soft); border-radius:12px}
+
+/* ============ ФОКУС ДНЯ В ПРИЛОЖЕНИИ — как на айфоне ============ */
+.fx-card{background:var(--card); border:1px solid var(--line); border-radius:24px; padding:16px;
+  box-shadow:var(--shadow); margin-bottom:14px}
+.fx-top{display:flex; align-items:flex-start; gap:12px}
+.fx-main{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px}
+.fx-kicker{font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--accent-text, var(--accent))}
+.fx-title{font-size:21px; font-weight:700; line-height:1.18; color:var(--fg); text-align:left; letter-spacing:-.01em;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.fx-sub{display:flex; align-items:center; gap:6px; margin-top:2px; font-size:12px; color:var(--fg-2); font-weight:500}
+.fx-refresh{display:inline-flex; align-items:center; gap:4px; height:24px; min-width:24px; padding:0 6px; justify-content:center;
+  border-radius:999px; background:var(--accent-soft); color:var(--accent-text, var(--accent)); font-size:11.5px; font-weight:700}
+.fx-refresh .nav-ic{width:12px; height:12px; stroke-width:2.6}
+.fx-spin{width:12px; height:12px; border-radius:50%; border:2px solid var(--accent-soft); border-top-color:var(--accent); animation:fx-spin .8s linear infinite}
+@keyframes fx-spin{to{transform:rotate(360deg)}}
+.fx-pct{flex:none; text-align:right; color:var(--accent-text, var(--accent))}
+.fx-pct.on{color:var(--ok)}
+.fx-pct b{display:block; font-size:46px; line-height:.95; font-weight:900; letter-spacing:-.03em; font-variant-numeric:tabular-nums}
+.fx-pct small{font-size:23px; font-weight:800; margin-left:1px}
+.fx-pct span{display:block; font-size:12px; font-weight:700; color:var(--fg-2); margin-top:3px}
+.fx-secs{display:flex; flex-direction:column; gap:12px; margin-top:14px}
+.fx-sec b{display:block; font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--accent-text, var(--accent)); margin-bottom:3px}
+.fx-sec b.fx-warn{color:var(--warn)}
+.fx-sec p{font-size:14px; font-weight:500; line-height:1.4; color:var(--fg); margin:0}
+.fx-secs.clamp .fx-sec p{display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden}
+.fx-more{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; height:44px; margin-top:12px;
+  border-radius:14px; background:var(--accent-soft); color:var(--accent-text, var(--accent)); font-size:15px; font-weight:600}
+.fx-chev{display:grid; transition:transform .2s ease}
+.fx-chev.up{transform:rotate(180deg)}
+.fx-chev .nav-ic{width:14px; height:14px; stroke-width:2.6}
+.fx-err{margin:12px 0 0; font-size:11.5px; color:var(--warn); font-weight:500}
+.fx-listen{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px 0; margin-top:14px;
+  border-radius:16px; background:var(--soft); border:1px solid var(--line); color:var(--fg); font-size:15px; font-weight:600}
+.fx-listen.on{color:var(--accent-text, var(--accent)); border-color:color-mix(in srgb, var(--accent) 50%, transparent)}
+.fx-strips{padding:18px; display:flex; flex-direction:column; gap:12px}
+.fx-h{display:flex; align-items:center; gap:10px}
+.fx-h > b{font-size:17px; font-weight:700; color:var(--fg)}
+.fx-hic{width:30px; height:30px; border-radius:9px; display:grid; place-items:center; flex:none;
+  background:var(--accent-soft); color:var(--accent-text, var(--accent))}
+.fx-hic .nav-ic{width:16px; height:16px; stroke-width:2}
+.fx-of{margin-left:auto; font-size:15px; font-weight:600; color:var(--fg-2)}
+.fx-of b{font-size:22px; font-weight:700; color:var(--fg)}
+.fx-seg{display:flex; gap:4px; height:20px}
+.fx-seg i{flex:1; min-width:6px; border-radius:6px; background:var(--line)}
+.fx-seg i.done{background:var(--ok)}
+.fx-seg i.late{background:var(--warn)}
+.fx-note{margin:-4px 0 0; font-size:12px; font-weight:500; color:var(--fg-2)}
+.fx-note-top{margin:-6px 0 0}
+.fx-empty{display:flex; align-items:center; justify-content:center; gap:8px; height:44px; border-radius:12px;
+  border:1.2px dashed var(--line); color:var(--fg-2); font-size:14px; font-weight:500}
+.fx-empty .nav-ic{width:15px; height:15px}
+.fx-chips{display:flex; gap:8px}
+.fx-chip{flex:1; min-width:0; text-align:center; padding:8px 4px; border-radius:12px;
+  background:color-mix(in srgb, var(--c) 12%, transparent)}
+.fx-chip span{display:flex; align-items:center; justify-content:center; gap:5px}
+.fx-chip i{width:7px; height:7px; border-radius:50%; background:var(--c)}
+.fx-chip b{font-size:18px; font-weight:700; color:var(--fg); font-variant-numeric:tabular-nums}
+.fx-chip em{display:block; font-style:normal; font-size:11px; font-weight:500; color:var(--fg-2); margin-top:2px}
+.fx-split{height:1px; background:var(--line); margin:6px 0}
+.fx-hz{display:flex; align-items:flex-end; gap:3px}
+.fx-d{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 0; border-radius:10px}
+.fx-d.now{background:var(--accent-soft)}
+.fx-dot{width:6px; height:6px; border-radius:50%}
+.fx-dot.on{background:var(--accent-warm, var(--warn))}
+.fx-track{position:relative; width:10px; height:46px; border-radius:999px; background:color-mix(in srgb, var(--line) 70%, transparent); overflow:hidden}
+.fx-track i{position:absolute; left:0; right:0; bottom:0; border-radius:999px; background:color-mix(in srgb, var(--accent) 45%, transparent)}
+.fx-d.now .fx-track i{background:var(--accent)}
+.fx-d em{font-style:normal; font-size:10.5px; font-weight:500; color:var(--fg-2); line-height:1}
+.fx-d b{font-size:12px; font-weight:600; color:var(--fg); line-height:1}
+.fx-d.now b{color:var(--accent-text, var(--accent)); font-weight:700}
+
+/* ============ ФИНАНСЫ В ПРИЛОЖЕНИИ — как на айфоне ============ */
+.in-app .fintabs{gap:6px; border:0; padding:2px 16px 4px; margin:0 -16px 12px}
+.in-app .fintab{padding:9px 14px; border-radius:12px; font-size:15px; font-weight:600; color:var(--fg-2);
+  background:color-mix(in srgb, var(--card) 60%, transparent); border:0; box-shadow:none}
+.in-app .fintab.on{background:var(--card); color:var(--fg); box-shadow:var(--shadow)}
+.in-app .fintab::after{display:none}
+
+.fa-card{display:block; width:100%; text-align:left; background:var(--card); border:1px solid var(--line);
+  border-radius:22px; padding:16px; box-shadow:var(--shadow); margin-bottom:12px; color:var(--fg)}
+.fa-h3{font-size:15px; font-weight:600; margin:0}
+.fa-hint{font-size:12.5px; color:var(--fg-2); margin:6px 0 0; line-height:1.4}
+.fa-center{text-align:center; padding:8px 0 2px}
+.fa-act{display:flex; align-items:center; justify-content:center; gap:6px; height:44px; padding:0 16px; margin-top:12px;
+  border-radius:12px; font-size:14px; font-weight:600; background:var(--accent-soft); color:var(--accent-text, var(--accent))}
+.fa-act.primary{background:var(--grad, var(--accent)); color:var(--on-accent, #fff)}
+
+.fa-hero{position:relative; display:block; width:100%; text-align:left; border-radius:24px; padding:18px; margin-bottom:12px;
+  color:#fff; background:var(--grad, var(--accent)); box-shadow:0 10px 26px -12px var(--accent)}
+.fa-hero.neg{background:linear-gradient(135deg, var(--warn), color-mix(in srgb, var(--warn) 72%, #000))}
+.fa-hero-ic{position:absolute; top:18px; right:18px; opacity:.38}
+.fa-hero-ic .nav-ic{width:24px; height:24px; stroke-width:2}
+.fa-hero-l{display:block; font-size:13px; font-weight:600; opacity:.85}
+.fa-hero-v{display:block; font-size:38px; font-weight:700; letter-spacing:-.02em; line-height:1.1; margin-top:2px;
+  font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-pills{display:flex; gap:8px; margin-top:16px}
+.fa-pill{flex:1; min-width:0; padding:9px 10px; border-radius:14px; background:rgba(255,255,255,.17)}
+.fa-pill-l{display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; opacity:.88; white-space:nowrap; overflow:hidden}
+.fa-pill-l .nav-ic{width:10px; height:10px; stroke-width:3; flex:none}
+.fa-pill b{display:block; font-size:14px; font-weight:700; margin-top:3px; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+.fa-ib{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; flex:none;
+  background:color-mix(in srgb, var(--c) 14%, transparent); color:var(--c)}
+.fa-ib.big{width:40px; height:40px}
+.fa-ib .nav-ic{width:14px; height:14px; stroke-width:2.6}
+.fa-ib.big .nav-ic{width:18px; height:18px; stroke-width:2.2}
+.fa-badge{display:grid; place-items:center; flex:none; border-radius:32%; font-weight:700;
+  background:color-mix(in srgb, var(--c) 16%, transparent); color:var(--c)}
+.fa-badge .nav-ic{width:45%; height:45%; stroke-width:2.8}
+
+.fa-switch{display:flex; align-items:center; justify-content:space-between}
+.fa-switch b{font-size:16px; font-weight:700}
+.fa-switch button{width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent-text, var(--accent))}
+.fa-switch button:disabled{opacity:.35}
+.fa-switch button svg{width:14px; height:14px}
+.fa-month{display:flex; flex-direction:column; gap:16px}
+.fa-tiles{display:flex; gap:10px}
+.fa-stat{flex:1; min-width:0; padding:12px; border-radius:16px; background:color-mix(in srgb, var(--c) 8%, transparent);
+  display:flex; flex-direction:column; gap:8px}
+.fa-stat em{font-style:normal; font-size:12px; font-weight:600; color:var(--fg-2); margin-bottom:-7px}
+.fa-stat b{font-size:19px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-net{display:flex; justify-content:space-between; align-items:baseline; padding:0 4px; margin-top:-4px}
+.fa-net span{font-size:13px; font-weight:600; color:var(--fg-2)}
+.fa-net b{font-size:15px; font-weight:700; font-variant-numeric:tabular-nums}
+.fa-net b.up, .fa-op-v.up, .fa-three b.up{color:var(--ok)}
+.fa-net b.down{color:var(--warn)}
+.fa-split{height:1px; background:var(--line); margin:-2px 0}
+.fa-ring{display:flex; align-items:center; gap:18px}
+.fa-donut{position:relative; width:128px; height:128px; flex:none}
+.fa-donut svg{width:100%; height:100%; display:block}
+.fa-donut-c{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 24px; text-align:center}
+.fa-donut-c span{font-size:10px; font-weight:600; color:var(--fg-2)}
+.fa-donut-c b{font-size:14px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums}
+.fa-legend{flex:1; min-width:0; display:flex; flex-direction:column; gap:8px}
+.fa-legend span{display:flex; align-items:center; gap:6px; font-size:12px}
+.fa-legend i{width:8px; height:8px; border-radius:50%; flex:none}
+.fa-legend em{flex:1; min-width:0; font-style:normal; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-legend b{font-weight:700; color:var(--fg-2); font-variant-numeric:tabular-nums}
+.fa-legend small{font-size:11px; color:var(--fg-2)}
+.fa-cats{display:flex; flex-direction:column; gap:4px}
+.fa-cat{display:flex; align-items:center; gap:12px; padding:6px 0}
+.fa-cat-b{flex:1; min-width:0; display:flex; flex-direction:column; gap:6px}
+.fa-cat-t{display:flex; align-items:baseline; gap:6px}
+.fa-cat-t b{font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-cat-t em{font-style:normal; font-size:12px; font-weight:600; color:var(--fg-2)}
+.fa-cat-t span{margin-left:auto; font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap}
+.fa-cat-b small{font-size:11px; font-weight:500; color:var(--fg-2); margin-top:-2px}
+.fa-cat-b small.bad{color:var(--danger)}
+.fa-bar{display:block; height:6px; border-radius:999px; background:color-mix(in srgb, var(--line) 80%, transparent); overflow:hidden}
+.fa-bar i{display:block; height:100%; border-radius:999px}
+
+.fa-jars{display:flex; flex-direction:column; gap:10px}
+.fa-row-h{display:flex; align-items:center; gap:10px}
+.fa-row-h b{font-size:16px; font-weight:700}
+.fa-row-h em{margin-left:auto; font-style:normal; font-size:15px; font-weight:700; color:var(--ok)}
+.fa-jar{display:flex; flex-direction:column; gap:5px}
+.fa-jar-t{display:flex; justify-content:space-between; font-size:13.5px; font-weight:600}
+.fa-jar-t em{font-style:normal; color:var(--fg-2); font-weight:700; font-size:12.5px}
+.fa-jars .fa-bar{height:8px}
+.fa-more-n{font-size:12px; color:var(--fg-2)}
+
+.fa-duty{display:flex; align-items:center; gap:12px}
+.fa-duty-b{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px}
+.fa-duty-b em{font-style:normal; font-size:13px; font-weight:600; color:var(--fg-2)}
+.fa-duty-b b{font-size:20px; font-weight:700}
+.fa-duty-b small{font-size:12px; color:var(--fg-2)}
+.fa-go{color:var(--fg-3); display:grid}
+.fa-go svg{width:14px; height:14px}
+
+.fa-ophead{display:flex; flex-direction:column; gap:14px}
+.fa-three{display:flex; align-items:center}
+.fa-three span{flex:1; min-width:0; text-align:center; display:flex; flex-direction:column; gap:3px}
+.fa-three span + span{border-left:1px solid var(--line)}
+.fa-three em{font-style:normal; font-size:11px; font-weight:600; color:var(--fg-2)}
+.fa-three b{font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px}
+.fa-when{margin:-2px 4px 12px; display:flex; align-items:center; gap:10px; font-size:13px; color:var(--fg-2)}
+.fa-day{margin-bottom:14px}
+.fa-day-h{display:flex; align-items:baseline; justify-content:space-between; padding:2px 6px 8px}
+.fa-day-h b{font-size:15px; font-weight:700}
+.fa-day-h span{font-size:13px; font-weight:600; color:var(--fg-2); font-variant-numeric:tabular-nums}
+.fa-ops{padding:0 14px; margin-bottom:0; overflow:hidden}
+.fa-op{border:0; border-radius:0; background:none; padding:0; margin:0}
+.fa-op + .fa-op{border-top:1px solid var(--line)}
+.fa-op > .swipe-face{display:flex; align-items:center; gap:12px; padding:10px 0; background:var(--card)}
+.fa-op-t{flex:1; min-width:0; text-align:left; display:flex; flex-direction:column; gap:2px}
+.fa-op-t b{font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--fg)}
+.fa-op-t em{font-style:normal; font-size:11px; color:var(--fg-2)}
+.fa-op-v{font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap}
+.fa-empty{display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; padding:28px 24px; color:var(--fg)}
+.fa-empty .nav-ic{width:30px; height:30px; color:var(--accent-text, var(--accent)); opacity:.8}
+.fa-empty b{font-size:16px; font-weight:600}
+.fa-empty p{font-size:13px; color:var(--fg-2); margin:0}
+.in-app .fintabs{background:none; border-radius:0}
+.in-app .fa-op.finrow{display:block; border-top:0}
+.in-app .fa-op.finrow + .fa-op.finrow{border-top:1px solid var(--line)}
+.in-app .fa-op.finrow.swipe > .swipe-face{padding:10px 0; gap:12px; background:var(--card)}
+.fa-switch button .nav-ic{width:14px; height:14px; stroke-width:2.6}
+.fa-switch button.prev .nav-ic{transform:scaleX(-1)}
+.fa-go .nav-ic{width:14px; height:14px; stroke-width:2.4}
+.fa-pills{gap:6px}
+.fa-pill{padding:8px 8px}
+.fa-pill-l{font-size:10.5px; letter-spacing:-.01em}
+
+/* ---- Конверты, Долги, Копилки, Подписки в приложении — как на айфоне ---- */
+.fa-mini{padding:10px 12px}
+.fa-subt{margin:0 4px 10px; font-size:15px; font-weight:600; color:var(--fg-2)}
+.fa-add{width:100%; margin:0 0 12px; height:46px; font-size:14.5px}
+.fa-add .nav-ic{width:16px; height:16px; stroke-width:2.6}
+.fa-free{text-align:center; margin:-6px 0 12px; font-size:11.5px; color:var(--fg-2)}
+.fa-lbl{margin:6px 6px 8px; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--fg-2)}
+
+.fa-swipe{position:relative; margin-bottom:12px; border-radius:20px; overflow:hidden}
+.fa-swipe > .swipe-face.fa-card{margin:0; display:flex; flex-direction:column; gap:8px}
+.in-app .fa-swipe > .side{padding:0 0 0 6px; gap:6px}
+.in-app .fa-swipe > .side button{width:86px; border-radius:18px}
+
+.fa-btn{flex:1; min-width:0; height:44px; display:flex; align-items:center; justify-content:center; gap:6px; padding:0 12px;
+  border-radius:12px; font-size:14px; font-weight:600; color:var(--c); background:color-mix(in srgb, var(--c) 14%, transparent)}
+.fa-btn span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-btn .nav-ic{width:14px; height:14px; stroke-width:2.6; flex:none}
+.fa-btn.primary{background:var(--c); color:#fff}
+.fa-btn:active, .fa-act:active{transform:scale(.97); opacity:.85}
+.fa-btns{display:flex; gap:10px; margin-top:4px}
+.fa-k{font-style:normal; font-size:11.5px; color:var(--fg-2)}
+.fa-k.late, .fa-k.warn{color:var(--warn); font-weight:600}
+.fa-k.bad{color:var(--danger)}
+.fa-k.ok{color:var(--ok)}
+
+.fa-metrics{display:flex; gap:10px; margin-bottom:12px}
+.fa-metric{flex:1; min-width:0; padding:12px; border-radius:16px; background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow)}
+.fa-metric em{display:block; font-style:normal; font-size:10.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--fg-2)}
+.fa-metric b{display:block; margin-top:4px; font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-metric b.good{color:var(--ok)}
+.fa-metric b.bad{color:var(--danger)}
+.fa-env-h{display:flex; align-items:center; gap:8px}
+.fa-env-h i{width:9px; height:9px; border-radius:50%; flex:none}
+.fa-env-h b{font-size:15px; font-weight:600; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-env-h span{font-size:13px; font-weight:500; color:var(--fg-2); white-space:nowrap}
+.fa-env-f{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.fa-env-f span{font-size:12px; font-weight:500; color:var(--fg-2)}
+.fa-env-f span.bad{color:var(--danger); font-weight:600}
+.fa-env-f .fa-btn{flex:none; height:34px; padding:0 12px; font-size:13px}
+
+.fa-debt-h{display:flex; align-items:baseline; gap:10px}
+.fa-debt-h b{flex:1; min-width:0; font-size:17px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-debt-h span{font-size:17px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums}
+.fa-debt-h span.mine{color:var(--warn)}
+.fa-debt-h span.owed{color:var(--ok)}
+.fa-debt .fa-k:first-of-type{margin-top:-6px}
+.fa-closed{padding:4px 14px}
+.fa-cl{display:flex; align-items:center; gap:10px; padding:8px 0; color:var(--fg-2)}
+.fa-cl + .fa-cl{border-top:1px solid var(--line)}
+.fa-cl span{flex:1; min-width:0; font-size:14px; text-decoration:line-through; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-cl em{font-style:normal; font-size:13px}
+.fa-cl button{width:32px; height:32px; border-radius:50%; display:grid; place-items:center; background:var(--soft); color:var(--fg-2)}
+.fa-cl button svg, .fa-cl button .nav-ic{width:15px; height:15px}
+
+.fa-intro{position:relative; display:flex; gap:12px; padding:16px; border-radius:20px;
+  background:color-mix(in srgb, var(--ok) 12%, transparent); border:1.5px solid color-mix(in srgb, var(--ok) 45%, transparent)}
+.fa-intro-b{flex:1; display:flex; gap:12px; text-align:left; color:var(--fg)}
+.fa-intro-ic{color:var(--ok); flex:none}
+.fa-intro-ic .nav-ic{width:28px; height:28px; stroke-width:1.9}
+.fa-intro-b b{display:block; font-size:17px; font-weight:700}
+.fa-intro-b em{display:block; font-style:normal; font-size:13px; color:var(--fg-2); margin-top:4px; line-height:1.35}
+.fa-intro-x{width:28px; height:28px; border-radius:50%; flex:none; background:var(--card); color:var(--fg-2); font-size:12px; font-weight:700}
+
+.fa-jarc > .swipe-face.fa-card{border:1.5px solid color-mix(in srgb, var(--ok) 35%, transparent)}
+.fa-jar-h{display:flex; align-items:flex-start; gap:12px}
+.fa-jar-ic{color:var(--ok); flex:none; margin-top:1px}
+.fa-jar-ic .nav-ic{width:30px; height:30px; stroke-width:1.9}
+.fa-jar-n{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+.fa-jar-n b{font-size:18px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-jar-n em, .fa-jar-v em{font-style:normal; font-size:13px; font-weight:500; color:var(--fg-2)}
+.fa-jar-v{text-align:right; display:flex; flex-direction:column; gap:2px}
+.fa-jar-v b{font-size:22px; font-weight:700; color:var(--ok); white-space:nowrap}
+.fa-jar-v em{font-weight:700}
+.fa-bar.fat{height:10px}
+
+.fa-seg{display:flex; padding:3px; margin-bottom:12px; border-radius:12px; background:color-mix(in srgb, var(--card) 60%, transparent)}
+.fa-seg button{flex:1; height:34px; border-radius:9px; font-size:14px; font-weight:600; color:var(--fg-2)}
+.fa-seg button.on{background:var(--card); color:var(--fg); box-shadow:var(--shadow)}
+.fa-subs{padding:0 14px}
+.fa-sub{position:relative; overflow:hidden}
+.fa-sub + .fa-sub{border-top:1px solid var(--line)}
+.fa-sub > .swipe-face{display:flex; align-items:center; gap:10px; padding:9px 0; background:var(--card)}
+.fa-paid{width:24px; height:24px; border-radius:50%; flex:none; border:1.8px solid var(--fg-3); display:grid; place-items:center; color:#fff}
+.fa-paid.on{background:var(--ok); border-color:var(--ok)}
+.fa-paid .nav-ic{width:14px; height:14px; stroke-width:3}
+.fa-logo{flex:none; display:grid}
+.fa-logo .tplmark{width:34px; height:34px; border-radius:50%}
+.fa-sub.off .fa-logo{opacity:.45}
+.fa-sub-t{flex:1; min-width:0; text-align:left; display:flex; flex-direction:column; gap:2px}
+.fa-sub-t b{font-size:15px; font-weight:600; color:var(--fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fa-sub.off .fa-sub-t b{color:var(--fg-2); text-decoration:line-through}
+.fa-sub-t em{font-style:normal; font-size:12px; color:var(--fg-2)}
+.fa-sub-t small{font-size:12px; font-weight:600}
+.fa-sub-t small.ok{color:var(--ok)}
+.fa-sub-t small.warn{color:var(--warn)}
+.fa-sub-t small.acc{color:var(--accent-text, var(--accent))}
+.fa-onoff{flex:none; height:32px; padding:0 12px; border-radius:999px; font-size:12px; font-weight:600;
+  color:var(--fg-2); background:color-mix(in srgb, var(--fg-2) 14%, transparent)}
+.fa-onoff.off{color:var(--ok); background:color-mix(in srgb, var(--ok) 14%, transparent)}
+/* Две кнопки под свайпом копилки (снять, удалить) делят те же 92 px. */
+.in-app .fa-jarc > .side button{width:40px; border-radius:14px}
+.in-app .fa-jarc > .side:has(button + button) button{width:40px}
+.in-app .fa-jarc > .side button:only-child{width:86px; border-radius:18px}
+.in-app .fa-jarc > .side button:not(.kill){background:var(--soft-2); color:var(--fg)}
+/* Логотип подписки — круг 34 px с картинкой 20 px по центру. */
+.fa-logo{position:relative; width:34px; height:34px; border-radius:50%; overflow:hidden; display:grid; place-items:center;
+  background:var(--soft); border:1px solid var(--line)}
+.fa-logo .tpllogo{position:relative; width:34px; height:34px; display:grid; place-items:center}
+.fa-logo .tplmark{width:34px; height:34px; border-radius:50%; font-size:12px}
+.fa-logo .tpllogo img{position:absolute; left:7px; top:7px; width:20px; height:20px; border-radius:5px}
+.fa-seg{background:var(--soft); border:1px solid var(--line)}
+.fa-seg button.on{background:var(--card); border:1px solid var(--line)}
+/* Крестик баннера «Начни копить» — в правом верхнем углу, значок ровно по
+   центру кружка. Был обычным символом в flex-ряду: кружок сжимался рядом с
+   текстом, а «✕» прилипал к его левому краю. */
+.fa-intro{padding-right:52px}
+.fa-intro-x{position:absolute; top:12px; right:12px; display:grid; place-items:center; padding:0; flex:none;
+  width:28px; height:28px; border-radius:50%; background:var(--card); color:var(--fg-2)}
+.fa-intro-x .nav-ic{width:13px; height:13px; stroke-width:2.6}
+/* Переключатель «Подписки / Платежи» — подписи по центру своих половин. */
+.fa-seg button{display:flex; align-items:center; justify-content:center; text-align:center; padding:0 8px}
+
+/* Плашка «Вышла новая версия» — над нижней панелью, как системная
+   подсказка: не перекрывает экран и закрывается крестиком. */
+.storeupd{position:fixed; left:12px; right:12px; bottom:calc(var(--dock, 0px) + 150px); z-index:60;
+  display:flex; align-items:center; gap:10px; padding:10px 10px 10px 16px; border-radius:18px;
+  background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow-lift); color:var(--fg);
+  animation:su-in .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes su-in{from{transform:translateY(12px); opacity:0}}
+.su-t{flex:1; min-width:0; font-size:14px; font-weight:600}
+.su-go{height:34px; padding:0 14px; border-radius:999px; font-size:13.5px; font-weight:600;
+  background:var(--grad, var(--accent)); color:var(--on-accent, #fff)}
+.su-x{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; color:var(--fg-2); background:var(--soft)}
+.su-x .nav-ic{width:13px; height:13px; stroke-width:2.6}
+
+/* Строка задачи ровная: время и повтор справа начинаются на уровне
+   названия, а «не выполнено» стоит под названием рядом с подпунктами. */
+.in-app .item .chips{align-self:flex-start; margin-top:2px}
+.in-app .item .tsub{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.in-app .item .tsub .mi.late{color:var(--danger); font-weight:600; font-size:11px; padding:0 5px;
+  border:1px solid var(--danger); border-radius:6.5px; line-height:16px}

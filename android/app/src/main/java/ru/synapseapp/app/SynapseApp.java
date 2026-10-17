@@ -4,6 +4,8 @@ import android.app.Application;
 
 import androidx.appcompat.app.AppCompatDelegate;
 
+import com.my.tracker.MyTracker;
+
 /**
  * Тему выбирает сама веб-версия, а не система.
  *
@@ -18,5 +20,21 @@ public class SynapseApp extends Application {
     public void onCreate() {
         super.onCreate();
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        запуститьАналитику();
+    }
+
+    /* MyTracker — откуда пришли и вернулись ли.
+
+       Без ключа (отладка, сборка на чужом компьютере) не запускаем вовсе.
+       Геолокацию не собираем: для вопроса «окупилась ли реклама» город
+       человека не нужен, а разрешение на место у нас и не спрашивается. */
+    private void запуститьАналитику() {
+        if (BuildConfig.MYTRACKER_KEY.isEmpty()) return;
+        try {
+            MyTracker.getTrackerConfig()
+                    .setTrackingLocationEnabled(false)
+                    .setTrackingPreinstallEnabled(false);
+            MyTracker.initTracker(BuildConfig.MYTRACKER_KEY, this);
+        } catch (Throwable ignored) { }
     }
 }

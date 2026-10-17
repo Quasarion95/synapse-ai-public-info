@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- То же, что backup_rules.xml, для Android 12+: хранилище WebView лежит в
+     корне данных приложения (domain="root"), а не в files/. -->
 <data-extraction-rules>
     <cloud-backup>
-        <include domain="file" path="app_webview" />
+        <include domain="root" path="app_webview" />
     </cloud-backup>
     <device-transfer>
-        <include domain="file" path="app_webview" />
+        <include domain="root" path="app_webview" />
     </device-transfer>
 </data-extraction-rules>

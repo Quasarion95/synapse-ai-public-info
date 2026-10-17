@@ -27,6 +27,10 @@ public class ПоказатьНапоминание extends BroadcastReceiver {
     static final String КЛЮЧ_НОМЕР = "номер";
     /** Ежедневные — брифинг и отчёт: сами переставляют себя на завтра. */
     static final String КЛЮЧ_ЕЖЕДНЕВНО = "ежедневно";
+    /** Назначенный момент — от него, а не от «сейчас», считается завтрашний. */
+    static final String КЛЮЧ_КОГДА = "когда";
+    /** Текст для повторов: цифры из первого показа к завтрашнему дню устаревают. */
+    static final String КЛЮЧ_ПОТОМ = "потом";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -71,22 +75,54 @@ public class ПоказатьНапоминание extends BroadcastReceiver {
         AlarmManager будильник = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (будильник == null) return;
 
+        /* Завтра — от назначенного времени, а не от момента показа.
+
+           Без точных будильников система показывает уведомление в окне до
+           четверти часа. Раньше завтрашнее считалось как «сейчас + сутки», и
+           опоздание копилось: брифинг на 8:00 через неделю приходил к девяти. */
+        long сейчас = System.currentTimeMillis();
+        long было = прежний.getLongExtra(КЛЮЧ_КОГДА, сейчас);
+        long завтра = следующийРаз(было, сейчас);
+
         Intent снова = new Intent(context, ПоказатьНапоминание.class);
         снова.putExtras(прежний);
+        снова.putExtra(КЛЮЧ_КОГДА, завтра);
+        String потом = прежний.getStringExtra(КЛЮЧ_ПОТОМ);
+        if (потом != null && !потом.isEmpty()) снова.putExtra(КЛЮЧ_ТЕКСТ, потом);
+
         PendingIntent пи = PendingIntent.getBroadcast(context, номер, снова,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        long завтра = System.currentTimeMillis() + AlarmManager.INTERVAL_DAY;
         поставить(будильник, завтра, пи);
     }
 
     /**
-     * Точный будильник там, где он разрешён, иначе окно в четверть часа.
+     * Тот же час и минута в ближайший день после «сейчас».
+     *
+     * Прибавляем календарные сутки, а не 24 часа: при переходе на летнее время
+     * 24 часа сдвинули бы брифинг на час.
+     */
+    static long следующийРаз(long было, long сейчас) {
+        java.util.Calendar к = java.util.Calendar.getInstance();
+        к.setTimeInMillis(было);
+        do {
+            к.add(java.util.Calendar.DAY_OF_MONTH, 1);
+        } while (к.getTimeInMillis() <= сейчас);
+        return к.getTimeInMillis();
+    }
+
+    /**
+     * Точный будильник там, где он разрешён, иначе неточный, но будящий.
      *
      * С Android 12 точные будильники требуют отдельного разрешения, и просить
      * его ради напоминания о задаче — перебор: магазины к таким запросам
      * относятся плохо, а человеку неважно, придёт напоминание в 9:00 или в
      * 9:07. Но если разрешение уже есть, пользуемся им.
+     *
+     * Без разрешения раньше стоял setWindow — и в Doze (телефон лежит,
+     * экран погашен) он не срабатывал вовсе, до первого пробуждения: утреннее
+     * напоминание приходило к обеду. setAndAllowWhileIdle разрешения не
+     * требует и срабатывает и в Doze — система лишь может сдвинуть его на
+     * минуты, что для напоминания неважно.
      */
     static void поставить(AlarmManager будильник, long когда, PendingIntent пи) {
         boolean можноТочно = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
@@ -95,10 +131,11 @@ public class ПоказатьНапоминание extends BroadcastReceiver {
             if (можноТочно) {
                 будильник.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, когда, пи);
             } else {
-                будильник.setWindow(AlarmManager.RTC_WAKEUP, когда, 15 * 60 * 1000L, пи);
+                будильник.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, когда, пи);
             }
         } catch (SecurityException e){
-            будильник.setWindow(AlarmManager.RTC_WAKEUP, когда, 15 * 60 * 1000L, пи);
+            // Разрешение на точные отозвали между проверкой и вызовом.
+            будильник.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, когда, пи);
         }
     }
 

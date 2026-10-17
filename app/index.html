@@ -26,9 +26,12 @@
         '<link rel="stylesheet" href="web/pomodoro-timer.css">' +
         '<link rel="stylesheet" href="web/goal-map.css">' +
         '<link rel="stylesheet" href="web/layout.css">' +
-        '<link rel="stylesheet" href="web/subscription.css">' +
-        '<link rel="stylesheet" href="web/theme.css">');
+        '<link rel="stylesheet" href="web/subscription.css">');
     </script>
+    <!-- Цветовая система — общая для веба и андроида: темы в приложении
+         должны выглядеть так же, как на сайте. Поэтому эти два файла
+         грузятся всегда, без проверки на обёртку. -->
+    <link rel="stylesheet" href="web/theme.css">
 
     <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и
          так лежат в браузере, из сети приходила только оболочка. -->
@@ -114,9 +117,11 @@
     <script src="sync-bridge.js"></script>
     <!-- До app.js, а не после: первая отрисовка должна уже знать про дашборд,
          иначе на широком экране на миг мелькают вкладки. -->
+    <!-- Цветовая система — общая для веба и андроида, грузится всегда и
+         раньше остальных частей веб-версии: им нужны уже готовые цвета. -->
+    <script src="web/theme.js"></script>
     <script>
       if (!window.AndroidVoice) document.write(
-        '<script src="web/theme.js"><\/script>' +
         '<script src="web/subscription.js"><\/script>' +
         '<script src="web/i18n-web.js"><\/script>' +
         '<script src="web/desk.js"><\/script>' +
