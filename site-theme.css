@@ -187,8 +187,35 @@ body { background: var(--bg); }
 }
 .creed-kicker { color: color-mix(in srgb, var(--b2) 55%, #fff) !important; }
 
-/* ---- карточки ---- */
-.plan, .card, .feature, .diff-card { background: var(--surface); border-color: var(--stroke); }
+/* ---- карточки ----
+   В landing.css «Три вещи» и сетки «Что входит» / «Про данные» были текстом
+   прямо на бумаге — под тонкой чертой, без полей. Белый фон без полей,
+   поставленный сюда сначала, дал голые прямоугольники впритык к тексту.
+   Теперь это настоящие карточки, как в приложении: поля, скругление, мягкая
+   обводка и тень, сверху — короткая фирменная черта. */
+.plan { background: var(--surface); border-color: var(--stroke); }
+.card, .feature {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: 20px;
+  padding: 24px 22px 22px;
+  box-shadow: var(--shadow);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover, .feature:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--b1) 30%, var(--stroke));
+}
+.feature::before {
+  content: ''; display: block; width: 28px; height: 4px; border-radius: 4px;
+  background: var(--grad); margin-bottom: 16px;
+}
+.card-num { color: var(--b1); }
+.card:hover .card-num { color: var(--b2); }
+/* В «Про данные» фон секции чуть темнее — карточки на нём белее и чётче. */
+.band .feature { background: var(--surface); }
+@media (prefers-reduced-motion: reduce) { .card, .feature { transition: none; } .card:hover, .feature:hover { transform: none; } }
 .plan-soft { background: var(--surface); border: 1.5px solid color-mix(in srgb, var(--b1) 35%, var(--stroke)); }
 .plan-hero {
   background:
@@ -250,3 +277,7 @@ body { background: var(--bg); }
 .gallery-nav.next { right: -6px; }
 .gallery-nav:hover { border-color: var(--b1); color: var(--b1); }
 @media (hover: none), (max-width: 760px) { .gallery-nav { display: none; } }
+
+/* В одну колонку выравнивать подзаголовки по двум строкам незачем: под
+   однострочным заголовком оставалась пустая строка. */
+@media (max-width: 640px) { .grid .feature h3 { min-height: 0; } }
