@@ -28,7 +28,7 @@
   что выкладка не сработала. Обработчик — в app.js, registerServiceWorker.
 */
 
-var CACHE = 'synapse-shell-v98';
+var CACHE = 'synapse-shell-v99';
 
 var SHELL = [
   './',
@@ -52,6 +52,7 @@ var SHELL = [
   'web/goal-map.js',
   'web/goal-map.css',
   'web/layout.css',
+  'web/layout.js',
   'web/i18n-web.js',
   'web/theme.js',
   'web/theme.css',

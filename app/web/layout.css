@@ -92,6 +92,14 @@
   .top-acts .whoami{margin-left:auto; max-width:132px}
   .tabbar{padding-bottom:78px}
 
+  /* Полоса кнопок перенесена в меню (web/layout.js) — над чертой служебной
+     группы. Пружиной теперь служит она сама: всё, что ниже, прижато к низу,
+     а кнопки стоят прямо над чертой «Моей подписки». */
+  .acts-in-rail .tabbar{padding-bottom:18px}
+  .tabs-rest .top-acts{position:static; width:auto; margin:auto 0 0;
+    padding:10px 4px 10px; background:none; border:0}
+  .tabs-rest .top-acts + .tabs-sep{margin-top:0}
+
   /* ---- строка ввода и подсказка — по центру рабочей области ---- */
   .composer,
   .kbd .composer{
