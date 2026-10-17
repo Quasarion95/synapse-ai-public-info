@@ -3456,3 +3456,12 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 .fa-logo .tpllogo img{position:absolute; left:7px; top:7px; width:20px; height:20px; border-radius:5px}
 .fa-seg{background:var(--soft); border:1px solid var(--line)}
 .fa-seg button.on{background:var(--card); border:1px solid var(--line)}
+/* Крестик баннера «Начни копить» — в правом верхнем углу, значок ровно по
+   центру кружка. Был обычным символом в flex-ряду: кружок сжимался рядом с
+   текстом, а «✕» прилипал к его левому краю. */
+.fa-intro{padding-right:52px}
+.fa-intro-x{position:absolute; top:12px; right:12px; display:grid; place-items:center; padding:0; flex:none;
+  width:28px; height:28px; border-radius:50%; background:var(--card); color:var(--fg-2)}
+.fa-intro-x .nav-ic{width:13px; height:13px; stroke-width:2.6}
+/* Переключатель «Подписки / Платежи» — подписи по центру своих половин. */
+.fa-seg button{display:flex; align-items:center; justify-content:center; text-align:center; padding:0 8px}

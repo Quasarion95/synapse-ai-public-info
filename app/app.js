@@ -4435,7 +4435,7 @@ function vFinJarsApp(){
       '<button class="fa-intro-b" data-act="fin-jar-intro">' +
         '<span class="fa-intro-ic">' + ICON_FIN.jar + '</span>' +
         '<span><b>Начни копить</b><em>Заведи копилку под цель — Syn подскажет, сколько откладывать в месяц.</em></span></button>' +
-      '<button class="fa-intro-x" data-act="fin-jar-intro-x" aria-label="Закрыть">✕</button></div>';
+      '<button class="fa-intro-x" data-act="fin-jar-intro-x" aria-label="Закрыть">' + NAV_ICONS.close + '</button></div>';
   }
   return html + jars.map(function(jar){
     var saved = jar.saved || 0;
