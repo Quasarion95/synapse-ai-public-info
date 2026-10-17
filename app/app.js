@@ -6251,13 +6251,17 @@ function itemRow(t, внутриЦели){
     }
     if (t.repeat) meta.push(мета(повтор, repeatLabel(t.repeat, t)));
     if (t.deadline && (t.deadline.date || t.deadline.time)) meta.push(мета(флажок, deadlineText(t.deadline)));
-    if (isOverdue(t)) meta.push('<span class="mi late">не выполнено</span>');
     // Подпункты и описание — строкой под названием, как на айфоне: справа
     // им не место, там только время и даты.
     if (expandable){
       подстрока = '<span class="mi exp"><span class="car">' + NAV_ICONS.caret + '</span>' +
         (t.subtasks.length ? '<span>' + subDone + ' из ' + t.subtasks.length + '</span>' : '<span>описание</span>') + '</span>';
     }
+    /* «Не выполнено» — тоже под названием, а не третьим значком справа.
+       Справа столбик из времени, повтора и метки делал строку втрое выше
+       названия, и между задачами появлялись провалы. Под названием метка
+       занимает ту строку, где и так стоят подпункты. */
+    if (isOverdue(t)) подстрока += '<span class="mi late">не выполнено</span>';
   }
 
   /* Внутренность рисуется всегда, а не только у раскрытой карточки: чтобы

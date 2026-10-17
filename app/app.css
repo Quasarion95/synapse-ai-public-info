@@ -3478,3 +3478,10 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
   background:var(--grad, var(--accent)); color:var(--on-accent, #fff)}
 .su-x{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; color:var(--fg-2); background:var(--soft)}
 .su-x .nav-ic{width:13px; height:13px; stroke-width:2.6}
+
+/* Строка задачи ровная: время и повтор справа начинаются на уровне
+   названия, а «не выполнено» стоит под названием рядом с подпунктами. */
+.in-app .item .chips{align-self:flex-start; margin-top:2px}
+.in-app .item .tsub{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.in-app .item .tsub .mi.late{color:var(--danger); font-weight:600; font-size:11px; padding:0 5px;
+  border:1px solid var(--danger); border-radius:6.5px; line-height:16px}
