@@ -252,9 +252,10 @@
      нитками. Владелец: «сами блоки тоже сделай красивее, а линии, ведущие к
      дереву, анимируй, как будто по ним нейроны текут».
 
-     Блок теперь карточка: мягкая тень, цветная полоска слева по роли (цель —
-     цвет темы, этап — фиолетовый Syn, задача — зелёный), у цели и этапа —
-     полоска прогресса по «2 / 5», у закрытого — галочка в кружке.
+     Блок теперь карточка: мягкая тень, рамка в цвет роли (цель — цвет темы,
+     этап — фиолетовый Syn, задача — зелёный), у закрытого — галочка в кружке.
+     Полоски роли слева и прогресса снизу были и убраны по просьбе владельца:
+     «перемудрил, эти полоски не нужны».
 
      По каждой связи от листа к дереву бегут светящиеся импульсы: по
      сделанному — ярче и чаще, по несделанному — редкие и бледные. Сделанное
@@ -271,33 +272,21 @@
   function node(x, y, w, text, sub, fillColor, done, colors){
     var lines = wrapLabel(text, w, 2);
     var role = roleOf(w);
-    var m = /^(\d+) \/ (\d+)/.exec(sub || '');
-    var hasBar = role !== 'task' && !!m;
-    // Полоске прогресса — своё место под подписью, а не поверх неё.
-    var h = lines.length * MM.lineH + (sub ? 18 : 8) + 18 + (hasBar ? 8 : 0);
+    var h = lines.length * MM.lineH + (sub ? 18 : 8) + 18;
     var left = x - w / 2, top = y - h / 2;
     var first = top + 15 + MM.lineH / 2;
     var tint = role === 'goal' ? colors.accent : role === 'stage' ? (colors.synPurple || [124, 92, 214]) : (colors.focusGreen || fillColor);
-    var ratio = m && Number(m[2]) ? Number(m[1]) / Number(m[2]) : (done ? 1 : 0);
-    var textX = left + 16;
+    var textX = left + 12;
 
     var g = '<g class="mm-card mm-' + role + (done ? ' done' : '') + '">';
     g += '<rect class="mm-card-bg" x="' + left + '" y="' + top + '" width="' + w + '" height="' + h + '" rx="13" ' +
       'fill="' + (done ? css(mix(colors.panel, tint, 0.14)) : css(colors.panel)) + '" ' +
       'stroke="' + css(tint, done ? 0.75 : 0.28) + '"/>';
-    // Полоска роли слева — внутри скругления.
-    g += '<rect x="' + (left + 5) + '" y="' + (top + 9) + '" width="3.5" height="' + (h - 18) + '" rx="1.75" fill="' + css(tint, done ? 0.95 : 0.6) + '"/>';
     g += lines.map(function(line, i){
       return '<text class="mm-label' + (role === 'goal' ? ' strong' : '') + '" x="' + textX + '" y="' + (first + i * MM.lineH) + '">' + esc(line) + '</text>';
     }).join('');
     if (sub){
       g += '<text class="mm-label sec" x="' + textX + '" y="' + (first + lines.length * MM.lineH + 2) + '">' + esc(sub) + '</text>';
-    }
-    // Прогресс у цели и этапа — тонкая полоса по низу карточки.
-    if (hasBar){
-      var barW = w - 32;
-      g += '<rect x="' + textX + '" y="' + (top + h - 8) + '" width="' + barW + '" height="3" rx="1.5" fill="' + css(tint, 0.16) + '"/>' +
-        '<rect x="' + textX + '" y="' + (top + h - 8) + '" width="' + Math.max(0, barW * ratio).toFixed(1) + '" height="3" rx="1.5" fill="' + css(tint, 0.9) + '"/>';
     }
     if (done){
       var bx = left + w - 13, by = top + 13;
