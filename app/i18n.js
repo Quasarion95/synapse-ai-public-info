@@ -646,6 +646,9 @@
     // — ассистент Syn —
     'Что сделать': 'What to do',
     'Слушаю. Замолчите — и Syn выполнит сказанное.': 'Listening. Stop speaking and Syn will do what you asked.',
+    'Слушаю. Нажмите микрофон ещё раз — и Syn выполнит сказанное.': 'Listening. Tap the microphone again and Syn will do what you said.',
+    'Отправить сказанное': 'Send what I said',
+    'Записать сказанное': 'Save what I said',
     'Ничего не изменилось.': 'Nothing changed.',
     'Syn ответил словами, но не прислал ни одного действия.': 'Syn replied in words but did not send a single action.',
     'Создать задачу из фразы': 'Create a task from the phrase',

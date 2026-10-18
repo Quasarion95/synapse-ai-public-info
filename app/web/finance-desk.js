@@ -321,8 +321,8 @@
           'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
         (voiceSupported()
           ? '<button class="ai' + (finVoice.on ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
-              'aria-label="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '" ' +
-              'title="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '">' + MIC + '</button>'
+              'aria-label="' + (finVoice.on ? 'Записать сказанное' : 'Сказать трату голосом') + '" ' +
+              'title="' + (finVoice.on ? 'Записать сказанное' : 'Сказать трату голосом') + '">' + MIC + '</button>'
           : '') +
         '<button class="send" type="submit" aria-label="Записать">' + NAV_ICONS.send + '</button>' +
       '</form>' +

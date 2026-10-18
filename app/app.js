@@ -1799,6 +1799,8 @@ var VIEWS = {
 };
 
 function go(view){
+  // Ушли со строки трат посреди записи — микрофон не должен слушать дальше.
+  if (dict && dict.owner === 'fin' && view !== 'finance') dictCancel();
   // Прослушивание среды не должно продолжаться на другом экране: человек
   // ушёл из медитации, а из вкладки всё ещё шумит дождь.
   if (view !== 'meditation' && med.preview){
@@ -3527,76 +3529,28 @@ function vFinComposer(){
         'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
       (voiceSupported()
         ? '<button class="ai' + (finVoice.on ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
-          'aria-label="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '" ' +
-          'title="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '">' + ICON.mic + '</button>'
+          'aria-label="' + (finVoice.on ? 'Записать сказанное' : 'Сказать трату голосом') + '" ' +
+          'title="' + (finVoice.on ? 'Записать сказанное' : 'Сказать трату голосом') + '">' + ICON.mic + '</button>'
         : '') +
       '<button class="send" type="submit" aria-label="Записать">' + NAV_ICONS.send + '</button>' +
     '</form>' +
   '</div>';
 }
 
-/* Голос для трат — отдельный от голоса ассистента.
-
-   У ассистента слушание кончается отправкой запроса на сервер и ответом на
-   экране Syn. Здесь всё локально: что услышали, то и разобрали, и трата уже в
-   списке. Поэтому и состояние своё: два слушания на одном объекте глушили бы
-   друг друга. */
-var finVoice = { on: false, rec: null, final: '', held: 0 };
-
+/* Голос для трат — тот же движок диктовки, что у Syn (см. dictStart):
+   нажал — пишет в строку, нажал ещё раз — трата записана. */
 function finVoiceStart(){
-  if (finVoice.on || !voiceSupported()) return;
-
-  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) return;
-  var rec = new Recognition();
-  rec.lang = 'ru-RU';
-  rec.continuous = false;
-  rec.interimResults = true;
-  rec.maxAlternatives = 1;
-
-  finVoice.rec = rec;
-  finVoice.on = true;
-  finVoice.final = '';
-
-  rec.onresult = function(event){
-    var interim = '';
-    for (var i = event.resultIndex; i < event.results.length; i++){
-      var chunk = event.results[i][0].transcript;
-      if (event.results[i].isFinal) finVoice.final += chunk;
-      else interim += chunk;
-    }
-    // Пишем прямо в поле, без перерисовки: перерисовка оборвала бы слушание.
+  dictStart('fin', 'finfield', function(text){
     var field = $('finfield');
-    if (field) field.value = (finVoice.final + interim).trim();
-  };
-
-  rec.onerror = function(event){
-    finVoice.on = false; finVoice.rec = null;
-    toast(event && event.error === 'not-allowed'
-      ? 'Браузер не дал доступ к микрофону.'
-      : 'Распознавание не сработало.');
-    render();
-  };
-
-  rec.onend = function(){
-    finVoice.on = false; finVoice.rec = null;
-    var said = finVoice.final.trim();
-    finVoice.final = '';
-    var field = $('finfield');
-    if (field && said) field.value = said;
-    // Услышали — сразу записываем: голосом говорят, чтобы не нажимать.
-    if (said) ACTS['fin-add']({});
+    if (field && text) field.value = text;
+    if (text) ACTS['fin-add']({});
     else render();
-  };
-
-  try { rec.start(); } catch (error){ finVoice.on = false; finVoice.rec = null; }
+  });
   render();
 }
 
 function finVoiceStop(){
-  if (!finVoice.on || !finVoice.rec) return;
-  var rec = finVoice.rec;
-  try { rec.stop(); } catch (error){ finVoice.on = false; finVoice.rec = null; render(); }
+  if (dict && dict.owner === 'fin') dictFinish();
 }
 
 function vFinOps(){
@@ -8606,14 +8560,14 @@ function modalSyn(draft, error){
         'placeholder="Перенеси урок на субботу">' + esc(draft || '') + '</textarea>' +
       (voiceSupported()
         ? '<button class="syn-mic' + (voice.on ? ' on' : '') + '" type="button" data-act="syn-voice" ' +
-          'aria-label="' + (voice.on ? 'Остановить диктовку' : 'Продиктовать') + '" ' +
-          'title="' + (voice.on ? 'Остановить диктовку' : 'Продиктовать') + '">' + ICON.mic + '</button>'
+          'aria-label="' + (voice.on ? 'Отправить сказанное' : 'Продиктовать') + '" ' +
+          'title="' + (voice.on ? 'Отправить сказанное' : 'Продиктовать') + '">' + ICON.mic + '</button>'
         : '') +
       '<button class="syn-go" type="submit" aria-label="Отправить"' + (SYN.busy ? ' disabled' : '') + '>' +
         (SYN.busy ? '…' : '↑') + '</button>' +
     '</form>' +
     (voice.on
-      ? '<p class="hint syn-voice-hint">Слушаю. Замолчите — и Syn выполнит сказанное.</p>'
+      ? '<p class="hint syn-voice-hint">Слушаю. Нажмите микрофон ещё раз — и Syn выполнит сказанное.</p>'
       : synQuotaHTML()) +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Закрыть</button></div>' +
   '</div>';
@@ -8866,62 +8820,28 @@ function synErrorText(error){
 
 /* ---- диктовка ---- */
 
-/* Распознавание речи браузером: SpeechRecognition, у Safari и Chrome под
-   вебкитовским именем. Своего сервера для этого не нужно — тем более что
-   маршрут распознавания у нас рассчитан на приложение.
+/* Нажал — запись пошла. Нажал ещё раз — отправилось. И больше ничего.
 
-   Поведение выбрано под голосовую команду, а не под диктант: слушаем до
-   паузы, показываем текст по ходу, а как человек замолчал — сразу
-   отправляем. Голосом говорят «перенеси урок на субботу» и ждут, что это
-   случится, а не что придётся ещё нажать кнопку.
+   Раньше запись кончалась сама: две секунды тишины, и сказанное уходило
+   ассистенту. Владелец назвал это прямо: «когда я диктую запрос, он сразу
+   останавливает запись». Люди думают вслух, делают паузы посреди фразы,
+   вспоминают, что ещё сказать, — и любой порог тишины однажды срабатывает
+   посреди мысли. Угадывать, договорил ли человек, мы больше не пытаемся: он
+   сам скажет кнопкой.
 
-   Чего здесь намеренно нет: постоянного слушания. Микрофон, включённый до
-   закрытия вкладки, — не та цена, которую стоит платить за экономию одного
-   нажатия. */
-/* Сколько молчания считаем концом мысли, а не паузой внутри неё.
+   Так везде, где есть микрофон: у Syn и у строки трат, в браузере и в
+   приложении на андроиде. Движок один — состояние одно: две диктовки сразу
+   глушили бы друг друга.
 
-   Браузер решает это сам и решает торопливо: замолчал на полсекунды, подбирая
-   слово, — распознавание закончено, микрофон выключен, фраза ушла обрезанной.
-   Люди так не говорят. «Перенеси урок...» — пауза — «...на субботу» это одна
-   фраза, а не две, и вторую половину человек не успевал сказать.
+   Браузер всё равно норовит закончить слушание сам — Chrome обрывает его
+   через несколько секунд молчания даже при continuous. Пока человек не нажал
+   кнопку, мы поднимаем слушание заново, а уже услышанное держим у себя.
+   Системный движок андроида каждую фразу заканчивает сам по определению —
+   там после каждой фразы начинаем следующую и дописываем текст. */
 
-   Две секунды выбраны как обычная человеческая пауза при подборе слова.
-   Меньше — обрывает, заметно больше — начинает казаться, что не услышали. */
-var VOICE_SILENCE_MS = 2000;
-
-/* И ещё немного сверху — на «не то сказал».
-
-   Это не про распознавание, а про право передумать: после того как человек
-   договорил, у него остаётся мгновение нажать «стоп», прежде чем запрос уйдёт
-   ассистенту. */
-var VOICE_SEND_DELAY = 700;
-
-var voice = { on: false, rec: null, final: '', pending: null, silence: null, stopping: false };
-
-/// Сбросить отсчёт тишины — человек снова заговорил.
-function voiceSilenceReset(){
-  if (voice.silence) clearTimeout(voice.silence);
-  if (!voice.on) return;
-  voice.silence = setTimeout(function(){
-    voice.silence = null;
-    voice.stopping = true;
-    try { if (voice.rec) voice.rec.stop(); } catch (error){}
-  }, VOICE_SILENCE_MS);
-}
-
-function voiceSilenceClear(){
-  if (!voice.silence) return;
-  clearTimeout(voice.silence);
-  voice.silence = null;
-}
-
-/// Отменить отложенную отправку — например, когда человек снова взялся за
-/// микрофон или начал править текст руками.
-function voiceCancelPending(){
-  if (!voice.pending) return;
-  clearTimeout(voice.pending);
-  voice.pending = null;
-}
+var dict = null;   // { owner, field, onDone, base, heard, rec, native, sending, timer }
+var voice = { on: false };      // диктовка у Syn — для разметки окна
+var finVoice = { on: false };   // диктовка у строки трат
 
 /* Приложение на андроиде слушает через систему, а не через браузер.
 
@@ -8939,164 +8859,162 @@ function voiceSupported(){
   return !!(voiceNative() || window.SpeechRecognition || window.webkitSpeechRecognition);
 }
 
-/* Ответы системного распознавания приходят сюда.
+function dictMark(owner, on){
+  if (owner === 'syn') voice.on = on;
+  if (owner === 'fin') finVoice.on = on;
+}
 
-   Обработчик один на всё время жизни страницы, а не заводится на каждое
-   слушание: два обработчика на одно событие означали бы два отправленных
-   запроса на одну фразу. */
-window.addEventListener('android-voice', function(event){
-  var d = (event && event.detail) || {};
-  if (d.kind === 'start'){
-    voice.on = true;
-    synRender('', '');
-    return;
+/// Показать услышанное в поле. Поле правим напрямую, без перерисовки:
+/// перерисовка увела бы курсор и оборвала слушание.
+function dictShow(interim){
+  if (!dict) return;
+  var field = $(dict.field);
+  if (!field) return;
+  field.value = (dict.base + ' ' + dict.heard + ' ' + (interim || '')).replace(/\s+/g, ' ').trim();
+  if (field.tagName === 'TEXTAREA'){
+    growInput(field);
+    field.scrollTop = field.scrollHeight;
   }
-  if (d.kind === 'partial'){
-    if (voice.on) synRender(d.text || '', '');
-    return;
-  }
-  if (d.kind === 'error'){
-    voice.on = false;
-    synRender($('syn-input') ? $('syn-input').value : '', d.text || 'Распознавание не сработало.');
-    return;
-  }
-  if (d.kind === 'final'){
-    voice.on = false;
-    var said = (d.text || '').trim();
-    if (!said){ synRender($('syn-input') ? $('syn-input').value : '', ''); return; }
-    // Та же секунда на раздумье, что и у браузерного распознавания: человек
-    // должен успеть нажать «стоп», если сказанное вышло не так.
-    voiceCancelPending();
-    voice.pending = setTimeout(function(){ voice.pending = null; synSend(said); }, VOICE_SEND_DELAY);
-    synRender(said, '');
-  }
-});
+}
 
-function voiceStart(){
-  if (voice.on || !voiceSupported()) return;
-  voiceCancelPending();
-
-  var родной = voiceNative();
-  if (родной){
+/// Начать запись в поле. onDone(текст) зовётся только по второму нажатию.
+function dictStart(owner, fieldId, onDone){
+  if (dict) dictCancel();
+  if (!voiceSupported()) return;
+  var field = $(fieldId);
+  dict = { owner: owner, field: fieldId, onDone: onDone, base: field ? field.value.trim() : '',
+           heard: '', rec: null, native: !!voiceNative(), sending: false, timer: null };
+  dictMark(owner, true);
+  if (dict.native){
     // Разрешение на микрофон спросит сама оболочка, и после согласия слушание
     // начнётся без второго нажатия.
-    родной.start();
+    voiceNative().start();
     return;
   }
+  dictListen();
+}
 
+/// Одно слушание браузером. Кончилось само — поднимаем следующее.
+function dictListen(){
+  var d = dict;
   var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   var rec = new Recognition();
   rec.lang = 'ru-RU';
-  // continuous = true, потому что паузу теперь отмеряем мы сами. При false
-  // браузер заканчивал слушание на своей короткой паузе — микрофон выключался
-  // посреди фразы, и добавить вторую половину было уже некуда.
   rec.continuous = true;
   rec.interimResults = true;
   rec.maxAlternatives = 1;
-
-  voice.rec = rec;
-  voice.on = true;
-  voice.final = '';
-  voice.stopping = false;
-  voiceSilenceReset();
+  d.rec = rec;
 
   rec.onresult = function(event){
-    // Заговорил — отсчёт тишины начинается заново.
-    voiceSilenceReset();
+    if (dict !== d) return;
     var interim = '';
     for (var i = event.resultIndex; i < event.results.length; i++){
       var chunk = event.results[i][0].transcript;
-      if (event.results[i].isFinal) voice.final += chunk;
+      if (event.results[i].isFinal) d.heard = (d.heard + ' ' + chunk).trim();
       else interim += chunk;
     }
-    // Поле правим напрямую, без перерисовки окна: перерисовка увела бы
-    // курсор и оборвала бы распознавание на полуслове.
-    var field = $('syn-input');
-    if (!field) return;
-    field.value = (voice.final + interim).trim();
-    // Длинную фразу видно до конца: поле подрастает до своего предела, а
-    // дальше прокручивается к последнему слову. Иначе человек говорит, а на
-    // экране стоит начало фразы — и непонятно, слышат ли его до сих пор.
-    growInput(field);
-    field.scrollTop = field.scrollHeight;
+    dictShow(interim);
   };
 
   rec.onerror = function(event){
-    voiceSilenceClear();
-    voice.on = false;
-    voice.stopping = false;
-    voice.rec = null;
-    var reason = event && event.error === 'not-allowed'
+    if (dict !== d) return;
+    var code = event && event.error;
+    // Тишина и наш собственный перезапуск — не повод останавливаться: запись
+    // идёт, пока человек не нажал кнопку.
+    if (code === 'no-speech' || code === 'aborted') return;
+    dictFail(code === 'not-allowed' || code === 'service-not-allowed'
       ? 'Браузер не дал доступ к микрофону.'
-      : event && event.error === 'no-speech'
-        ? 'Ничего не услышал.'
-        : 'Распознавание не сработало.';
-    synRender($('syn-input') ? $('syn-input').value : '', reason);
+      : 'Распознавание не сработало.');
   };
 
   rec.onend = function(){
-    /* Браузер иногда заканчивает слушание сам, даже при continuous.
-
-       Если наша тишина ещё не истекла, значит человек просто держит паузу, —
-       и слушание надо поднять обратно, а не считать фразу законченной. Без
-       этого continuous не спасает: Chrome всё равно обрывает через несколько
-       секунд молчания, и мы возвращались бы к прежней болезни. */
-    if (!voice.stopping && voice.on){
-      try { rec.start(); return; } catch (error){ /* поднять не вышло — заканчиваем */ }
-    }
-    voiceSilenceClear();
-    voice.on = false;
-    voice.stopping = false;
-    voice.rec = null;
-    var said = voice.final.trim();
-    voice.final = '';
-
-    if (!said){
-      synRender($('syn-input') ? $('syn-input').value : '', '');
-      return;
-    }
-
-    /* Замолчал — исполняем, но не в ту же секунду. Браузер объявляет конец
-       речи по своей паузе, и она короче человеческой: люди останавливаются
-       посреди фразы, чтобы подобрать слово. Секунда сверху даёт эту паузу
-       пережить — и оставляет время нажать «стоп», если сказанное вышло не
-       так. */
-    voice.pending = setTimeout(function(){
-      voice.pending = null;
-      synSend(said);
-    }, VOICE_SEND_DELAY);
-    synRender(said, '');
+    if (dict !== d) return;
+    if (d.sending){ dictDeliver(); return; }
+    try { dictListen(); } catch (error){ dictFail('Распознавание не сработало.'); }
   };
 
-  try {
-    rec.start();
-  } catch (error){
-    voice.on = false;
-    voice.rec = null;
+  rec.start();
+}
+
+/// Второе нажатие: дослушать последнее слово и отдать текст.
+function dictFinish(){
+  var d = dict;
+  if (!d || d.sending) return;
+  d.sending = true;
+  // Если движок так и не сообщит о конце, через полторы секунды отдаём то,
+  // что уже в поле: нажатие не должно повисать.
+  d.timer = setTimeout(function(){ if (dict === d) dictDeliver(); }, 1500);
+  if (d.native){ try { voiceNative().stop(); } catch (error){ dictDeliver(); } return; }
+  try { d.rec.stop(); } catch (error){ dictDeliver(); }
+}
+
+function dictDeliver(){
+  var d = dict;
+  if (!d) return;
+  clearTimeout(d.timer);
+  dict = null;
+  dictMark(d.owner, false);
+  var field = $(d.field);
+  var text = field ? field.value.trim() : (d.base + ' ' + d.heard).trim();
+  d.onDone(text);
+}
+
+/// Остановить без отправки — ушли с экрана, закрыли окно, отправили руками.
+function dictCancel(){
+  var d = dict;
+  if (!d) return;
+  clearTimeout(d.timer);
+  dict = null;
+  dictMark(d.owner, false);
+  if (d.native){ try { voiceNative().stop(); } catch (error){} return; }
+  // abort, а не stop: stop досылает последний кусок и снова зовёт onend.
+  try { if (d.rec) d.rec.abort(); } catch (error){}
+}
+
+function dictFail(message){
+  var d = dict;
+  dictCancel();
+  if (!d) return;
+  if (d.owner === 'syn') synRender($('syn-input') ? $('syn-input').value : '', message);
+  else { toast(message); render(); }
+}
+
+/* Ответы системного распознавания андроида приходят сюда.
+
+   Обработчик один на всё время жизни страницы, а не заводится на каждое
+   слушание: два обработчика на одно событие означали бы двойной текст. */
+window.addEventListener('android-voice', function(event){
+  var e = (event && event.detail) || {};
+  var d = dict;
+  if (!d || !d.native) return;
+  if (e.kind === 'start') return;
+  if (e.kind === 'partial'){ dictShow(e.text || ''); return; }
+  if (e.kind === 'error'){
+    if (d.sending){ dictDeliver(); return; }
+    dictFail(e.text || 'Распознавание не сработало.');
+    return;
   }
+  if (e.kind === 'final'){
+    if (e.text) d.heard = (d.heard + ' ' + e.text).trim();
+    dictShow('');
+    if (d.sending){ dictDeliver(); return; }
+    // Система закончила фразу сама — человек ещё не нажал «отправить»,
+    // значит, слушаем дальше.
+    setTimeout(function(){ if (dict === d && !d.sending) voiceNative().start(); }, 120);
+  }
+});
+
+/* Обёртки для Syn — их зовут окно ассистента и отправка. */
+function voiceStart(){
+  dictStart('syn', 'syn-input', function(text){
+    if (text) synSend(text);
+    else synRender('', '');
+  });
   synRender($('syn-input') ? $('syn-input').value : '', '');
 }
 
 function voiceStop(){
-  voiceCancelPending();
-  // Нажали «стоп» — ждать тишину больше незачем.
-  voiceSilenceClear();
-  voice.stopping = false;
-
-  var родной = voiceNative();
-  if (родной && voice.on && !voice.rec){
-    voice.on = false;
-    родной.stop();
-    return;
-  }
-
-  if (!voice.on || !voice.rec) return;
-  voice.on = false;
-  var rec = voice.rec;
-  voice.rec = null;
-  // abort, а не stop: stop досылает последний кусок и снова зовёт onend,
-  // который отправил бы уже отправленное.
-  try { rec.abort(); } catch (error){}
+  if (dict && dict.owner === 'syn') dictCancel();
 }
 
 function synAsk(){
@@ -10854,6 +10772,8 @@ function closeModal(){
 /// Убрать окно с экрана, не трогая историю. Нужно отдельно: когда окно
 /// закрывает сама кнопка «назад», запись уже снята браузером.
 function hideModal(){
+  // Окно Syn закрыли посреди записи — микрофон гасим, ничего не отправляя.
+  if (dict && dict.owner === 'syn') dictCancel();
   $('modal').classList.remove('on');
   setPageInert(false);
   $('modalIn').innerHTML = '';
@@ -11462,8 +11382,9 @@ var ACTS = {
     speechSay(briefingSpeech(), function(){ render(); });
     render();
   },
+  // Второе нажатие — не «стоп», а «отправить сказанное».
   'syn-voice': function(){
-    if (voice.on) { voiceStop(); synRender($('syn-input') ? $('syn-input').value : '', ''); }
+    if (voice.on) dictFinish();
     else voiceStart();
   },
   /* Разобрать фразу своим парсером и завести задачу. Тот же путь, что у
@@ -12927,9 +12848,11 @@ document.addEventListener('change', function(event){
 
 document.addEventListener('input', function(event){
   var t = event.target;
-  // Взялись править сказанное руками — значит, отправлять пока рано.
-  if (t.id === 'syn-input'){
-    voiceCancelPending();
+  // Взялись править сказанное руками посреди записи — правка становится
+  // началом, и дальше услышанное дописывается после неё, а не поверх.
+  if (t.id === 'syn-input' || t.id === 'finfield'){
+    if (dict && dict.field === t.id){ dict.base = t.value.trim(); dict.heard = ''; }
+    if (t.id === 'finfield') return;
     growInput(t);
     return;
   }
