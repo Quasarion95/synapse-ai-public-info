@@ -31,6 +31,9 @@
         '<link rel="stylesheet" href="web/lists-notes.css">' +
         '<link rel="stylesheet" href="web/theme.css">');
     </script>
+    <!-- Оформление заметок — и в вебе, и в андроиде: тело заметки общее, и
+         без разбора знаков андроид показывал бы звёздочки как есть. -->
+    <link rel="stylesheet" href="web/notes-edit.css">
 
     <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и
          так лежат в браузере, из сети приходила только оболочка. -->
@@ -132,6 +135,8 @@
         '<script src="web/goal-map.js"><\/script>' +
         '<script src="web/layout.js"><\/script>');
     </script>
+    <!-- Заметки с оформлением — везде, см. ссылку на стили выше. -->
+    <script src="web/notes-edit.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

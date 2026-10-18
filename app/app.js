@@ -489,6 +489,17 @@ function починитьЗаписи(данные){
     return g;
   });
 
+  /* Задача этапа без своей цели. Enter в поле «Задача этапа» брал цель из
+     S.activeGoal, а на сетке целей раскрытая карточка его не ставит: задача
+     уходила с этапом, но без цели (или с чужой), под этапом её не было, а в
+     «Задачах» она висела без подписи цели. Этап один на всё рабочее
+     пространство, поэтому цель по нему восстанавливается однозначно. */
+  var целиЭтапов = {};
+  данные.goals.forEach(function(g){ g.stages.forEach(function(st){ целиЭтапов[st.id] = g.id; }); });
+  данные.tasks.forEach(function(t){
+    if (t.stageId && целиЭтапов[t.stageId] && t.goalId !== целиЭтапов[t.stageId]) t.goalId = целиЭтапов[t.stageId];
+  });
+
   данные.lists = (Array.isArray(данные.lists) ? данные.lists : []).filter(Boolean).map(function(l){
     if (!l.id) l.id = uid();
     l.title = String(l.title == null ? '' : l.title);
@@ -922,6 +933,14 @@ function findTask(id){
 }
 function findGoal(id){
   for (var i = 0; i < S.goals.length; i++) if (S.goals[i].id === id) return S.goals[i];
+  return null;
+}
+/// Цель, которой принадлежит этап. Номера этапов уникальны на всё рабочее
+/// пространство, поэтому этапа достаточно, чтобы найти цель.
+function goalOfStage(stageId){
+  for (var i = 0; i < S.goals.length; i++){
+    if (findStage(S.goals[i], stageId)) return S.goals[i];
+  }
   return null;
 }
 function findStage(goal, id){
@@ -12568,6 +12587,8 @@ var ACTS = {
     var value = input.value.trim();
     if (!value) return;
     var parsed = parseSchedule(value, 'today');
+    var owner = goalOfStage(d.stage);
+    if (owner) d = { goal: owner.id, stage: d.stage };
     // Та же самая задача, что на экране «Задачи» — один объект в S.tasks.
     S.tasks.push({
       id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
@@ -12953,8 +12974,11 @@ document.addEventListener('keydown', function(event){
   }
   if (t.getAttribute && t.getAttribute('data-goaltask')){
     event.preventDefault();
+    // Цель — по этапу, а не по S.activeGoal: раскрытая на сетке карточка его
+    // не ставит, и задача уходила без цели.
     var stage = t.getAttribute('data-goaltask');
-    ACTS['goal-task']({ goal: S.activeGoal, stage: stage });
+    var owner = goalOfStage(stage);
+    ACTS['goal-task']({ goal: owner ? owner.id : S.activeGoal, stage: stage });
     return;
   }
   // Enter в модалке нажимает её главную кнопку.
