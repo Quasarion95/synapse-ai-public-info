@@ -5163,7 +5163,8 @@ function itemRow(t, внутриЦели){
   if (t.date && (t.hasExplicitDate || t.bucket !== 'today')){
     meta.push('<span class="chip">' + esc(humanDateWithDay(t.date)) + '</span>');
   }
-  if (t.aiPending) meta.push('<span class="chip ai-pending">Syn уточняет…</span>');
+  if (t.aiPending) meta.push('<span class="chip ai-pending">' +
+    (t.aiPending === 'research' ? 'Syn ищет в интернете…' : 'Syn уточняет…') + '</span>');
   if (t.time) meta.push('<span class="chip">' + esc(t.time) + '</span>');
   if (t.repeat) meta.push('<span class="chip rep">' + ICON.repeat +
     esc(repeatLabel(t.repeat, t)) + '</span>');
@@ -5422,15 +5423,27 @@ function taskAiRefine(id, raw){
   var original = snapshot ? { title: snapshot.title, done: snapshot.done } : null;
   function settle(){
     var t = provisional();
-    if (t && t.aiPending){ delete t.aiPending; commit(); }
+    if (t && t.aiPending === true){ delete t.aiPending; commit(); }
   }
 
   synSession().then(function(token){
-    var workspace = synWorkspace();
+    /* Временную задачу Syn видеть не должен. Она уже лежит в списке, и Syn,
+       увидев задачу с той же фразой, спрашивал «создать новую или дописать в
+       существующую?» вместо того, чтобы создать, — уточнение молча не
+       срабатывало. Срез и контекст собираются без неё. */
+    var all = S.tasks;
+    S.tasks = all.filter(function(x){ return x.id !== id; });
+    var workspace, context;
+    try {
+      workspace = synWorkspace();
+      context = synContext();
+    } finally {
+      S.tasks = all;
+    }
     workspace.assistantIntent = 'create_task';
     return synFetch('/v1/synapse/reply', {
       workspace: workspace,
-      workspaceContext: synContext(),
+      workspaceContext: context,
       messages: [{ role: 'user', text: raw }]
     }, token);
   }).then(function(data){
@@ -5476,6 +5489,71 @@ function taskAiRefine(id, raw){
         toast('Запросы к Syn на сегодня закончились — задачи разбираются без ИИ.');
       }
     }
+  });
+}
+
+/* Факты для описания задачи — из интернета, а не из памяти модели.
+
+   «Съездить в поликлинику взять талон, в комментариях адрес и номер укажи
+   поликлиники Сургута 4-й»: Syn в режиме создания задачи писал адрес и
+   телефон из головы — и уверенно выдумывал. Договор create_task на сервере
+   прямо велит класть «правдоподобный пример». Для реальной организации это
+   вредно: человек поедет по выдуманному адресу.
+
+   Поэтому, если фраза просит адрес, телефон, часы работы, сайт или как
+   добраться, описание задачи заполняет research-маршрут сервера — тот же,
+   что у приложения для research_task_note: модель с поиском по интернету и
+   режимом под вид сведений (contacts, hours, route). Пока ищет, на задаче
+   «Syn ищет в интернете…»; не нашлось — остаётся то, что было. Это ещё один
+   запрос из дневной нормы Syn. */
+var TASK_RESEARCH_RE = /(адрес|телефон|контакт|часы\s+работы|режим\s+работы|график\s+работы|расписани[ея]\s+работы|сайт|как\s+добраться|как\s+доехать|где\s+находится|маршрут)/i;
+
+/// Что искать: 'contacts', 'hours', 'route' — или пусто, если фраза фактов не просит.
+// Сведения именно просят, а не упоминают: «купить телефон» и «обновить сайт» —
+// дела, искать по ним нечего.
+var TASK_RESEARCH_ASK = /(укаж|напиш|найд|добав|запиш|узна|подскаж|выясн|в\s+(?:комментари|коммент|описани|заметк))/i;
+
+function taskResearchAsk(text){
+  var t = String(text || '');
+  if (!TASK_RESEARCH_RE.test(t) || !TASK_RESEARCH_ASK.test(t)) return '';
+  if (/(часы|режим|график|расписани)/i.test(t) && !/(адрес|телефон|контакт)/i.test(t)) return 'hours';
+  if (/(как\s+добраться|как\s+доехать|маршрут)/i.test(t) && !/(телефон|контакт)/i.test(t)) return 'route';
+  return 'contacts';
+}
+
+function taskResearch(id, query, mode, append){
+  function task(){
+    for (var i = 0; i < S.tasks.length; i++) if (S.tasks[i].id === id) return S.tasks[i];
+    return null;
+  }
+  var t = task();
+  if (!t) return;
+  t.aiPending = 'research';
+  var guess = t.note;
+  synSession().then(function(token){
+    return synFetch('/v1/synapse/research', {
+      query: String(query || t.title).slice(0, 600),
+      taskTitle: t.title,
+      existingNote: append ? (t.note || '') : '',
+      mode: mode || 'contacts'
+    }, token);
+  }).then(function(data){
+    if (data && data.quota) SYN.quota = data.quota;
+    var x = task();
+    if (!x) return;
+    delete x.aiPending;
+    var found = String(data && data.note || '').trim();
+    // Описание правили руками, пока шёл поиск, — найденное дописываем, а не
+    // затираем им правку.
+    if (found){
+      if (append || (x.note && x.note !== guess)) x.note = x.note ? x.note + '\n\n' + found : found;
+      else x.note = found;
+    }
+    commit(found ? 'Syn нашёл сведения для «' + x.title + '»' : '');
+  }).catch(function(error){
+    if (error && error.data && error.data.quota) SYN.quota = error.data.quota;
+    var x = task();
+    if (x && x.aiPending){ delete x.aiPending; commit(); }
   });
 }
 
@@ -9783,6 +9861,11 @@ synAct('create_task create_task_for_goal', function(a, done, skipped){
 
   S.tasks.push(fresh);
   done.push('создана задача «' + fresh.title + '»');
+
+  // Просили адрес, телефон, часы работы — это ищется в интернете, а не
+  // берётся из памяти модели (см. taskResearch).
+  var ask = taskResearchAsk(a.sourcePrompt || '');
+  if (ask) taskResearch(fresh.id, a.sourcePrompt, ask);
 });
 
 /* update_task — то же самое, что move_task, только другим словом.
@@ -9952,6 +10035,13 @@ synAct('restore_task', function(a, done, skipped){
 synAct('update_task_note append_task_note research_task_note', function(a, done, skipped){
   var task = synFindTask(synTaskName(a));
   if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
+  /* «Найди и запиши в описание» — поиском, как в приложении. Раньше веб
+     записывал в описание сам поисковый запрос («что нужно найти»), а не
+     найденное. */
+  if (a.kind === 'research_task_note' && (a.value || a.query)){
+    taskResearch(task.id, String(a.value || a.query), a.mode || taskResearchAsk(String(a.value || a.query)) || 'info', true);
+    return done.push('ищу в интернете для «' + task.title + '»');
+  }
   var note = String(a.note || a.value || '');
   /* Пустое описание у update_task_note — это «сотри описание», законная
      просьба. Раньше отказывали всем трём видам одинаково, и «убери описание

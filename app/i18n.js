@@ -382,6 +382,7 @@
     '+ Шаг': '+ Step',
     'Добавить первый шаг': 'Add a first step',
     'Syn уточняет…': 'Syn is refining…',
+    'Syn ищет в интернете…': 'Syn is searching the web…',
     'Запросы к Syn на сегодня закончились — задачи разбираются без ИИ.': 'Your Syn requests for today are used up — tasks are parsed without AI.',
     'Syn: помочь с текстом': 'Syn: help with the text',
     'Syn поправит выделенное': 'Syn will edit the selection',
