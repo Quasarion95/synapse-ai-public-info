@@ -1,0 +1,98 @@
+/* ============ СПИСКИ И ЗАМЕТКИ — строка внизу и плотные карточки — только веб ============
+   Разметку дописывает web/lists-notes.js. */
+
+/* Под строкой ввода ничего не должно прятаться. */
+.ln-page { padding-bottom: 110px; }
+
+/* Создают теперь строкой внизу — кнопки «+ Новый список» / «+ Новая запись»
+   и такие же кнопки пустого состояния не нужны. */
+.ln-page [data-act="new-list"],
+.ln-page [data-act="new-note"] { display: none !important; }
+.ln-notes > .acts:first-child { display: none; }
+
+/* ---- строка ввода: заметнее под курсором ----
+   Во всех разделах — задачи, цели, финансы, списки, заметки. В покое строка
+   тихая, чтобы не спорить с карточками; под курсором проступает: светлее
+   подложка, фирменная обводка и мягкое свечение — видно, что сюда пишут. */
+.composer .say {
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.composer .say:hover {
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-lift);
+  transform: translateY(-1px);
+}
+.composer .say:hover input::placeholder { color: var(--fg-2); }
+@media (prefers-reduced-motion: reduce) { .composer .say:hover { transform: none; } }
+
+/* ============ ЗАМЕТКИ — сеткой ============
+   Были полосами на всю ширину: три заметки занимали экран, и на мониторе
+   строка в одну фразу тянулась на тысячу пикселей. Теперь — сетка небольших
+   карточек: заголовок и три строки текста, всё в одном поле. */
+.ln-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.ln-notes > .blank { grid-column: 1 / -1; }
+/* Минимальная высота — только без свайпа: под свайп-карточкой лежат кнопки
+   правки и удаления, и лишняя высота показывала их полосками снизу. */
+.ln-notes > .row-card { margin: 0; }
+.ln-notes > .row-card:not(.swipe) { padding: 14px 14px 13px; min-height: 118px; }
+.ln-notes .row-card h3 { font-size: 15px; line-height: 1.3; margin: 0 0 6px; }
+.ln-notes .row-card .sub {
+  margin: 0; font-size: 13px; line-height: 1.45; color: var(--fg-2);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* Кнопки правки и удаления — по наведению: в покое карточка — только текст. */
+@media (hover: hover) {
+  .ln-notes .row-card:not(.swipe) .side,
+  .ln-lists .listcol-h .side,
+  .ln-lists .listtile .side { opacity: 0; transition: opacity .15s ease; }
+  .ln-notes .row-card:not(.swipe):hover .side,
+  .ln-notes .row-card:not(.swipe):focus-within .side,
+  .ln-lists .listcol:hover .listcol-h .side,
+  .ln-lists .listcol:focus-within .listcol-h .side,
+  .ln-lists .listtile:hover .side,
+  .ln-lists .listtile:focus-within .side { opacity: 1; }
+}
+
+/* ============ СПИСКИ — плотнее ============
+   Доска: колонки уже, поля меньше, пункты ниже. Строка «Новый пункт» с
+   кнопкой «Добавить» занимала треть короткой карточки — теперь это тихое
+   поле с круглым «+». */
+.ln-lists .listboard { gap: 12px; }
+.ln-lists .listcol { flex: 1 1 230px; padding: 12px 12px 10px; }
+.ln-lists .listcol-h { margin-bottom: 4px; }
+.ln-lists .listcol-h h3 { font-size: 14.5px; }
+.ln-lists .lines { margin-top: 2px; }
+.ln-lists .line { padding: 6px 0; font-size: 14px; gap: 9px; }
+.ln-lists .line .box { width: 18px; height: 18px; font-size: 11px; }
+.ln-lists .rowadd { margin-top: 6px; gap: 6px; --inp-py: 6px; --inp-px: 10px; --inp-fs: 13.5px; }
+.ln-lists .rowadd .inp { background: transparent; border-color: transparent; }
+.ln-lists .rowadd .inp:hover { background: var(--soft); }
+.ln-lists .rowadd .inp:focus { background: var(--card); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.ln-lists .rowadd .btn:not(.soft):not(.danger):not(.ghost) {
+  font-size: 0; width: 30px; height: 30px; padding: 0; border-radius: 999px; flex: none;
+  background: var(--accent-soft); color: var(--accent-text, var(--accent)); box-shadow: none; border: 0;
+  /* Плюс рисуется двумя полосками, а не символом: «+» шрифта садится выше
+     центра круга, полоски — ровно посередине. */
+  background-image:
+    linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor);
+  background-size: 2px 12px, 12px 2px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.ln-lists .rowadd .btn:not(.soft):not(.danger):not(.ghost):hover {
+  filter: none; background-color: color-mix(in srgb, var(--accent) 22%, var(--card));
+}
+
+/* Плитки: ниже и плотнее. */
+.ln-lists .listgrid { gap: 12px; }
+.ln-lists .listtile { padding: 12px 14px; }
+.ln-lists .listtile h3 { font-size: 14.5px; }
+
+/* Переключатель вида — компактнее: кнопки «+ Новый список» рядом больше нет. */
+.ln-lists .listbar { margin-bottom: 14px; }

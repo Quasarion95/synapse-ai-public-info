@@ -5120,7 +5120,7 @@ function vComposer(){
    символе, попавшем в render(). */
 var composerFocused = false;
 function restoreComposer(){
-  var field = $('field') || $('gfield');
+  var field = $('field') || $('gfield') || $('lnfield');
   if (field && composerFocused){
     field.focus();
     field.setSelectionRange(field.value.length, field.value.length);
@@ -12898,10 +12898,10 @@ document.addEventListener('input', function(event){
 });
 
 document.addEventListener('focusin', function(event){
-  if (event.target.id === 'field' || event.target.id === 'gfield') composerFocused = true;
+  if (event.target.id === 'field' || event.target.id === 'gfield' || event.target.id === 'lnfield') composerFocused = true;
 });
 document.addEventListener('focusout', function(event){
-  if (event.target.id === 'field' || event.target.id === 'gfield') composerFocused = false;
+  if (event.target.id === 'field' || event.target.id === 'gfield' || event.target.id === 'lnfield') composerFocused = false;
 });
 
 document.addEventListener('keydown', function(event){
