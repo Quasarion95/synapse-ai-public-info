@@ -5528,6 +5528,10 @@ function taskResearch(id, query, mode, append){
   }
   var t = task();
   if (!t) return;
+  // Поиск для этой задачи уже идёт — второй не нужен. Так бывает, когда Syn
+  // сам вернул research_task_note рядом с create_task (новый договор
+  // сервера), а веб уже запустил поиск по фразе: иначе ушло бы два запроса.
+  if (t.aiPending === 'research') return;
   t.aiPending = 'research';
   var guess = t.note;
   synSession().then(function(token){
@@ -5548,6 +5552,10 @@ function taskResearch(id, query, mode, append){
     if (found){
       if (append || (x.note && x.note !== guess)) x.note = x.note ? x.note + '\n\n' + found : found;
       else x.note = found;
+      // Найденное показываем сразу: раскрываем карточку и её блок, иначе
+      // человек видел тост «нашёл», а самих сведений — нигде.
+      S.open[x.id] = true;
+      S.closed[x.bucket] = false;
     }
     commit(found ? 'Syn нашёл сведения для «' + x.title + '»' : '');
   }).catch(function(error){
