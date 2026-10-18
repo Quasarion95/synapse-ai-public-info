@@ -28,7 +28,7 @@
   что выкладка не сработала. Обработчик — в app.js, registerServiceWorker.
 */
 
-var CACHE = 'synapse-shell-v109';
+var CACHE = 'synapse-shell-v110';
 
 var SHELL = [
   './',
@@ -64,6 +64,8 @@ var SHELL = [
   'web/lists-notes.css',
   'web/notes-edit.js',
   'web/notes-edit.css',
+  'web/goal-tree.js',
+  'web/goal-tree.css',
   'web/syn-tidy.js',
   'web/mobile-app.js',
   'manifest.webmanifest',

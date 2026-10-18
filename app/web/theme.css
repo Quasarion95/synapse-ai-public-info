@@ -85,13 +85,15 @@ body{background:var(--bg)}
    атрибутов и перекрашивает их в новую систему. Какой выполненный узел —
    задача, какой — этап или цель, размечает theme.js (mm-task / mm-goal). */
 .mmwrap{background:var(--card)}
-.mmwrap svg rect:not(.mm-node){fill:var(--card)}
+/* Новые карточки и дерево (web/goal-tree.js) красятся сами — общие правила
+   карты их не трогают, иначе полоска роли, прогресс и галочка теряли цвет. */
+.mmwrap svg rect:not(.mm-node):not(.mm-card *):not(.gt *){fill:var(--card)}
 .mmwrap svg rect.mm-node{stroke:color-mix(in srgb, var(--fg-3) 45%, transparent)}
 .mmwrap svg rect.mm-node.mm-goal{fill:var(--accent-soft); stroke:var(--accent)}
 .mmwrap svg rect.mm-node.mm-task{fill:var(--ok-soft); stroke:var(--pos)}
 .mmwrap svg .mm-link{stroke:color-mix(in srgb, var(--fg-3) 50%, transparent)}
-.mmwrap svg circle{fill:var(--soft); stroke:var(--line)}
-.mmwrap svg g[fill]{fill:var(--accent)}
+.mmwrap svg circle:not(.mm-pulse):not(.mm-card *):not(.gt *){fill:var(--soft); stroke:var(--line)}
+.mmwrap svg g[fill]:not(.gt *){fill:var(--accent)}
 .mmlegend span:nth-child(1) i{background:var(--ok-soft) !important; border-color:var(--pos) !important}
 .mmlegend span:nth-child(2) i{background:var(--accent-soft) !important; border-color:var(--accent) !important}
 .mmlegend span:nth-child(3) i{background:var(--card) !important}

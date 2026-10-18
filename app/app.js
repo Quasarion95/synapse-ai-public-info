@@ -6597,8 +6597,10 @@ function vMindMap(){
 
   var overall = fillRatio(doneAll, totalAll);
 
+  // Живое дерево (web/goal-tree.js), если подключено: его поливают сделанные
+  // дела, без них оно сохнет. Без модуля — прежний ствол-шкала.
   // Ствол наливается снизу вверх: прямоугольник-маска по доле выполненного.
-  var core =
+  var core = window.SynTree ? SynTree.core(cx, cy, overall, colors) :
     '<circle cx="' + cx + '" cy="' + cy + '" r="' + MM.coreR + '" fill="' + rgb(colors.panelStrong) + '" ' +
       'stroke="' + rgba(colors.stroke, strokeOpacity(overall, 0.45, 0.92).toFixed(3)) + '"/>' +
     '<clipPath id="mm-core-clip"><rect x="' + (cx - MM.coreR) + '" y="' + (cy + MM.coreR - 2 * MM.coreR * overall) + '" ' +
