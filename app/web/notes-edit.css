@@ -90,3 +90,44 @@ html.ne-dragging, html.ne-dragging * { cursor: grabbing !important; user-select:
 /* ---- окно «поделиться» ---- */
 .ne-share { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 4px 0 12px; }
 .ne-share .btn { justify-content: center; text-decoration: none; }
+
+/* ---- Syn помогает с текстом ---- */
+.ne-ai svg { color: var(--accent-text, var(--accent)); }
+.ne-ai.on { background: var(--card); color: var(--fg); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.ne-ai-slot:empty { display: none; }
+.ne-ai-panel {
+  margin: -6px 0 14px; padding: 12px 12px 10px; border-radius: 13px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--card));
+}
+.ne-ai-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-bottom: 10px; }
+.ne-ai-head b { font-size: 13.5px; font-weight: 650; color: var(--fg); }
+.ne-ai-head span { font-size: 12px; color: var(--fg-2); }
+.ne-ai-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ne-ai-chip {
+  border: 1px solid var(--line); background: var(--card); color: var(--fg);
+  border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
+}
+.ne-ai-chip:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent-text, var(--accent)); }
+.ne-ai-chip:disabled { opacity: .5; cursor: default; }
+.ne-ai-own { display: flex; gap: 8px; margin-top: 10px; --inp-py: 8px; --inp-fs: 13.5px; }
+.ne-ai-own .inp { flex: 1; min-width: 0; }
+.ne-ai-own .btn { flex: none; }
+.ne-ai-busy { display: flex; align-items: center; gap: 9px; margin: 2px 0; font-size: 13.5px; color: var(--fg-2); }
+.ne-ai-spin {
+  width: 15px; height: 15px; border-radius: 50%; flex: none;
+  border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent);
+  animation: ne-ai-spin .8s linear infinite;
+}
+@keyframes ne-ai-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ne-ai-spin { animation-duration: 2.4s; } }
+.ne-ai-err { margin: 8px 0 0; font-size: 13px; color: var(--danger); }
+.ne-ai-done {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: -6px 0 14px; padding: 8px 8px 8px 12px; border-radius: 12px; background: var(--soft);
+  font-size: 13.5px; color: var(--fg-2);
+}
+.ne-ai-done span { display: inline-flex; align-items: center; gap: 7px; }
+.ne-ai-done svg { width: 16px; height: 16px; fill: none; stroke: var(--accent-text, var(--accent)); stroke-width: 1.7; stroke-linejoin: round; }
+.ne-touch .ne-ai-own { flex-wrap: wrap; }
+.ne-touch .ne-ai-own .btn { width: 100%; }

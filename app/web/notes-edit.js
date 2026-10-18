@@ -22,9 +22,13 @@
        на компьютере — окно с Телеграмом, WhatsApp, ВКонтакте и почтой.
 
    Как хранится. Тело заметки остаётся строкой — той же, что видят
-   приложения и Syn. Оформление записано знаками в духе Markdown:
-     **жирный**  _курсив_  ++подчёркнутый++  ~~зачёркнутый~~
-     «# » — заголовок, «- » — пункт, «1. » — нумерованный, «> » — цитата.
+   приложения и Syn. Оформление записано знаками в духе Markdown — теми же,
+   что пишет айфон (NotesWorkspaceView+Formatting.swift) и что сервер велит
+   модели в режиме note_rewrite:
+     **жирный**  *курсив*  ++подчёркнутый++  ~~зачёркнутый~~
+     «# » — заголовок, «• » — пункт, «1. » — нумерованный, «> » — цитата.
+   Читаются и прежние веб-знаки — _курсив_ и «- » в начале строки, — чтобы
+   заметки, написанные до выравнивания с айфоном, не потеряли оформления.
    Простой текст без этих знаков открывается как был. */
 
 (function (global) {
@@ -42,9 +46,13 @@
      после непробела: «2 * 3 * 4» и «a_b_c» оформлением не становятся. */
   function inline(text){
     return escH(text)
+      // «***слово***» — жирный курсив: разобрать его раньше жирного, иначе
+      // жирный съест две звёздочки из трёх и курсив останется без пары.
+      .replace(/\*\*\*(?=\S)([^\n]*?\S)\*\*\*/g, '<b><i>$1</i></b>')
       .replace(/\*\*(?=\S)([^\n]*?\S)\*\*/g, '<b>$1</b>')
       .replace(/~~(?=\S)([^\n]*?\S)~~/g, '<s>$1</s>')
       .replace(/\+\+(?=\S)([^\n]*?\S)\+\+/g, '<u>$1</u>')
+      .replace(/(^|[^*\w])\*(?=[^\s*])([^\n*]*?[^\s*])\*(?![*\w])/g, '$1<i>$2</i>')
       .replace(/(^|[^\w])_(?=\S)([^\n_]*?\S)_(?!\w)/g, '$1<i>$2</i>');
   }
 
@@ -77,7 +85,7 @@
     var tag = el.tagName, st = el.style || {}, m = [];
     var fw = st.fontWeight, td = (st.textDecorationLine || st.textDecoration || '');
     if (tag === 'B' || tag === 'STRONG' || fw === 'bold' || Number(fw) >= 600) m.push('**');
-    if (tag === 'I' || tag === 'EM' || st.fontStyle === 'italic') m.push('_');
+    if (tag === 'I' || tag === 'EM' || st.fontStyle === 'italic') m.push('*');
     if (tag === 'U' || tag === 'INS' || /underline/.test(td)) m.push('++');
     if (tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || /line-through/.test(td)) m.push('~~');
     return m;
@@ -132,7 +140,7 @@
             var li = ch.children[j];
             if (li.tagName !== 'LI') continue;
             n++;
-            emit(inlineOf(li), tag === 'OL' ? n + '. ' : '- ');
+            emit(inlineOf(li), tag === 'OL' ? n + '. ' : '• ');
           }
           continue;
         }
@@ -154,9 +162,11 @@
   function plain(body){
     return String(body || '').split('\n').map(function(line){
       return line.replace(/^#{1,3} /, '').replace(/^> /, '').replace(/^- /, '• ')
+        .replace(/\*\*\*(?=\S)([^\n]*?\S)\*\*\*/g, '$1')
         .replace(/\*\*(?=\S)([^\n]*?\S)\*\*/g, '$1')
         .replace(/~~(?=\S)([^\n]*?\S)~~/g, '$1')
         .replace(/\+\+(?=\S)([^\n]*?\S)\+\+/g, '$1')
+        .replace(/(^|[^*\w])\*(?=[^\s*])([^\n*]*?[^\s*])\*(?![*\w])/g, '$1$2')
         .replace(/(^|[^\w])_(?=\S)([^\n_]*?\S)_(?!\w)/g, '$1$2');
     }).join('\n');
   }
@@ -174,6 +184,7 @@
 
   var I = function(d){ return '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + '</svg>'; };
   var ICONS = {
+    ai: I('<path d="M12 3.5l1.6 4.4 4.4 1.6-4.4 1.6L12 15.5l-1.6-4.4L6 9.5l4.4-1.6z"/><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/><path d="M5.5 15.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/>'),
     h: I('<path d="M6 5v14M18 5v14M6 12h12"/>'),
     ul: I('<circle cx="5" cy="7" r="1.2"/><circle cx="5" cy="12" r="1.2"/><circle cx="5" cy="17" r="1.2"/><path d="M9.5 7H20M9.5 12H20M9.5 17H20"/>'),
     ol: I('<path d="M4 5.5h1.5V10M4 10h3M4 14.5c0-1 2.8-1 2.8.3 0 1-2.8 2.2-2.8 3.7h3"/><path d="M10.5 7H20M10.5 12H20M10.5 17H20"/>'),
@@ -204,6 +215,9 @@
         '" aria-label="' + t.title.replace(/ \(.*\)$/, '') + '" aria-pressed="false">' + t.label + '</button>';
     });
     html += '</div><div class="ne-out">' +
+      '<button type="button" class="ne-tool ne-wide ne-ai' + (AI.open ? ' on' : '') + '" data-act="ne-ai-toggle" data-note="' + n.id + '" ' +
+        'title="Syn: помочь с текстом" aria-expanded="' + (AI.open ? 'true' : 'false') + '">' +
+        ICONS.ai + '<span>Syn</span></button>' +
       '<button type="button" class="ne-tool ne-wide" data-act="ne-copy" data-note="' + n.id + '" title="Скопировать заметку">' +
         ICONS.copy + '<span>Копировать</span></button>' +
       '<button type="button" class="ne-tool ne-wide" data-act="ne-share" data-note="' + n.id + '" title="Поделиться заметкой">' +
@@ -216,12 +230,15 @@
     return function(){
       var n = findNote(S.activeNote);
       if (!n) return base.apply(this, arguments);
+      // Открыли другую запись — панель Syn прежней сюда не переезжает.
+      if (AI.noteId !== n.id){ AI.noteId = n.id; AI.open = false; AI.error = ''; AI.range = null; }
       var touch = touchUI();
       return head('', '', 'notes') +
         '<section class="ne' + (touch ? ' ne-touch' : ' card') + '" data-note="' + n.id + '">' +
           '<input class="ne-title" type="text" data-notetitle="' + n.id + '" value="' + escH(n.title) + '" ' +
             'placeholder="Название" aria-label="Название заметки" autocomplete="off" maxlength="140" enterkeyhint="next">' +
           toolbar(n) +
+          '<div class="ne-ai-slot">' + aiPanel(n) + aiRevertBar(n) + '</div>' +
           '<div class="ne-body" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Текст заметки" ' +
             'spellcheck="true" data-noteedit="' + n.id + '" data-placeholder="Текст записи">' + toHTML(n.body) + '</div>' +
           (touch ? '' : '<div class="ne-foot"><button class="btn sm soft" data-act="kill-note" data-note="' + n.id + '">Удалить запись</button></div>') +
@@ -238,6 +255,10 @@
     if (!n) return;
     var body = fromHTML(ed);
     if (body !== n.body){ n.body = body; save(); }
+    if (AI.revert && AI.revert.id === n.id && n.body !== AI.revert.after){
+      AI.revert = null;
+      aiRefresh();
+    }
   }
 
   function caretInside(ed){
@@ -295,6 +316,237 @@
       tools[i].classList.toggle('on', on);
       tools[i].setAttribute('aria-pressed', on ? 'true' : 'false');
     }
+  }
+
+  /* ---- Syn помогает с текстом ---- */
+
+  /* То же, что ✨ в заметке на айфоне (NotesWorkspaceView+AI.swift): Syn
+     исправляет, сокращает, расписывает, меняет тон, разбивает на пункты и
+     переводит текст записи — или делает то, о чём попросили своими словами.
+
+     Правит выделенное, а если ничего не выделено — весь текст. Запрос тот же,
+     что у приложения: research-маршрут сервера в режиме note_rewrite, одна
+     единица дневной нормы Syn. Текст уходит разметкой и возвращается в ней
+     же, поэтому оформление переживает правку. Ответ без подписи режима —
+     старый сервер, который сделал бы из указания веб-поиск, — не применяется.
+
+     Текст человека не теряется ни при каком исходе: при ошибке он не
+     трогается вовсе, а после правки под панелью висит «Вернуть как было»,
+     пока текст не поменяли руками. */
+  var AI = { open: false, busy: false, range: null, revert: null, error: '', noteId: null };
+  var AI_MAX = 8000;
+
+  function aiActions(){
+    var en = !!(global.SynI18n && SynI18n.isEnglish && SynI18n.isEnglish());
+    return [
+      { kind: 'fix', title: 'Исправить ошибки',
+        text: 'Исправь орфографию, пунктуацию, опечатки и согласование слов. Больше ничего не меняй: ни слов, ни порядка мыслей, ни оформления.' },
+      { kind: 'shorter', title: 'Короче',
+        text: 'Сделай текст заметно короче: убери повторы и воду, оставь весь смысл, факты, числа и оформление.' },
+      { kind: 'longer', title: 'Подробнее',
+        text: 'Сделай текст подробнее: раскрой мысли полнее и яснее, добавь связки между ними, но не выдумывай новых фактов.' },
+      { kind: 'formal', title: 'Деловой стиль',
+        text: 'Перепиши текст в деловом стиле: сдержанно, чётко, без разговорных слов и эмоций. Смысл и факты не меняй.' },
+      { kind: 'friendly', title: 'Дружелюбнее',
+        text: 'Перепиши текст дружелюбнее и теплее, простыми словами. Смысл и факты не меняй.' },
+      { kind: 'bullets', title: 'По пунктам',
+        text: 'Разбей текст на короткие пункты списка, каждый с новой строки и со знаком «• », по одной мысли в пункте. Заголовки, если они есть, оставь заголовками.' },
+      // Переводим на английский, а с английского интерфейса — на русский:
+      // это две самые частые стороны, как и в приложении.
+      { kind: 'translate', title: en ? 'Перевести на русский' : 'Перевести на английский',
+        text: en ? 'Переведи текст на русский язык. Оформление сохрани.' : 'Переведи текст на английский язык. Оформление сохрани.' }
+    ];
+  }
+
+  /// Выделение внутри текста записи сейчас — или null.
+  function aiSelection(){
+    var ed = editor();
+    var r = AI.range;
+    if (!ed || !r || r.collapsed) return null;
+    if (!ed.contains(r.commonAncestorContainer)) return null;
+    return r;
+  }
+
+  function aiPanel(n){
+    if (!AI.open) return '';
+    var scope = aiSelection() ? 'Syn поправит выделенное' : 'Syn поправит весь текст';
+    var chips = aiActions().map(function(a){
+      return '<button type="button" class="ne-ai-chip" data-act="ne-ai" data-kind="' + a.kind + '"' + (AI.busy ? ' disabled' : '') + '>' + a.title + '</button>';
+    }).join('');
+    return '<div class="ne-ai-panel" id="ne-ai-panel">' +
+      '<div class="ne-ai-head"><b>' + scope + '</b><span>Один запрос из дневной нормы</span></div>' +
+      (AI.busy
+        ? '<p class="ne-ai-busy"><i class="ne-ai-spin" aria-hidden="true"></i>Syn переписывает текст…</p>'
+        : '<div class="ne-ai-chips">' + chips + '</div>' +
+          '<form class="ne-ai-own" data-form="ne-ai-own" data-note="' + n.id + '">' +
+            '<input class="inp" id="ne-ai-own" type="text" autocomplete="off" maxlength="300" ' +
+              'placeholder="Свой запрос: например, «добавь вывод в конце»" aria-label="Свой запрос к Syn">' +
+            '<button class="btn sm" type="submit">Выполнить</button>' +
+          '</form>') +
+      (AI.error ? '<p class="ne-ai-err">' + escH(AI.error) + '</p>' : '') +
+    '</div>';
+  }
+
+  function aiRevertBar(n){
+    if (!AI.revert || AI.revert.id !== n.id || n.body !== AI.revert.after) return '';
+    return '<div class="ne-ai-done">' +
+      '<span>' + ICONS.ai + 'Syn поправил текст.</span>' +
+      '<button type="button" class="btn sm soft" data-act="ne-ai-revert" data-note="' + n.id + '">Вернуть как было</button>' +
+    '</div>';
+  }
+
+  /// Перерисовать только панель — без перерисовки экрана: она увела бы
+  /// курсор из текста и сбросила выделение, которое Syn должен поправить.
+  function aiRefresh(){
+    var slot = document.querySelector('.ne-ai-slot');
+    var ed = editor();
+    var n = ed && findNote(ed.getAttribute('data-noteedit'));
+    if (!slot || !n) return;
+    slot.innerHTML = SynI18n.tr(aiPanel(n) + aiRevertBar(n));
+    var btn = document.querySelector('.ne-ai');
+    if (btn){
+      btn.classList.toggle('on', AI.open);
+      btn.setAttribute('aria-expanded', AI.open ? 'true' : 'false');
+    }
+  }
+
+  function aiToggle(){
+    AI.open = !AI.open;
+    AI.error = '';
+    aiRefresh();
+  }
+
+  /// Чистит ответ модели, не трогая разметку — как сервер и приложение:
+  /// обёртка ```, вступление «Вот текст:», «## », «- », «__».
+  function aiCleaned(raw){
+    var t = String(raw || '').replace(/\r\n/g, '\n').trim();
+    if (!t) return '';
+    t = t.replace(/^```[a-zA-Z]*[ \t]*\n?/, '').replace(/\n?```\s*$/, '');
+    t = t.replace(/^\s*(вот(?![а-яё])[^\n:]{0,60}|исправленный текст|готовый текст|результат|here is[^\n:]{0,60}|here's[^\n:]{0,60}|rewritten text|corrected text|result)\s*:\s*\n+/i, '');
+    t = t.replace(/^#{2,6}[ \t]+/gm, '# ');
+    t = t.replace(/^([ \t]*)[-*][ \t]+/gm, '$1• ');
+    t = t.replace(/__(?=\S)([^\n]*?\S)__/g, '**$1**');
+    t = t.replace(/\n{3,}/g, '\n\n').trim();
+    var pairs = [['«', '»'], ['"', '"'], ['“', '”']];
+    for (var i = 0; i < pairs.length; i++){
+      var l = pairs[i][0], r = pairs[i][1];
+      if (t.length > 1 && t.charAt(0) === l && t.charAt(t.length - 1) === r){
+        var inner = t.slice(1, -1);
+        if (inner.indexOf(l) < 0 && inner.indexOf(r) < 0) t = inner.trim();
+        break;
+      }
+    }
+    return t;
+  }
+
+  function aiErrorText(error){
+    if (error && error.outdated) return 'Эта функция заработает после обновления сервера Syn. Попробуй позже.';
+    if (error && error.status === 402) return (error.data && error.data.error) || 'Запросы к Syn на сегодня закончились. Завтра снова будут.';
+    if (error && error.status === 413) return 'Текст слишком длинный для Syn. Выдели часть и попробуй ещё раз.';
+    if (error && !error.status) return 'Нет соединения. Проверь интернет и попробуй ещё раз.';
+    return 'Syn не смог переписать текст. Попробуй ещё раз.';
+  }
+
+  function aiRun(instruction){
+    var ed = editor();
+    var n = ed && findNote(ed.getAttribute('data-noteedit'));
+    if (!n || AI.busy) return;
+    persist();
+    var range = aiSelection();
+    var text;
+    if (range){
+      var box = document.createElement('div');
+      box.appendChild(range.cloneContents());
+      text = fromHTML(box);
+    } else {
+      text = n.body;
+    }
+    text = String(text || '').trim();
+    AI.error = '';
+    if (!text){ AI.error = 'Сначала напиши текст — Syn поправит его.'; aiRefresh(); return; }
+    if (text.length > AI_MAX){ AI.error = 'Текст слишком длинный для Syn. Выдели часть и попробуй ещё раз.'; aiRefresh(); return; }
+    if (!instruction){ AI.error = 'Напиши, что сделать с текстом.'; aiRefresh(); return; }
+
+    var noteId = n.id, before = n.body, saved = range ? range.cloneRange() : null;
+    AI.busy = true;
+    aiRefresh();
+    synSession().then(function(token){
+      return synFetch('/v1/synapse/research', {
+        query: instruction,
+        // Без заголовка сервер отвечает 400: у записи его может и не быть,
+        // а модели он нужен только как контекст.
+        taskTitle: (n.title || '').trim() || 'Заметка',
+        existingNote: text,
+        mode: 'note_rewrite'
+      }, token);
+    }).then(function(data){
+      if (!data || data.mode !== 'note_rewrite'){ var e = new Error('outdated'); e.outdated = true; throw e; }
+      var out = aiCleaned(data.note);
+      if (!out) throw new Error('empty');
+      AI.busy = false;
+      var edNow = editor();
+      var same = edNow && edNow.getAttribute('data-noteedit') === noteId;
+      if (saved && same && edNow.contains(saved.commonAncestorContainer)){
+        // Выделенный кусок — правкой браузера: её откатывает и ⌘Z.
+        edNow.focus();
+        var sel = global.getSelection();
+        sel.removeAllRanges(); sel.addRange(saved);
+        document.execCommand('insertHTML', false, out.indexOf('\n') < 0 ? inline(out) : toHTML(out));
+      } else if (same){
+        edNow.innerHTML = toHTML(out);
+      } else {
+        var target = findNote(noteId);
+        if (target && !saved){ target.body = out; save(); }
+      }
+      persist();
+      var after = findNote(noteId);
+      AI.revert = after ? { id: noteId, before: before, after: after.body } : null;
+      AI.open = false;
+      AI.range = null;
+      aiRefresh();
+    }).catch(function(error){
+      AI.busy = false;
+      AI.error = aiErrorText(error);
+      aiRefresh();
+    });
+  }
+
+  function aiRevert(d){
+    if (!AI.revert || AI.revert.id !== d.note) return;
+    var n = findNote(d.note);
+    if (!n) return;
+    n.body = AI.revert.before;
+    AI.revert = null;
+    save();
+    var ed = editor();
+    if (ed && ed.getAttribute('data-noteedit') === n.id) ed.innerHTML = toHTML(n.body);
+    aiRefresh();
+  }
+
+  function aiWire(){
+    // Выделение запоминаем, пока оно в тексте записи: нажатие на кнопку
+    // панели или на поле своего запроса его снимает, а править Syn должен
+    // именно его.
+    document.addEventListener('selectionchange', function(){
+      var ed = editor();
+      if (!ed) return;
+      var sel = global.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      var r = sel.getRangeAt(0);
+      if (!ed.contains(r.commonAncestorContainer)) return;
+      var had = !!aiSelection();
+      AI.range = r.cloneRange();
+      // «Весь текст» ↔ «выделенное» в шапке панели — без перерисовки её
+      // целиком, иначе поле своего запроса теряло бы набранное.
+      if (AI.open && had !== !!aiSelection()){
+        var head = document.querySelector('.ne-ai-head b');
+        if (head) head.textContent = SynI18n.tr(aiSelection() ? 'Syn поправит выделенное' : 'Syn поправит весь текст');
+      }
+    });
+    // Кнопки панели не забирают фокус у текста — выделение остаётся видным.
+    document.addEventListener('mousedown', function(e){
+      if (e.target && e.target.closest && e.target.closest('.ne-ai, .ne-ai-chip')) e.preventDefault();
+    });
   }
 
   /* ---- копировать ---- */
@@ -638,6 +890,17 @@
     ACTS['ne-copy'] = copy;
     ACTS['ne-share'] = share;
     ACTS['ne-copy-link'] = copyLink;
+    ACTS['ne-ai-toggle'] = aiToggle;
+    ACTS['ne-ai'] = function(d){
+      var a = aiActions().filter(function(x){ return x.kind === d.kind; })[0];
+      if (a) aiRun(a.text);
+    };
+    ACTS['ne-ai-own'] = function(){
+      var f = document.getElementById('ne-ai-own');
+      aiRun(f ? f.value.trim() : '');
+    };
+    ACTS['ne-ai-revert'] = aiRevert;
+    aiWire();
     wireEditor();
     wireDrag();
     if (S.view === 'note' || S.view === 'notes') render();
