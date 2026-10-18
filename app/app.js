@@ -1113,6 +1113,23 @@ function humanDateWithDay(iso){
 var WORD_START = '(^|[^а-яa-z0-9])';
 var WORD_END = '(?=[^а-яa-z0-9]|$)';
 
+/// Начало комментария к задаче в произнесённой фразе: «в комментарии
+/// напиши …», «в заметке: …», «с комментарием …», «комментарий: …», «напиши в
+/// описании …». Одного «в описании» мало: «исправить ошибку в описании
+/// товара» — это дело, а не комментарий. Поэтому после «в комментарии / в
+/// заметке / в описании» нужен глагол («напиши», «добавь»…), двоеточие, тире
+/// или число.
+var NOTE_WORD = '(?:комментари[ийея]|коммент[еау]?|заметк[еиу]|примечани[иея]|описани[иея])(?![а-яё])';
+var NOTE_VERB = '(?:напиши|добавь|укажи|запиши|пометь|оставь)(?![а-яё])';
+var NOTE_MARK = new RegExp(
+  '(?:^|[\\s,;.—–-]+)(?:' +
+    '(?:и\\s+)?(?:в|во)\\s+' + NOTE_WORD + '(?:\\s+к\\s+задаче)?' +
+      '(?=\\s*(?:[:—–-]|' + NOTE_VERB + '|[0-9+«"]))' +
+    '|с\\s+комментари(?:ем|ями)(?![а-яё])' +
+    '|(?:комментарий|коммент|заметка|примечание|описание)\\s*[:—–]' +
+    '|' + NOTE_VERB + '\\s+(?:в|во)\\s+' + NOTE_WORD +
+  ')\\s*[:—–-]?\\s*(?:' + NOTE_VERB + '\\s*[:—–-]?\\s*)?', 'i');
+
 function wordRegex(body){
   return new RegExp(WORD_START + '(?:' + body + ')' + WORD_END, 'i');
 }
@@ -1157,6 +1174,27 @@ function adjustHour(hour, meridiem){
 /// назвал ли человек день и время сам или мы вывели их из блока.
 function parseSchedule(text, fallbackBucket){
   var original = String(text == null ? '' : text).trim();
+
+  /* Комментарий к задаче — до всего остального.
+
+     «Позвонить Ивану завтра в 12 каждый день, в комментарии напиши 893829384»
+     целиком уходило в название: срок и повтор распознавались, а «в комментарии
+     напиши 893829384» оставалось висеть в заголовке. Хуже того, цифры
+     комментария разбирались бы как время и дата. Поэтому хвост после «в
+     комментарии / в заметке / в описании (напиши …)» или «комментарий: …»
+     отрезается первым и становится заметкой задачи, а расписание ищется
+     только в том, что осталось. */
+  var noteText = '';
+  var noteAt = original.search(NOTE_MARK);
+  if (noteAt >= 0){
+    var noteMatch = original.slice(noteAt).match(NOTE_MARK);
+    var rest = original.slice(noteAt + noteMatch[0].length).trim();
+    if (rest){
+      noteText = rest.charAt(0).toUpperCase() + rest.slice(1);
+      original = original.slice(0, noteAt).trim();
+    }
+  }
+
   var work = normalizeText(original);
   var cuts = [];           // куски, которые уйдут из названия
   var today = todayDate();
@@ -1319,6 +1357,21 @@ function parseSchedule(text, fallbackBucket){
   // cleanTaskTitle: режутся только команды, стоящие отдельным словом.
   // «Оформить визу» и «Сделать завтрак» остаются как есть — на этом ловил тест.
   title = title.replace(/^(?:создай|добавь|оформи|запиши|напомни)\s+(?:задачу\s+|мне\s+)?/i, '');
+
+  /* Связки, которые держались за вырезанные куски.
+
+     Повтор вырезается фразой «каждый день», а слово при ней остаётся:
+     «Позвонить Ивану повтор на», «с повтором ,». Если повтор распознан, эти
+     слова — его часть, а не часть дела. Потом — висящие предлоги в конце и
+     запятые, оставшиеся без соседей. */
+  if (repeat){
+    title = title.replace(/(^|[\s,;])(?:с\s+|и\s+)?(?:повтор(?:ом|ять|яй|ение|ения|ы)?|повторяющ(?:ая|ейся|уюся)(?:\s+задач(?:а|ей|у))?)(?:\s+(?:на|в|по|каждый|каждую|каждое))?(?=[\s,.;:]|$)/gi, '$1');
+  }
+  title = title.replace(/\s+([,.;:!?])/g, '$1').replace(/([,;:])(?:\s*[,;:])+/g, '$1').replace(/\s+/g, ' ').trim();
+  for (var tail = 0; tail < 3; tail++){
+    title = title.replace(/[\s,;:—–-]+$/g, '').replace(/\s+(?:на|в|во|с|со|по|к|и|до|от|за)$/i, '');
+  }
+  title = title.replace(/^[\s,;:—–-]+/, '');
   title = title.charAt(0).toUpperCase() + title.slice(1);
 
   // Время срока без отдельного времени задачи и есть её время: «завтра до
@@ -1350,7 +1403,7 @@ function parseSchedule(text, fallbackBucket){
   }
 
   return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: !!date, hasTime: !!time,
-    repeat: repeat, rule: rule, deadline: deadline,
+    repeat: repeat, rule: rule, deadline: deadline, note: noteText,
     windowFrom: windowFrom ? { date: dayOfTask, time: windowFrom } : null,
     windowTo: windowTo ? { date: dayOfTask, time: windowTo } : null };
 }
@@ -1439,6 +1492,8 @@ function nextMonthDay(today, days){
 /// Поля задачи, которые строка ввода умеет назвать сверх дня и времени.
 /// Одно место на всех, кто заводит задачу из разобранной фразы.
 function withParsedExtras(task, parsed){
+  // Комментарий из фразы («в комментарии напиши …») — в заметку задачи.
+  if (parsed.note && !task.note) task.note = parsed.note;
   task.repeat = parsed.repeat || '';
   task.rule = parsed.rule || null;
   task.deadline = parsed.deadline || null;
