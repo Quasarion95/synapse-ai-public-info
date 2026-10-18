@@ -245,3 +245,8 @@ app.js (PLANS, FREE_LIMITS, pro-code, pro-refresh, pro-copy, pro-forget,
 
 layout.css: в режиме «клавиатура» низ левой колонки держится (bottom:0) —
 app.css отпускал его, и служебный блок меню прыгал при входе в любое поле.
+- массовые действия, которых в app.js не было: `delete_all_lists`,
+  `delete_all_notes` (и синонимы clear_/reset_/remove_all_), `restore_all_tasks`
+  (вернуть всё из корзины), `empty_trash` (только через окно подтверждения).
+  `delete_all_goals_and_tasks` теперь тоже кладёт всё в корзину — в app.js
+  стирал мимо неё.

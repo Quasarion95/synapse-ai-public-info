@@ -196,8 +196,65 @@
     span.remove();
   }
 
+  /* Массовые действия, которых в app.js не было.
+
+     Сервер в договоре называет пачкой только задачи и цели, но модель на
+     «удали все списки» честно пишет delete_all_lists — а веб отвечал
+     «веб пока не умеет». Здесь пачки для списков и заметок, «вернуть всё из
+     корзины» и «очистить корзину» из договора сервера. Всё удалённое — в
+     корзину, как и поштучное удаление: пачкой ошибиться дороже всего.
+     Стереть корзину насовсем — только через окно подтверждения с числом. */
+  function bulk(kind, list, word, forms, extra){
+    return function(a, done, skipped){
+      var items = S[list] || [];
+      if (!items.length) return skipped.push(word + ' и так нет');
+      var n = items.length;
+      items.forEach(function(x){ trashPut(kind, x); });
+      S[list] = [];
+      if (extra) extra();
+      done.push('удалены все ' + word + ': ' + n + ' — лежат в корзине');
+    };
+  }
+  var BULK = {
+    'delete_all_lists clear_lists reset_lists delete_lists remove_all_lists':
+      bulk('list', 'lists', 'списки', null, function(){ S.activeList = null; }),
+    'delete_all_notes clear_notes reset_notes delete_notes remove_all_notes':
+      bulk('note', 'notes', 'заметки', null, function(){ S.activeNote = null; }),
+    /* В app.js «все цели и задачи» стирались мимо корзины — в отличие от
+       «всех задач» и «всех целей» по отдельности. Теперь тоже в корзину. */
+    'delete_all_goals_and_tasks clear_goals_and_tasks reset_goals_and_tasks': function(a, done, skipped){
+      var count = S.tasks.length + S.goals.length;
+      if (!count) return skipped.push('удалять нечего');
+      S.goals.forEach(function(g){
+        trashPut('goal', g, { taskIDs: S.tasks.filter(function(t){ return t.goalId === g.id; })
+          .map(function(t){ return { id: t.id, stageId: t.stageId }; }) });
+      });
+      S.tasks.forEach(function(t){ trashPut('task', t); });
+      S.tasks = []; S.goals = []; S.activeGoal = null;
+      done.push('удалены все цели и задачи: ' + count + ' — лежат в корзине');
+    },
+    'restore_all_tasks restore_all restore_trash restore_all_from_trash': function(a, done, skipped){
+      var ids = (S.trash || []).map(function(x){ return x.id; });
+      if (!ids.length) return skipped.push('в корзине пусто');
+      var n = 0;
+      ids.forEach(function(id){ if (trashRestore(id)) n += 1; });
+      done.push('вернули из корзины: ' + n + ' ' + plural(n, 'запись', 'записи', 'записей'));
+    },
+    'empty_trash clear_trash delete_trash': function(a, done, skipped){
+      if (!(S.trash || []).length) return skipped.push('корзина и так пуста');
+      done.push('корзину стираю только после подтверждения — открываю окно');
+      // После ответа Syn: окно подтверждения заменит окно ассистента.
+      setTimeout(function(){ if (ACTS['trash-empty']) ACTS['trash-empty'](); }, 700);
+    }
+  };
+
   function install(){
     if (typeof global.synApplyActions !== 'function') return;
+    if (typeof SYN_ACTS !== 'undefined'){
+      Object.keys(BULK).forEach(function(kinds){
+        kinds.split(' ').forEach(function(k){ SYN_ACTS[k] = BULK[kinds]; });
+      });
+    }
     var base = global.synApplyActions;
     global.synApplyActions = function(actions){
       (actions || []).forEach(function(a){
