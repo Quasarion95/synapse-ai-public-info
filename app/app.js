@@ -5261,16 +5261,46 @@ function vFocus(){
       'go', 'Открыть задачи', ' data-view="tasks"');
   }
 
-  var attention = S.goals.filter(function(g){ return !tasksOfGoal(g.id).length; });
-  if (attention.length){
-    html += '<p class="lbl">Требуют внимания</p><section class="card"><div class="lines">' +
-      attention.map(function(g){
-        return '<button class="line" data-act="open-goal" data-goal="' + g.id + '">' +
-          '<span>' + esc(g.title) + '</span><span class="chip warn">без задач</span></button>';
-      }).join('') + '</div></section>';
-  }
+  html += vFocusGoals();
 
   return html;
+}
+
+/* Цели без задач — внизу фокуса.
+
+   Было: моноширинная метка «ТРЕБУЮТ ВНИМАНИЯ», под ней строки целей, и в
+   каждой оранжевая плашка «без задач», растянутая общим правилом .line span
+   в пустой овал на полстроки. Что с этим делать, экран не говорил.
+
+   Стало: заголовок называет проблему, строка пояснения — зачем её решать, а
+   у каждой цели своя кнопка «+ Шаг». Плашки нет: заголовок уже всё сказал.
+   Не больше трёх целей: это напоминание, а не второй список целей. */
+var FOCUS_GOALS_MAX = 3;
+
+function vFocusGoals(){
+  var idle = S.goals.filter(function(g){ return !tasksOfGoal(g.id).length; });
+  if (!idle.length) return '';
+  var rows = idle.slice(0, FOCUS_GOALS_MAX).map(function(g){
+    var stages = (g.stages || []).length;
+    var meta = [];
+    if (g.horizon) meta.push('<span>' + esc(g.horizon) + '</span>');
+    meta.push('<span>' + (stages ? stages + ' ' + plural(stages, 'этап', 'этапа', 'этапов') : 'Этапов нет') + '</span>');
+    return '<div class="fg-row">' +
+      '<button class="fg-main" data-act="open-goal" data-goal="' + g.id + '">' +
+        '<span class="fg-t">' + esc(g.title) + '</span>' +
+        '<span class="fg-s">' + meta.join('<i aria-hidden="true">·</i>') + '</span>' +
+      '</button>' +
+      '<button class="btn sm fg-step" data-act="goal-first-step" data-goal="' + g.id + '" ' +
+        'aria-label="Добавить первый шаг" title="Добавить первый шаг">+ Шаг</button>' +
+    '</div>';
+  }).join('');
+  var more = idle.length - FOCUS_GOALS_MAX;
+  return '<section class="card focus-goals">' +
+    '<h3>Цели без задач</h3>' +
+    '<p class="sub">Им нужен первый шаг — иначе они стоят на месте.</p>' +
+    '<div class="fg-list">' + rows + '</div>' +
+    (more > 0 ? '<button class="fg-more" data-act="go" data-view="goals"><span>Ещё ' + more + '</span> →</button>' : '') +
+  '</section>';
 }
 
 /// «Фокус дня» — заголовок с процентом справа и несколько строк «МЕТКА: текст»,
@@ -12357,6 +12387,18 @@ var ACTS = {
     commit('Цель сохранена');
   },
   'open-goal': function(d){ S.activeGoal = d.goal; go('goal'); },
+  /* «+ Шаг» у цели без задач. Этапы есть — открываем цель с курсором в поле
+     задачи первого незакрытого этапа: шаг пишется сразу. Этапов нет — сначала
+     этап: задача в цели живёт внутри этапа. */
+  'goal-first-step': function(d){
+    var g = findGoal(d.goal);
+    if (!g) return;
+    var stage = (g.stages || []).filter(function(st){ return st.status !== 'done'; })[0] || (g.stages || [])[0];
+    if (!stage) return openModal(modalStage(g.id));
+    S.activeGoal = g.id;
+    keepFocus('[data-goaltask="' + stage.id + '"]');
+    go('goal');
+  },
   /* Шаблон только подставляет текст в поле — поле остаётся своим, и написать
      «до защиты диплома» вместо «Год» никто не мешает. Перерисовки нет: она
      закрыла бы модалку. */

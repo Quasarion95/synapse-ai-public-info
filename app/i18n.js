@@ -377,6 +377,11 @@
     'Задачи без этапа': 'Tasks without a stage',
     'Задачи цели — те же самые объекты, что на экране «Задачи». Отметил здесь — отмечено и там.': 'A goal\'s tasks are the very same ones on the "Tasks" screen. Tick one here and it is ticked there too.',
     'Требуют внимания': 'Need attention',
+    'Цели без задач': 'Goals without tasks',
+    'Им нужен первый шаг — иначе они стоят на месте.': 'They need a first step — otherwise they stand still.',
+    '+ Шаг': '+ Step',
+    'Добавить первый шаг': 'Add a first step',
+    'Этапов нет': 'No stages',
     'без задач': 'no tasks',
     'Горизонт': 'Horizon',
     '14 дней вперёд: столбик — сколько задач, точка — задача со временем': '14 days ahead: the bar is how many tasks, the dot is a task with a time',
@@ -997,6 +1002,8 @@
       return m[1] + (m[1] === '1' ? ' time' : ' times');
     }],
     [/^Осталось (\d+)$/, function (m) { return m[1] + ' left'; }],
+    [/^Ещё (\d+)$/, function (m) { return m[1] + ' more'; }],
+    [/^(\d+) (?:этап|этапа|этапов)$/, function (m) { return m[1] + (m[1] === '1' ? ' stage' : ' stages'); }],
     // «Август 2026» — месяц склеен с годом, целиком в словарь не занести.
     [/^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|Сентябрь|Октябрь|Ноябрь|Декабрь)\s+(\d{4})$/,
       function (m) { return (EN[m[1]] || m[1]) + ' ' + m[2]; }],
