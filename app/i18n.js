@@ -381,6 +381,8 @@
     'Им нужен первый шаг — иначе они стоят на месте.': 'They need a first step — otherwise they stand still.',
     '+ Шаг': '+ Step',
     'Добавить первый шаг': 'Add a first step',
+    'Syn уточняет…': 'Syn is refining…',
+    'Запросы к Syn на сегодня закончились — задачи разбираются без ИИ.': 'Your Syn requests for today are used up — tasks are parsed without AI.',
     'Syn: помочь с текстом': 'Syn: help with the text',
     'Syn поправит выделенное': 'Syn will edit the selection',
     'Syn поправит весь текст': 'Syn will edit the whole text',
@@ -1031,6 +1033,7 @@
     }],
     [/^Осталось (\d+)$/, function (m) { return m[1] + ' left'; }],
     [/^Ещё (\d+)$/, function (m) { return m[1] + ' more'; }],
+    [/^Syn разобрал фразу: задач — (\d+)$/, function (m) { return 'Syn split the phrase into ' + m[1] + ' tasks'; }],
     [/^(\d+) (?:этап|этапа|этапов)$/, function (m) { return m[1] + (m[1] === '1' ? ' stage' : ' stages'); }],
     // «Август 2026» — месяц склеен с годом, целиком в словарь не занести.
     [/^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|Сентябрь|Октябрь|Ноябрь|Декабрь)\s+(\d{4})$/,

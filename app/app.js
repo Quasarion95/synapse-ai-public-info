@@ -467,6 +467,9 @@ function починитьЗаписи(данные){
     if (t.series === undefined) t.series = null;
     if (t.goalId === undefined) t.goalId = null;
     if (t.stageId === undefined) t.stageId = null;
+    // Пометка «Syn уточняет…» живёт, пока ждём ответ. Страницу перезагрузили —
+    // ответа уже не будет, задача остаётся разобранной кодом.
+    if (t.aiPending) delete t.aiPending;
     t.subtasks = (Array.isArray(t.subtasks) ? t.subtasks : []).filter(Boolean).map(function(s){
       return { id: s.id || uid(), title: String(s && s.title == null ? '' : s.title), done: !!(s && s.done) };
     });
@@ -5160,6 +5163,7 @@ function itemRow(t, внутриЦели){
   if (t.date && (t.hasExplicitDate || t.bucket !== 'today')){
     meta.push('<span class="chip">' + esc(humanDateWithDay(t.date)) + '</span>');
   }
+  if (t.aiPending) meta.push('<span class="chip ai-pending">Syn уточняет…</span>');
   if (t.time) meta.push('<span class="chip">' + esc(t.time) + '</span>');
   if (t.repeat) meta.push('<span class="chip rep">' + ICON.repeat +
     esc(repeatLabel(t.repeat, t)) + '</span>');
@@ -5366,15 +5370,113 @@ function addTask(){
   var parsed = parseSchedule(raw, 'today');
   if (!parsed.title) return;
   parsed = pushPastTimeToTomorrow(parsed, raw);
-  S.tasks.push(withParsedExtras({
+  var fresh = withParsedExtras({
     id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
     time: parsed.time, series: null,
     hasExplicitDate: !!parsed.hasDate, hasExplicitTime: !!parsed.hasTime,
     goalId: null, stageId: null, subtasks: []
-  }, parsed));
+  }, parsed);
+  var viaSyn = taskAiAvailable();
+  if (viaSyn) fresh.aiPending = true;
+  S.tasks.push(fresh);
   S.draft = '';
   S.closed[parsed.bucket] = false;
-  commit('Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
+  commit(viaSyn ? '' : 'Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
+  if (viaSyn) taskAiRefine(fresh.id, raw);
+}
+
+/* Строка задач — через Syn.
+
+   Разбор кодом (parseSchedule) понимает только те обороты, под которые
+   написано правило: «позвонить Ивану, повтор на каждый день, в комментарии
+   напиши номер» он раскладывал наполовину, и хвост оставался в названии.
+   Владелец: «не работает оно так, сделай, чтобы запрос проходил через ИИ».
+
+   Теперь фраза уходит Syn в режиме create_task (сервер даёт модели договор
+   ровно про создание задачи), а ответ применяется тем же обработчиком, что
+   и в окне ассистента: название, дата, время, повтор, срок, окно, описание,
+   цель. Чтобы не ждать ответа, задача появляется сразу — разобранная кодом,
+   с пометкой «Syn уточняет…», — и заменяется версией Syn, как только он
+   ответит.
+
+   Разбор кодом остаётся последним словом, когда Syn недоступен: нет сети,
+   закончилась дневная норма, ошибка сервера или Syn ответил вопросом
+   вместо задачи. Тогда пометка просто снимается. Если человек успел задачу
+   отметить, переименовать или удалить, ответ Syn её не трогает. */
+var TASK_AI = { quotaToastDay: '' };
+
+function taskAiAvailable(){
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  // Норма кончилась — не тратим время на заведомый отказ.
+  if (SYN.quota && typeof SYN.quota.used === 'number' && SYN.quota.limit &&
+      SYN.quota.used >= SYN.quota.limit && !SYN.quota.isPro) return false;
+  return true;
+}
+
+function taskAiRefine(id, raw){
+  function provisional(){
+    for (var i = 0; i < S.tasks.length; i++) if (S.tasks[i].id === id) return S.tasks[i];
+    return null;
+  }
+  var snapshot = provisional();
+  var original = snapshot ? { title: snapshot.title, done: snapshot.done } : null;
+  function settle(){
+    var t = provisional();
+    if (t && t.aiPending){ delete t.aiPending; commit(); }
+  }
+
+  synSession().then(function(token){
+    var workspace = synWorkspace();
+    workspace.assistantIntent = 'create_task';
+    return synFetch('/v1/synapse/reply', {
+      workspace: workspace,
+      workspaceContext: synContext(),
+      messages: [{ role: 'user', text: raw }]
+    }, token);
+  }).then(function(data){
+    if (data && data.quota) SYN.quota = data.quota;
+    var t = provisional();
+    // Пока Syn думал, задачу отметили, переименовали или удалили — это уже
+    // решение человека, ответ модели его не перебивает.
+    if (!t || !original || t.done !== original.done || t.title !== original.title){
+      settle();
+      return;
+    }
+    var creates = (data && data.actions || []).filter(function(a){
+      var kind = synНормализоватьВид(String(a && a.kind || '').toLowerCase(), a || {});
+      return kind === 'create_task' || kind === 'create_task_for_goal';
+    });
+    if (!creates.length){ settle(); return; }
+
+    var before = S.tasks.length;
+    S.tasks = S.tasks.filter(function(x){ return x.id !== id; });
+    creates.forEach(function(a){ a.sourcePrompt = raw; });
+    var result = synApplyActions(creates);
+    var added = S.tasks.slice(before - 1);
+    if (!added.length){
+      // Обработчик ничего не создал — возвращаем разобранное кодом.
+      delete t.aiPending;
+      S.tasks.push(t);
+      commit();
+      return;
+    }
+    added.forEach(function(x){ S.closed[x.bucket] = false; });
+    var first = added[0];
+    commit(added.length > 1
+      ? 'Syn разобрал фразу: задач — ' + added.length
+      : 'Задача в блоке «' + bucketTitle(first.bucket) + '»');
+    if (result.skipped && result.skipped.length) console.warn('[task-ai]', result.skipped);
+  }).catch(function(error){
+    if (error && error.data && error.data.quota) SYN.quota = error.data.quota;
+    settle();
+    if (error && error.status === 402){
+      var day = isoOf(todayDate());
+      if (TASK_AI.quotaToastDay !== day){
+        TASK_AI.quotaToastDay = day;
+        toast('Запросы к Syn на сегодня закончились — задачи разбираются без ИИ.');
+      }
+    }
+  });
 }
 
 /* ============ МОЙ ФОКУС ============ */
