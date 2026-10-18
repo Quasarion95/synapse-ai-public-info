@@ -113,21 +113,47 @@
      дубли, снова отвечала «Сделаю.» без действий. 17.10 так вышло дважды
      подряд. Теперь к каждой реплике Syn в истории приписано, что вышло:
      сделанное, несделанное или «действий не было». */
-  function withOutcome(item){
-    if (!item || item.role === 'user') return item;
+  // На всякий случай: если модель всё же допишет такой хвост — срезаем.
+  var ECHO = /\s*[\[(](?:на деле|сделано|не сделано|примечание приложения)[^\])]*[\])]\s*$/i;
+
+  function outcomeOf(item){
     var done = item.done || [], skipped = (item.skipped || []).filter(function(s){ return s !== RETRYING; })
       .map(function(s){ return s === NOTHING ? 'действий не было' : s; });
     var note = '';
-    if (done.length) note = 'Сделано: ' + done.join('; ');
-    if (skipped.length) note += (note ? '. ' : '') + 'Не сделано: ' + skipped.join('; ');
-    if (!note && PROMISE.test(String(item.text || '').trim())) note = 'На деле ничего не сделано — действий не было';
-    if (!note) return item;
+    if (done.length) note = 'сделано: ' + done.join('; ');
+    if (skipped.length) note += (note ? '. ' : '') + 'не сделано: ' + skipped.join('; ');
+    if (!note && PROMISE.test(String(item.text || '').trim())) note = 'действий не было, ничего не создано и не изменено';
     if (note.length > 400) note = note.slice(0, 397) + '…';
-    var copy = {}; for (var k in item) copy[k] = item[k];
-    copy.text = String(item.text || '') + '\n[' + note + ']';
-    return copy;
+    return note;
   }
-
+  /* Пометку кладём не в ответ Syn, а в СЛЕДУЮЩУЮ реплику человека — как
+     примечание приложения. Первая версия дописывала её к ответу, и модель,
+     увидев свои ответы с хвостом «[…]», стала дописывать такой же хвост сама —
+     он всплыл прямо в окне. Чужую реплику модель так не копирует. */
+  function withOutcomes(items){
+    var out = [], pending = '';
+    items.forEach(function(item){
+      if (item.role === 'user'){
+        if (pending){
+          var copy = {}; for (var k in item) copy[k] = item[k];
+          copy.text = '(Примечание приложения о твоём прошлом ответе: ' + pending + '.)\n' + String(item.text || '');
+          out.push(copy); pending = '';
+          return;
+        }
+        out.push(item);
+        return;
+      }
+      pending = outcomeOf(item);
+      if (ECHO.test(String(item.text || ''))){
+        var clean = {}; for (var j in item) clean[j] = item[j];
+        clean.text = String(item.text).replace(ECHO, '');
+        out.push(clean);
+        return;
+      }
+      out.push(item);
+    });
+    return out;
+  }
   /* Копирование реплики. У ответа Syn копируется и сказанное, и итог —
      что сделано и что нет: это и хочется вставить в заметку или переслать. */
   var COPY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg>';
@@ -150,12 +176,24 @@
       navigator.clipboard.writeText(text).then(ok, function(){ fallback(text); ok(); });
     } else { fallback(text); ok(); }
   }
+  /* Запасной путь, когда буфер обмена не дали (Safari иногда отказывает).
+     Раньше здесь появлялось скрытое поле с фокусом: приложение принимало это
+     за выехавшую клавиатуру и сдвигало низ экрана, а поле исчезало без
+     потери фокуса — сдвиг так и оставался. Теперь выделяется обычный текст,
+     без поля и без фокуса. */
   function fallback(text){
-    var ta = document.createElement('textarea');
-    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
+    var span = document.createElement('span');
+    span.textContent = text;
+    span.style.cssText = 'position:fixed; left:-9999px; top:0; white-space:pre;';
+    document.body.appendChild(span);
+    var sel = window.getSelection(), saved = [];
+    for (var i = 0; i < sel.rangeCount; i++) saved.push(sel.getRangeAt(i));
+    var range = document.createRange();
+    range.selectNodeContents(span);
+    sel.removeAllRanges(); sel.addRange(range);
     try { document.execCommand('copy'); } catch (e) {}
-    ta.remove();
+    sel.removeAllRanges(); saved.forEach(function(r){ sel.addRange(r); });
+    span.remove();
   }
 
   function install(){
@@ -172,7 +210,7 @@
     if (typeof global.synChatForSending === 'function'){
       var forSending = global.synChatForSending;
       global.synChatForSending = function(){
-        return forSending.apply(this, arguments).map(withOutcome);
+        return withOutcomes(forSending.apply(this, arguments));
       };
     }
 
@@ -185,6 +223,7 @@
     if (typeof global.synChatPush === 'function'){
       var push = global.synChatPush;
       global.synChatPush = function(role, text, result){
+        if (role === 'assistant') text = String(text || '').replace(ECHO, '');
         // Финансовые действия не применяются сразу, а ждут подтверждения
         // карточкой (S.finPending) — это не «ничего не сделал».
         var empty = !result || (!(result.done || []).length && !(result.skipped || []).length);
@@ -225,6 +264,31 @@
       };
     }
     if (typeof ACTS !== 'undefined') ACTS['syn-copy'] = copy;
+
+    /* Тема разговора не прилипает.
+
+       Окно Syn, открытое из целей или финансов, передаёт серверу тему явно
+       (S.synIntent = planning / finance), и сервер даёт модели действия
+       ТОЛЬКО этого раздела. Тема хранилась в состоянии и жила дальше — и
+       следующая просьба уже про заметки уходила как «цели»: модель честно
+       отвечала «у меня нет такого действия». Теперь, если в окне пишут про
+       другой раздел, тема сбрасывается, и сервер определяет её по тексту. */
+    var OTHER = { planning: /замет|списк|список|задач|напомин|помодоро|медитац|трат|расход|доход|бюджет|долг|копил/i,
+                  finance:  /замет|списк|список|задач|цел[ьиеяю]|этап|напомин|помодоро|медитац/i };
+    if (typeof ACTS !== 'undefined' && ACTS['syn-send']){
+      var send = ACTS['syn-send'];
+      ACTS['syn-send'] = function(d){
+        var field = $('syn-input'), text = field ? field.value : '';
+        var rule = OTHER[S.synIntent];
+        if (rule && rule.test(text)){ S.synIntent = ''; S.synGoalCreate = false; }
+        return send.apply(this, arguments);
+      };
+    }
+    // Нажатие на «Скопировать» не забирает курсор из строки ввода: иначе
+    // каждое копирование выключало режим ввода и дёргало раскладку.
+    document.addEventListener('mousedown', function(e){
+      if (e.target.closest && e.target.closest('.syn-copy')) e.preventDefault();
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
