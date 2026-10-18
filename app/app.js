@@ -1170,6 +1170,49 @@ function parseSchedule(text, fallbackBucket){
     cuts.push(m[0].slice(lead.length));
     return m;
   };
+  /* То же, но кусок ещё и стирается из рабочей строки. Нужно повтору, сроку и
+     окну: «каждое воскресенье» иначе прочиталось бы вторым разом как дата
+     «в воскресенье», а «до пятницы» — как просто пятница. */
+  var takeOut = function(regex){
+    var m = take(regex);
+    if (!m) return null;
+    var lead = m[1] || '';
+    var at = m.index + lead.length, len = m[0].length - lead.length;
+    work = work.slice(0, at) + new Array(len + 1).join(' ') + work.slice(at + len);
+    return m;
+  };
+
+  /* --- окно, повтор, срок --- */
+  var windowFrom = null, windowTo = null, deadline = null, deadlineDay = null, deadlineTime = null;
+  var repeat = '', rule = null, repeatDate = null;
+
+  // «с 10 до 11:30», «с 9 утра до 6 вечера» — окно выполнения, а не время.
+  var HM = '([01]?\\d|2[0-3])(?:[:.]([0-5]\\d))?(?:\\s+(утра|дня|вечера|ночи))?';
+  // Число, за которым идут минуты, километры или «числа», — не часы.
+  var NOT_UNIT = '(?!\\s*(?:мин|час|числ|раз|шт|км|кг|тыс|руб|₽|%))';
+  var win = takeOut(new RegExp(WORD_START + 'с\\s+' + HM + '\\s+до\\s+' + HM + NOT_UNIT + WORD_END));
+  if (win){
+    windowFrom = clock(adjustHour(Number(win[2]), win[4]), Number(win[3] || 0));
+    windowTo = clock(adjustHour(Number(win[5]), win[7]), Number(win[6] || 0));
+  }
+
+  var rep = parseRepeat(takeOut, today);
+  if (rep){ repeat = rep.repeat; rule = rep.rule; repeatDate = rep.date; }
+
+  /* «до пятницы 18:00», «до 25.10», «до завтра» — крайний срок. День срока
+     разбираем этим же парсером: он и так умеет все эти формы. */
+  var dlDay = takeOut(new RegExp(WORD_START + 'до\\s+(завтра|послезавтра|сегодня|' +
+    WEEKDAY_PATTERNS.map(function(p){ return p[1]; }).join('|') +
+    '|\\d{1,2}[.\\/]\\d{1,2}(?:[.\\/]\\d{2,4})?|\\d{1,2}\\s+(?:' + MONTHS.join('|') + '))' +
+    '(?:\\s+(?:в\\s+)?([01]?\\d|2[0-3])[:.]([0-5]\\d))?' + WORD_END));
+  if (dlDay){
+    deadlineDay = parseSchedule(dlDay[2], 'today').date;
+    if (dlDay[3]) deadlineTime = clock(Number(dlDay[3]), Number(dlDay[4]));
+  } else {
+    // «до 18:00» без дня — срок в тот же день, что и задача.
+    var dlTime = takeOut(new RegExp(WORD_START + 'до\\s+' + HM + NOT_UNIT + WORD_END));
+    if (dlTime) deadlineTime = clock(adjustHour(Number(dlTime[2]), dlTime[4]), Number(dlTime[3] || 0));
+  }
 
   /* --- день --- */
   if (take(wordRegex('послезавтра'))) date = addDays(today, 2);
@@ -1219,6 +1262,12 @@ function parseSchedule(text, fallbackBucket){
       date = candidate;
     }
   }
+
+  /* День не назван отдельно — задача встаёт на день срока («сдать отчёт до
+     пятницы» и раньше уходил на пятницу) или на ближайший день повтора. */
+  var dayFromRule = false;
+  if (!date && deadlineDay) date = dateOf(deadlineDay);
+  else if (!date && repeatDate){ date = repeatDate; dayFromRule = true; }
 
   /* --- время --- */
   var withMinutes = take(new RegExp(WORD_START + '(?:(?:в|к|на)\\s*)?([01]?\\d|2[0-3])[:.]([0-5]\\d)' + WORD_END));
@@ -1272,6 +1321,10 @@ function parseSchedule(text, fallbackBucket){
   title = title.replace(/^(?:создай|добавь|оформи|запиши|напомни)\s+(?:задачу\s+|мне\s+)?/i, '');
   title = title.charAt(0).toUpperCase() + title.slice(1);
 
+  // Время срока без отдельного времени задачи и есть её время: «завтра до
+  // 18:00» должно остаться на карточке, а чипа срока там нет.
+  if (!time && deadlineTime && !windowFrom) time = deadlineTime;
+
   if (!date && time){
     // Время без дня ставит задачу на день блока по умолчанию.
     date = dateOf(dateForBucket(fallbackBucket || 'today')) || today;
@@ -1290,7 +1343,108 @@ function parseSchedule(text, fallbackBucket){
     if (!date) iso = null;
   }
 
-  return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: !!date, hasTime: !!time };
+  // Окно и срок живут в тот день, на который встала задача.
+  var dayOfTask = iso || isoOf(today);
+  if (deadlineDay || deadlineTime){
+    deadline = { date: deadlineDay || dayOfTask, time: deadlineTime, hard: true };
+  }
+
+  return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: !!date, hasTime: !!time,
+    repeat: repeat, rule: rule, deadline: deadline,
+    windowFrom: windowFrom ? { date: dayOfTask, time: windowFrom } : null,
+    windowTo: windowTo ? { date: dayOfTask, time: windowTo } : null };
+}
+
+/* Повтор словами: «каждый день», «по будням», «по вторникам и четвергам»,
+   «каждое воскресенье», «каждые 3 дня», «каждый месяц 5 числа».
+
+   Пресет берётся, когда фраза ровно его и называет, — так задача выглядит так
+   же, как заведённая руками. Всё остальное — своё правило ('custom'), той же
+   формы, что сохраняет окно задачи. Заодно считается ближайший день повтора:
+   «позвонить маме каждое воскресенье», сказанное в среду, — это воскресенье,
+   а не сегодня. */
+var WEEKDAY_EVERY = [
+  [1, 'понедельник(?:ам)?'], [2, 'вторник(?:ам)?'], [3, 'сред(?:у|ам)'], [4, 'четверг(?:ам)?'],
+  [5, 'пятниц(?:у|ам)'], [6, 'суббот(?:у|ам)'], [0, 'воскресень(?:е|ям)']
+];
+var COUNT_WORDS = { 'два': 2, 'две': 2, 'три': 3, 'четыре': 4, 'пять': 5, 'шесть': 6, 'семь': 7, 'десять': 10 };
+
+function parseRepeat(takeOut, today){
+  var day = WEEKDAY_EVERY.map(function(p){ return p[1]; }).join('|');
+  var rule = function(unit, interval, weekdays, monthDays){
+    return { unit: unit, interval: interval || 1, weekdaysOnly: false,
+             weeklyWeekdays: weekdays || [], monthlyDays: monthDays || [] };
+  };
+  var weekdaysIn = function(text){
+    return WEEKDAY_EVERY.filter(function(p){ return new RegExp(p[1]).test(text); })
+      .map(function(p){ return p[0]; });
+  };
+
+  // Числа месяца: «каждый месяц 5 числа», «5 и 20 числа каждого месяца», «каждое 5 число».
+  var NUM = '(\\d{1,2})(?:-?го|-?е)?(?:\\s+и\\s+(\\d{1,2})(?:-?го|-?е)?)?';
+  var m = takeOut(new RegExp(WORD_START + '(?:каждый\\s+месяц|ежемесячно)\\s+' + NUM + '\\s+числа' + WORD_END)) ||
+          takeOut(new RegExp(WORD_START + NUM + '\\s+числа\\s+(?:каждого\\s+месяца|каждый\\s+месяц|ежемесячно)' + WORD_END)) ||
+          takeOut(new RegExp(WORD_START + 'каждое\\s+' + NUM + '\\s+число' + WORD_END));
+  if (m){
+    var days = [m[2], m[3]].filter(Boolean).map(Number).filter(function(n){ return n >= 1 && n <= 31; });
+    if (days.length) return { repeat: CUSTOM_REPEAT, rule: rule('month', 1, [], days), date: nextMonthDay(today, days) };
+  }
+
+  // Дни недели: «по вторникам и четвергам», «каждую пятницу», «по выходным».
+  m = takeOut(new RegExp(WORD_START + '(?:по|кажд(?:ый|ую|ое))\\s+(?:' + day + ')(?:(?:\\s*,\\s*|\\s+и\\s+)(?:' + day + '))*' + WORD_END));
+  var weekdays = m ? weekdaysIn(m[0]) : null;
+  if (!weekdays && takeOut(wordRegex('по\\s+выходным|каждые\\s+выходные'))) weekdays = [6, 0];
+  if (weekdays && weekdays.length){
+    return { repeat: CUSTOM_REPEAT, rule: rule('week', 1, weekdays), date: nextWeekday(today, weekdays) };
+  }
+
+  if (takeOut(wordRegex('по\\s+будням|в\\s+будни|кажд(?:ый|ые)\\s+будни(?:й|е)\\s+дн(?:ь|и)'))){
+    return { repeat: 'weekdays', rule: null, date: nextWeekday(today, [1, 2, 3, 4, 5]) };
+  }
+
+  // «каждые 3 дня», «каждые две недели», «каждые 2 месяца».
+  m = takeOut(new RegExp(WORD_START + 'каждые\\s+(\\d{1,3}|два|две|три|четыре|пять|шесть|семь|десять)\\s+(дн(?:я|ей)|недел(?:и|ь)|месяц(?:а|ев))' + WORD_END));
+  if (m){
+    var n = COUNT_WORDS[m[2]] || Number(m[2]);
+    var unit = /^дн/.test(m[3]) ? 'day' : /^нед/.test(m[3]) ? 'week' : 'month';
+    if (unit === 'day' && n === 2) return { repeat: 'every2', rule: null, date: null };
+    return { repeat: CUSTOM_REPEAT, rule: rule(unit, n), date: null };
+  }
+
+  if (takeOut(wordRegex('каждый\\s+день|ежедневно'))) return { repeat: 'daily', rule: null, date: null };
+  if (takeOut(wordRegex('каждую\\s+неделю|еженедельно'))) return { repeat: 'weekly', rule: null, date: null };
+  if (takeOut(wordRegex('каждый\\s+месяц|ежемесячно'))) return { repeat: 'monthly', rule: null, date: null };
+  return null;
+}
+
+/// Ближайший из дней недели, считая сегодняшний.
+function nextWeekday(today, weekdays){
+  for (var i = 0; i < 7; i++){
+    var d = addDays(today, i);
+    if (weekdays.indexOf(d.getDay()) !== -1) return d;
+  }
+  return today;
+}
+
+/// Ближайшее из чисел месяца, считая сегодня. В коротком месяце 31-е просто
+/// пропускается — первая встреча правила всё равно будет настоящей.
+function nextMonthDay(today, days){
+  for (var i = 0; i < 62; i++){
+    var d = addDays(today, i);
+    if (days.indexOf(d.getDate()) !== -1) return d;
+  }
+  return today;
+}
+
+/// Поля задачи, которые строка ввода умеет назвать сверх дня и времени.
+/// Одно место на всех, кто заводит задачу из разобранной фразы.
+function withParsedExtras(task, parsed){
+  task.repeat = parsed.repeat || '';
+  task.rule = parsed.rule || null;
+  task.deadline = parsed.deadline || null;
+  task.windowFrom = parsed.windowFrom || null;
+  task.windowTo = parsed.windowTo || null;
+  return task;
 }
 
 /* Время, которое сегодня уже прошло, — это завтра.
@@ -1542,7 +1696,7 @@ function spawnNextOccurrence(task){
   var copy = {
     id: uid(), title: task.title, bucket: derivedBucket(next), date: next, done: false,
     note: task.note, time: task.time, repeat: task.repeat, rule: task.rule || null, series: series,
-    deadline: task.deadline || null, windowFrom: task.windowFrom || null,
+    deadline: task.deadline || null, windowFrom: task.windowFrom || null, windowTo: task.windowTo || null,
     hasExplicitDate: task.hasExplicitDate, hasExplicitTime: task.hasExplicitTime,
     // Якорь едет с серией: иначе следующее повторение снова возьмёт число из
     // прижатой даты и серия опять сядет на 28-е.
@@ -5157,12 +5311,12 @@ function addTask(){
   var parsed = parseSchedule(raw, 'today');
   if (!parsed.title) return;
   parsed = pushPastTimeToTomorrow(parsed, raw);
-  S.tasks.push({
+  S.tasks.push(withParsedExtras({
     id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
-    time: parsed.time, repeat: '', rule: null, series: null,
+    time: parsed.time, series: null,
     hasExplicitDate: !!parsed.hasDate, hasExplicitTime: !!parsed.hasTime,
     goalId: null, stageId: null, subtasks: []
-  });
+  }, parsed));
   S.draft = '';
   S.closed[parsed.bucket] = false;
   commit('Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
@@ -11395,10 +11549,10 @@ var ACTS = {
     if (!item || !item.said) return;
     var parsed = parseSchedule(item.said, 'today');
     if (!parsed.title) return;
-    S.tasks.push({
+    S.tasks.push(withParsedExtras({
       id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
-      time: parsed.time, repeat: '', series: null, goalId: null, stageId: null, subtasks: []
-    });
+      time: parsed.time, series: null, goalId: null, stageId: null, subtasks: []
+    }, parsed));
     S.closed[parsed.bucket] = false;
     item.none = false;
     item.done = ['создана задача «' + parsed.title + '» — разобрано без Syn'];
@@ -12553,10 +12707,10 @@ var ACTS = {
     var owner = goalOfStage(d.stage);
     if (owner) d = { goal: owner.id, stage: d.stage };
     // Та же самая задача, что на экране «Задачи» — один объект в S.tasks.
-    S.tasks.push({
+    S.tasks.push(withParsedExtras({
       id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
-      time: parsed.time, repeat: '', series: null, goalId: d.goal, stageId: d.stage, subtasks: []
-    });
+      time: parsed.time, series: null, goalId: d.goal, stageId: d.stage, subtasks: []
+    }, parsed));
     input.value = '';
     keepFocus('[data-goaltask="' + d.stage + '"]');
     commit('Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
