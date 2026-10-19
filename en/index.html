@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Synapse — AI system for planning and reaching goals</title>
+    <meta name="description" content="Not a to-do list but a system: a goal breaks down into stages and tasks, the Syn assistant runs your day, and goals, money and focus live in one place. Opens in the browser, nothing to install.">
+    <meta property="og:title" content="Synapse — AI system for planning and reaching goals">
+    <meta property="og:description" content="Not a to-do list but a system of smart tools: goals, tasks, money and an assistant in one place. Opens in the browser.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://synapseapp.ru/en/">
+    <meta property="og:site_name" content="Synapse">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="ru_RU">
+    <meta property="og:image" content="https://synapseapp.ru/screens/og-cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Synapse — a system for planning and reaching goals">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Synapse — AI system for planning and reaching goals">
+    <meta name="twitter:description" content="Not a to-do list but a system of smart tools: goals, tasks, money and an assistant in one place.">
+    <meta name="twitter:image" content="https://synapseapp.ru/screens/og-cover.png">
+    <link rel="canonical" href="https://synapseapp.ru/en/">
+    <link rel="alternate" hreflang="ru" href="https://synapseapp.ru/">
+    <link rel="alternate" hreflang="en" href="https://synapseapp.ru/en/">
+    <link rel="alternate" hreflang="x-default" href="https://synapseapp.ru/">
+    <meta name="theme-color" content="#7854f2">
+    <link rel="icon" href="../screens/mark.png?v=18ab930c">
+    <link rel="preload" as="font" type="font/woff2" href="../fonts/Manrope-latin.woff2" crossorigin>
+    <link rel="stylesheet" href="../fonts/fonts.css">
+    <link rel="stylesheet" href="../landing.css">
+    <link rel="stylesheet" href="../site-theme.css">
+      <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+      (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+      })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=111833170', 'ym');
+
+      ym(111833170, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <noscript><div><img src="https://mc.yandex.ru/watch/111833170" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- /Yandex.Metrika counter -->
+      <script src="../theme.js"></script>
+      <!-- Английская версия главной. Текст — перевод русской (../index.html):
+           правите одну — правьте и другую. Цены в рублях, как и в оплате.
+           Язык, выбранный здесь, запоминается и для веб-версии (lang-switch.js). -->
+      <script src="../lang-switch.js"></script>
+  </head>
+  <body>
+    <header class="nav">
+      <a class="brand" href="./">
+        <img class="mark" src="../screens/mark.png?v=18ab930c" alt="" width="40" height="40">
+        <span>Synapse</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#idea">Idea</a>
+        <a href="#different">Why it's different</a>
+        <a href="#features">Features</a>
+        <a href="#privacy">Your data</a>
+        <a href="#pricing">Pricing</a>
+          <a href="../account/">Subscription</a>
+      </nav>
+      <nav class="lang-switch" aria-label="Language">
+        <a href="../" lang="ru" hreflang="ru" data-set-lang="ru" title="Русская версия">RU</a>
+        <a href="./" lang="en" hreflang="en" data-set-lang="en" aria-current="page">EN</a>
+      </nav>
+      <button class="theme-toggle" data-theme-toggle type="button" aria-label="Switch theme" title="Switch theme">☾</button>
+      <a class="btn btn-small btn-tg" href="https://t.me/synapseapp"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>Telegram</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-text">
+          <h1>
+            <span class="h1-line">Think globally,</span>
+            <span class="h1-line">act <em>locally</em>.</span>
+          </h1>
+          <p class="lead">
+            Not a to-do list but a system: a big goal breaks down into stages,
+            stages into tasks for today, and the assistant runs your day and
+            rebuilds the plan from a single sentence. One step at a time, but in
+            the right direction.
+          </p>
+          <div class="cta">
+            <a class="btn btn-web" href="../app/" data-set-lang="en">Open Synapse in the browser</a>
+            <a class="btn btn-ios" href="https://apps.apple.com/app/synapse-ai/id6796978134"><svg class="ico" viewBox="9.67 8.42 18.32 22.38" aria-hidden="true"><path fill="currentColor" d="M24.76888,20.30068a4.94881,4.94881,0,0,1,2.35656-4.15206,5.06566,5.06566,0,0,0-3.99116-2.15768c-1.67924-.17626-3.30719,1.00483-4.1629,1.00483-.87227,0-2.18977-.98733-3.6085-.95814a5.31529,5.31529,0,0,0-4.47292,2.72787c-1.934,3.34842-.49141,8.26947,1.3612,10.97608.9269,1.32535,2.01018,2.8058,3.42763,2.7533,1.38706-.05753,1.9051-.88448,3.5794-.88448,1.65876,0,2.14479.88448,3.591.8511,1.48838-.02416,2.42613-1.33124,3.32051-2.66914a10.962,10.962,0,0,0,1.51842-3.09251A4.78205,4.78205,0,0,1,24.76888,20.30068Z"/><path fill="currentColor" d="M22.03725,12.21089a4.87248,4.87248,0,0,0,1.11452-3.49062,4.95746,4.95746,0,0,0-3.20758,1.65961,4.63634,4.63634,0,0,0-1.14371,3.36139A4.09905,4.09905,0,0,0,22.03725,12.21089Z"/></svg>For iPhone</a>
+            <a class="btn btn-android" href="https://www.rustore.ru/catalog/app/ru.synapseapp.app"><img class="ico" src="../img/rustore-mark.svg?v=0d81fbda" alt="" width="19" height="19" loading="lazy" aria-hidden="true">For Android</a>
+          </div>
+        </div>
+        <div class="hero-shot">
+          <div class="shot-glow" aria-hidden="true"></div>
+          <div class="duo-stage">
+            <div class="laptop" aria-label="Synapse web version in the browser">
+              <div class="laptop-screen">
+                <div class="screen-inner">
+                <img class="webshot-img" src="../screens/web-1.png?v=4a16fc83" data-dark-src="../screens/web-1-dark.png?v=8fdb8faa" alt="Synapse web version: the tasks screen"
+                     loading="eager" onload="this.classList.add('ok')">
+                <div class="webshot">
+                  <div class="ws-top">
+                    <span class="ws-mark"></span>
+                    <b>Synapse</b>
+                    <span class="ws-acts"><i></i><i class="wide"></i></span>
+                  </div>
+                  <div class="ws-body">
+                    <div class="ws-rail">
+                      <span class="on">Tasks</span>
+                      <span>Goals</span>
+                      <span>Analytics</span>
+                      <span>Goal map</span>
+                      <span>Lists</span>
+                      <span>Notes</span>
+                      <span>Finance</span>
+                    </div>
+                    <div class="ws-main">
+                      <p class="ws-day">Today<i>2 tasks</i></p>
+                      <div class="ws-task done"><span class="ws-box on"></span><b>Buy groceries</b></div>
+                      <div class="ws-task"><span class="ws-box"></span><b>Call a friend</b><i>14:00</i></div>
+                      <p class="ws-day">Tomorrow<i>1 task</i></p>
+                      <div class="ws-task"><span class="ws-box"></span><b>Write the report</b><i>15:00</i></div>
+                      <p class="ws-day">This week<i>empty</i></p>
+                      <div class="ws-say"><span>Buy milk tomorrow at 9 am</span><i>AI</i></div>
+                    </div>
+                  </div>
+                </div>
+                </div>
+              </div>
+              <div class="laptop-base" aria-hidden="true"></div>
+            </div>
+
+            <div class="duo-phone">
+              <div class="device">
+                <div class="device-screen">
+                  <img src="../screens/app-1.png?v=0b44676b" data-dark-src="../screens/app-1-dark.png?v=949cb5bd" alt="Synapse on a phone: the tasks screen"
+                       width="552" height="1200" fetchpriority="high"
+                       onerror="this.onerror=null; this.src='../screens/screen-1.png'">
+                  <span class="device-island" aria-hidden="true"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <section class="creed" id="idea">
+        <p class="creed-kicker">The point of it all</p>
+        <p class="creed-line">Create<br>the causes</p>
+        <p class="creed-text">
+          The result is never fully in our hands. The effort is. You create the
+          causes: you take a step, then another, and another. Synapse is there so
+          those steps don't get lost and add up to a path.
+        </p>
+      </section>
+
+      <section class="section" id="different">
+        <h2 class="section-title">Three things no to-do list has</h2>
+        <div class="cards">
+          <article class="card">
+            <div class="card-num">01</div>
+            <h3>A goal, not just tasks</h3>
+            <p>
+              A goal has stages, and stages have their own tasks. Progress counts
+              itself, and you can see at once which task today really moves the big thing.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-num">02</div>
+            <h3>The Syn assistant</h3>
+            <p>
+              Just say it: "move the call to Friday", "sort out my day",
+              "turn this into a goal". Syn changes the plan itself and shows exactly what it did.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-num">03</div>
+            <h3>Goal map</h3>
+            <p>
+              All goals, stages and linked tasks on one canvas. You can see where
+              things are moving and where nothing has happened for a month.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section screens">
+        <h2 class="section-title">Your day, your goal and your path — in one place</h2>
+        <div class="gallery">
+          <ul class="gallery-track" id="gallery" tabindex="0" aria-label="iPhone app screens">
+            <li class="gallery-card"><img src="../screens/cards/tasks.webp?v=14314eeb" alt="Tasks: everything by day — today, tomorrow, this week" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="../screens/cards/finance.webp?v=14bc9e62" alt="My finances: free balance, savings jars, debts and the month's totals" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="../screens/cards/syn.webp?v=03e0d4ee" alt="The Syn assistant: type or talk — the plan changes itself" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="../screens/cards/focus.webp?v=ae47b66e" alt="My focus: what matters today and Syn's report" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="../screens/cards/spending.webp?v=1cc6f761" alt="Spending: say &quot;coffee 350&quot; — and it's recorded" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="../screens/cards/goals.webp?v=05d0bfab" alt="Goals: big goals step by step" loading="lazy" width="660" height="1434"></li>
+            <li class="gallery-card"><img src="../screens/cards/map.webp?v=ee013726" alt="Goal map: goals, stages and tasks on one canvas" loading="lazy" width="660" height="1434"></li>
+          </ul>
+          <button class="gallery-nav prev" type="button" data-gallery="-1" aria-label="Back">‹</button>
+          <button class="gallery-nav next" type="button" data-gallery="1" aria-label="Next">›</button>
+        </div>
+        <script>
+          (function () {
+            var track = document.getElementById('gallery');
+            if (!track) return;
+            function step() {
+              var card = track.querySelector('.gallery-card');
+              return card ? card.getBoundingClientRect().width + 20 : 320;
+            }
+            document.addEventListener('click', function (e) {
+              var b = e.target.closest ? e.target.closest('[data-gallery]') : null;
+              if (!b) return;
+              track.scrollBy({ left: step() * Number(b.getAttribute('data-gallery')), behavior: 'smooth' });
+            });
+          })();
+        </script>
+      </section>
+
+
+      <section class="section" id="features">
+        <h2 class="section-title">What's in the system</h2>
+        <div class="grid">
+          <div class="feature">
+            <h3>Days, not an endless list</h3>
+            <p>Today, Tomorrow, The day after, This week and Later. The whole horizon at once.</p>
+          </div>
+          <div class="feature">
+            <h3>Deadlines that don't lie</h3>
+            <p>A soft date, a hard deadline "by 18:00" or a window "from 10:00 to 11:30".</p>
+          </div>
+          <div class="feature">
+            <h3>Goals with stages</h3>
+            <p>A big goal breaks into stages, stages into tasks. Progress counts itself.</p>
+          </div>
+          <div class="feature">
+            <h3>The Syn assistant</h3>
+            <p>Just say it: "move the call to Friday", "sort out my day".</p>
+          </div>
+          <div class="feature">
+            <h3>My finances</h3>
+            <p>Spending as one line — "coffee 350", envelopes, savings jars, debts and bills.</p>
+          </div>
+          <div class="feature">
+            <h3>By voice</h3>
+            <p>Dictate a task or a review of your day — punctuation takes care of itself.</p>
+          </div>
+          <div class="feature">
+            <h3>Notes and lists</h3>
+            <p>Shopping, books, thoughts — next to the plan, not in another app.</p>
+          </div>
+          <div class="feature">
+            <h3>Pomodoro and meditation</h3>
+            <p>A focus timer and twelve sounds, from rain to a fireplace. They work offline.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section band" id="privacy">
+        <h2 class="section-title">About your data — honestly</h2>
+        <div class="grid">
+          <div class="feature">
+            <h3>Your records stay with you</h3>
+            <p>Tasks, goals, notes and money live on your device; from a phone a copy goes only to your own iCloud or Google backup. We don't collect them.</p>
+          </div>
+          <div class="feature">
+            <h3>What the assistant sees</h3>
+            <p>To answer, Syn gets a snapshot of your tasks, goals, lists and notes, and for the briefing and money questions — your finances too. You can erase the chat in settings.</p>
+          </div>
+          <div class="feature">
+            <h3>No ads inside</h3>
+            <p>No advertising SDKs in the apps. We don't sell data.</p>
+          </div>
+          <div class="feature">
+            <h3>Encrypted sync</h3>
+            <p>With Pro, sync moves your records between devices: they reach the server encrypted, and only you hold the key. Or move them as one file in "Settings → Data".</p>
+          </div>
+        </div>
+        <p class="hint">Details are in the <a href="./privacy/">privacy policy</a>.</p>
+      </section>
+
+      <section class="section band" id="pricing">
+        <h2 class="section-title">The system is free.<br>Paid means more assistant and no limits</h2>
+
+        <div class="plans">
+          <article class="plan">
+            <p class="plan-kicker">Free</p>
+            <p class="plan-price">0 ₽</p>
+            <p class="plan-per">forever, no card and no sign-up</p>
+            <ul class="plan-list">
+              <li><b>20</b> Syn requests a day</li>
+              <li>Daily briefing from Syn</li>
+              <li>Assistant memory</li>
+              <li><b>2</b> goals, <b>2</b> lists, <b>2</b> notes; in "My finances" — <b>2</b> entries of each kind</li>
+              <li>Pomodoro and meditation — one mode and one sound</li>
+              <li><b>2</b> themes out of twenty</li>
+              <li>Unlimited tasks and analytics</li>
+            </ul>
+            <span class="btn btn-ghost btn-plan btn-disabled">Already yours</span>
+          </article>
+
+          <article class="plan plan-soft">
+            <p class="plan-kicker">Pro for a week</p>
+            <p class="plan-price">149 ₽<span class="plan-unit">/wk</span></p>
+            <p class="plan-per">try it without paying for a month</p>
+            <ul class="plan-list">
+              <li><b>180</b> Syn requests a day</li>
+              <li>Daily briefing from Syn</li>
+              <li>Assistant memory</li>
+              <li>Goals, lists, notes and "My finances" <b>without limits</b></li>
+              <li>Encrypted device sync</li>
+              <li>All 20 themes, 6 checkmark styles, 12 meditation sounds and every pomodoro mode</li>
+            </ul>
+            <a class="btn btn-ghost btn-plan" href="../checkout/?plan=pro.weekly">Get a week</a>
+          </article>
+
+          <article class="plan plan-soft">
+            <p class="plan-kicker">Pro for a month</p>
+            <p class="plan-price">590 ₽<span class="plan-unit">/mo</span></p>
+            <p class="plan-per">billed once a month</p>
+            <ul class="plan-list">
+              <li><b>180</b> Syn requests a day</li>
+              <li>Daily briefing from Syn</li>
+              <li>Assistant memory</li>
+              <li>Goals, lists, notes and "My finances" <b>without limits</b></li>
+              <li>Encrypted device sync</li>
+              <li>All 20 themes, 6 checkmark styles, 12 meditation sounds and every pomodoro mode</li>
+              <li>Cheaper than weekly for the same set</li>
+            </ul>
+            <a class="btn btn-ghost btn-plan" href="../checkout/?plan=pro.monthly">Get a month</a>
+          </article>
+
+          <article class="plan plan-hero">
+            <span class="plan-badge">Save 30% — 2,090 ₽</span>
+            <p class="plan-kicker">Pro for a year</p>
+            <p class="plan-price">4,990 ₽<span class="plan-unit">/yr</span></p>
+            <p class="plan-per">that's 416 ₽ a month — 2,090 ₽ less</p>
+            <ul class="plan-list">
+              <li><b>500</b> Syn requests a day — almost three times more</li>
+              <li>Daily briefing from Syn</li>
+              <li>Assistant memory</li>
+              <li>Goals, lists, notes and "My finances" <b>without limits</b></li>
+              <li>Encrypted device sync</li>
+              <li>All 20 themes, 6 checkmark styles, 12 meditation sounds and every pomodoro mode</li>
+              <li><b>The lowest monthly price</b> — 416 ₽</li>
+            </ul>
+            <a class="btn btn-plan btn-plan-primary" href="../checkout/?plan=pro.yearly">Get a year</a>
+            <p class="plan-note">Cancel in one click. Access lasts until the end of the paid period.</p>
+          </article>
+        </div>
+
+        <p class="fineprint">
+          More on the <a href="../pricing/">pricing</a> page (in Russian); purchase terms are in the
+          <a href="../offer/">offer</a>.
+        </p>
+      </section>
+
+      <section class="section closing">
+        <h2>The first step takes a minute</h2>
+        <p class="lead">The web version opens right away, with no sign-up and no card. The first steps will show you where to start.</p>
+        <div class="cta cta-center">
+          <a class="btn btn-primary" href="../app/" data-set-lang="en">Open in the browser</a>
+          <a class="cta-link" href="https://t.me/synapseapp">Write to us</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand-col">
+          <div class="footer-brand">
+            <img class="mark" src="../screens/mark.png?v=18ab930c" alt="" width="26" height="26">
+            <span>Synapse</span>
+          </div>
+          <p class="footer-about">An AI system for planning and reaching goals.
+            Opens in the browser — nothing to install, no sign-up.</p>
+          <p class="copy">© 2026 Synapse. All rights reserved.</p>
+        </div>
+        <nav class="footer-cols" aria-label="Site map">
+          <div class="footer-col">
+            <p class="footer-h">Product</p>
+            <a href="../app/" data-set-lang="en">Open Synapse</a>
+            <a href="../pricing/">Pricing</a>
+            <a href="../account/">Subscription and cancelling</a>
+            <a href="../partners/">For partners</a>
+            <a href="https://apps.apple.com/app/synapse-ai/id6796978134">iPhone app</a>
+            <a href="https://www.rustore.ru/catalog/app/ru.synapseapp.app">Android app</a>
+          </div>
+          <div class="footer-col">
+            <p class="footer-h">Help</p>
+            <a href="../support/">Support</a>
+            <a href="../pro/">How to turn on Pro</a>
+            <a href="https://t.me/synapseapp">Telegram</a>
+          </div>
+          <div class="footer-col">
+            <p class="footer-h">Documents</p>
+            <a href="./privacy/">Privacy</a>
+            <a href="../terms/">Terms</a>
+            <a href="../offer/">Offer</a>
+            <a href="../requisites/">Company details</a>
+          </div>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

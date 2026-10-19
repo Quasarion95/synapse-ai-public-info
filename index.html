@@ -26,6 +26,9 @@
     <meta name="twitter:description" content="Не список дел, а система умных инструментов: цели, задачи, деньги и ассистент в одном контуре.">
     <meta name="twitter:image" content="https://synapseapp.ru/screens/og-cover.png">
     <link rel="canonical" href="https://synapseapp.ru/">
+    <link rel="alternate" hreflang="ru" href="https://synapseapp.ru/">
+    <link rel="alternate" hreflang="en" href="https://synapseapp.ru/en/">
+    <link rel="alternate" hreflang="x-default" href="https://synapseapp.ru/">
     <meta name="theme-color" content="#7854f2">
     <link rel="icon" href="./screens/mark.png?v=18ab930c">
     <link rel="preload" as="font" type="font/woff2" href="./fonts/Manrope-cyrillic.woff2" crossorigin>
@@ -46,6 +49,7 @@
     <noscript><div><img src="https://mc.yandex.ru/watch/111833170" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
     <!-- /Yandex.Metrika counter -->
       <script src="./theme.js"></script>
+      <script src="./lang-switch.js"></script>
       <script>
       /* Партнёрская ссылка ведёт сюда, на главную (…/?promo=КОД). Закрепляем код
          в тот же localStorage, что читает страница оплаты (ключ synapse.promo,
@@ -86,6 +90,12 @@
            заголовком, а две одинаковые кнопки в поле зрения — это шум.
            Telegram здесь уместен: это не действие с продуктом, а связь с нами,
            и в ряду скачиваний ему не место. -->
+      <!-- Язык — справа, рядом с темой: обе кнопки про то, как страница
+           выглядит. Английская главная — /en/ (en/index.html). -->
+      <nav class="lang-switch" aria-label="Язык">
+        <a href="./" lang="ru" hreflang="ru" data-set-lang="ru" aria-current="page">RU</a>
+        <a href="./en/" lang="en" hreflang="en" data-set-lang="en" title="English version">EN</a>
+      </nav>
       <button class="theme-toggle" data-theme-toggle type="button" aria-label="Сменить тему" title="Сменить тему">☾</button>
       <a class="btn btn-small btn-tg" href="https://t.me/synapseapp"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>Telegram</a>
     </header>
