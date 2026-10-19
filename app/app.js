@@ -2115,10 +2115,12 @@ function render(){
   document.body.classList.toggle('deskpage', !!(window.SynDesk && SynDesk.active(S.view)) &&
     !(PRO_ONLY[S.view] && !isPro()));
   $('app').innerHTML = SynI18n.tr((PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render());
-  // Строка записи трат живёт внизу экрана, как строка создания задач. На
-  // дашборде её нет: там строка стоит прямо в зоне трат.
-  if (S.view === 'finance' && S.finTab === 'ops' && !finLocked && !finDesk()){
-    $('app').insertAdjacentHTML('beforeend', SynI18n.tr(vFinComposer()));
+  // Полоса Syn живёт внизу всего раздела — на каждой вкладке и на дашборде:
+  // записать можно только через неё (см. vFinSyn).
+  if (S.view === 'finance' && !finLocked){
+    $('app').insertAdjacentHTML('beforeend', SynI18n.tr(vFinSyn()));
+    var finField = $('finsyn');
+    if (finField) growInput(finField);
   }
   restoreTabStrip(stripLeft);
 
@@ -3642,14 +3644,7 @@ function vFinSummary(){
      равно можно нажатием на плитку «Свободно» под ней. */
   if (!S.finance.opening && !S.finance.openingHidden){
     html += '<section class="card finhint">' +
-      '<div class="finhint-head">' +
-        '<h3>Сначала — сколько у вас есть</h3>' +
-        '<button class="tour-hide" data-act="fin-hint-hide" aria-label="' +
-          SynI18n.tr('Скрыть подсказку') + '" title="' + SynI18n.tr('Скрыть') + '">✕</button>' +
-      '</div>' +
-      '<p class="sub">Впишите, сколько сейчас на карте и в кошельке, — одним числом. ' +
-        'Без него «Свободно» показывает не деньги, а разницу доходов и трат с первой записи.</p>' +
-      '<div class="acts"><button class="btn sm" data-act="fin-opening">Вписать</button></div>' +
+      finStartHTML() +
     '</section>';
   }
 
@@ -3714,10 +3709,34 @@ function vFinSummary(){
           '</div>';
         }).join('') + '</div>'
       : '<p class="sub" style="margin:0">В этом месяце ещё ничего не записано. ' +
-        'Первая строка — во вкладке «Мои траты».</p>') +
+        'Скажите Syn в строке внизу, на что потратили.</p>') +
   '</section>';
 
   return html;
+}
+
+/* Первый рассказ о деньгах — голосом и целиком.
+
+   Заводить остаток, каждый долг и каждую подписку отдельной формой — это
+   десять минут на входе, и раздел бросают, не начав. Одна фраза Syn делает то
+   же самое: остаток, долги, подписки с днями списания, доход — и всё это
+   показывается карточкой перед записью. Подсказка общая для сводки и
+   дашборда. */
+function finStartHTML(){
+  return '<div class="finhint-head">' +
+      '<h3>Расскажите Syn, что у вас с деньгами</h3>' +
+      '<button class="tour-hide" data-act="fin-hint-hide" aria-label="' +
+        SynI18n.tr('Скрыть подсказку') + '" title="' + SynI18n.tr('Скрыть') + '">✕</button>' +
+    '</div>' +
+    '<p class="sub">Всё сразу, своими словами: «На карте 80 тысяч. Должен Пете 15 тысяч до первого. ' +
+      'Яндекс Плюс 399 пятого числа, аренда 30 тысяч десятого. Зарплата 120 тысяч». ' +
+      'Syn сам заведёт остаток, долги, подписки и доход, а перед записью покажет, что получилось.</p>' +
+    '<div class="acts">' +
+      (voiceSupported()
+        ? '<button class="btn sm finstart-mic" data-act="fin-voice">' + FIN_MIC + ' Рассказать голосом</button>'
+        : '') +
+      '<button class="btn sm soft" data-act="fin-syn-focus">Написать</button>' +
+    '</div>';
 }
 
 function finTile(caption, value, tone){
@@ -3726,45 +3745,118 @@ function finTile(caption, value, tone){
 }
 
 
-/* Строка записи трат внизу экрана — ровно там же, где строка создания задач.
+/* Полоса Syn внизу «Моих финансов» — единственный способ что-то записать.
 
-   Раньше форма стояла карточкой сверху: чтобы записать кофе, нужно было
-   доскроллить до неё вверх. Трату записывают на ходу и по одной, поэтому поле
-   должно быть под большим пальцем и всегда на виду — как в задачах.
+   Раньше здесь была строка «кофе 350» с переключателем «Трата / Доход»: её
+   разбирал код, и умела она ровно одно — одну трату за раз. Долг, подписку,
+   доход, остаток приходилось заводить руками, каждый своей формой. Теперь всё
+   говорится словами: «на карте 80 тысяч, должен Пете 15 до первого,
+   Яндекс Плюс 399 пятого числа, зарплата 120 тысяч» — и Syn сам раскладывает
+   это по остатку, долгам, подпискам и доходам.
 
-   Микрофон рядом ЗАПИСЫВАЕТ САМ, не открывая ассистента: сказал «за кофе 300»
-   — строка разобрана тем же разбором, что и печатный ввод, и трата легла в
-   список. Открывать ради одной траты экран Syn, ждать ответа и тратить запрос
-   — цена, несоразмерная задаче. */
-function vFinComposer(){
-  var kind = S.finKind || 'spend';
-  return '<div class="composer fincomposer">' +
-    '<div class="finswitch">' +
-      '<button class="' + (kind === 'spend' ? 'on' : '') + '" data-act="fin-kind" data-kind="spend">Трата</button>' +
-      '<button class="' + (kind === 'income' ? 'on' : '') + '" data-act="fin-kind" data-kind="income">Доход</button>' +
-    '</div>' +
-    '<form class="say" data-form="fin-add">' +
-      '<label class="visually-hidden" for="finfield">' +
-        (kind === 'income' ? 'Новый доход' : 'Новая трата') + '</label>' +
-      '<input id="finfield" type="text" autocomplete="off" enterkeyhint="done" ' +
-        'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
-      (voiceSupported()
-        ? '<button class="ai' + (finVoice.on ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
-          'aria-label="' + (finVoice.on ? 'Записать сказанное' : 'Сказать трату голосом') + '" ' +
-          'title="' + (finVoice.on ? 'Записать сказанное' : 'Сказать трату голосом') + '">' + ICON.mic + '</button>'
-        : '') +
-      '<button class="send" type="submit" aria-label="Записать">' + NAV_ICONS.send + '</button>' +
-    '</form>' +
+   Ответ показывается прямо над полосой, а не отдельным окном: человек
+   смотрит на свои деньги и должен видеть, что именно запишется, рядом с ними.
+   Деньги пишутся только по «Применить» — как и раньше в окне Syn.
+
+   Полоса стоит на всех вкладках раздела и на дашборде: сказать «отдал Пете
+   5000» хочется там, где видишь долг, а не во вкладке трат. */
+var FINSYN = { open: false, from: null, draft: '', error: '', said: '' };
+
+/* Микрофон полосы — контуром, а не общий ICON.mic: в кнопке .say .ai общий
+   значок рисуется заливкой, и дуга держателя сливалась с капсулой в один
+   невнятный силуэт. Капсула с решёткой, держатель и подставка читаются сразу. */
+var FIN_MIC = '<svg class="dmic" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<rect x="8.5" y="2.5" width="7" height="11.5" rx="3.5"/>' +
+  '<path d="M8.5 7h2.2M8.5 9.8h2.2M13.3 7h2.2M13.3 9.8h2.2"/>' +
+  '<path d="M5.5 11a6.5 6.5 0 0 0 13 0"/>' +
+  '<path d="M12 17.5v3M8.5 20.8h7"/></svg>';
+
+function vFinSyn(){
+  var listening = finVoice.on;
+  var html = '<div class="composer finsyn">';
+
+  if (FINSYN.open) html += finSynPanel();
+
+  html += '<form class="say" data-form="fin-syn">' +
+    '<label class="visually-hidden" for="finsyn">Что записать</label>' +
+    '<textarea id="finsyn" rows="1" enterkeyhint="send" autocomplete="off" ' +
+      'placeholder="' + (listening ? 'Говорите — нажмите микрофон, когда закончите'
+        : 'Скажите Syn: «кофе 350»') + '">' + esc(FINSYN.draft) + '</textarea>' +
+    (voiceSupported()
+      ? '<button class="ai' + (listening ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
+        'aria-label="' + (listening ? 'Отправить сказанное' : 'Сказать голосом') + '" ' +
+        'title="' + (listening ? 'Отправить сказанное' : 'Сказать голосом') + '">' + FIN_MIC + '</button>'
+      : '') +
+    '<button class="send" type="submit" aria-label="Отправить Syn"' + (SYN.busy ? ' disabled' : '') + '>' +
+      NAV_ICONS.send + '</button>' +
+  '</form>';
+
+  if (listening){
+    html += '<p class="hint finsyn-note">Слушаю. Нажмите микрофон ещё раз — и Syn всё запишет.</p>';
+  }
+  return html + '</div>';
+}
+
+/// Окошко над полосой: что сказано, что ответил Syn и что запишется.
+function finSynPanel(){
+  var start = FINSYN.from ? S.synChat.indexOf(FINSYN.from) : -1;
+  var items = start >= 0 ? S.synChat.slice(start) : [];
+  var body = items.map(function(item){ return synItemHTML(item); }).join('');
+  if (SYN.busy) body += '<div class="syn-msg wait"><span>Syn думает…</span></div>';
+
+  if (FINSYN.error){
+    body += '<p class="err syn-error">' + esc(FINSYN.error) + '</p>';
+    // Без Syn простую трату всё равно можно записать — кодом, как раньше.
+    var parsed = FINSYN.said ? finParse(FINSYN.said, 'spend') : null;
+    if (parsed){
+      body += '<div class="syn-none-acts"><button class="btn sm soft" data-act="fin-syn-local">' +
+        'Записать без Syn: ' + esc(parsed.title) + ' — ' + finMoney(parsed.amount) + '</button></div>';
+    }
+  }
+  if (!body) return '';
+
+  return '<div class="finsyn-panel" id="finsyn-log">' +
+    '<button class="finsyn-x" data-act="fin-syn-close" aria-label="Скрыть ответ" title="Скрыть">✕</button>' +
+    body +
   '</div>';
 }
 
-/* Голос для трат — тот же движок диктовки, что у Syn (см. dictStart):
-   нажал — пишет в строку, нажал ещё раз — трата записана. */
+/// Перерисовка во время разговора: тот же экран, окошко над полосой.
+function finSynDraw(draft, error){
+  FINSYN.draft = draft || '';
+  FINSYN.error = error || '';
+  FINSYN.open = true;
+  render();
+  var log = $('finsyn-log');
+  if (log) log.scrollTop = log.scrollHeight;
+}
+
+/// Карточка с решённой пачкой остаётся в разговоре, но с итогом вместо кнопок.
+function finCardSettle(state, result){
+  for (var i = S.synChat.length - 1; i >= 0; i--){
+    var card = S.synChat[i].finance;
+    if (card && !card.state){ card.state = state; card.result = result; return; }
+  }
+}
+
+function finSynSend(text){
+  text = String(text || '').trim();
+  if (!text || SYN.busy) return;
+  // Деньги говорятся в разделе денег: Syn получает финансовый срез и
+  // финансовые действия, а не задачи дня.
+  S.synIntent = 'finance';
+  S.synGoalCreate = false;
+  FINSYN.said = text;
+  FINSYN.error = '';
+  synSend(text, 'fin');
+}
+
+/* Голос — тот же движок диктовки, что у Syn (см. dictStart):
+   нажал — пишет в строку, нажал ещё раз — сказанное ушло Syn. */
 function finVoiceStart(){
-  dictStart('fin', 'finfield', function(text){
-    var field = $('finfield');
-    if (field && text) field.value = text;
-    if (text) ACTS['fin-add']({});
+  dictStart('fin', 'finsyn', function(text){
+    FINSYN.draft = '';
+    if (text) finSynSend(text);
     else render();
   });
   render();
@@ -3775,19 +3867,14 @@ function finVoiceStop(){
 }
 
 function vFinOps(){
-  var kind = S.finKind || 'spend';
+  // Даты над лентой больше нет: записывает Syn, и день он берёт из сказанного
+  // («вчера такси 450»), а не из поля, которое надо не забыть переставить.
   var html = '<div class="finance-has-composer">' + finMonthBar();
-
-  // Дата — над списком, а не в строке ввода: меняют её редко, а строку она
-  // раздувала бы на треть. Сама строка ввода уехала вниз экрана (vFinComposer).
-  html += '<div class="finwhen">' +
-      '<label for="findate">Дата</label>' +
-      полеДаты('findate', S.finDate || isoOf(todayDate())) +
-    '</div>';
 
   if (!S.finance.ops.length){
     return html + blank(NAV_ICONS.finance, 'Записей пока нет',
-      'Одна строка на трату — этого достаточно. Через месяц раздел покажет, куда уходят деньги.') + '</div>';
+      'Скажите Syn в строке внизу: «кофе 350», «вчера такси 450 и обед 600». ' +
+      'Через месяц раздел покажет, куда уходят деньги.') + '</div>';
   }
 
   // По дням, свежие сверху: список трат читают как ленту, а не как таблицу.
@@ -4282,7 +4369,7 @@ function finApplyBatch(actions){
         target.taskId = '';
         said.push('долг «' + target.who + '» закрыт');
       } else {
-        said.push('возврат от «' + target.who + '»');
+        said.push((target.mine ? 'часть долга «' + target.who + '» отдана' : 'возврат от «' + target.who + '»'));
       }
       return;
     }
@@ -4331,6 +4418,18 @@ function finApplyBatch(actions){
 
    Человек должен увидеть цифру до того, как она попадёт в сводку, а не
    после. Поэтому итог считается здесь же, теми же правилами, что и запись. */
+/// Чей долг гасится: по открытому долгу с этим именем, иначе — по слову модели.
+function finDebtMine(a){
+  var needle = String(a.who || '').toLowerCase();
+  for (var i = 0; needle && i < S.finance.debts.length; i++){
+    var d = S.finance.debts[i];
+    if (d.closed) continue;
+    var who = d.who.toLowerCase();
+    if (who.indexOf(needle) !== -1 || needle.indexOf(who) !== -1) return d.mine;
+  }
+  return a.mine !== false;
+}
+
 function finPreview(actions){
   var rows = [], total = 0;
 
@@ -4352,16 +4451,21 @@ function finPreview(actions){
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) +
         (a.due ? ', до ' + humanDate(a.due) : ''));
     } else if (kind === 'fin_pay_debt'){
-      rows.push('Возврат от ' + (a.who || '?') + ' — ' +
+      // Кто кому отдаёт — по сохранённому долгу: «Возврат от Петя» на долге,
+      // где должен я сам, читался наоборот.
+      rows.push((finDebtMine(a) ? 'Отдаю долг: ' : 'Мне возвращают: ') + (a.who || '?') + ' — ' +
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)));
     } else if (kind === 'fin_add_jar'){
       rows.push('Копилка «' + (a.title || '?') + '» на ' +
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) +
         (a.due ? ', к ' + humanDate(a.due) : ''));
     } else if (kind === 'fin_add_sub'){
+      // День списания — в карточке: «пятого числа» Syn мог понять неверно,
+      // а проверить это человек может только здесь.
       rows.push('Подписка «' + (a.title || '?') + '» — ' +
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) + ' ' +
-        (FIN_EVERY[a.every] || FIN_EVERY.month).title);
+        (FIN_EVERY[a.every] || FIN_EVERY.month).title +
+        (/^\d{4}-\d{2}-\d{2}$/.test(a.since || '') ? ', ближайшее списание ' + humanDate(a.since) : ''));
     } else if (kind === 'fin_set_budget'){
       rows.push('Конверт «' + finCat(a.category || a.cat || 'other').title + '» — ' +
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) + ' в месяц');
@@ -5316,7 +5420,7 @@ function vComposer(){
    символе, попавшем в render(). */
 var composerFocused = false;
 function restoreComposer(){
-  var field = $('field') || $('gfield') || $('lnfield');
+  var field = $('field') || $('gfield') || $('lnfield') || $('finsyn');
   if (field && composerFocused){
     field.focus();
     field.setSelectionRange(field.value.length, field.value.length);
@@ -8991,53 +9095,63 @@ function synLogHTML(){
       (voiceSupported() ? ' Или продиктуй голосом — Syn выполнит сказанное.' : '') + '</p>';
   }
 
-  return S.synChat.map(function(item, index){
-    item.i = index;
-    if (item.role === 'user'){
-      return '<div class="syn-msg mine"><span>' + esc(item.text) + '</span></div>';
-    }
-    var html = '<div class="syn-msg"><span>' + esc(item.text) + '</span></div>';
+  return S.synChat.map(synItemHTML).join('') +
+    (SYN.busy ? '<div class="syn-msg wait"><span>Syn думает…</span></div>' : '');
+}
 
-    /* Плашки «ничего не изменилось» здесь больше нет.
+/// Одна реплика разговора — общая для окна Syn и окошка над полосой финансов.
+function synItemHTML(item, index){
+  if (typeof index === 'number') item.i = index;
+  if (item.role === 'user'){
+    return '<div class="syn-msg mine"><span>' + esc(item.text) + '</span></div>';
+  }
+  var html = '<div class="syn-msg"><span>' + esc(item.text) + '</span></div>';
 
-       Она задумывалась как честность: Syn ответил словами, ничего не сделал —
-       и интерфейс об этом говорил, предлагая повторить или разобрать фразу
-       самому. На деле она всплывала и там, где человек просто СПРОСИЛ, а не
-       просил что-то изменить: на вопрос «что у меня на сегодня» действий и не
-       должно быть, а плашка всё равно кричала о поломке и лезла под руку.
-       Ложная тревога надоедает быстрее, чем помогает редкий настоящий случай.
+  /* Плашки «ничего не изменилось» здесь больше нет.
 
-       Обе кнопки остались живы (data-act syn-local и syn-again) — если плашку
-       когда-нибудь вернут, показывать её нужно только когда человек ПРОСИЛ
-       действие, а не задавал вопрос. */
+     Она задумывалась как честность: Syn ответил словами, ничего не сделал —
+     и интерфейс об этом говорил, предлагая повторить или разобрать фразу
+     самому. На деле она всплывала и там, где человек просто СПРОСИЛ, а не
+     просил что-то изменить: на вопрос «что у меня на сегодня» действий и не
+     должно быть, а плашка всё равно кричала о поломке и лезла под руку.
+     Ложная тревога надоедает быстрее, чем помогает редкий настоящий случай.
 
-    // Карточка подтверждения: что именно запишется и на какую сумму.
-    if (item.finance && item.finance.rows.length){
-      html += '<div class="syn-fin">' +
-        '<b>' + esc(item.finance.head) + '</b>' +
-        '<ul>' + item.finance.rows.map(function(row){
-          return '<li>' + esc(row) + '</li>';
-        }).join('') + '</ul>' +
-        '<div class="syn-none-acts">' +
-          '<button class="btn sm" data-act="fin-apply">' + esc(item.finance.button || 'Записать') + '</button>' +
-          '<button class="btn sm soft" data-act="fin-drop">Не надо</button>' +
-        '</div>' +
-      '</div>';
-    }
+     Обе кнопки остались живы (data-act syn-local и syn-again) — если плашку
+     когда-нибудь вернут, показывать её нужно только когда человек ПРОСИЛ
+     действие, а не задавал вопрос. */
 
-    if (item.done && item.done.length){
-      html += '<ul class="syn-did">' + item.done.map(function(line){
-        return '<li>' + esc(line) + '</li>';
-      }).join('') + '</ul>';
-    }
-    // Про непринятое — вслух: иначе Syn пишет «перенёс», а на экране прежнее.
-    if (item.skipped && item.skipped.length){
-      html += '<ul class="syn-did off">' + item.skipped.map(function(line){
-        return '<li>' + esc(line) + '</li>';
-      }).join('') + '</ul>';
-    }
-    return html;
-  }).join('') + (SYN.busy ? '<div class="syn-msg wait"><span>Syn думает…</span></div>' : '');
+  // Карточка подтверждения: что именно запишется и на какую сумму.
+  // Решённая карточка остаётся в разговоре, но уже без кнопок — с итогом:
+  // иначе «Применить» под старой карточкой применял бы новую пачку.
+  if (item.finance && item.finance.rows.length){
+    var state = item.finance.state;
+    html += '<div class="syn-fin' + (state ? ' off' : '') + '">' +
+      '<b>' + esc(item.finance.head) + '</b>' +
+      '<ul>' + item.finance.rows.map(function(row){
+        return '<li>' + esc(row) + '</li>';
+      }).join('') + '</ul>' +
+      (state
+        ? '<p class="syn-fin-done">' + esc(item.finance.result ||
+            (state === 'done' ? 'Записано.' : 'Не записано.')) + '</p>'
+        : '<div class="syn-none-acts">' +
+            '<button class="btn sm" data-act="fin-apply">' + esc(item.finance.button || 'Записать') + '</button>' +
+            '<button class="btn sm soft" data-act="fin-drop">Не надо</button>' +
+          '</div>') +
+    '</div>';
+  }
+
+  if (item.done && item.done.length){
+    html += '<ul class="syn-did">' + item.done.map(function(line){
+      return '<li>' + esc(line) + '</li>';
+    }).join('') + '</ul>';
+  }
+  // Про непринятое — вслух: иначе Syn пишет «перенёс», а на экране прежнее.
+  if (item.skipped && item.skipped.length){
+    html += '<ul class="syn-did off">' + item.skipped.map(function(line){
+      return '<li>' + esc(line) + '</li>';
+    }).join('') + '</ul>';
+  }
+  return html;
 }
 
 /// Лента всегда показывает последнее сказанное: без этого новая реплика
@@ -9105,14 +9219,17 @@ function synRender(draft, error){
 
 /// Отправка и применение. Текст в поле сохраняем при ошибке — иначе повторить
 /// запрос с правкой было бы нечем.
-function synSend(text){
+function synSend(text, where){
   if (!text || SYN.busy) return;
   voiceStop();
+  // Из полосы финансов разговор идёт прямо на экране, без окна Syn.
+  var draw = where === 'fin' ? finSynDraw : synRender;
 
   SYN.busy = true;
   synChatPush('user', text, null);
+  if (where === 'fin') FINSYN.from = S.synChat[S.synChat.length - 1];
   save();
-  synRender('', '');
+  draw('', '');
 
   synAsk().then(function(data){
     if (data.quota) SYN.quota = data.quota;
@@ -9140,21 +9257,25 @@ function synSend(text){
       last.said = text;
     }
     if (finance.length){
+      // Прежние нерешённые карточки гаснут: кнопки применяют только новую пачку.
+      S.synChat.forEach(function(item){
+        if (item.finance && !item.finance.state) item.finance.state = 'dropped';
+      });
       var card = S.synChat[S.synChat.length - 1];
       card.none = false;
       card.finance = finPreview(finance);
     }
     save();
-    synRender('', '');
+    draw('', '');
     // Экран под окном должен показывать уже новые данные.
-    render();
+    if (draw === synRender) render();
   }).catch(function(error){
     SYN.busy = false;
     // Неотвеченный вопрос не остаётся в ленте: иначе он уедет на сервер
     // следующим запросом как будто на него уже ответили.
     S.synChat.pop();
     save();
-    synRender(text, synErrorText(error));
+    draw(text, synErrorText(error));
     /* Кончились запросы — предлагаем подписку, а не просто сообщаем.
 
        Раньше человек упирался в серую строчку «бесплатные запросы на сегодня
@@ -12099,50 +12220,42 @@ var ACTS = {
     closeModal();
     commit('Категория добавлена');
   },
-  'fin-kind': function(d){ S.finKind = d.kind; commit(); keepFocus('#finfield'); },
-
-  /* Голос для трат. Нажал — слушает, отпустил — записал.
-
-     Короткий тычок (меньше четверти секунды) слушание НЕ обрывает: человек
-     нажал и сразу отпустил, а говорить только начал. В этом случае слушание
-     держится само и кончится по паузе в речи — так работает и тычок, и
-     удержание, и не нужно объяснять, какой из них «правильный». */
+  /* Голос в финансах. Нажал — слушает и пишет в полосу, нажал ещё раз —
+     сказанное ушло Syn. Пауза в речи запись не обрывает. */
   'fin-voice': function(){
     if (finVoice.on) finVoiceStop(); else finVoiceStart();
   },
-
-  'fin-add': function(){
-    var field = $('finfield');
-    if (!field) return;
-    var parsed = finParse(field.value, S.finKind || 'spend');
-    if (!parsed){
-      return fieldError('finfield', field.value.trim()
-        ? 'Не вижу суммы. Напишите её в той же строке: «' + field.value.trim() + ' 350»'
-        : 'Напишите, что и на сколько: «кофе 350»');
-    }
-    var when = $('findate') ? $('findate').value : '';
-    S.finance.ops.push({
-      id: uid(), kind: S.finKind || 'spend', title: parsed.title,
-      amount: parsed.amount, cat: parsed.cat,
-      date: when || isoOf(todayDate()), at: Date.now(),
-      accountId: ''
-    });
-    field.value = '';
-    // Дата держится между записями: пачку за прошлую неделю иначе пришлось
-    // бы выставлять заново на каждой строке.
-    S.finDate = when || '';
-    keepFocus('#finfield');
-    commit();
+  'fin-syn': function(){
+    var field = $('finsyn');
+    var text = field ? field.value.trim() : '';
+    if (dict && dict.owner === 'fin') dictCancel();
+    if (!text) return fieldError('finsyn', 'Скажите или напишите, что записать: «кофе 350»');
+    finSynSend(text);
   },
-  'fin-ai': function(){
-    var field = $('finfield');
-    var draft = field ? field.value.trim() : '';
-    if (!draft) return toast('Напишите, что записать: «вчера кофе 350 и такси 450»');
-    S.synIntent = 'finance';
-    S.synGoalCreate = false;
-    if (field) field.value = '';
-    synRender(draft, '');
-    synSend(draft);
+  'fin-syn-close': function(){
+    FINSYN.open = false;
+    FINSYN.error = '';
+    render();
+  },
+  'fin-syn-focus': function(){
+    var field = $('finsyn');
+    if (field) field.focus();
+  },
+  /* Запасной путь, когда Syn недоступен (нет сети, кончились запросы):
+     простая трата «кофе 350» записывается кодом, как раньше. */
+  'fin-syn-local': function(){
+    var parsed = FINSYN.said ? finParse(FINSYN.said, 'spend') : null;
+    if (!parsed) return;
+    S.finance.ops.push({
+      id: uid(), kind: 'spend', title: parsed.title,
+      amount: parsed.amount, cat: parsed.cat,
+      date: isoOf(todayDate()), at: Date.now(), accountId: ''
+    });
+    FINSYN.said = '';
+    FINSYN.error = '';
+    FINSYN.draft = '';
+    FINSYN.open = false;
+    commit('Записано без Syn');
   },
   'fin-apply': function(){
     // Деньги пишутся только после подтверждения: ошибка в сумме портит и
@@ -12152,10 +12265,13 @@ var ACTS = {
     if (!batch || !batch.length) return;
     S.finPending = null;
     var made = finApplyBatch(batch);
-    commit(made.length ? made.join(', ') : 'Ничего не записалось');
+    var said = made.length ? made.join(', ') : 'Ничего не записалось';
+    finCardSettle('done', made.length ? 'Записано: ' + said + '.' : said + '.');
+    commit(said);
   },
   'fin-drop': function(){
     S.finPending = null;
+    finCardSettle('dropped', 'Не записано.');
     commit('Не записано');
   },
   'fin-op-edit': function(d){
@@ -13273,9 +13389,11 @@ document.addEventListener('input', function(event){
   var t = event.target;
   // Взялись править сказанное руками посреди записи — правка становится
   // началом, и дальше услышанное дописывается после неё, а не поверх.
-  if (t.id === 'syn-input' || t.id === 'finfield'){
+  if (t.id === 'syn-input' || t.id === 'finsyn'){
     if (dict && dict.field === t.id){ dict.base = t.value.trim(); dict.heard = ''; }
-    if (t.id === 'finfield') return;
+    // Набранное переживает перерисовку: ответ Syn и запись трат перерисовывают
+    // экран, и полоса не должна при этом пустеть.
+    if (t.id === 'finsyn') FINSYN.draft = t.value;
     growInput(t);
     return;
   }
@@ -13307,10 +13425,10 @@ document.addEventListener('input', function(event){
 });
 
 document.addEventListener('focusin', function(event){
-  if (event.target.id === 'field' || event.target.id === 'gfield' || event.target.id === 'lnfield') composerFocused = true;
+  if (event.target.id === 'field' || event.target.id === 'gfield' || event.target.id === 'lnfield' || event.target.id === 'finsyn') composerFocused = true;
 });
 document.addEventListener('focusout', function(event){
-  if (event.target.id === 'field' || event.target.id === 'gfield' || event.target.id === 'lnfield') composerFocused = false;
+  if (event.target.id === 'field' || event.target.id === 'gfield' || event.target.id === 'lnfield' || event.target.id === 'finsyn') composerFocused = false;
 });
 
 document.addEventListener('keydown', function(event){
@@ -13319,6 +13437,11 @@ document.addEventListener('keydown', function(event){
   if (event.key === 'Enter' && !event.shiftKey && event.target.id === 'syn-input'){
     event.preventDefault();
     synSend(event.target.value.trim());
+    return;
+  }
+  if (event.key === 'Enter' && !event.shiftKey && event.target.id === 'finsyn'){
+    event.preventDefault();
+    ACTS['fin-syn']({});
     return;
   }
 
@@ -13347,7 +13470,6 @@ document.addEventListener('keydown', function(event){
   if (t.id === 'field'){ event.preventDefault(); addTask(); return; }
   if (t.id === 'authmail'){ event.preventDefault(); ACTS['auth-send']({}); return; }
   if (t.id === 'authcode'){ event.preventDefault(); ACTS['auth-check']({}); return; }
-  if (t.id === 'finfield'){ event.preventDefault(); ACTS['fin-add']({}); return; }
   if (t.id === 'medown'){ event.preventDefault(); ACTS['med-own']({}); return; }
   if (t.getAttribute && t.getAttribute('data-subadd')){
     event.preventDefault(); ACTS.subadd({ task: t.getAttribute('data-subadd') }); return;

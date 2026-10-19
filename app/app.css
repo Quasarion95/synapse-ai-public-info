@@ -2360,29 +2360,28 @@ button.fintile:hover{background:var(--soft)}
   letter-spacing: .04em;
 }
 
-/* Строка записи трат: тот же вид, что у строки создания задач, плюс
-   переключатель «Трата / Доход» над ней. Переключатель именно НАД полем, а не
-   внутри: внутри он съедал бы половину строки, а меняют его редко — обычно
-   пишут траты подряд. */
-.fincomposer .finswitch{
-  display: flex;
-  gap: 4px;
-  margin: 0 auto 8px;
-  width: max-content;
-  background: var(--panel);
-  border: 1px solid var(--stroke);
-  border-radius: 999px;
-  padding: 3px;
-  box-shadow: var(--shadow);
-}
-.fincomposer .finswitch button{
-  padding: 5px 14px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--fg-3);
-}
-.fincomposer .finswitch button.on{ background: var(--accent-soft); color: var(--accent-text,var(--accent)); }
+/* Полоса Syn в финансах (vFinSyn): та же строка, что у задач, только поле —
+   textarea: первый рассказ о деньгах длинный, и он должен быть виден целиком,
+   пока его диктуют. Над полосой — окошко с ответом Syn и карточкой записи. */
+.finsyn .say{align-items:flex-end; border-radius:24px}
+.finsyn .say textarea{flex:1; min-width:0; border:0; background:none; outline:0; resize:none;
+  font:inherit; font-size:15px; line-height:1.4; padding:8px 0; max-height:120px; color:var(--fg)}
+.finsyn .say textarea::placeholder{color:var(--fg-3); opacity:.85}
+.finsyn .say .ai svg.dmic, .finstart-mic svg.dmic{width:19px; height:19px; fill:none; stroke:currentColor;
+  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.finstart-mic{display:inline-flex; align-items:center; gap:6px}
+.finstart-mic svg.dmic{width:16px; height:16px}
+.finsyn .say .send[disabled]{opacity:.45}
+.finsyn-panel{position:relative; margin:0 0 10px; padding:12px 38px 12px 14px; max-height:min(46vh, 420px); overflow:auto;
+  display:flex; flex-direction:column; gap:8px;
+  background:var(--panel); border:1px solid var(--stroke); border-radius:18px; box-shadow:var(--shadow-lift)}
+.finsyn-panel .syn-fin{margin-top:2px}
+.finsyn-x{position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:999px;
+  display:grid; place-items:center; color:var(--fg-3); font-size:12px}
+.finsyn-x:hover{background:var(--soft); color:var(--fg)}
+.finsyn .finsyn-note{text-align:center}
+.syn-fin .syn-fin-done{margin:0; font-size:13px; color:var(--fg-2)}
+.syn-fin.off{opacity:.7}
 
 /* Микрофон во время слушания — заметно «включён»: человек говорит и должен
    видеть, что его слышат, не вглядываясь. */
@@ -2391,6 +2390,8 @@ button.fintile:hover{background:var(--soft)}
 /* Место под плавающей строкой: без него последняя трата в списке оказывается
    под ней и её не прочитать. */
 .finance-has-composer{ padding-bottom: 96px; }
+/* Сводка и остальные вкладки тоже под полосой Syn. */
+body:has(.finsyn) main{ padding-bottom: 150px; }
 
 /* Текст пункта списка — мишень для правки, поэтому он занимает всю
    свободную ширину строки, а не только слово. */

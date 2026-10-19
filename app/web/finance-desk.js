@@ -61,8 +61,11 @@
     var key = finShownMonth();
     // Обёртка нужна ради container query: раскладку зон меряем по ширине
     // дашборда, а контейнер не может запрашивать сам себя.
-    return '<div class="desk-wrap"><div class="desk fin">' +
+    // Пока остаток не назван — сначала рассказ Syn, а не нули в плитках.
+    var start = !S.finance.opening && !S.finance.openingHidden;
+    return '<div class="desk-wrap"><div class="desk fin' + (start ? ' has-start' : '') + '">' +
       deskHead(key) +
+      (start ? '<section class="desk-zone z-start finhint">' + finStartHTML() + '</section>' : '') +
       zoneKpi(key) +
       zoneAnalytics(key) +
       zoneFeed(key) +
@@ -89,19 +92,6 @@
         'title="Показывать раздел вкладками, как на телефоне">Вкладками</button>' +
     '</div>';
   }
-
-  /* Микрофон в строке трат — свой, контуром.
-
-     Общий значок из app.js в этой кнопке рисуется заливкой (так задано для
-     .say .ai в app.css), и дуга держателя сливалась с капсулой в один
-     невнятный силуэт — микрофон в нём не узнавали. Здесь классический
-     микрофон: капсула с решёткой, держатель, ножка и подставка. Подставка и
-     полоски решётки и делают его читаемым с первого взгляда. */
-  var MIC = '<svg class="dmic" viewBox="0 0 24 24" aria-hidden="true">' +
-    '<rect x="8.5" y="2.5" width="7" height="11.5" rx="3.5"/>' +
-    '<path d="M8.5 7h2.2M8.5 9.8h2.2M13.3 7h2.2M13.3 9.8h2.2"/>' +
-    '<path d="M5.5 11a6.5 6.5 0 0 0 13 0"/>' +
-    '<path d="M12 17.5v3M8.5 20.8h7"/></svg>';
 
   /// Ссылка «подробнее» внизу зоны: уводит во вкладку с полной таблицей.
   function zoneMore(tab, label){
@@ -294,13 +284,9 @@
 
   /* ---- траты ----
 
-     Строка записи — прямо в зоне, а не плавающей внизу окна: на широком
-     экране низ окна далеко от ленты, а записанная строка должна появиться
-     там же, куда смотрят. Поле и кнопки — те же, что у плавающей строки
-     (#finfield, fin-add, fin-voice), поэтому Enter, голос и разбор «кофе 350»
-     работают без единой новой строчки. */
+     Своей строки записи у ленты больше нет: всё записывает Syn из полосы
+     внизу экрана (vFinSyn в app.js), а лента только показывает. */
   function zoneFeed(key){
-    var kind = S.finKind || 'spend';
     var pick = S.finDeskCat || '';
     var ops = finMonthOps(key);
     if (pick) ops = ops.filter(function(op){ return op.cat === pick; });
@@ -310,26 +296,6 @@
     var html = '<section class="desk-zone z-feed dz-tall"><div class="dz-inner">' +
       zoneHead('Мои траты', ops.length ? ops.length + ' ' + plural(ops.length, 'запись', 'записи', 'записей') : '');
 
-    html += '<div class="desk-add">' +
-      '<div class="finswitch">' +
-        '<button class="' + (kind === 'spend' ? 'on' : '') + '" data-act="fin-kind" data-kind="spend">Трата</button>' +
-        '<button class="' + (kind === 'income' ? 'on' : '') + '" data-act="fin-kind" data-kind="income">Доход</button>' +
-      '</div>' +
-      '<form class="say" data-form="fin-add">' +
-        '<label class="visually-hidden" for="finfield">' + (kind === 'income' ? 'Новый доход' : 'Новая трата') + '</label>' +
-        '<input id="finfield" type="text" autocomplete="off" enterkeyhint="done" ' +
-          'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
-        (voiceSupported()
-          ? '<button class="ai' + (finVoice.on ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
-              'aria-label="' + (finVoice.on ? 'Записать сказанное' : 'Сказать трату голосом') + '" ' +
-              'title="' + (finVoice.on ? 'Записать сказанное' : 'Сказать трату голосом') + '">' + MIC + '</button>'
-          : '') +
-        '<button class="send" type="submit" aria-label="Записать">' + NAV_ICONS.send + '</button>' +
-      '</form>' +
-      '<div class="finwhen"><label for="findate">Дата</label>' +
-        полеДаты('findate', S.finDate || isoOf(todayDate())) + '</div>' +
-    '</div>';
-
     if (pick){
       html += '<div class="dz-filter">Только «' + esc(finCat(pick).title) + '»' +
         '<button data-act="fin-desk-cat" data-cat="' + esc(pick) + '" aria-label="Снять фильтр" title="Снять фильтр">✕</button></div>';
@@ -338,7 +304,7 @@
     if (!ops.length){
       return html + '<div class="dz-scroll"><p class="dz-quiet">' +
         (pick ? 'В «' + esc(finCat(pick).title) + '» за ' + esc(monthName(key).toLowerCase()) + ' ничего нет.'
-              : 'За ' + esc(monthName(key).toLowerCase()) + ' записей нет. Одна строка на трату — «кофе 350».') +
+              : 'За ' + esc(monthName(key).toLowerCase()) + ' записей нет. Скажите Syn внизу: «кофе 350».') +
         '</p></div></div></section>';
     }
 

@@ -436,6 +436,18 @@
     'Задач на сегодня не было. Наметить что-то на завтра?': 'There were no tasks today. Plan something for tomorrow?',
 
     // — финансы: пояснения и пустые экраны —
+    'Расскажите Syn, что у вас с деньгами': 'Tell Syn about your money',
+    'Всё сразу, своими словами: «На карте 80 тысяч. Должен Пете 15 тысяч до первого. Яндекс Плюс 399 пятого числа, аренда 30 тысяч десятого. Зарплата 120 тысяч». Syn сам заведёт остаток, долги, подписки и доход, а перед записью покажет, что получилось.': 'All at once, in your own words: "80,000 on my card. I owe Pete 15,000 by the 1st. Spotify 399 on the 5th, rent 30,000 on the 10th. Salary 120,000." Syn will set up your balance, debts, subscriptions and income, and show you what it got before saving.',
+    'Рассказать голосом': 'Tell by voice', 'Написать': 'Type it',
+    'Скажите Syn: «кофе 350»': 'Tell Syn: "coffee 350"',
+    'Говорите — нажмите микрофон, когда закончите': 'Speak — tap the mic when you are done',
+    'Слушаю. Нажмите микрофон ещё раз — и Syn всё запишет.': 'Listening. Tap the mic again and Syn will save it all.',
+    'Что записать': 'What to save', 'Сказать голосом': 'Say it', 'Отправить Syn': 'Send to Syn',
+    'Скрыть ответ': 'Hide the answer', 'Записано без Syn': 'Saved without Syn',
+    'Скажите или напишите, что записать: «кофе 350»': 'Say or type what to save: "coffee 350"',
+    'Скажите Syn в строке внизу: «кофе 350», «вчера такси 450 и обед 600». Через месяц раздел покажет, куда уходят деньги.': 'Tell Syn in the bar below: "coffee 350", "taxi 450 and lunch 600 yesterday". In a month this section will show you where the money goes.',
+    'В этом месяце ещё ничего не записано. Скажите Syn в строке внизу, на что потратили.': 'Nothing recorded this month yet. Tell Syn in the bar below what you spent on.',
+    'Записано.': 'Saved.', 'Не записано.': 'Not saved.',
     'Одна строка на трату — этого достаточно. Через месяц раздел покажет, куда уходят деньги.': 'One line per expense is enough. In a month this section will show you where the money goes.',
     'Впишите, сколько сейчас на карте и в кошельке, — одним числом. Без него «Свободно» показывает не деньги, а разницу доходов и трат с первой записи.': 'Enter how much is on your card and in your wallet right now, as a single number. Without it "Available" shows not money but the difference between income and expenses since your first entry.',
     'Сумму можно писать прямо в строке — «такси 1.5к», «продукты 2 400». Категория подставится сама. Кнопка AI рядом понимает несколько трат за раз и вчерашние даты.': 'You can put the amount right in the line — "taxi 1.5k", "groceries 2 400". The category fills itself in. The AI button next to it handles several expenses at once, and past dates too.',
