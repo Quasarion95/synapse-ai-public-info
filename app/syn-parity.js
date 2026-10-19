@@ -363,6 +363,29 @@
       }
     }
   };
+  /* «У меня сейчас свободно 12 000», «на карте 12 000» — это само
+     «Свободно» на экране, а не начальный остаток. Как в айфоне
+     (setFinanceAvailable): остаток подгоняется так, чтобы «Свободно»
+     стало названным числом, траты не трогаются. «Свободно» в вебе —
+     finBalance() минус отложенное в копилки. */
+  function freeNow(){ return finBalance() - finSaved(); }
+  MANAGE.fin_set_available = {
+    preview: function(a){
+      if (a.amount === undefined || a.amount === null || a.amount === '' || !isFinite(Number(a.amount))){
+        return 'Сколько у вас сейчас свободно? Суммы нет';
+      }
+      return 'Свободно — ' + finMoney(Math.round(Number(a.amount) * 100)) + ' (остаток подгоню, траты не трогаю)';
+    },
+    apply: function(a){
+      if (a.amount === undefined || a.amount === null || a.amount === '' || !isFinite(Number(a.amount))){
+        return 'не изменено: нет суммы';
+      }
+      var want = Math.round(Number(a.amount) * 100);
+      S.finance.opening = (S.finance.opening || 0) + (want - freeNow());
+      S.finance.openingHidden = true;
+      return 'свободно — ' + finMoney(freeNow());
+    }
+  };
   MANAGE.fin_delete_ops = MANAGE.fin_delete_op;
 
   function isManage(a){ return !!MANAGE[String(a && a.kind || '').toLowerCase()]; }
