@@ -46,8 +46,8 @@
     'никто': 'nobody', 'итог': 'total', 'осталось': 'left', 'ещё': 'left to pay',
     'собрано': 'saved', 'Повседневные траты — в среднем': 'Everyday spending averages',
     'В этом месяце трат нет.': 'No spending this month.',
-    'Считать пока нечего. Запишите первую трату справа — разбор появится сразу.':
-      'Nothing to count yet. Add your first expense on the right — the breakdown appears right away.',
+    'Считать пока нечего. Скажите Syn внизу первую трату — разбор появится сразу.':
+      'Nothing to count yet. Tell Syn your first expense below — the breakdown appears right away.',
     'Конверт — сколько вы кладёте на категорию в месяц. Он говорит, сколько ещё можно потратить.':
       'An envelope is how much you set aside for a category each month. It tells you how much you can still spend.',
     'Квартплата, кредиты, подписки — то, что уходит каждый месяц.':
