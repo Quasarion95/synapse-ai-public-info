@@ -3051,6 +3051,17 @@ function валютаВШапке(){
   return activeTab() === 'finance';
 }
 
+/* Кнопка валюты в самом разделе денег — для широкого экрана.
+
+   Там шапка переезжает в левое меню, и значок валюты оказывался среди языка
+   и темы, вдали от денег. На широком экране он стоит в финансах — слева от
+   переключателя вида, а в меню его нет (layout.css). На телефоне — в шапке,
+   как и был: левого меню там нет. */
+function finCurButton(){
+  return '<button class="iconbtn cur fin-cur" data-act="currency" title="Валюта" aria-label="Валюта">' +
+    '<span class="cur-sign">' + esc(валютаЗнак() || '¤') + '</span></button>';
+}
+
 function modalCurrency(первыйРаз){
   return '<h3>' + (первыйРаз ? 'В какой валюте считаем?' : 'Валюта') + '</h3>' +
     '<p class="s">' + (первыйРаз
@@ -3593,7 +3604,7 @@ function vFinance(){
   var html = '<div class="fintabs">' + FIN_TABS.map(function(t){
     return '<button class="fintab' + (t.id === tab ? ' on' : '') + '" data-act="fin-tab" data-tab="' + t.id + '">' +
       esc(t.title) + '</button>';
-  }).join('') + (window.SynFinDesk ? SynFinDesk.backButton() : '') + '</div>';
+  }).join('') + finCurButton() + (window.SynFinDesk ? SynFinDesk.backButton() : '') + '</div>';
 
   if (tab === 'ops') return html + vFinOps();
   if (tab === 'budgets') return html + vFinBudgets();

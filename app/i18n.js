@@ -437,6 +437,7 @@
 
     // — финансы: пояснения и пустые экраны —
     'Расскажите Syn, что у вас с деньгами': 'Tell Syn about your money',
+    'Свернуть меню': 'Collapse the menu', 'Развернуть меню': 'Expand the menu',
     'Всё сразу, своими словами: «На карте 80 тысяч. Должен Пете 15 тысяч до первого. Яндекс Плюс 399 пятого числа, аренда 30 тысяч десятого. Зарплата 120 тысяч». Syn сам заведёт остаток, долги, подписки и доход, а перед записью покажет, что получилось.': 'All at once, in your own words: "80,000 on my card. I owe Pete 15,000 by the 1st. Spotify 399 on the 5th, rent 30,000 on the 10th. Salary 120,000." Syn will set up your balance, debts, subscriptions and income, and show you what it got before saving.',
     'Рассказать голосом': 'Tell by voice', 'Написать': 'Type it',
     'Скажите Syn: «кофе 350»': 'Tell Syn: "coffee 350"',

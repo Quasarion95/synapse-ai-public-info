@@ -88,8 +88,12 @@
         finMonthBar() +
       '</div>' +
       ratesStrip() +
-      '<button class="btn sm soft desk-switch" data-act="fin-layout" data-to="tabs" ' +
-        'title="Показывать раздел вкладками, как на телефоне">Вкладками</button>' +
+      // Валюта — слева от переключателя вида: обе кнопки про то, как
+      // показан раздел, и обе живут здесь, а не в левом меню.
+      '<div class="desk-acts">' + finCurButton() +
+        '<button class="btn sm soft desk-switch" data-act="fin-layout" data-to="tabs" ' +
+          'title="Показывать раздел вкладками, как на телефоне">Вкладками</button>' +
+      '</div>' +
     '</div>';
   }
 

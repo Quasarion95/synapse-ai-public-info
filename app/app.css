@@ -176,6 +176,10 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 /* Значок валюты в шапке. Кегль крупнее подписи языка: «₽» и «€» — одиночные
    знаки, и в общем размере они выглядели мелкой соринкой рядом с «RU». */
 .iconbtn.cur .cur-sign{font-size:17px; font-weight:700; line-height:1}
+/* Кнопка валюты внутри финансов — только на широком экране (см. finCurButton). */
+.iconbtn.fin-cur{display:none}
+.fintabs .iconbtn.fin-cur{width:32px; height:32px; box-shadow:none; align-self:center; margin-left:auto}
+.fintabs .iconbtn.fin-cur + .desk-back{margin-left:4px}
 
 /* Снизу оставлено место под таб-бар и строку ввода, иначе они накрывают
    последнюю карточку. */
