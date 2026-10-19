@@ -9019,7 +9019,7 @@ function synLogHTML(){
           return '<li>' + esc(row) + '</li>';
         }).join('') + '</ul>' +
         '<div class="syn-none-acts">' +
-          '<button class="btn sm" data-act="fin-apply">Записать</button>' +
+          '<button class="btn sm" data-act="fin-apply">' + esc(item.finance.button || 'Записать') + '</button>' +
           '<button class="btn sm soft" data-act="fin-drop">Не надо</button>' +
         '</div>' +
       '</div>';
