@@ -1034,6 +1034,7 @@
     }],
     [/^Осталось (\d+)$/, function (m) { return m[1] + ' left'; }],
     [/^Ещё (\d+)$/, function (m) { return m[1] + ' more'; }],
+    [/^Профиль: (.+)$/, function (m) { return 'Profile: ' + m[1]; }],
     [/^Syn разобрал фразу: задач — (\d+)$/, function (m) { return 'Syn split the phrase into ' + m[1] + ' tasks'; }],
     [/^(\d+) (?:этап|этапа|этапов)$/, function (m) { return m[1] + (m[1] === '1' ? ' stage' : ' stages'); }],
     // «Август 2026» — месяц склеен с годом, целиком в словарь не занести.

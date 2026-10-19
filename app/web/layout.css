@@ -104,6 +104,13 @@
   .tabs-rest .top-acts{position:static; width:auto; margin:auto 0 0;
     padding:10px 4px 10px; background:none; border:0}
   .tabs-rest .top-acts + .tabs-sep{margin-top:0}
+  /* Кнопка профиля в меню — отдельной строкой во всю ширину, над языком и
+     темой. В одном ряду с ними ей доставалось 120 пикселей, и даже
+     «Константин» обрезался до «Констан…». */
+  .tabs-rest .top-acts{flex-wrap:wrap; row-gap:8px}
+  .tabs-rest .top-acts .whoami{order:-1; flex:1 1 100%; margin-left:0; max-width:none; min-width:0; padding:3px 10px 3px 3px; gap:7px}
+  .tabs-rest .top-acts .whoami .avatar{width:30px; height:30px; font-size:12px}
+  .tabs-rest .top-acts .whoami .nm{font-size:13.5px}
 
   /* ---- строка ввода и подсказка — по центру рабочей области ---- */
   .composer,

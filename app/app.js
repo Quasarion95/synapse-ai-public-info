@@ -2670,9 +2670,13 @@ function vTop(){
         (isDarkNow() ? NAV_ICONS.sun : NAV_ICONS.moon) + '</button>' +
       // Рядом с аватаркой — имя: без него в шапке висит безымянный кружок с
       // буквой, и непонятно, чей это аккаунт.
+      /* В кнопке — только имя, без фамилии: «Константин Константинопольский»
+         не помещался ни в шапку, ни в левое меню и обрезался посередине.
+         Полное имя — в подсказке и на странице профиля. */
       '<button class="whoami' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
-        'title="Профиль" aria-label="Профиль">' + avatarHTML() +
-        (S.profile.name ? '<span class="nm">' + esc(S.profile.name) + '</span>' : '') +
+        'title="' + esc(S.profile.name ? 'Профиль: ' + S.profile.name : 'Профиль') + '" aria-label="' +
+        esc(S.profile.name ? 'Профиль: ' + S.profile.name : 'Профиль') + '">' + avatarHTML() +
+        (S.profile.name ? '<span class="nm">' + esc(firstName()) + '</span>' : '') +
       '</button>' +
     '</div>' +
   '</div>';
@@ -2686,6 +2690,11 @@ function vStorageWarning(){
     '<span>Данные не сохраняются: браузер не даёт записать. Работать можно, но после закрытия вкладки всё пропадёт.</span>' +
     '<button class="btn sm" data-act="export">Сохранить копию</button>' +
   '</div>';
+}
+
+/// Первое слово имени — для кнопки профиля.
+function firstName(){
+  return String((S.profile && S.profile.name) || '').trim().split(/\s+/)[0] || '';
 }
 
 function initials(){
@@ -7810,7 +7819,10 @@ function avatarHTML(size){
     if (!/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(src)){
       return '<span class="' + cls + '">' + esc(initials()) + '</span>';
     }
-    return '<span class="' + cls + '" style="background-image:url(&quot;' + src + '&quot;)"></span>';
+    // has-photo держит размер и положение картинки (app.css): правила темы
+    // задают кружку фон сокращённой записью, а она сбрасывала background-size
+    // в auto — в миниатюре был виден угол фотографии, а не лицо.
+    return '<span class="' + cls + ' has-photo" style="background-image:url(&quot;' + src + '&quot;)"></span>';
   }
   /* Без имени вместо буквы — силуэт. Раньше в кружке стоял «?», и кнопка
      профиля в шапке читалась как «Помощь»: её нажимали за справкой и
