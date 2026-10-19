@@ -176,6 +176,10 @@ input,textarea,select{font:inherit; color:inherit; max-width:100%}
 /* Значок валюты в шапке. Кегль крупнее подписи языка: «₽» и «€» — одиночные
    знаки, и в общем размере они выглядели мелкой соринкой рядом с «RU». */
 .iconbtn.cur .cur-sign{font-size:17px; font-weight:700; line-height:1}
+/* Кнопка валюты внутри финансов — только на широком экране (см. finCurButton). */
+.iconbtn.fin-cur{display:none}
+.fintabs .iconbtn.fin-cur{width:32px; height:32px; box-shadow:none; align-self:center; margin-left:auto}
+.fintabs .iconbtn.fin-cur + .desk-back{margin-left:4px}
 
 /* Снизу оставлено место под таб-бар и строку ввода, иначе они накрывают
    последнюю карточку. */
@@ -219,6 +223,10 @@ h1.page{font-size:clamp(28px,7vw,38px); margin:2px 0 20px}
 
 .chip{font-size:12px; padding:4px 10px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; background:var(--soft); color:var(--fg-2); white-space:nowrap}
 .chip.goal{background:var(--accent-soft); color:var(--accent-text,var(--accent))}
+/* «Syn уточняет…» — задача заведена разбором кодом, ответ Syn ещё в пути. */
+.chip.ai-pending{background:var(--accent-soft); color:var(--accent-text,var(--accent)); animation:chip-ai 1.4s ease-in-out infinite}
+@keyframes chip-ai{0%,100%{opacity:1} 50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){ .chip.ai-pending{animation:none} }
 .chips{display:flex; gap:7px; flex-wrap:wrap}
 
 .btn{background:var(--fg); color:var(--bg); border-radius:999px; padding:12px 22px; font-size:15px; font-weight:600; display:inline-flex; align-items:center; justify-content:center; gap:9px; text-align:center; transition:opacity .12s}
@@ -936,6 +944,26 @@ body.mm-open{overflow:hidden}
 .line span{flex:1; min-width:0; overflow-wrap:anywhere}
 .line.on span{color:var(--fg-3); text-decoration:line-through; text-decoration-color:var(--soft-2)}
 .line .kill{color:var(--fg-3); font-size:12px; flex:none}
+
+/* Цели без задач внизу «Моего фокуса» (vFocusGoals): название с горизонтом
+   под ним, справа компактная кнопка первого шага. */
+.focus-goals h3{margin:0; font-size:16px}
+.focus-goals > .sub{margin:4px 0 8px; font-size:13.5px; color:var(--fg-3)}
+.fg-row{display:flex; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--line)}
+.fg-main{flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:3px;
+  padding:0; border:0; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer}
+.fg-t{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; font-weight:600; color:var(--fg)}
+.fg-main:hover .fg-t{color:var(--accent-text, var(--accent))}
+.fg-s{display:flex; flex-wrap:wrap; gap:6px; font-size:12.5px; color:var(--fg-3)}
+.fg-s i{font-style:normal; opacity:.6}
+/* Кнопка тихая: три залитые кнопки подряд перекрикивали сам экран фокуса.
+   Селектор длиннее обычного — заливку кнопок в веб-теме (web/theme.css)
+   задаёт правило с четырьмя классами, и оно подключается позже. */
+.card.focus-goals .fg-row .btn.fg-step{flex:none; white-space:nowrap; padding:8px 14px;
+  background:var(--accent-soft); color:var(--accent-text, var(--accent)); box-shadow:none; border:0}
+.card.focus-goals .fg-row .btn.fg-step:hover{background:color-mix(in srgb, var(--accent) 22%, var(--card)); filter:none}
+.fg-more{display:block; width:100%; margin-top:2px; padding:11px 0 1px; border:0; border-top:1px solid var(--line);
+  background:none; font:inherit; font-size:14px; font-weight:600; text-align:left; color:var(--accent-text, var(--accent)); cursor:pointer}
 .tilegrid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px}
 @media (min-width:700px){ .tilegrid{grid-template-columns:repeat(3,1fr)} }
 .tilebtn{background:var(--card); border:1px solid var(--stroke); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:18px; display:grid; gap:5px}
@@ -1025,6 +1053,13 @@ body.mm-open{overflow:hidden}
 /* ============ ПРОФИЛЬ ============ */
 .avatar{width:34px; height:34px; border-radius:999px; background:var(--soft); background-size:cover; background-position:center; display:grid; place-items:center; font-family:var(--display); font-weight:700; font-size:14px; color:var(--fg-2); flex:none}
 .avatar.lg{width:82px; height:82px; font-size:31px}
+/* Фото в кружке — всегда по центру и во весь кружок. !important нужен
+   намеренно: тема и профиль красят кружок сокращённым background (градиент),
+   а сокращение сбрасывает размер и положение картинки — от фото оставался
+   верхний левый угол. Сама картинка стоит в атрибуте style и правилами не
+   перекрывается. */
+.avatar.has-photo{background-size:cover !important; background-position:center !important;
+  background-repeat:no-repeat !important; background-color:var(--soft) !important}
 .avatar.anon .nav-ic{width:58%; height:58%; stroke-width:1.8}
 .iconbtn.av{padding:0; overflow:hidden}
 .iconbtn.av .avatar{width:100%; height:100%; background-color:transparent}
@@ -2283,29 +2318,28 @@ button.fintile:hover{background:var(--soft)}
   letter-spacing: .04em;
 }
 
-/* Строка записи трат: тот же вид, что у строки создания задач, плюс
-   переключатель «Трата / Доход» над ней. Переключатель именно НАД полем, а не
-   внутри: внутри он съедал бы половину строки, а меняют его редко — обычно
-   пишут траты подряд. */
-.fincomposer .finswitch{
-  display: flex;
-  gap: 4px;
-  margin: 0 auto 8px;
-  width: max-content;
-  background: var(--panel);
-  border: 1px solid var(--stroke);
-  border-radius: 999px;
-  padding: 3px;
-  box-shadow: var(--shadow);
-}
-.fincomposer .finswitch button{
-  padding: 5px 14px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--fg-3);
-}
-.fincomposer .finswitch button.on{ background: var(--accent-soft); color: var(--accent-text,var(--accent)); }
+/* Полоса Syn в финансах (vFinSyn): та же строка, что у задач, только поле —
+   textarea: первый рассказ о деньгах длинный, и он должен быть виден целиком,
+   пока его диктуют. Над полосой — окошко с ответом Syn и карточкой записи. */
+.finsyn .say{align-items:flex-end; border-radius:24px}
+.finsyn .say textarea{flex:1; min-width:0; border:0; background:none; outline:0; resize:none;
+  font:inherit; font-size:15px; line-height:1.4; padding:8px 0; max-height:120px; color:var(--fg)}
+.finsyn .say textarea::placeholder{color:var(--fg-3); opacity:.85}
+.finsyn .say .ai svg.dmic, .finstart-mic svg.dmic{width:19px; height:19px; fill:none; stroke:currentColor;
+  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.finstart-mic{display:inline-flex; align-items:center; gap:6px}
+.finstart-mic svg.dmic{width:16px; height:16px}
+.finsyn .say .send[disabled]{opacity:.45}
+.finsyn-panel{position:relative; margin:0 0 10px; padding:12px 38px 12px 14px; max-height:min(46vh, 420px); overflow:auto;
+  display:flex; flex-direction:column; gap:8px;
+  background:var(--panel); border:1px solid var(--stroke); border-radius:18px; box-shadow:var(--shadow-lift)}
+.finsyn-panel .syn-fin{margin-top:2px}
+.finsyn-x{position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:999px;
+  display:grid; place-items:center; color:var(--fg-3); font-size:12px}
+.finsyn-x:hover{background:var(--soft); color:var(--fg)}
+.finsyn .finsyn-note{text-align:center}
+.syn-fin .syn-fin-done{margin:0; font-size:13px; color:var(--fg-2)}
+.syn-fin.off{opacity:.7}
 
 /* Микрофон во время слушания — заметно «включён»: человек говорит и должен
    видеть, что его слышат, не вглядываясь. */
@@ -2314,6 +2348,8 @@ button.fintile:hover{background:var(--soft)}
 /* Место под плавающей строкой: без него последняя трата в списке оказывается
    под ней и её не прочитать. */
 .finance-has-composer{ padding-bottom: 96px; }
+/* Сводка и остальные вкладки тоже под полосой Syn. */
+body:has(.finsyn) main{ padding-bottom: 150px; }
 
 /* Текст пункта списка — мишень для правки, поэтому он занимает всю
    свободную ширину строки, а не только слово. */
@@ -2395,7 +2431,11 @@ button.fintile:hover{background:var(--soft)}
 /* Плотный список задач: ниже строки, тише пояснения. Признак стоит на корне,
    поэтому правило одно, а не десяток условий в разметке. */
 html[data-dense="1"] .item{padding-top:7px; padding-bottom:7px}
-html[data-dense="1"] .item .note{display:none}
+/* Описание прячется только у свёрнутой карточки. Раскрыл задачу — значит,
+   хочешь видеть всё: раньше в плотном режиме описание пропадало и у
+   раскрытой, и найденные Syn адрес и телефон оказывались невидимы, хотя
+   тост говорил «нашёл». */
+html[data-dense="1"] .item:not(.open) .note{display:none}
 html[data-dense="1"] .titleline{gap:6px}
 
 /* Погашенный выбор стартового раздела: настройка перекрыта соседней.

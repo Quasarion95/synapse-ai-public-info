@@ -1,0 +1,58 @@
+/* ============ ЖИВОЕ ДЕРЕВО И КАРТА ЦЕЛЕЙ — веб и андроид ============
+   Разметку рисует web/goal-tree.js. */
+
+/* ---- дерево ---- */
+.gt .gt-branch { fill: none; stroke-linecap: round; }
+.gt .gt-grass { fill: none; stroke-width: 1.6; stroke-linecap: round; transform-box: fill-box; transform-origin: 50% 100%;
+  animation: gt-grass 3.2s ease-in-out infinite; }
+.gt .gt-label { font-size: 12.5px; }
+.gt .gt-pct { text-anchor: middle; font-size: 11px; }
+.gt[data-stage="dry"] .gt-label { fill: var(--text-2); }
+.gt[data-stage="bloom"] .gt-label { fill: var(--accent-text, var(--accent)); }
+
+/* Крона качается от основания ствола; сила качания — по здоровью (--sway). */
+.gt .gt-crown { transform-box: fill-box; transform-origin: 50% 100%; animation: gt-sway 5.5s ease-in-out infinite; }
+.gt .gt-leaf { transform-box: fill-box; transform-origin: 50% 50%; animation: gt-leaf 3.6s ease-in-out infinite; }
+.gt .gt-flower { transform-box: fill-box; transform-origin: 50% 50%; animation: gt-bloom 3s ease-in-out infinite; }
+.gt .gt-fall { animation: gt-fall 5.6s ease-in infinite; opacity: 0; }
+.gt .gt-drop { animation: gt-drop 1.4s ease-in 2 both; }
+.gt .gt-plus { font-family: var(--display); font-size: 15px; font-weight: 800; fill: #3d8fd1; text-anchor: middle;
+  animation: gt-plus 2.6s ease-out both; }
+
+@keyframes gt-sway { 0%, 100% { transform: rotate(calc(var(--sway) * -1)); } 50% { transform: rotate(var(--sway)); } }
+@keyframes gt-leaf { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.06) rotate(7deg); } }
+@keyframes gt-bloom { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.1) rotate(20deg); } }
+@keyframes gt-grass { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg); } }
+@keyframes gt-fall {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  12% { opacity: .9; }
+  100% { opacity: 0; transform: translate(14px, 70px) rotate(160deg); }
+}
+@keyframes gt-drop {
+  0% { opacity: 0; transform: translateY(0); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(58px); }
+}
+@keyframes gt-plus {
+  0% { opacity: 0; transform: translateY(8px); }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+
+/* ---- блоки карты ---- */
+.mm-card .mm-card-bg { stroke-width: 1.2; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .07)); }
+html[data-dark="1"] .mm-card .mm-card-bg { filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .35)); }
+.mm-card .mm-label.strong { font-weight: 650; }
+.mm-card.done .mm-label:not(.sec) { fill: var(--text); }
+
+/* ---- связи: «нерв» и импульсы ---- */
+.mm-nerve { fill: none; stroke-width: 3.2; stroke-linecap: round; }
+.mm-pulse { filter: drop-shadow(0 0 3px currentColor); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gt .gt-crown, .gt .gt-leaf, .gt .gt-flower, .gt .gt-grass { animation: none; }
+  .gt .gt-fall, .gt .gt-drop { display: none; }
+  .gt .gt-plus { animation: none; }
+  .mm-pulse { display: none; }
+}

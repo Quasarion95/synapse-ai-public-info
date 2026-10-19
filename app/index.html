@@ -26,12 +26,19 @@
         '<link rel="stylesheet" href="web/pomodoro-timer.css">' +
         '<link rel="stylesheet" href="web/goal-map.css">' +
         '<link rel="stylesheet" href="web/layout.css">' +
-        '<link rel="stylesheet" href="web/subscription.css">');
+        '<link rel="stylesheet" href="web/subscription.css">' +
+        '<link rel="stylesheet" href="web/profile.css">' +
+        '<link rel="stylesheet" href="web/lists-notes.css">');
     </script>
     <!-- Цветовая система — общая для веба и андроида: темы в приложении
          должны выглядеть так же, как на сайте. Поэтому эти два файла
-         грузятся всегда, без проверки на обёртку. -->
+         грузятся всегда, без проверки на обёртку. Стоит после остальных
+         стилей веба — как и стоял в вебе: её правила должны перекрывать их. -->
     <link rel="stylesheet" href="web/theme.css">
+    <!-- Оформление заметок — и в вебе, и в андроиде: тело заметки общее, и
+         без разбора знаков андроид показывал бы звёздочки как есть. -->
+    <link rel="stylesheet" href="web/notes-edit.css">
+    <link rel="stylesheet" href="web/goal-tree.css">
 
     <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и
          так лежат в браузере, из сети приходила только оболочка. -->
@@ -122,14 +129,24 @@
     <script src="web/theme.js"></script>
     <script>
       if (!window.AndroidVoice) document.write(
+        '<script src="web/mobile-app.js"><\/script>' +
         '<script src="web/subscription.js"><\/script>' +
+        '<script src="web/profile.js"><\/script>' +
+        '<script src="web/lists-notes.js"><\/script>' +
+        '<script src="web/syn-tidy.js"><\/script>' +
         '<script src="web/i18n-web.js"><\/script>' +
         '<script src="web/desk.js"><\/script>' +
         '<script src="web/finance-desk.js"><\/script>' +
         '<script src="web/meditation-scenes.js"><\/script>' +
         '<script src="web/pomodoro-timer.js"><\/script>' +
-        '<script src="web/goal-map.js"><\/script>');
+        '<script src="web/goal-map.js"><\/script>' +
+        '<script src="web/layout.js"><\/script>');
     </script>
+    <!-- Заметки с оформлением — везде, см. ссылку на стили выше. -->
+    <script src="web/notes-edit.js"></script>
+    <!-- Живое дерево и анимированная карта целей — тоже везде: карта общая. -->
+    <script src="web/goal-tree.js"></script>
     <script src="app.js"></script>
+    <script src="syn-parity.js"></script>
   </body>
 </html>

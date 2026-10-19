@@ -134,6 +134,13 @@ tasks.register('копияВебВерсии', Copy) {
     from rootProject.file('../app')
     into layout.buildDirectory.dir('webapp/app')
     exclude 'sw.js'
+    /* web/ едет в апк целиком. Раньше его исключали как «только веб», но
+       index.html грузит оттуда и в приложении: цветовую систему (theme.js и
+       theme.css), оформление заметок (notes-edit) и живое дерево карты целей
+       (goal-tree). Без них темы и заметки в апк тихо ломались — файлы
+       отвечали 404. Остальное из web/ index.html внутри обёртки не
+       подключает, а вес у него небольшой. */
+    exclude '_android_test.html'
 }
 
 tasks.register('копияШрифтов', Copy) {

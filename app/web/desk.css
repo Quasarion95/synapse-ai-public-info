@@ -49,6 +49,8 @@ body.deskpage main{padding-bottom:56px}
 .desk-head .finmonth b{min-width:0; text-align:left; padding:0 6px}
 .desk-head .desk-rates{justify-self:center; justify-content:center}
 .desk-switch{flex:none; justify-self:end}
+.desk-acts{display:flex; align-items:center; gap:8px; justify-self:end}
+.desk-acts .iconbtn.cur{width:34px; height:34px; box-shadow:none}
 
 /* Узкий дашборд: курсам посередине тесно — они уходят второй строкой под
    название и переключатель, по центру. */

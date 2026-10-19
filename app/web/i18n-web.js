@@ -46,8 +46,8 @@
     'никто': 'nobody', 'итог': 'total', 'осталось': 'left', 'ещё': 'left to pay',
     'собрано': 'saved', 'Повседневные траты — в среднем': 'Everyday spending averages',
     'В этом месяце трат нет.': 'No spending this month.',
-    'Считать пока нечего. Запишите первую трату справа — разбор появится сразу.':
-      'Nothing to count yet. Add your first expense on the right — the breakdown appears right away.',
+    'Считать пока нечего. Скажите Syn внизу первую трату — разбор появится сразу.':
+      'Nothing to count yet. Tell Syn your first expense below — the breakdown appears right away.',
     'Конверт — сколько вы кладёте на категорию в месяц. Он говорит, сколько ещё можно потратить.':
       'An envelope is how much you set aside for a category each month. It tells you how much you can still spend.',
     'Квартплата, кредиты, подписки — то, что уходит каждый месяц.':
@@ -91,8 +91,11 @@
     [/без связи/g, 'offline'],
     [/Показать в ленте только «/g, 'Show only “'], [/Только «/g, 'Only “'],
     [/» за /g, '” in '], [/»/g, '”'], [/В «/g, 'In “'], [/ ничего нет\./g, ': nothing.'],
-    [/За (\S+ \d{4}) записей нет\. Одна строка на трату — «кофе 350»\./g,
-      'No entries for $1. One line per expense — “coffee 350”.'],
+    [/За (\S+ \d{4}) записей нет\. Скажите Syn внизу: «кофе 350»\./g,
+      'No entries for $1. Tell Syn below: “coffee 350”.'],
+    [/^Записано: /g, 'Saved: '], [/^Записать без Syn: /g, 'Save without Syn: '],
+    [/, ближайшее списание /g, ', next charge '],
+    [/^Отдаю долг: /g, 'Paying back: '], [/^Мне возвращают: /g, 'Paid back to me: '],
     [/(\d+) (записей|записи|запись)/g, '$1 entries'],
     [/(\d+) (долгов|долга|долг)/g, '$1 debts'],
     [/(\d+) (человека|человек)/g, '$1 people'],

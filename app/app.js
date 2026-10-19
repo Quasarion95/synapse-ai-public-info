@@ -349,10 +349,9 @@ function seed(){
        остаётся: состояние сохраняется. Записанная задача сама раскрывает свой
        блок, так что первый ввод ни во что не упирается.
 
-       В браузере оставляем как было: там экран большой и разворачивать нечего.
-       Признак — inApp(), а не touchUI(): мобильный сайт должен остаться тем же
-       сайтом. */
-    closed: inApp() ? свёрнутыеБлоки() : {},
+       На компьютере оставляем как было: там экран большой и разворачивать
+       нечего. Сайт с телефона — как приложение (appLook). */
+    closed: appLook() ? свёрнутыеБлоки() : {},
     open: {},
     activeGoal: null,
     activeList: null,
@@ -474,6 +473,9 @@ function починитьЗаписи(данные){
     if (t.series === undefined) t.series = null;
     if (t.goalId === undefined) t.goalId = null;
     if (t.stageId === undefined) t.stageId = null;
+    // Пометка «Syn уточняет…» живёт, пока ждём ответ. Страницу перезагрузили —
+    // ответа уже не будет, задача остаётся разобранной кодом.
+    if (t.aiPending) delete t.aiPending;
     t.subtasks = (Array.isArray(t.subtasks) ? t.subtasks : []).filter(Boolean).map(function(s){
       return { id: s.id || uid(), title: String(s && s.title == null ? '' : s.title), done: !!(s && s.done) };
     });
@@ -494,6 +496,17 @@ function починитьЗаписи(данные){
                targetDate: st.targetDate || '' };
     });
     return g;
+  });
+
+  /* Задача этапа без своей цели. Enter в поле «Задача этапа» брал цель из
+     S.activeGoal, а на сетке целей раскрытая карточка его не ставит: задача
+     уходила с этапом, но без цели (или с чужой), под этапом её не было, а в
+     «Задачах» она висела без подписи цели. Этап один на всё рабочее
+     пространство, поэтому цель по нему восстанавливается однозначно. */
+  var целиЭтапов = {};
+  данные.goals.forEach(function(g){ g.stages.forEach(function(st){ целиЭтапов[st.id] = g.id; }); });
+  данные.tasks.forEach(function(t){
+    if (t.stageId && целиЭтапов[t.stageId] && t.goalId !== целиЭтапов[t.stageId]) t.goalId = целиЭтапов[t.stageId];
   });
 
   данные.lists = (Array.isArray(данные.lists) ? данные.lists : []).filter(Boolean).map(function(l){
@@ -1092,6 +1105,14 @@ function findGoal(id){
   for (var i = 0; i < S.goals.length; i++) if (S.goals[i].id === id) return S.goals[i];
   return null;
 }
+/// Цель, которой принадлежит этап. Номера этапов уникальны на всё рабочее
+/// пространство, поэтому этапа достаточно, чтобы найти цель.
+function goalOfStage(stageId){
+  for (var i = 0; i < S.goals.length; i++){
+    if (findStage(S.goals[i], stageId)) return S.goals[i];
+  }
+  return null;
+}
 function findStage(goal, id){
   if (!goal) return null;
   for (var i = 0; i < goal.stages.length; i++) if (goal.stages[i].id === id) return goal.stages[i];
@@ -1262,6 +1283,23 @@ function humanDateWithDay(iso){
 var WORD_START = '(^|[^а-яa-z0-9])';
 var WORD_END = '(?=[^а-яa-z0-9]|$)';
 
+/// Начало комментария к задаче в произнесённой фразе: «в комментарии
+/// напиши …», «в заметке: …», «с комментарием …», «комментарий: …», «напиши в
+/// описании …». Одного «в описании» мало: «исправить ошибку в описании
+/// товара» — это дело, а не комментарий. Поэтому после «в комментарии / в
+/// заметке / в описании» нужен глагол («напиши», «добавь»…), двоеточие, тире
+/// или число.
+var NOTE_WORD = '(?:комментари[ийея]|коммент[еау]?|заметк[еиу]|примечани[иея]|описани[иея])(?![а-яё])';
+var NOTE_VERB = '(?:напиши|добавь|укажи|запиши|пометь|оставь)(?![а-яё])';
+var NOTE_MARK = new RegExp(
+  '(?:^|[\\s,;.—–-]+)(?:' +
+    '(?:и\\s+)?(?:в|во)\\s+' + NOTE_WORD + '(?:\\s+к\\s+задаче)?' +
+      '(?=\\s*(?:[:—–-]|' + NOTE_VERB + '|[0-9+«"]))' +
+    '|с\\s+комментари(?:ем|ями)(?![а-яё])' +
+    '|(?:комментарий|коммент|заметка|примечание|описание)\\s*[:—–]' +
+    '|' + NOTE_VERB + '\\s+(?:в|во)\\s+' + NOTE_WORD +
+  ')\\s*[:—–-]?\\s*(?:' + NOTE_VERB + '\\s*[:—–-]?\\s*)?', 'i');
+
 function wordRegex(body){
   return new RegExp(WORD_START + '(?:' + body + ')' + WORD_END, 'i');
 }
@@ -1306,6 +1344,27 @@ function adjustHour(hour, meridiem){
 /// назвал ли человек день и время сам или мы вывели их из блока.
 function parseSchedule(text, fallbackBucket){
   var original = String(text == null ? '' : text).trim();
+
+  /* Комментарий к задаче — до всего остального.
+
+     «Позвонить Ивану завтра в 12 каждый день, в комментарии напиши 893829384»
+     целиком уходило в название: срок и повтор распознавались, а «в комментарии
+     напиши 893829384» оставалось висеть в заголовке. Хуже того, цифры
+     комментария разбирались бы как время и дата. Поэтому хвост после «в
+     комментарии / в заметке / в описании (напиши …)» или «комментарий: …»
+     отрезается первым и становится заметкой задачи, а расписание ищется
+     только в том, что осталось. */
+  var noteText = '';
+  var noteAt = original.search(NOTE_MARK);
+  if (noteAt >= 0){
+    var noteMatch = original.slice(noteAt).match(NOTE_MARK);
+    var rest = original.slice(noteAt + noteMatch[0].length).trim();
+    if (rest){
+      noteText = rest.charAt(0).toUpperCase() + rest.slice(1);
+      original = original.slice(0, noteAt).trim();
+    }
+  }
+
   var work = normalizeText(original);
   var cuts = [];           // куски, которые уйдут из названия
   var today = todayDate();
@@ -1332,6 +1391,49 @@ function parseSchedule(text, fallbackBucket){
     work = work.slice(0, at) + new Array(len + 1).join(' ') + work.slice(at + len);
     return m;
   };
+  /* То же, но кусок ещё и стирается из рабочей строки. Нужно повтору, сроку и
+     окну: «каждое воскресенье» иначе прочиталось бы вторым разом как дата
+     «в воскресенье», а «до пятницы» — как просто пятница. */
+  var takeOut = function(regex){
+    var m = take(regex);
+    if (!m) return null;
+    var lead = m[1] || '';
+    var at = m.index + lead.length, len = m[0].length - lead.length;
+    work = work.slice(0, at) + new Array(len + 1).join(' ') + work.slice(at + len);
+    return m;
+  };
+
+  /* --- окно, повтор, срок --- */
+  var windowFrom = null, windowTo = null, deadline = null, deadlineDay = null, deadlineTime = null;
+  var repeat = '', rule = null, repeatDate = null;
+
+  // «с 10 до 11:30», «с 9 утра до 6 вечера» — окно выполнения, а не время.
+  var HM = '([01]?\\d|2[0-3])(?:[:.]([0-5]\\d))?(?:\\s+(утра|дня|вечера|ночи))?';
+  // Число, за которым идут минуты, километры или «числа», — не часы.
+  var NOT_UNIT = '(?!\\s*(?:мин|час|числ|раз|шт|км|кг|тыс|руб|₽|%))';
+  var win = takeOut(new RegExp(WORD_START + 'с\\s+' + HM + '\\s+до\\s+' + HM + NOT_UNIT + WORD_END));
+  if (win){
+    windowFrom = clock(adjustHour(Number(win[2]), win[4]), Number(win[3] || 0));
+    windowTo = clock(adjustHour(Number(win[5]), win[7]), Number(win[6] || 0));
+  }
+
+  var rep = parseRepeat(takeOut, today);
+  if (rep){ repeat = rep.repeat; rule = rep.rule; repeatDate = rep.date; }
+
+  /* «до пятницы 18:00», «до 25.10», «до завтра» — крайний срок. День срока
+     разбираем этим же парсером: он и так умеет все эти формы. */
+  var dlDay = takeOut(new RegExp(WORD_START + 'до\\s+(завтра|послезавтра|сегодня|' +
+    WEEKDAY_PATTERNS.map(function(p){ return p[1]; }).join('|') +
+    '|\\d{1,2}[.\\/]\\d{1,2}(?:[.\\/]\\d{2,4})?|\\d{1,2}\\s+(?:' + MONTHS.join('|') + '))' +
+    '(?:\\s+(?:в\\s+)?([01]?\\d|2[0-3])[:.]([0-5]\\d))?' + WORD_END));
+  if (dlDay){
+    deadlineDay = parseSchedule(dlDay[2], 'today').date;
+    if (dlDay[3]) deadlineTime = clock(Number(dlDay[3]), Number(dlDay[4]));
+  } else {
+    // «до 18:00» без дня — срок в тот же день, что и задача.
+    var dlTime = takeOut(new RegExp(WORD_START + 'до\\s+' + HM + NOT_UNIT + WORD_END));
+    if (dlTime) deadlineTime = clock(adjustHour(Number(dlTime[2]), dlTime[4]), Number(dlTime[3] || 0));
+  }
 
   /* --- день --- */
   if (take(wordRegex('послезавтра'))) date = addDays(today, 2);
@@ -1396,6 +1498,12 @@ function parseSchedule(text, fallbackBucket){
       date = candidate;
     }
   }
+
+  /* День не назван отдельно — задача встаёт на день срока («сдать отчёт до
+     пятницы» и раньше уходил на пятницу) или на ближайший день повтора. */
+  var dayFromRule = false;
+  if (!date && deadlineDay) date = dateOf(deadlineDay);
+  else if (!date && repeatDate){ date = repeatDate; dayFromRule = true; }
 
   /* --- время --- */
   var withMinutes = take(new RegExp(WORD_START + '(?:(?:в|к|на)\\s*)?([01]?\\d|2[0-3])[:.]([0-5]\\d)' + WORD_END));
@@ -1463,7 +1571,26 @@ function parseSchedule(text, fallbackBucket){
   // cleanTaskTitle: режутся только команды, стоящие отдельным словом.
   // «Оформить визу» и «Сделать завтрак» остаются как есть — на этом ловил тест.
   title = title.replace(/^(?:создай|добавь|оформи|запиши|напомни)\s+(?:задачу\s+|мне\s+)?/i, '');
+
+  /* Связки, которые держались за вырезанные куски.
+
+     Повтор вырезается фразой «каждый день», а слово при ней остаётся:
+     «Позвонить Ивану повтор на», «с повтором ,». Если повтор распознан, эти
+     слова — его часть, а не часть дела. Потом — висящие предлоги в конце и
+     запятые, оставшиеся без соседей. */
+  if (repeat){
+    title = title.replace(/(^|[\s,;])(?:с\s+|и\s+)?(?:повтор(?:ом|ять|яй|ение|ения|ы)?|повторяющ(?:ая|ейся|уюся)(?:\s+задач(?:а|ей|у))?)(?:\s+(?:на|в|по|каждый|каждую|каждое))?(?=[\s,.;:]|$)/gi, '$1');
+  }
+  title = title.replace(/\s+([,.;:!?])/g, '$1').replace(/([,;:])(?:\s*[,;:])+/g, '$1').replace(/\s+/g, ' ').trim();
+  for (var tail = 0; tail < 3; tail++){
+    title = title.replace(/[\s,;:—–-]+$/g, '').replace(/\s+(?:на|в|во|с|со|по|к|и|до|от|за)$/i, '');
+  }
+  title = title.replace(/^[\s,;:—–-]+/, '');
   title = title.charAt(0).toUpperCase() + title.slice(1);
+
+  // Время срока без отдельного времени задачи и есть её время: «завтра до
+  // 18:00» должно остаться на карточке, а чипа срока там нет.
+  if (!time && deadlineTime && !windowFrom) time = deadlineTime;
 
   if (!date && time && !bucket){
     // Время без дня ставит задачу на день блока по умолчанию.
@@ -1489,7 +1616,110 @@ function parseSchedule(text, fallbackBucket){
     iso = null;
   }
 
-  return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: названаДата, hasTime: !!time };
+  // Окно и срок живут в тот день, на который встала задача.
+  var dayOfTask = iso || isoOf(today);
+  if (deadlineDay || deadlineTime){
+    deadline = { date: deadlineDay || dayOfTask, time: deadlineTime, hard: true };
+  }
+
+  return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: названаДата, hasTime: !!time,
+    repeat: repeat, rule: rule, deadline: deadline, note: noteText,
+    windowFrom: windowFrom ? { date: dayOfTask, time: windowFrom } : null,
+    windowTo: windowTo ? { date: dayOfTask, time: windowTo } : null };
+}
+
+/* Повтор словами: «каждый день», «по будням», «по вторникам и четвергам»,
+   «каждое воскресенье», «каждые 3 дня», «каждый месяц 5 числа».
+
+   Пресет берётся, когда фраза ровно его и называет, — так задача выглядит так
+   же, как заведённая руками. Всё остальное — своё правило ('custom'), той же
+   формы, что сохраняет окно задачи. Заодно считается ближайший день повтора:
+   «позвонить маме каждое воскресенье», сказанное в среду, — это воскресенье,
+   а не сегодня. */
+var WEEKDAY_EVERY = [
+  [1, 'понедельник(?:ам)?'], [2, 'вторник(?:ам)?'], [3, 'сред(?:у|ам)'], [4, 'четверг(?:ам)?'],
+  [5, 'пятниц(?:у|ам)'], [6, 'суббот(?:у|ам)'], [0, 'воскресень(?:е|ям)']
+];
+var COUNT_WORDS = { 'два': 2, 'две': 2, 'три': 3, 'четыре': 4, 'пять': 5, 'шесть': 6, 'семь': 7, 'десять': 10 };
+
+function parseRepeat(takeOut, today){
+  var day = WEEKDAY_EVERY.map(function(p){ return p[1]; }).join('|');
+  var rule = function(unit, interval, weekdays, monthDays){
+    return { unit: unit, interval: interval || 1, weekdaysOnly: false,
+             weeklyWeekdays: weekdays || [], monthlyDays: monthDays || [] };
+  };
+  var weekdaysIn = function(text){
+    return WEEKDAY_EVERY.filter(function(p){ return new RegExp(p[1]).test(text); })
+      .map(function(p){ return p[0]; });
+  };
+
+  // Числа месяца: «каждый месяц 5 числа», «5 и 20 числа каждого месяца», «каждое 5 число».
+  var NUM = '(\\d{1,2})(?:-?го|-?е)?(?:\\s+и\\s+(\\d{1,2})(?:-?го|-?е)?)?';
+  var m = takeOut(new RegExp(WORD_START + '(?:каждый\\s+месяц|ежемесячно)\\s+' + NUM + '\\s+числа' + WORD_END)) ||
+          takeOut(new RegExp(WORD_START + NUM + '\\s+числа\\s+(?:каждого\\s+месяца|каждый\\s+месяц|ежемесячно)' + WORD_END)) ||
+          takeOut(new RegExp(WORD_START + 'каждое\\s+' + NUM + '\\s+число' + WORD_END));
+  if (m){
+    var days = [m[2], m[3]].filter(Boolean).map(Number).filter(function(n){ return n >= 1 && n <= 31; });
+    if (days.length) return { repeat: CUSTOM_REPEAT, rule: rule('month', 1, [], days), date: nextMonthDay(today, days) };
+  }
+
+  // Дни недели: «по вторникам и четвергам», «каждую пятницу», «по выходным».
+  m = takeOut(new RegExp(WORD_START + '(?:по|кажд(?:ый|ую|ое))\\s+(?:' + day + ')(?:(?:\\s*,\\s*|\\s+и\\s+)(?:' + day + '))*' + WORD_END));
+  var weekdays = m ? weekdaysIn(m[0]) : null;
+  if (!weekdays && takeOut(wordRegex('по\\s+выходным|каждые\\s+выходные'))) weekdays = [6, 0];
+  if (weekdays && weekdays.length){
+    return { repeat: CUSTOM_REPEAT, rule: rule('week', 1, weekdays), date: nextWeekday(today, weekdays) };
+  }
+
+  if (takeOut(wordRegex('по\\s+будням|в\\s+будни|кажд(?:ый|ые)\\s+будни(?:й|е)\\s+дн(?:ь|и)'))){
+    return { repeat: 'weekdays', rule: null, date: nextWeekday(today, [1, 2, 3, 4, 5]) };
+  }
+
+  // «каждые 3 дня», «каждые две недели», «каждые 2 месяца».
+  m = takeOut(new RegExp(WORD_START + 'каждые\\s+(\\d{1,3}|два|две|три|четыре|пять|шесть|семь|десять)\\s+(дн(?:я|ей)|недел(?:и|ь)|месяц(?:а|ев))' + WORD_END));
+  if (m){
+    var n = COUNT_WORDS[m[2]] || Number(m[2]);
+    var unit = /^дн/.test(m[3]) ? 'day' : /^нед/.test(m[3]) ? 'week' : 'month';
+    if (unit === 'day' && n === 2) return { repeat: 'every2', rule: null, date: null };
+    return { repeat: CUSTOM_REPEAT, rule: rule(unit, n), date: null };
+  }
+
+  if (takeOut(wordRegex('каждый\\s+день|ежедневно'))) return { repeat: 'daily', rule: null, date: null };
+  if (takeOut(wordRegex('каждую\\s+неделю|еженедельно'))) return { repeat: 'weekly', rule: null, date: null };
+  if (takeOut(wordRegex('каждый\\s+месяц|ежемесячно'))) return { repeat: 'monthly', rule: null, date: null };
+  return null;
+}
+
+/// Ближайший из дней недели, считая сегодняшний.
+function nextWeekday(today, weekdays){
+  for (var i = 0; i < 7; i++){
+    var d = addDays(today, i);
+    if (weekdays.indexOf(d.getDay()) !== -1) return d;
+  }
+  return today;
+}
+
+/// Ближайшее из чисел месяца, считая сегодня. В коротком месяце 31-е просто
+/// пропускается — первая встреча правила всё равно будет настоящей.
+function nextMonthDay(today, days){
+  for (var i = 0; i < 62; i++){
+    var d = addDays(today, i);
+    if (days.indexOf(d.getDate()) !== -1) return d;
+  }
+  return today;
+}
+
+/// Поля задачи, которые строка ввода умеет назвать сверх дня и времени.
+/// Одно место на всех, кто заводит задачу из разобранной фразы.
+function withParsedExtras(task, parsed){
+  // Комментарий из фразы («в комментарии напиши …») — в заметку задачи.
+  if (parsed.note && !task.note) task.note = parsed.note;
+  task.repeat = parsed.repeat || '';
+  task.rule = parsed.rule || null;
+  task.deadline = parsed.deadline || null;
+  task.windowFrom = parsed.windowFrom || null;
+  task.windowTo = parsed.windowTo || null;
+  return task;
 }
 
 /* Время, которое сегодня уже прошло, — это завтра.
@@ -1782,7 +2012,7 @@ function spawnNextOccurrence(task){
   var copy = {
     id: uid(), title: task.title, bucket: derivedBucket(next), date: next, done: false,
     note: task.note, time: task.time, repeat: task.repeat, rule: task.rule || null, series: series,
-    deadline: срок, windowFrom: task.windowFrom || null,
+    deadline: срок, windowFrom: task.windowFrom || null, windowTo: task.windowTo || null,
     hasExplicitDate: task.hasExplicitDate, hasExplicitTime: task.hasExplicitTime,
     // Якорь едет с серией: иначе следующее повторение снова возьмёт число из
     // прижатой даты и серия опять сядет на 28-е.
@@ -2050,6 +2280,8 @@ var VIEWS = {
 /// кнопка ведёт мимо go(), и без этого дождь шумел дальше, а развёрнутая
 /// карта оставляла body без прокрутки.
 function уйтиСЭкрана(view){
+  // Ушли со строки трат посреди записи — микрофон не должен слушать дальше.
+  if (dict && dict.owner === 'fin' && view !== 'finance') dictCancel();
   // Прослушивание среды не должно продолжаться на другом экране: человек
   // ушёл из медитации, а из вкладки всё ещё шумит дождь.
   if (view !== 'meditation' && med.preview){
@@ -2224,10 +2456,12 @@ function render(){
   document.body.classList.toggle('deskpage', !!(window.SynDesk && SynDesk.active(S.view)) &&
     !(PRO_ONLY[S.view] && !isPro()));
   $('app').innerHTML = SynI18n.tr((PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render());
-  // Строка записи трат живёт внизу экрана, как строка создания задач. На
-  // дашборде её нет: там строка стоит прямо в зоне трат.
-  if (S.view === 'finance' && S.finTab === 'ops' && !finLocked && !finDesk()){
-    $('app').insertAdjacentHTML('beforeend', SynI18n.tr(vFinComposer()));
+  // Полоса Syn живёт внизу всего раздела — на каждой вкладке и на дашборде:
+  // записать можно только через неё (см. vFinSyn).
+  if (S.view === 'finance' && !finLocked){
+    $('app').insertAdjacentHTML('beforeend', SynI18n.tr(vFinSyn()));
+    var finField = $('finsyn');
+    if (finField) growInput(finField);
   }
   restoreTabStrip(stripLeft);
 
@@ -3001,9 +3235,13 @@ function vTop(){
         (isDarkNow() ? NAV_ICONS.sun : NAV_ICONS.moon) + '</button>' +
       // Рядом с аватаркой — имя: без него в шапке висит безымянный кружок с
       // буквой, и непонятно, чей это аккаунт.
+      /* В кнопке — только имя, без фамилии: «Константин Константинопольский»
+         не помещался ни в шапку, ни в левое меню и обрезался посередине.
+         Полное имя — в подсказке и на странице профиля. */
       '<button class="whoami' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
-        'title="Профиль" aria-label="Профиль">' + avatarHTML() +
-        (S.profile.name ? '<span class="nm" translate="no">' + esc(S.profile.name) + '</span>' : '') +
+        'title="' + esc(S.profile.name ? 'Профиль: ' + S.profile.name : 'Профиль') + '" aria-label="' +
+        esc(S.profile.name ? 'Профиль: ' + S.profile.name : 'Профиль') + '">' + avatarHTML() +
+        (S.profile.name ? '<span class="nm" translate="no">' + esc(firstName()) + '</span>' : '') +
       '</button>' +
     '</div>' +
   '</div>';
@@ -3017,6 +3255,11 @@ function vStorageWarning(){
     '<span>Данные не сохраняются: браузер не даёт записать. Работать можно, но после закрытия вкладки всё пропадёт.</span>' +
     '<button class="btn sm" data-act="export">Сохранить копию</button>' +
   '</div>';
+}
+
+/// Первое слово имени — для кнопки профиля.
+function firstName(){
+  return String((S.profile && S.profile.name) || '').trim().split(/\s+/)[0] || '';
 }
 
 function initials(){
@@ -3135,6 +3378,18 @@ function тактильно(вид){
   } catch (e){}
 }
 
+/* Вид приложения: в самом приложении и на сайте, открытом с телефона.
+
+   inApp() отвечает на вопрос «это apk?» — и нужен там, где работает именно
+   оболочка: уведомления, service worker, сверка подписки. А вид и поведение
+   приложения — компактное меню, оглавление настроек, свёрнутые дни — нужны
+   и мобильному сайту: им пользуются тем же пальцем на том же экране.
+   Признак мобильного сайта ставит web/mobile-app.js; в андроиде его нет,
+   и там appLook() — ровно inApp(). */
+function appLook(){
+  return inApp() || !!window.SynMobileApp;
+}
+
 /* Свайп решается наличием пальца, а не тем, приложение это или браузер.
 
    Сперва я развёл по «приложение против веба» и ошибся: с телефона сайт
@@ -3163,10 +3418,18 @@ function жестПальцем(){
   return inApp() || touchUI();
 }
 
+/* Своя «Назад» не нужна там, где есть системная: в приложении и в мобильном
+   браузере (кнопка или жест от края). Сайт, добавленный на экран «Домой»,
+   открывается без браузерной обвязки — там своя кнопка остаётся
+   (SynMobileBack ставит web/mobile-app.js). */
+function systemBack(){
+  return inApp() || !!window.SynMobileBack;
+}
+
 /// своё — заголовок написан человеком (название цели, списка, заметки):
 /// переводчик интерфейса его не трогает.
 function head(sub, title, backView, своё){
-  return (backView && !inApp() ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
+  return (backView && !systemBack() ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
     (sub ? '<p class="hi">' + esc(sub) + '</p>' : '') +
     (title ? '<h1 class="page"' + (своё ? ' translate="no"' : '') + '>' + esc(title) + '</h1>' : '');
 }
@@ -3409,6 +3672,17 @@ var ВАЛЮТЫ = [
    долгов и копилок, и кнопка не должна мигать при переходе между ними. */
 function валютаВШапке(){
   return activeTab() === 'finance';
+}
+
+/* Кнопка валюты в самом разделе денег — для широкого экрана.
+
+   Там шапка переезжает в левое меню, и значок валюты оказывался среди языка
+   и темы, вдали от денег. На широком экране он стоит в финансах — слева от
+   переключателя вида, а в меню его нет (layout.css). На телефоне — в шапке,
+   как и был: левого меню там нет. */
+function finCurButton(){
+  return '<button class="iconbtn cur fin-cur" data-act="currency" title="Валюта" aria-label="Валюта">' +
+    '<span class="cur-sign">' + esc(валютаЗнак() || '¤') + '</span></button>';
 }
 
 function modalCurrency(первыйРаз){
@@ -4036,7 +4310,7 @@ function vFinance(){
       // В приложении вкладки короче, как на айфоне: «Подписки и платежи» не
       // помещались и полоса уезжала за край на половине слова.
       esc(inApp() && t.short ? t.short : t.title) + '</button>';
-  }).join('') + (window.SynFinDesk ? SynFinDesk.backButton() : '') + '</div>';
+  }).join('') + finCurButton() + (window.SynFinDesk ? SynFinDesk.backButton() : '') + '</div>';
 
   if (tab === 'ops') return html + vFinOps();
   if (tab === 'budgets') return html + vFinBudgets();
@@ -4088,14 +4362,7 @@ function vFinSummary(){
      равно можно нажатием на плитку «Свободно» под ней. */
   if (!S.finance.opening && !S.finance.openingHidden){
     html += '<section class="card finhint">' +
-      '<div class="finhint-head">' +
-        '<h3>Сначала — сколько у вас есть</h3>' +
-        '<button class="tour-hide" data-act="fin-hint-hide" aria-label="' +
-          SynI18n.tr('Скрыть подсказку') + '" title="' + SynI18n.tr('Скрыть') + '">✕</button>' +
-      '</div>' +
-      '<p class="sub">Впишите, сколько сейчас на карте и в кошельке, — одним числом. ' +
-        'Без него «Свободно» показывает не деньги, а разницу доходов и трат с первой записи.</p>' +
-      '<div class="acts"><button class="btn sm" data-act="fin-opening">Вписать</button></div>' +
+      finStartHTML() +
     '</section>';
   }
 
@@ -4160,7 +4427,7 @@ function vFinSummary(){
           '</div>';
         }).join('') + '</div>'
       : '<p class="sub" style="margin:0">В этом месяце ещё ничего не записано. ' +
-        'Первая строка — во вкладке «Мои траты».</p>') +
+        'Скажите Syn в строке внизу, на что потратили.</p>') +
   '</section>';
 
   return html;
@@ -4230,13 +4497,10 @@ function vFinSummaryApp(){
   var free = finBalance() - finSaved();
   var html = '';
 
+  // Пока раздел пуст — сначала рассказ Syn (finStartHTML): остаток, долги,
+  // подписки и доход одной фразой, а не каждый своей формой.
   if (!S.finance.opening && !S.finance.ops.length && !S.finance.openingHidden){
-    html += '<section class="fa-card">' +
-      '<div class="finhint-head"><h3 class="fa-h3">Сначала — сколько у тебя есть</h3>' +
-        '<button class="tour-hide" data-act="fin-hint-hide" aria-label="Скрыть подсказку">✕</button></div>' +
-      '<p class="fa-hint">Впиши, сколько сейчас на карте и в кошельке, — одним числом. Без него «Свободно» показывает не деньги, а разницу доходов и трат с первой записи.</p>' +
-      '<button class="fa-act primary" data-act="fin-opening">Вписать</button>' +
-    '</section>';
+    html += '<section class="fa-card finhint">' + finStartHTML() + '</section>';
   }
 
   // Главное число — сколько можно тратить — крупно на цвете.
@@ -4546,9 +4810,9 @@ function vFinOpsApp(){
         '<span><em>В день</em><b>' + finMoney(дней ? Math.round(month.spent / дней) : 0) + '</b></span>' +
         '<span><em>Доход</em><b class="up">' + finMoney(month.earned) + '</b></span>' +
       '</div>' +
-    '</section>' +
-    '<div class="finwhen fa-when"><label for="findate">Дата записи</label>' +
-      полеДаты('findate', S.finDate || isoOf(todayDate())) + '</div>';
+    '</section>';
+  // Поля даты больше нет: записывает Syn, и день он берёт из сказанного
+  // («вчера такси 450»).
 
   var ops = finMonthOps(key).slice().sort(function(a, b){
     return a.date === b.date ? b.at - a.at : (a.date < b.date ? 1 : -1);
@@ -4556,7 +4820,7 @@ function vFinOpsApp(){
   if (!ops.length){
     return html + '<div class="fa-empty">' + NAV_ICONS.finance +
       '<b>В этом месяце ещё ничего не записано.</b>' +
-      '<p>Напиши внизу «кофе 350» или зажми микрофон и скажи.</p></div></div>';
+      '<p>Скажи Syn внизу: «кофе 350» — или нажми микрофон и расскажи.</p></div></div>';
   }
   var дни = [], поДню = {};
   ops.forEach(function(op){
@@ -4586,128 +4850,165 @@ function vFinOpsApp(){
   return html + '</div>';
 }
 
+/* Первый рассказ о деньгах — голосом и целиком.
+
+   Заводить остаток, каждый долг и каждую подписку отдельной формой — это
+   десять минут на входе, и раздел бросают, не начав. Одна фраза Syn делает то
+   же самое: остаток, долги, подписки с днями списания, доход — и всё это
+   показывается карточкой перед записью. Подсказка общая для сводки и
+   дашборда. */
+function finStartHTML(){
+  return '<div class="finhint-head">' +
+      '<h3>Расскажите Syn, что у вас с деньгами</h3>' +
+      '<button class="tour-hide" data-act="fin-hint-hide" aria-label="' +
+        SynI18n.tr('Скрыть подсказку') + '" title="' + SynI18n.tr('Скрыть') + '">✕</button>' +
+    '</div>' +
+    '<p class="sub">Всё сразу, своими словами: «На карте 80 тысяч. Должен Пете 15 тысяч до первого. ' +
+      'Яндекс Плюс 399 пятого числа, аренда 30 тысяч десятого. Зарплата 120 тысяч». ' +
+      'Syn сам заведёт остаток, долги, подписки и доход, а перед записью покажет, что получилось.</p>' +
+    '<div class="acts">' +
+      (voiceSupported()
+        ? '<button class="btn sm finstart-mic" data-act="fin-voice">' + FIN_MIC + ' Рассказать голосом</button>'
+        : '') +
+      '<button class="btn sm soft" data-act="fin-syn-focus">Написать</button>' +
+    '</div>';
+}
+
 function finTile(caption, value, tone){
   return '<div class="fintile' + (tone ? ' ' + tone : '') + '">' +
     '<span>' + esc(caption) + '</span><b>' + esc(value) + '</b></div>';
 }
 
 
-/* Строка записи трат внизу экрана — ровно там же, где строка создания задач.
+/* Полоса Syn внизу «Моих финансов» — единственный способ что-то записать.
 
-   Раньше форма стояла карточкой сверху: чтобы записать кофе, нужно было
-   доскроллить до неё вверх. Трату записывают на ходу и по одной, поэтому поле
-   должно быть под большим пальцем и всегда на виду — как в задачах.
+   Раньше здесь была строка «кофе 350» с переключателем «Трата / Доход»: её
+   разбирал код, и умела она ровно одно — одну трату за раз. Долг, подписку,
+   доход, остаток приходилось заводить руками, каждый своей формой. Теперь всё
+   говорится словами: «на карте 80 тысяч, должен Пете 15 до первого,
+   Яндекс Плюс 399 пятого числа, зарплата 120 тысяч» — и Syn сам раскладывает
+   это по остатку, долгам, подпискам и доходам.
 
-   Микрофон рядом ЗАПИСЫВАЕТ САМ, не открывая ассистента: сказал «за кофе 300»
-   — строка разобрана тем же разбором, что и печатный ввод, и трата легла в
-   список. Открывать ради одной траты экран Syn, ждать ответа и тратить запрос
-   — цена, несоразмерная задаче. */
-function vFinComposer(){
-  var kind = S.finKind || 'spend';
-  return '<div class="composer fincomposer">' +
-    '<div class="finswitch">' +
-      '<button class="' + (kind === 'spend' ? 'on' : '') + '" data-act="fin-kind" data-kind="spend">Трата</button>' +
-      '<button class="' + (kind === 'income' ? 'on' : '') + '" data-act="fin-kind" data-kind="income">Доход</button>' +
-    '</div>' +
-    '<form class="say" data-form="fin-add">' +
-      '<label class="visually-hidden" for="finfield">' +
-        (kind === 'income' ? 'Новый доход' : 'Новая трата') + '</label>' +
-      // Набранное живёт в S.finDraft, как S.draft у строки задач: иначе
-      // переключатель «Трата/Доход» и старт голоса перерисовкой стирали строку.
-      '<input id="finfield" type="text" autocomplete="off" enterkeyhint="done" ' +
-        'value="' + esc(S.finDraft || '') + '" ' +
-        'placeholder="' + (kind === 'income' ? 'зарплата 90000' : 'кофе 350') + '">' +
-      (voiceSupported()
-        ? '<button class="ai' + (finVoice.on ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
-          'aria-label="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '" ' +
-          'title="' + (finVoice.on ? 'Остановить' : 'Сказать трату голосом') + '">' + ICON.mic + '</button>'
-        : '') +
-      '<button class="send" type="submit" aria-label="Записать">' + NAV_ICONS.send + '</button>' +
-    '</form>' +
+   Ответ показывается прямо над полосой, а не отдельным окном: человек
+   смотрит на свои деньги и должен видеть, что именно запишется, рядом с ними.
+   Деньги пишутся только по «Применить» — как и раньше в окне Syn.
+
+   Полоса стоит на всех вкладках раздела и на дашборде: сказать «отдал Пете
+   5000» хочется там, где видишь долг, а не во вкладке трат. */
+var FINSYN = { open: false, from: null, draft: '', error: '', said: '' };
+
+/* Микрофон полосы — контуром, а не общий ICON.mic: в кнопке .say .ai общий
+   значок рисуется заливкой, и дуга держателя сливалась с капсулой в один
+   невнятный силуэт. Капсула с решёткой, держатель и подставка читаются сразу. */
+var FIN_MIC = '<svg class="dmic" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<rect x="8.5" y="2.5" width="7" height="11.5" rx="3.5"/>' +
+  '<path d="M8.5 7h2.2M8.5 9.8h2.2M13.3 7h2.2M13.3 9.8h2.2"/>' +
+  '<path d="M5.5 11a6.5 6.5 0 0 0 13 0"/>' +
+  '<path d="M12 17.5v3M8.5 20.8h7"/></svg>';
+
+function vFinSyn(){
+  var listening = finVoice.on;
+  var html = '<div class="composer finsyn">';
+
+  if (FINSYN.open) html += finSynPanel();
+
+  html += '<form class="say" data-form="fin-syn">' +
+    '<label class="visually-hidden" for="finsyn">Что записать</label>' +
+    '<textarea id="finsyn" rows="1" enterkeyhint="send" autocomplete="off" ' +
+      'placeholder="' + (listening ? 'Говорите — нажмите микрофон, когда закончите'
+        : 'Скажите Syn: «кофе 350»') + '">' + esc(FINSYN.draft) + '</textarea>' +
+    (voiceSupported()
+      ? '<button class="ai' + (listening ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
+        'aria-label="' + (listening ? 'Отправить сказанное' : 'Сказать голосом') + '" ' +
+        'title="' + (listening ? 'Отправить сказанное' : 'Сказать голосом') + '">' + FIN_MIC + '</button>'
+      : '') +
+    '<button class="send" type="submit" aria-label="Отправить Syn"' + (SYN.busy ? ' disabled' : '') + '>' +
+      NAV_ICONS.send + '</button>' +
+  '</form>';
+
+  if (listening){
+    html += '<p class="hint finsyn-note">Слушаю. Нажмите микрофон ещё раз — и Syn всё запишет.</p>';
+  }
+  return html + '</div>';
+}
+
+/// Окошко над полосой: что сказано, что ответил Syn и что запишется.
+function finSynPanel(){
+  var start = FINSYN.from ? S.synChat.indexOf(FINSYN.from) : -1;
+  var items = start >= 0 ? S.synChat.slice(start) : [];
+  var body = items.map(function(item){ return synItemHTML(item); }).join('');
+  if (SYN.busy) body += '<div class="syn-msg wait"><span>Syn думает…</span></div>';
+
+  if (FINSYN.error){
+    body += '<p class="err syn-error">' + esc(FINSYN.error) + '</p>';
+    // Без Syn простую трату всё равно можно записать — кодом, как раньше.
+    var parsed = FINSYN.said ? finParse(FINSYN.said, 'spend') : null;
+    if (parsed){
+      body += '<div class="syn-none-acts"><button class="btn sm soft" data-act="fin-syn-local">' +
+        'Записать без Syn: ' + esc(parsed.title) + ' — ' + finMoney(parsed.amount) + '</button></div>';
+    }
+  }
+  if (!body) return '';
+
+  return '<div class="finsyn-panel" id="finsyn-log">' +
+    '<button class="finsyn-x" data-act="fin-syn-close" aria-label="Скрыть ответ" title="Скрыть">✕</button>' +
+    body +
   '</div>';
 }
 
-/* Голос для трат — отдельный от голоса ассистента.
+/// Перерисовка во время разговора: тот же экран, окошко над полосой.
+function finSynDraw(draft, error){
+  FINSYN.draft = draft || '';
+  FINSYN.error = error || '';
+  FINSYN.open = true;
+  render();
+  var log = $('finsyn-log');
+  if (log) log.scrollTop = log.scrollHeight;
+}
 
-   У ассистента слушание кончается отправкой запроса на сервер и ответом на
-   экране Syn. Здесь всё локально: что услышали, то и разобрали, и трата уже в
-   списке. Поэтому и состояние своё: два слушания на одном объекте глушили бы
-   друг друга. */
-var finVoice = { on: false, rec: null, final: '', held: 0 };
+/// Карточка с решённой пачкой остаётся в разговоре, но с итогом вместо кнопок.
+function finCardSettleAt(index, state, result){
+  var item = S.synChat[Number(index)];
+  if (item && item.finance){ item.finance.state = state; item.finance.result = result; }
+}
 
+function finSynSend(text){
+  text = String(text || '').trim();
+  if (!text || SYN.busy) return;
+  // Деньги говорятся в разделе денег: Syn получает финансовый срез и
+  // финансовые действия, а не задачи дня.
+  S.synIntent = 'finance';
+  S.synGoalCreate = false;
+  FINSYN.said = text;
+  FINSYN.error = '';
+  synSend(text, 'fin');
+}
+
+/* Голос — тот же движок диктовки, что у Syn (см. dictStart):
+   нажал — пишет в строку, нажал ещё раз — сказанное ушло Syn. */
 function finVoiceStart(){
-  if (finVoice.on || !voiceSupported()) return;
-
-  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) return;
-  var rec = new Recognition();
-  rec.lang = 'ru-RU';
-  rec.continuous = false;
-  rec.interimResults = true;
-  rec.maxAlternatives = 1;
-
-  finVoice.rec = rec;
-  finVoice.on = true;
-  finVoice.final = '';
-
-  rec.onresult = function(event){
-    var interim = '';
-    for (var i = event.resultIndex; i < event.results.length; i++){
-      var chunk = event.results[i][0].transcript;
-      if (event.results[i].isFinal) finVoice.final += chunk;
-      else interim += chunk;
-    }
-    // Пишем прямо в поле, без перерисовки: перерисовка оборвала бы слушание.
-    var field = $('finfield');
-    S.finDraft = (finVoice.final + interim).trim();
-    if (field) field.value = S.finDraft;
-  };
-
-  rec.onerror = function(event){
-    finVoice.on = false; finVoice.rec = null;
-    toast(event && event.error === 'not-allowed'
-      ? 'Браузер не дал доступ к микрофону.'
-      : 'Распознавание не сработало.');
-    render();
-  };
-
-  rec.onend = function(){
-    finVoice.on = false; finVoice.rec = null;
-    var said = finVoice.final.trim();
-    finVoice.final = '';
-    var field = $('finfield');
-    if (said) S.finDraft = said;
-    if (field && said) field.value = said;
-    // Услышали — сразу записываем: голосом говорят, чтобы не нажимать.
-    if (said) ACTS['fin-add']({});
+  dictStart('fin', 'finsyn', function(text){
+    FINSYN.draft = '';
+    if (text) finSynSend(text);
     else render();
-  };
-
-  try { rec.start(); } catch (error){ finVoice.on = false; finVoice.rec = null; }
+  });
   render();
 }
 
 function finVoiceStop(){
-  if (!finVoice.on || !finVoice.rec) return;
-  var rec = finVoice.rec;
-  try { rec.stop(); } catch (error){ finVoice.on = false; finVoice.rec = null; render(); }
+  if (dict && dict.owner === 'fin') dictFinish();
 }
 
 function vFinOps(){
   if (inApp()) return vFinOpsApp();
-  var kind = S.finKind || 'spend';
+  // Даты над лентой больше нет: записывает Syn, и день он берёт из сказанного
+  // («вчера такси 450»), а не из поля, которое надо не забыть переставить.
   var html = '<div class="finance-has-composer">' + finMonthBar();
-
-  // Дата — над списком, а не в строке ввода: меняют её редко, а строку она
-  // раздувала бы на треть. Сама строка ввода уехала вниз экрана (vFinComposer).
-  html += '<div class="finwhen">' +
-      '<label for="findate">Дата</label>' +
-      полеДаты('findate', S.finDate || isoOf(todayDate())) +
-    '</div>';
 
   if (!S.finance.ops.length){
     return html + blank(NAV_ICONS.finance, 'Записей пока нет',
-      'Одна строка на трату — этого достаточно. Через месяц раздел покажет, куда уходят деньги.') + '</div>';
+      'Скажите Syn в строке внизу: «кофе 350», «вчера такси 450 и обед 600». ' +
+      'Через месяц раздел покажет, куда уходят деньги.') + '</div>';
   }
 
   // По дням, свежие сверху: список трат читают как ленту, а не как таблицу.
@@ -5222,7 +5523,7 @@ function finApplyBatch(actions){
         target.taskId = '';
         said.push('долг «' + target.who + '» закрыт');
       } else {
-        said.push('возврат от «' + target.who + '»');
+        said.push((target.mine ? 'часть долга «' + target.who + '» отдана' : 'возврат от «' + target.who + '»'));
       }
       return;
     }
@@ -5271,6 +5572,18 @@ function finApplyBatch(actions){
 
    Человек должен увидеть цифру до того, как она попадёт в сводку, а не
    после. Поэтому итог считается здесь же, теми же правилами, что и запись. */
+/// Чей долг гасится: по открытому долгу с этим именем, иначе — по слову модели.
+function finDebtMine(a){
+  var needle = String(a.who || '').toLowerCase();
+  for (var i = 0; needle && i < S.finance.debts.length; i++){
+    var d = S.finance.debts[i];
+    if (d.closed) continue;
+    var who = d.who.toLowerCase();
+    if (who.indexOf(needle) !== -1 || needle.indexOf(who) !== -1) return d.mine;
+  }
+  return a.mine !== false;
+}
+
 function finPreview(actions){
   var rows = [], total = 0;
 
@@ -5292,16 +5605,21 @@ function finPreview(actions){
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) +
         (a.due ? ', до ' + humanDate(a.due) : ''));
     } else if (kind === 'fin_pay_debt'){
-      rows.push('Возврат от ' + (a.who || '?') + ' — ' +
+      // Кто кому отдаёт — по сохранённому долгу: «Возврат от Петя» на долге,
+      // где должен я сам, читался наоборот.
+      rows.push((finDebtMine(a) ? 'Отдаю долг: ' : 'Мне возвращают: ') + (a.who || '?') + ' — ' +
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)));
     } else if (kind === 'fin_add_jar'){
       rows.push('Копилка «' + (a.title || '?') + '» на ' +
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) +
         (a.due ? ', к ' + humanDate(a.due) : ''));
     } else if (kind === 'fin_add_sub'){
+      // День списания — в карточке: «пятого числа» Syn мог понять неверно,
+      // а проверить это человек может только здесь.
       rows.push('Подписка «' + (a.title || '?') + '» — ' +
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) + ' ' +
-        (FIN_EVERY[a.every] || FIN_EVERY.month).title);
+        (FIN_EVERY[a.every] || FIN_EVERY.month).title +
+        (/^\d{4}-\d{2}-\d{2}$/.test(a.since || '') ? ', ближайшее списание ' + humanDate(a.since) : ''));
     } else if (kind === 'fin_set_budget'){
       rows.push('Конверт «' + finCat(a.category || a.cat || 'other').title + '» — ' +
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) + ' в месяц');
@@ -5941,16 +6259,6 @@ var TOUR_STEPS = [
     done: function(){ return S.tasks.some(function(t){ return t.done || t.archived; }); }
   },
   {
-    /* Запись с зажатой кнопкой — самый быстрый вход в приложение, но
-       догадаться о ней нельзя: кнопка выглядит как обычная. Поэтому учим
-       ей отдельным шагом, а кнопка AI в это время мягко пульсирует. Где
-       распознавания речи нет, шаг считается пройденным сам. */
-    id: 'hold',
-    title: 'Зажми AI и скажи',
-    hint: 'Печатать не обязательно: зажми кнопку AI внизу, скажи, например, «завтра в 10 созвон с Олегом», и отпусти — Syn всё запишет сам. Передумал — уведи палец в сторону, и запись отменится.',
-    done: function(){ return !!S.holdVoiceUsed || !voiceSupported(); }
-  },
-  {
     id: 'goal',
     /* «Заведи цель» звучало канцелярски — цель ставят, а не заводят. */
     title: 'Поставь цель',
@@ -6004,7 +6312,6 @@ function vTour(){
   }
 
   // Пока текущий шаг — «зажми AI», кнопка AI пульсирует: вот она.
-  document.documentElement.classList.toggle('tour-hold', !!(current && current.id === 'hold'));
 
   return '<section class="card tour">' +
     '<div class="tour-head">' +
@@ -6056,7 +6363,7 @@ function vTasks(){
      живёт в обучении. */
   if (tourVisible()){
     html += vTour();
-  } else if (!liveTasks().length && !inApp()){
+  } else if (!liveTasks().length && !appLook()){
     html += blank(NAV_ICONS.tasks, 'Задач пока нет',
       'Напиши первую в строке внизу. День и время можно сказать прямо там: «купить молоко завтра в 9 утра».');
   }
@@ -6099,7 +6406,7 @@ function vTasks(){
         ' aria-expanded="' + !closed + '">' +
         // Значок дня — только в приложении: в браузере заголовки крупные и
         // стоят просторно, там рисунок ничего не ускоряет.
-        (inApp() ? '<span class="group-ic">' + (BUCKET_ICONS[b.id] || '') + '</span>' : '') +
+        (appLook() ? '<span class="group-ic">' + (BUCKET_ICONS[b.id] || '') + '</span>' : '') +
         '<h3>' + esc(b.title) + '</h3><span class="car">' + NAV_ICONS.caret + '</span>' +
         '<span class="n">' + (mine.length ? taskCount(mine.length) : 'пусто') + '</span>' +
       '</button>' +
@@ -6173,6 +6480,8 @@ function itemRow(t, внутриЦели){
   if (t.date && !датаЛишняя){
     meta.push('<span class="chip">' + esc(humanDateWithDay(t.date)) + '</span>');
   }
+  if (t.aiPending) meta.push('<span class="chip ai-pending">' +
+    (t.aiPending === 'research' ? 'Syn ищет в интернете…' : 'Syn уточняет…') + '</span>');
   if (t.time) meta.push('<span class="chip">' + esc(t.time) + '</span>');
   if (t.repeat) meta.push('<span class="chip rep">' + ICON.repeat +
     esc(repeatLabel(t.repeat, t)) + '</span>');
@@ -6363,7 +6672,7 @@ function vComposer(){
    символе, попавшем в render(). */
 var composerFocused = false;
 function restoreComposer(){
-  var field = $('field') || $('gfield');
+  var field = $('field') || $('gfield') || $('lnfield') || $('finsyn');
   if (field && composerFocused){
     field.focus();
     field.setSelectionRange(field.value.length, field.value.length);
@@ -6427,18 +6736,201 @@ function addTask(){
   var parsed = parseSchedule(raw, 'today');
   if (!parsed.title) return;
   parsed = pushPastTimeToTomorrow(parsed, raw);
-  S.tasks.push({
+  var fresh = withParsedExtras({
     id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
-    time: parsed.time, repeat: '', rule: null, series: null,
+    time: parsed.time, series: null,
     hasExplicitDate: !!parsed.hasDate, hasExplicitTime: !!parsed.hasTime,
     goalId: null, stageId: null, subtasks: []
-  });
+  }, parsed);
+  var viaSyn = taskAiAvailable();
+  if (viaSyn) fresh.aiPending = true;
+  S.tasks.push(fresh);
   S.draft = '';
   S.closed[parsed.bucket] = false;
   // Подсказка под строкой гасла только по кнопке «Добавить» (ACTS.add), а
   // добавляющие по Enter видели её вечно. Добавил задачу — значит, понял.
   S.hintSeen = true;
-  commit('Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
+  commit(viaSyn ? '' : 'Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
+  if (viaSyn) taskAiRefine(fresh.id, raw);
+}
+
+/* Строка задач — через Syn.
+
+   Разбор кодом (parseSchedule) понимает только те обороты, под которые
+   написано правило: «позвонить Ивану, повтор на каждый день, в комментарии
+   напиши номер» он раскладывал наполовину, и хвост оставался в названии.
+   Владелец: «не работает оно так, сделай, чтобы запрос проходил через ИИ».
+
+   Теперь фраза уходит Syn в режиме create_task (сервер даёт модели договор
+   ровно про создание задачи), а ответ применяется тем же обработчиком, что
+   и в окне ассистента: название, дата, время, повтор, срок, окно, описание,
+   цель. Чтобы не ждать ответа, задача появляется сразу — разобранная кодом,
+   с пометкой «Syn уточняет…», — и заменяется версией Syn, как только он
+   ответит.
+
+   Разбор кодом остаётся последним словом, когда Syn недоступен: нет сети,
+   закончилась дневная норма, ошибка сервера или Syn ответил вопросом
+   вместо задачи. Тогда пометка просто снимается. Если человек успел задачу
+   отметить, переименовать или удалить, ответ Syn её не трогает. */
+var TASK_AI = { quotaToastDay: '' };
+
+function taskAiAvailable(){
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  // Норма кончилась — не тратим время на заведомый отказ.
+  if (SYN.quota && typeof SYN.quota.used === 'number' && SYN.quota.limit &&
+      SYN.quota.used >= SYN.quota.limit && !SYN.quota.isPro) return false;
+  return true;
+}
+
+function taskAiRefine(id, raw){
+  function provisional(){
+    for (var i = 0; i < S.tasks.length; i++) if (S.tasks[i].id === id) return S.tasks[i];
+    return null;
+  }
+  var snapshot = provisional();
+  var original = snapshot ? { title: snapshot.title, done: snapshot.done } : null;
+  function settle(){
+    var t = provisional();
+    if (t && t.aiPending === true){ delete t.aiPending; commit(); }
+  }
+
+  synSession().then(function(token){
+    /* Временную задачу Syn видеть не должен. Она уже лежит в списке, и Syn,
+       увидев задачу с той же фразой, спрашивал «создать новую или дописать в
+       существующую?» вместо того, чтобы создать, — уточнение молча не
+       срабатывало. Срез и контекст собираются без неё. */
+    var all = S.tasks;
+    S.tasks = all.filter(function(x){ return x.id !== id; });
+    var workspace, context;
+    try {
+      workspace = synWorkspace();
+      context = synContext();
+    } finally {
+      S.tasks = all;
+    }
+    workspace.assistantIntent = 'create_task';
+    return synFetch('/v1/synapse/reply', {
+      workspace: workspace,
+      workspaceContext: context,
+      messages: [{ role: 'user', text: raw }]
+    }, token);
+  }).then(function(data){
+    if (data && data.quota) SYN.quota = data.quota;
+    var t = provisional();
+    // Пока Syn думал, задачу отметили, переименовали или удалили — это уже
+    // решение человека, ответ модели его не перебивает.
+    if (!t || !original || t.done !== original.done || t.title !== original.title){
+      settle();
+      return;
+    }
+    var creates = (data && data.actions || []).filter(function(a){
+      var kind = synНормализоватьВид(String(a && a.kind || '').toLowerCase(), a || {});
+      return kind === 'create_task' || kind === 'create_task_for_goal';
+    });
+    if (!creates.length){ settle(); return; }
+
+    var before = S.tasks.length;
+    S.tasks = S.tasks.filter(function(x){ return x.id !== id; });
+    creates.forEach(function(a){ a.sourcePrompt = raw; });
+    var result = synApplyActions(creates);
+    var added = S.tasks.slice(before - 1);
+    if (!added.length){
+      // Обработчик ничего не создал — возвращаем разобранное кодом.
+      delete t.aiPending;
+      S.tasks.push(t);
+      commit();
+      return;
+    }
+    added.forEach(function(x){ S.closed[x.bucket] = false; });
+    var first = added[0];
+    commit(added.length > 1
+      ? 'Syn разобрал фразу: задач — ' + added.length
+      : 'Задача в блоке «' + bucketTitle(first.bucket) + '»');
+    if (result.skipped && result.skipped.length) console.warn('[task-ai]', result.skipped);
+  }).catch(function(error){
+    if (error && error.data && error.data.quota) SYN.quota = error.data.quota;
+    settle();
+    if (error && error.status === 402){
+      var day = isoOf(todayDate());
+      if (TASK_AI.quotaToastDay !== day){
+        TASK_AI.quotaToastDay = day;
+        toast('Запросы к Syn на сегодня закончились — задачи разбираются без ИИ.');
+      }
+    }
+  });
+}
+
+/* Факты для описания задачи — из интернета, а не из памяти модели.
+
+   «Съездить в поликлинику взять талон, в комментариях адрес и номер укажи
+   поликлиники Сургута 4-й»: Syn в режиме создания задачи писал адрес и
+   телефон из головы — и уверенно выдумывал. Договор create_task на сервере
+   прямо велит класть «правдоподобный пример». Для реальной организации это
+   вредно: человек поедет по выдуманному адресу.
+
+   Поэтому, если фраза просит адрес, телефон, часы работы, сайт или как
+   добраться, описание задачи заполняет research-маршрут сервера — тот же,
+   что у приложения для research_task_note: модель с поиском по интернету и
+   режимом под вид сведений (contacts, hours, route). Пока ищет, на задаче
+   «Syn ищет в интернете…»; не нашлось — остаётся то, что было. Это ещё один
+   запрос из дневной нормы Syn. */
+var TASK_RESEARCH_RE = /(адрес|телефон|контакт|часы\s+работы|режим\s+работы|график\s+работы|расписани[ея]\s+работы|сайт|как\s+добраться|как\s+доехать|где\s+находится|маршрут)/i;
+
+/// Что искать: 'contacts', 'hours', 'route' — или пусто, если фраза фактов не просит.
+// Сведения именно просят, а не упоминают: «купить телефон» и «обновить сайт» —
+// дела, искать по ним нечего.
+var TASK_RESEARCH_ASK = /(укаж|напиш|найд|добав|запиш|узна|подскаж|выясн|в\s+(?:комментари|коммент|описани|заметк))/i;
+
+function taskResearchAsk(text){
+  var t = String(text || '');
+  if (!TASK_RESEARCH_RE.test(t) || !TASK_RESEARCH_ASK.test(t)) return '';
+  if (/(часы|режим|график|расписани)/i.test(t) && !/(адрес|телефон|контакт)/i.test(t)) return 'hours';
+  if (/(как\s+добраться|как\s+доехать|маршрут)/i.test(t) && !/(телефон|контакт)/i.test(t)) return 'route';
+  return 'contacts';
+}
+
+function taskResearch(id, query, mode, append){
+  function task(){
+    for (var i = 0; i < S.tasks.length; i++) if (S.tasks[i].id === id) return S.tasks[i];
+    return null;
+  }
+  var t = task();
+  if (!t) return;
+  // Поиск для этой задачи уже идёт — второй не нужен. Так бывает, когда Syn
+  // сам вернул research_task_note рядом с create_task (новый договор
+  // сервера), а веб уже запустил поиск по фразе: иначе ушло бы два запроса.
+  if (t.aiPending === 'research') return;
+  t.aiPending = 'research';
+  var guess = t.note;
+  synSession().then(function(token){
+    return synFetch('/v1/synapse/research', {
+      query: String(query || t.title).slice(0, 600),
+      taskTitle: t.title,
+      existingNote: append ? (t.note || '') : '',
+      mode: mode || 'contacts'
+    }, token);
+  }).then(function(data){
+    if (data && data.quota) SYN.quota = data.quota;
+    var x = task();
+    if (!x) return;
+    delete x.aiPending;
+    var found = String(data && data.note || '').trim();
+    // Описание правили руками, пока шёл поиск, — найденное дописываем, а не
+    // затираем им правку.
+    if (found){
+      if (append || (x.note && x.note !== guess)) x.note = x.note ? x.note + '\n\n' + found : found;
+      else x.note = found;
+      // Найденное показываем сразу: раскрываем карточку и её блок, иначе
+      // человек видел тост «нашёл», а самих сведений — нигде.
+      S.open[x.id] = true;
+      S.closed[x.bucket] = false;
+    }
+    commit(found ? 'Syn нашёл сведения для «' + x.title + '»' : '');
+  }).catch(function(error){
+    if (error && error.data && error.data.quota) SYN.quota = error.data.quota;
+    var x = task();
+    if (x && x.aiPending){ delete x.aiPending; commit(); }
+  });
 }
 
 /* ============ МОЙ ФОКУС ============ */
@@ -6489,14 +6981,7 @@ function vFocus(){
       'go', 'Открыть задачи', ' data-view="tasks"');
   }
 
-  var attention = S.goals.filter(function(g){ return !tasksOfGoal(g.id).length; });
-  if (attention.length){
-    html += '<p class="lbl">Требуют внимания</p><section class="card"><div class="lines">' +
-      attention.map(function(g){
-        return '<button class="line" data-act="open-goal" data-goal="' + g.id + '">' +
-          '<span translate="no">' + esc(g.title) + '</span><span class="chip warn">без задач</span></button>';
-      }).join('') + '</div></section>';
-  }
+  html += vFocusGoals();
 
   return html;
 }
@@ -6661,6 +7146,43 @@ function фокусГоризонт(){
         '<span class="fx-track"><i style="height:' + h.toFixed(0) + 'px"></i></span>' +
         '<em>' + д.нед + '</em><b>' + д.день + '</b></div>';
     }).join('') + '</div>';
+}
+
+/* Цели без задач — внизу фокуса.
+
+   Было: моноширинная метка «ТРЕБУЮТ ВНИМАНИЯ», под ней строки целей, и в
+   каждой оранжевая плашка «без задач», растянутая общим правилом .line span
+   в пустой овал на полстроки. Что с этим делать, экран не говорил.
+
+   Стало: заголовок называет проблему, строка пояснения — зачем её решать, а
+   у каждой цели своя кнопка «+ Шаг». Плашки нет: заголовок уже всё сказал.
+   Не больше трёх целей: это напоминание, а не второй список целей. */
+var FOCUS_GOALS_MAX = 3;
+
+function vFocusGoals(){
+  var idle = S.goals.filter(function(g){ return !tasksOfGoal(g.id).length; });
+  if (!idle.length) return '';
+  var rows = idle.slice(0, FOCUS_GOALS_MAX).map(function(g){
+    var stages = (g.stages || []).length;
+    var meta = [];
+    if (g.horizon) meta.push('<span>' + esc(g.horizon) + '</span>');
+    meta.push('<span>' + (stages ? stages + ' ' + plural(stages, 'этап', 'этапа', 'этапов') : 'Этапов нет') + '</span>');
+    return '<div class="fg-row">' +
+      '<button class="fg-main" data-act="open-goal" data-goal="' + g.id + '">' +
+        '<span class="fg-t">' + esc(g.title) + '</span>' +
+        '<span class="fg-s">' + meta.join('<i aria-hidden="true">·</i>') + '</span>' +
+      '</button>' +
+      '<button class="btn sm fg-step" data-act="goal-first-step" data-goal="' + g.id + '" ' +
+        'aria-label="Добавить первый шаг" title="Добавить первый шаг">+ Шаг</button>' +
+    '</div>';
+  }).join('');
+  var more = idle.length - FOCUS_GOALS_MAX;
+  return '<section class="card focus-goals">' +
+    '<h3>Цели без задач</h3>' +
+    '<p class="sub">Им нужен первый шаг — иначе они стоят на месте.</p>' +
+    '<div class="fg-list">' + rows + '</div>' +
+    (more > 0 ? '<button class="fg-more" data-act="go" data-view="goals"><span>Ещё ' + more + '</span> →</button>' : '') +
+  '</section>';
 }
 
 /// «Фокус дня» — заголовок с процентом справа и несколько строк «МЕТКА: текст»,
@@ -7871,8 +8393,10 @@ function vMindMap(){
 
   var overall = fillRatio(doneAll, totalAll);
 
+  // Живое дерево (web/goal-tree.js), если подключено: его поливают сделанные
+  // дела, без них оно сохнет. Без модуля — прежний ствол-шкала.
   // Ствол наливается снизу вверх: прямоугольник-маска по доле выполненного.
-  var core =
+  var core = window.SynTree ? SynTree.core(cx, cy, overall, colors) :
     '<circle cx="' + cx + '" cy="' + cy + '" r="' + MM.coreR + '" fill="' + rgb(colors.panelStrong) + '" ' +
       'stroke="' + rgba(colors.stroke, strokeOpacity(overall, 0.45, 0.92).toFixed(3)) + '"/>' +
     '<clipPath id="mm-core-clip"><rect x="' + (cx - MM.coreR) + '" y="' + (cy + MM.coreR - 2 * MM.coreR * overall) + '" ' +
@@ -8955,7 +9479,10 @@ function avatarHTML(size){
     if (!/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(src)){
       return '<span class="' + cls + '">' + esc(initials()) + '</span>';
     }
-    return '<span class="' + cls + '" style="background-image:url(&quot;' + src + '&quot;)"></span>';
+    // has-photo держит размер и положение картинки (app.css): правила темы
+    // задают кружку фон сокращённой записью, а она сбрасывала background-size
+    // в auto — в миниатюре был виден угол фотографии, а не лицо.
+    return '<span class="' + cls + ' has-photo" style="background-image:url(&quot;' + src + '&quot;)"></span>';
   }
   /* Без имени вместо буквы — силуэт. Раньше в кружке стоял «?», и кнопка
      профиля в шапке читалась как «Помощь»: её нажимали за справкой и
@@ -8998,7 +9525,7 @@ function vSettings(){
      профиль и список разделов, каждый открывается своей страницей, а
      системная «назад» возвращает к списку. В вебе экран широкий и всё видно
      сразу — там разделы остаются раскрытыми, как были. */
-  if (inApp()){
+  if (appLook()){
     html += '<p class="setgroup-t">Настройки</p>' +
       '<button class="setprofile" data-act="go" data-view="profile">' + avatarHTML() +
         '<span class="sl-text"><b' + (S.profile.name ? ' translate="no"' : '') + '>' + esc(S.profile.name || 'Ваш профиль') + '</b>' +
@@ -9231,7 +9758,7 @@ function строкаПереключателя(название, действи
 
 function vSettingsView(){
   // В приложении страница открывается из оглавления — ей нужен свой заголовок.
-  return head('', '', 'settings') + (inApp() ? '<p class="setgroup-t">Оформление</p>' : '') + телоВида();
+  return head('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Оформление</p>' : '') + телоВида();
 }
 
 /* Напоминания — свой раздел, а не начало «Вида».
@@ -9375,7 +9902,7 @@ function телоВида(){
 /* ---- данные ---- */
 
 function vSettingsData(){
-  return head('', '', 'settings') + (inApp() ? '<p class="setgroup-t">Данные</p>' : '') + телоДанных();
+  return head('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Данные</p>' : '') + телоДанных();
 }
 
 function телоДанных(){
@@ -10179,13 +10706,16 @@ function modalSyn(draft, error){
       '<textarea class="inp" id="syn-input" rows="1" enterkeyhint="send" ' +
         'placeholder="Сообщение для Syn">' + esc(draft || '') + '</textarea>' +
       (voiceSupported()
-        ? '<button class="syn-mic" type="button" data-act="syn-voice" ' +
-          'aria-label="Удерживайте, чтобы записать" title="Удерживайте, чтобы записать">' + ICON.mic + '</button>'
+        ? '<button class="syn-mic' + (voice.on ? ' on' : '') + '" type="button" data-act="syn-voice" ' +
+          'aria-label="' + (voice.on ? 'Отправить сказанное' : 'Продиктовать') + '" ' +
+          'title="' + (voice.on ? 'Отправить сказанное' : 'Продиктовать') + '">' + ICON.mic + '</button>'
         : '') +
       '<button class="syn-go" type="submit" aria-label="Отправить"' + (SYN.busy ? ' disabled' : '') + '>' +
         (SYN.busy ? '…' : '↑') + '</button>' +
     '</form>' +
-    synQuotaHTML() +
+    (voice.on
+      ? '<p class="hint syn-voice-hint">Слушаю. Нажмите микрофон ещё раз — и Syn выполнит сказанное.</p>'
+      : synQuotaHTML()) +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Закрыть</button></div>' +
   '</div>';
 }
@@ -10197,67 +10727,69 @@ function synLogHTML(){
       (voiceSupported() ? ' Или зажми микрофон, скажи и отпусти — Syn выполнит сказанное.' : '') + '</p>';
   }
 
-  return S.synChat.map(function(item, index){
-    item.i = index;
-    if (item.role === 'user'){
-      return '<div class="syn-msg mine"><span translate="no">' + esc(item.text) + '</span></div>';
-    }
-    var html = '<div class="syn-msg"><span>' + esc(item.text) + '</span></div>';
+  return S.synChat.map(synItemHTML).join('') +
+    (SYN.busy ? '<div class="syn-msg wait"><span>Syn думает…</span></div>' : '');
+}
 
-    /* Плашки «ничего не изменилось» здесь больше нет.
+/// Одна реплика разговора — общая для окна Syn и окошка над полосой финансов.
+function synItemHTML(item, index){
+  if (typeof index === 'number') item.i = index;
+  if (item.role === 'user'){
+    return '<div class="syn-msg mine"><span>' + esc(item.text) + '</span></div>';
+  }
+  var html = '<div class="syn-msg"><span>' + esc(item.text) + '</span></div>';
 
-       Она задумывалась как честность: Syn ответил словами, ничего не сделал —
-       и интерфейс об этом говорил, предлагая повторить или разобрать фразу
-       самому. На деле она всплывала и там, где человек просто СПРОСИЛ, а не
-       просил что-то изменить: на вопрос «что у меня на сегодня» действий и не
-       должно быть, а плашка всё равно кричала о поломке и лезла под руку.
-       Ложная тревога надоедает быстрее, чем помогает редкий настоящий случай.
+  /* Плашки «ничего не изменилось» здесь больше нет.
 
-       Обе кнопки остались живы (data-act syn-local и syn-again) — если плашку
-       когда-нибудь вернут, показывать её нужно только когда человек ПРОСИЛ
-       действие, а не задавал вопрос. */
+     Она задумывалась как честность: Syn ответил словами, ничего не сделал —
+     и интерфейс об этом говорил, предлагая повторить или разобрать фразу
+     самому. На деле она всплывала и там, где человек просто СПРОСИЛ, а не
+     просил что-то изменить: на вопрос «что у меня на сегодня» действий и не
+     должно быть, а плашка всё равно кричала о поломке и лезла под руку.
+     Ложная тревога надоедает быстрее, чем помогает редкий настоящий случай.
 
-    // Карточка подтверждения: что именно запишется и на какую сумму.
-    /* Кнопки — только у карточки, чья пачка ещё не решена, и только в этом
-       заходе на страницу.
+     Обе кнопки остались живы (data-act syn-local и syn-again) — если плашку
+     когда-нибудь вернут, показывать её нужно только когда человек ПРОСИЛ
+     действие, а не задавал вопрос. */
 
-       Пачка была одна на всё приложение (S.finPending), и каждый новый ответ
-       её перезаписывал, а кнопки «Записать» у старых карточек оставались.
-       Нажатие на старой карточке записывало суммы из новой. Теперь пачка
-       лежит в самой реплике, кнопка знает свою реплику по data-i, а после
-       решения кнопки исчезают. Пачка из прошлого захода не подтверждается —
-       то же правило, что было у S.finPending: подтверждать вчера
-       предложенное сегодня — верный способ записать не то. */
-    if (item.finance && item.finance.rows.length){
-      var живая = item.finance.actions && item.finance.actions.length &&
-        item.finance.session === SYN_СЕССИЯ;
-      html += '<div class="syn-fin">' +
-        '<b>' + esc(item.finance.head) + '</b>' +
-        '<ul>' + item.finance.rows.map(function(row){
-          return '<li>' + esc(row) + '</li>';
-        }).join('') + '</ul>' +
-        (живая
-          ? '<div class="syn-none-acts">' +
-              '<button class="btn sm" data-act="fin-apply" data-i="' + index + '">Записать</button>' +
-              '<button class="btn sm soft" data-act="fin-drop" data-i="' + index + '">Не надо</button>' +
-            '</div>'
-          : '<p class="hint">' + esc(item.finance.outcome || 'Не записано') + '</p>') +
-      '</div>';
-    }
+  // Карточка подтверждения: что именно запишется и на какую сумму.
+  // Решённая карточка остаётся в разговоре, но уже без кнопок — с итогом:
+  // иначе «Применить» под старой карточкой применял бы новую пачку.
+  /* Кнопки — только у карточки, чья пачка ещё не решена, и только в этом
+     заходе на страницу (SYN_СЕССИЯ). Пачка лежит в самой реплике, кнопка
+     знает свою реплику по data-i: нажатие на старой карточке не запишет
+     суммы из новой, а вчера предложенное сегодня не подтверждается. */
+  if (item.finance && item.finance.rows.length){
+    var at = typeof index === 'number' ? index : S.synChat.indexOf(item);
+    var state = item.finance.state ||
+      (item.finance.actions && item.finance.actions.length && item.finance.session === SYN_СЕССИЯ ? '' : 'dropped');
+    html += '<div class="syn-fin' + (state ? ' off' : '') + '">' +
+      '<b>' + esc(item.finance.head) + '</b>' +
+      '<ul>' + item.finance.rows.map(function(row){
+        return '<li>' + esc(row) + '</li>';
+      }).join('') + '</ul>' +
+      (state
+        ? '<p class="syn-fin-done">' + esc(item.finance.result || item.finance.outcome ||
+            (state === 'done' ? 'Записано.' : 'Не записано.')) + '</p>'
+        : '<div class="syn-none-acts">' +
+            '<button class="btn sm" data-act="fin-apply" data-i="' + at + '">' + esc(item.finance.button || 'Записать') + '</button>' +
+            '<button class="btn sm soft" data-act="fin-drop" data-i="' + at + '">Не надо</button>' +
+          '</div>') +
+    '</div>';
+  }
 
-    if (item.done && item.done.length){
-      html += '<ul class="syn-did">' + item.done.map(function(line){
-        return '<li>' + esc(line) + '</li>';
-      }).join('') + '</ul>';
-    }
-    // Про непринятое — вслух: иначе Syn пишет «перенёс», а на экране прежнее.
-    if (item.skipped && item.skipped.length){
-      html += '<ul class="syn-did off">' + item.skipped.map(function(line){
-        return '<li>' + esc(line) + '</li>';
-      }).join('') + '</ul>';
-    }
-    return html;
-  }).join('') + (SYN.busy ? '<div class="syn-msg wait"><span>Syn думает…</span></div>' : '');
+  if (item.done && item.done.length){
+    html += '<ul class="syn-did">' + item.done.map(function(line){
+      return '<li>' + esc(line) + '</li>';
+    }).join('') + '</ul>';
+  }
+  // Про непринятое — вслух: иначе Syn пишет «перенёс», а на экране прежнее.
+  if (item.skipped && item.skipped.length){
+    html += '<ul class="syn-did off">' + item.skipped.map(function(line){
+      return '<li>' + esc(line) + '</li>';
+    }).join('') + '</ul>';
+  }
+  return html;
 }
 
 /// Лента всегда показывает последнее сказанное: без этого новая реплика
@@ -10403,17 +10935,19 @@ function synFinTake(index, outcome){
 
 /// Отправка и применение. Текст в поле сохраняем при ошибке — иначе повторить
 /// запрос с правкой было бы нечем.
-/// onDone — необязательный: его зовёт запись с зажатой AI, которая
-/// показывает итог в своей панели, а не в окне Syn.
-function synSend(text, onDone){
-  if (!text || SYN.busy){ if (onDone) onDone({ ok: false, busy: true }); return; }
+function synSend(text, where){
+  if (!text || SYN.busy) return;
   voiceStop();
+  // Из полосы финансов разговор идёт прямо на экране, без окна Syn.
+  // Ответ, пришедший после закрытия окна, окно заново не открывает (synRedraw).
+  var draw = where === 'fin' ? finSynDraw : synRedraw;
 
   SYN.busy = true;
   метка('syn_request');
   synChatPush('user', text, null);
+  if (where === 'fin') FINSYN.from = S.synChat[S.synChat.length - 1];
   save();
-  synRedraw('', '');
+  draw('', '');
 
   /* Отказ ловится только у самого запроса.
 
@@ -10437,40 +10971,38 @@ function synSend(text, onDone){
     var result = synApplyActions(rest);
     SYN.busy = false;
     synChatPush('assistant', data.reply || 'Готово.', result);
-    var last = S.synChat[S.synChat.length - 1];
-    save();
-
-    try {
-      // Разговор с Syn — четвёртый шаг обучения, и записать это надо здесь:
-      // ответ ассистента идёт мимо commit().
-      tourCheck();
-      // Помечаем именно «действий не было вовсе»: пустой список — это не то же
-      // самое, что действия, которые не применились, — про те сказано отдельно.
-      if (!(data.actions || []).length){
-        last.none = true;
-        last.said = text;
-      }
-      if (finance.length){
-        last.none = false;
-        last.finance = finPreview(finance);
-        last.finance.actions = finance;
-        last.finance.session = SYN_СЕССИЯ;
-      }
-      save();
-      synRedraw('', '');
-      // Экран под окном должен показывать уже новые данные.
-      render();
-    } catch (error){
-      if (window.console) console.error(error);
+    // Разговор с Syn — четвёртый шаг обучения, и записать это надо здесь:
+    // ответ ассистента идёт мимо commit().
+    tourCheck();
+    // Помечаем именно «действий не было вовсе»: пустой список — это не то же
+    // самое, что действия, которые не применились, — про те сказано отдельно.
+    if (!(data.actions || []).length){
+      var last = S.synChat[S.synChat.length - 1];
+      last.none = true;
+      last.said = text;
     }
-    if (onDone) onDone({ ok: true, reply: data.reply || 'Готово.', result: result, finance: finance.length });
-  }, function(error){
+    if (finance.length){
+      // Прежние нерешённые карточки гаснут: кнопки применяют только новую пачку.
+      S.synChat.forEach(function(item){
+        if (item.finance && !item.finance.state) item.finance.state = 'dropped';
+      });
+      var card = S.synChat[S.synChat.length - 1];
+      card.none = false;
+      card.finance = finPreview(finance);
+      card.finance.actions = finance;
+      card.finance.session = SYN_СЕССИЯ;
+    }
+    save();
+    draw('', '');
+    // Экран под окном должен показывать уже новые данные.
+    if (draw === synRedraw) render();
+  }).catch(function(error){
     SYN.busy = false;
     // Неотвеченный вопрос не остаётся в ленте: иначе он уедет на сервер
     // следующим запросом как будто на него уже ответили.
     S.synChat.pop();
     save();
-    synRedraw(text, synErrorText(error));
+    draw(text, synErrorText(error));
     /* Кончились запросы — предлагаем подписку, а не просто сообщаем.
 
        Раньше человек упирался в серую строчку «бесплатные запросы на сегодня
@@ -10550,66 +11082,28 @@ function synErrorText(error){
 
 /* ---- диктовка ---- */
 
-/* Распознавание речи браузером: SpeechRecognition, у Safari и Chrome под
-   вебкитовским именем. Своего сервера для этого не нужно — тем более что
-   маршрут распознавания у нас рассчитан на приложение.
+/* Нажал — запись пошла. Нажал ещё раз — отправилось. И больше ничего.
 
-   Поведение выбрано под голосовую команду, а не под диктант: слушаем до
-   паузы, показываем текст по ходу, а как человек замолчал — сразу
-   отправляем. Голосом говорят «перенеси урок на субботу» и ждут, что это
-   случится, а не что придётся ещё нажать кнопку.
+   Раньше запись кончалась сама: две секунды тишины, и сказанное уходило
+   ассистенту. Владелец назвал это прямо: «когда я диктую запрос, он сразу
+   останавливает запись». Люди думают вслух, делают паузы посреди фразы,
+   вспоминают, что ещё сказать, — и любой порог тишины однажды срабатывает
+   посреди мысли. Угадывать, договорил ли человек, мы больше не пытаемся: он
+   сам скажет кнопкой.
 
-   Чего здесь намеренно нет: постоянного слушания. Микрофон, включённый до
-   закрытия вкладки, — не та цена, которую стоит платить за экономию одного
-   нажатия. */
-/* Сколько молчания считаем концом мысли, а не паузой внутри неё.
+   Так везде, где есть микрофон: у Syn и у строки трат, в браузере и в
+   приложении на андроиде. Движок один — состояние одно: две диктовки сразу
+   глушили бы друг друга.
 
-   Браузер решает это сам и решает торопливо: замолчал на полсекунды, подбирая
-   слово, — распознавание закончено, микрофон выключен, фраза ушла обрезанной.
-   Люди так не говорят. «Перенеси урок...» — пауза — «...на субботу» это одна
-   фраза, а не две, и вторую половину человек не успевал сказать.
+   Браузер всё равно норовит закончить слушание сам — Chrome обрывает его
+   через несколько секунд молчания даже при continuous. Пока человек не нажал
+   кнопку, мы поднимаем слушание заново, а уже услышанное держим у себя.
+   Системный движок андроида каждую фразу заканчивает сам по определению —
+   там после каждой фразы начинаем следующую и дописываем текст. */
 
-   Две секунды выбраны как обычная человеческая пауза при подборе слова.
-   Меньше — обрывает, заметно больше — начинает казаться, что не услышали. */
-var VOICE_SILENCE_MS = 2000;
-
-/* И ещё немного сверху — на «не то сказал».
-
-   Это не про распознавание, а про право передумать: после того как человек
-   договорил, у него остаётся мгновение нажать «стоп», прежде чем запрос уйдёт
-   ассистенту. */
-var VOICE_SEND_DELAY = 700;
-
-/* cancelled — «стоп» на андроиде: распознанное после него не отправляется.
-   Системный движок может прислать итог уже после отмены, а у старой
-   оболочки без cancel() итог после stop() приходит всегда. */
-var voice = { on: false, rec: null, final: '', pending: null, silence: null, stopping: false,
-              cancelled: false };
-
-/// Сбросить отсчёт тишины — человек снова заговорил.
-function voiceSilenceReset(){
-  if (voice.silence) clearTimeout(voice.silence);
-  if (!voice.on) return;
-  voice.silence = setTimeout(function(){
-    voice.silence = null;
-    voice.stopping = true;
-    try { if (voice.rec) voice.rec.stop(); } catch (error){}
-  }, VOICE_SILENCE_MS);
-}
-
-function voiceSilenceClear(){
-  if (!voice.silence) return;
-  clearTimeout(voice.silence);
-  voice.silence = null;
-}
-
-/// Отменить отложенную отправку — например, когда человек снова взялся за
-/// микрофон или начал править текст руками.
-function voiceCancelPending(){
-  if (!voice.pending) return;
-  clearTimeout(voice.pending);
-  voice.pending = null;
-}
+var dict = null;   // { owner, field, onDone, base, heard, rec, native, sending, timer }
+var voice = { on: false };      // диктовка у Syn — для разметки окна
+var finVoice = { on: false };   // диктовка у строки трат
 
 /* Приложение на андроиде слушает через систему, а не через браузер.
 
@@ -10627,174 +11121,158 @@ function voiceSupported(){
   return !!(voiceNative() || window.SpeechRecognition || window.webkitSpeechRecognition);
 }
 
-/* Ответы системного распознавания приходят сюда.
+function dictMark(owner, on){
+  if (owner === 'syn') voice.on = on;
+  if (owner === 'fin') finVoice.on = on;
+}
 
-   Обработчик один на всё время жизни страницы, а не заводится на каждое
-   слушание: два обработчика на одно событие означали бы два отправленных
-   запроса на одну фразу. */
-window.addEventListener('android-voice', function(event){
-  var d = (event && event.detail) || {};
-  /* Идёт запись с зажатой кнопкой AI — события её, не наши.
+/// Показать услышанное в поле. Поле правим напрямую, без перерисовки:
+/// перерисовка увела бы курсор и оборвала слушание.
+function dictShow(interim){
+  if (!dict) return;
+  var field = $(dict.field);
+  if (!field) return;
+  field.value = (dict.base + ' ' + dict.heard + ' ' + (interim || '')).replace(/\s+/g, ' ').trim();
+  if (field.tagName === 'TEXTAREA'){
+    growInput(field);
+    field.scrollTop = field.scrollHeight;
+  }
+}
 
-     Раньше здесь ничего не проверялось, и обработчик ниже, видя закрытое
-     окно Syn, гасил слушание на первом же «start»: через четверть секунды
-     после нажатия движок отменялся, запись перезапускалась — и телефон
-     пищал без остановки, ничего не расслышав. Порядок обработчиков на
-     window в WebView — порядок регистрации, перехват «раньше всех» на это
-     не годится, поэтому проверяем явно. */
-  if (бгЗанят()) return;
-  /* Окно Syn закрыто — сказанное никуда не идёт.
-
-     Раньше каждое событие звало synRender, а тот открывал окно: человек
-     закрывал Syn «назад», движок присылал ещё слово — и окно выскакивало
-     обратно, а итог фразы уходил платным запросом. Слушание, начавшееся уже
-     после закрытия, гасим сразу. */
-  if (!$('syn-log')){
-    voice.on = false;
-    if (d.kind === 'start') voiceStop();
-    return;
-  }
-  // После «стоп» движок ещё может прислать хвост — он не считается. Даже
-  // start: новое слушание сбрасывает флаг до запуска, так что start при
-  // поднятом флаге — запоздалый, от уже отменённого.
-  if (voice.cancelled){
-    voice.on = false;
-    return;
-  }
-  if (d.kind === 'start'){
-    voice.on = true;
-    synRedraw('', '');
-    return;
-  }
-  if (d.kind === 'partial'){
-    if (voice.on) synRedraw(d.text || '', '');
-    return;
-  }
-  if (d.kind === 'error'){
-    voice.on = false;
-    synRedraw($('syn-input') ? $('syn-input').value : '', d.text || 'Распознавание не сработало.');
-    return;
-  }
-  if (d.kind === 'final'){
-    voice.on = false;
-    var said = (d.text || '').trim();
-    if (!said){ synRedraw($('syn-input') ? $('syn-input').value : '', ''); return; }
-    // Та же секунда на раздумье, что и у браузерного распознавания: человек
-    // должен успеть нажать «стоп», если сказанное вышло не так.
-    voiceCancelPending();
-    voice.pending = setTimeout(function(){ voice.pending = null; synSend(said); }, VOICE_SEND_DELAY);
-    synRedraw(said, '');
-  }
-});
-
-function voiceStart(){
-  if (voice.on || !voiceSupported()) return;
-  voiceCancelPending();
-  // Говорят голосом — клавиатура не нужна: прячем её и не возвращаем после
-  // фразы (см. synКлавиатура).
-  synКлавиатура = false;
-  if (document.activeElement && document.activeElement.id === 'syn-input') document.activeElement.blur();
-
-  var родной = voiceNative();
-  if (родной){
-    voice.cancelled = false;
+/// Начать запись в поле. onDone(текст) зовётся только по второму нажатию.
+function dictStart(owner, fieldId, onDone){
+  if (dict) dictCancel();
+  if (!voiceSupported()) return;
+  var field = $(fieldId);
+  dict = { owner: owner, field: fieldId, onDone: onDone, base: field ? field.value.trim() : '',
+           heard: '', rec: null, native: !!voiceNative(), sending: false, timer: null };
+  dictMark(owner, true);
+  if (dict.native){
     // Разрешение на микрофон спросит сама оболочка, и после согласия слушание
     // начнётся без второго нажатия.
-    родной.start();
+    voiceNative().start();
     return;
   }
+  dictListen();
+}
 
+/// Одно слушание браузером. Кончилось само — поднимаем следующее.
+function dictListen(){
+  var d = dict;
   var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   var rec = new Recognition();
   rec.lang = 'ru-RU';
-  // continuous = true, потому что паузу теперь отмеряем мы сами. При false
-  // браузер заканчивал слушание на своей короткой паузе — микрофон выключался
-  // посреди фразы, и добавить вторую половину было уже некуда.
   rec.continuous = true;
   rec.interimResults = true;
   rec.maxAlternatives = 1;
-
-  voice.rec = rec;
-  voice.on = true;
-  voice.final = '';
-  voice.stopping = false;
-  voiceSilenceReset();
+  d.rec = rec;
 
   rec.onresult = function(event){
-    // Заговорил — отсчёт тишины начинается заново.
-    voiceSilenceReset();
+    if (dict !== d) return;
     var interim = '';
     for (var i = event.resultIndex; i < event.results.length; i++){
       var chunk = event.results[i][0].transcript;
-      if (event.results[i].isFinal) voice.final += chunk;
+      if (event.results[i].isFinal) d.heard = (d.heard + ' ' + chunk).trim();
       else interim += chunk;
     }
-    // Поле правим напрямую, без перерисовки окна: перерисовка увела бы
-    // курсор и оборвала бы распознавание на полуслове.
-    var field = $('syn-input');
-    if (!field) return;
-    field.value = (voice.final + interim).trim();
-    // Длинную фразу видно до конца: поле подрастает до своего предела, а
-    // дальше прокручивается к последнему слову. Иначе человек говорит, а на
-    // экране стоит начало фразы — и непонятно, слышат ли его до сих пор.
-    growInput(field);
-    field.scrollTop = field.scrollHeight;
+    dictShow(interim);
   };
 
   rec.onerror = function(event){
-    voiceSilenceClear();
-    voice.on = false;
-    voice.stopping = false;
-    voice.rec = null;
-    var reason = event && event.error === 'not-allowed'
+    if (dict !== d) return;
+    var code = event && event.error;
+    // Тишина и наш собственный перезапуск — не повод останавливаться: запись
+    // идёт, пока человек не нажал кнопку.
+    if (code === 'no-speech' || code === 'aborted') return;
+    dictFail(code === 'not-allowed' || code === 'service-not-allowed'
       ? 'Браузер не дал доступ к микрофону.'
-      : event && event.error === 'no-speech'
-        ? 'Ничего не услышал.'
-        : 'Распознавание не сработало.';
-    synRedraw($('syn-input') ? $('syn-input').value : '', reason);
+      : 'Распознавание не сработало.');
   };
 
   rec.onend = function(){
-    /* Браузер иногда заканчивает слушание сам, даже при continuous.
-
-       Если наша тишина ещё не истекла, значит человек просто держит паузу, —
-       и слушание надо поднять обратно, а не считать фразу законченной. Без
-       этого continuous не спасает: Chrome всё равно обрывает через несколько
-       секунд молчания, и мы возвращались бы к прежней болезни. */
-    if (!voice.stopping && voice.on){
-      try { rec.start(); return; } catch (error){ /* поднять не вышло — заканчиваем */ }
-    }
-    voiceSilenceClear();
-    voice.on = false;
-    voice.stopping = false;
-    voice.rec = null;
-    var said = voice.final.trim();
-    voice.final = '';
-
-    if (!said){
-      synRedraw($('syn-input') ? $('syn-input').value : '', '');
-      return;
-    }
-
-    /* Замолчал — исполняем, но не в ту же секунду. Браузер объявляет конец
-       речи по своей паузе, и она короче человеческой: люди останавливаются
-       посреди фразы, чтобы подобрать слово. Секунда сверху даёт эту паузу
-       пережить — и оставляет время нажать «стоп», если сказанное вышло не
-       так. */
-    voice.pending = setTimeout(function(){
-      voice.pending = null;
-      synSend(said);
-    }, VOICE_SEND_DELAY);
-    synRedraw(said, '');
+    if (dict !== d) return;
+    if (d.sending){ dictDeliver(); return; }
+    try { dictListen(); } catch (error){ dictFail('Распознавание не сработало.'); }
   };
 
-  try {
-    rec.start();
-  } catch (error){
-    voice.on = false;
-    voice.rec = null;
+  rec.start();
+}
+
+/// Второе нажатие: дослушать последнее слово и отдать текст.
+function dictFinish(){
+  var d = dict;
+  if (!d || d.sending) return;
+  d.sending = true;
+  // Если движок так и не сообщит о конце, через полторы секунды отдаём то,
+  // что уже в поле: нажатие не должно повисать.
+  d.timer = setTimeout(function(){ if (dict === d) dictDeliver(); }, 1500);
+  if (d.native){ try { voiceNative().stop(); } catch (error){ dictDeliver(); } return; }
+  try { d.rec.stop(); } catch (error){ dictDeliver(); }
+}
+
+function dictDeliver(){
+  var d = dict;
+  if (!d) return;
+  clearTimeout(d.timer);
+  dict = null;
+  dictMark(d.owner, false);
+  var field = $(d.field);
+  var text = field ? field.value.trim() : (d.base + ' ' + d.heard).trim();
+  d.onDone(text);
+}
+
+/// Остановить без отправки — ушли с экрана, закрыли окно, отправили руками.
+function dictCancel(){
+  var d = dict;
+  if (!d) return;
+  clearTimeout(d.timer);
+  dict = null;
+  dictMark(d.owner, false);
+  if (d.native){ try { voiceNative().stop(); } catch (error){} return; }
+  // abort, а не stop: stop досылает последний кусок и снова зовёт onend.
+  try { if (d.rec) d.rec.abort(); } catch (error){}
+}
+
+function dictFail(message){
+  var d = dict;
+  dictCancel();
+  if (!d) return;
+  if (d.owner === 'syn') synRender($('syn-input') ? $('syn-input').value : '', message);
+  else { toast(message); render(); }
+}
+
+/* Ответы системного распознавания андроида приходят сюда.
+
+   Обработчик один на всё время жизни страницы, а не заводится на каждое
+   слушание: два обработчика на одно событие означали бы двойной текст. */
+window.addEventListener('android-voice', function(event){
+  var e = (event && event.detail) || {};
+  var d = dict;
+  if (!d || !d.native) return;
+  if (e.kind === 'start') return;
+  if (e.kind === 'partial'){ dictShow(e.text || ''); return; }
+  if (e.kind === 'error'){
+    if (d.sending){ dictDeliver(); return; }
+    dictFail(e.text || 'Распознавание не сработало.');
+    return;
   }
-  synRedraw($('syn-input') ? $('syn-input').value : '', '');
+  if (e.kind === 'final'){
+    if (e.text) d.heard = (d.heard + ' ' + e.text).trim();
+    dictShow('');
+    if (d.sending){ dictDeliver(); return; }
+    // Система закончила фразу сама — человек ещё не нажал «отправить»,
+    // значит, слушаем дальше.
+    setTimeout(function(){ if (dict === d && !d.sending) voiceNative().start(); }, 120);
+  }
+});
+
+/* Обёртки для Syn — их зовут окно ассистента и отправка. */
+function voiceStart(){
+  dictStart('syn', 'syn-input', function(text){
+    if (text) synSend(text);
+    else synRender('', '');
+  });
+  synRender($('syn-input') ? $('syn-input').value : '', '');
 }
 
 /* Остановить диктовку — значит отменить, а не досказать.
@@ -10810,33 +11288,7 @@ function voiceStart(){
    успеет прислать после, отбрасывается по voice.cancelled. Текст в поле
    остаётся: захочет человек — отправит его сам. */
 function voiceStop(){
-  voiceCancelPending();
-  // Нажали «стоп» — ждать тишину больше незачем.
-  voiceSilenceClear();
-  voice.stopping = false;
-
-  var родной = voiceNative();
-  if (родной && !voice.rec){
-    // Зовём и когда voice.on ещё ложно: слушание могли запросить, а событие
-    // start ещё не пришло — его тоже надо отменить.
-    voice.cancelled = true;
-    voice.on = false;
-    // Старая оболочка cancel() не знает — тогда stop(), а его итог отбросит
-    // voice.cancelled.
-    if (typeof родной.cancel === 'function') родной.cancel();
-    else родной.stop();
-    return;
-  }
-
-  if (!voice.on || !voice.rec) return;
-  voice.on = false;
-  var rec = voice.rec;
-  voice.rec = null;
-  voice.final = '';
-  rec.onresult = null;
-  rec.onerror = null;
-  rec.onend = null;
-  try { rec.abort(); } catch (error){}
+  if (dict && dict.owner === 'syn') dictCancel();
 }
 
 function synAsk(){
@@ -11317,6 +11769,11 @@ synAct('create_task create_task_for_goal', function(a, done, skipped){
 
   S.tasks.push(fresh);
   done.push('создана задача «' + fresh.title + '»');
+
+  // Просили адрес, телефон, часы работы — это ищется в интернете, а не
+  // берётся из памяти модели (см. taskResearch).
+  var ask = taskResearchAsk(a.sourcePrompt || '');
+  if (ask) taskResearch(fresh.id, a.sourcePrompt, ask);
 });
 
 /* update_task — то же самое, что move_task, только другим словом.
@@ -11502,6 +11959,13 @@ synAct('restore_task', function(a, done, skipped){
 synAct('update_task_note append_task_note research_task_note', function(a, done, skipped){
   var task = synFindTask(synTaskName(a));
   if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
+  /* «Найди и запиши в описание» — поиском, как в приложении. Раньше веб
+     записывал в описание сам поисковый запрос («что нужно найти»), а не
+     найденное. */
+  if (a.kind === 'research_task_note' && (a.value || a.query)){
+    taskResearch(task.id, String(a.value || a.query), a.mode || taskResearchAsk(String(a.value || a.query)) || 'info', true);
+    return done.push('ищу в интернете для «' + task.title + '»');
+  }
   var note = String(a.note || a.value || '');
   /* Пустое описание у update_task_note — это «сотри описание», законная
      просьба. Раньше отказывали всем трём видам одинаково, и «убери описание
@@ -12706,12 +13170,8 @@ function closeModal(){
 /// Убрать окно с экрана, не трогая историю. Нужно отдельно: когда окно
 /// закрывает сама кнопка «назад», запись уже снята браузером.
 function hideModal(){
-  /* Закрыли окно Syn — диктовка и отложенная отправка отменяются.
-
-     Без этого закрытое окно открывалось само: микрофон продолжал слушать,
-     следующее же слово перерисовывало окно обратно, а договорённая фраза
-     уходила Syn и тратила платный запрос, хотя человек уже передумал. */
-  if ($('syn-log')) voiceStop();
+  // Окно Syn закрыли посреди записи — микрофон гасим, ничего не отправляя.
+  if (dict && dict.owner === 'syn') dictCancel();
   $('modal').classList.remove('on');
   setPageInert(false);
   $('modalIn').innerHTML = '';
@@ -13419,10 +13879,10 @@ var ACTS = {
     speechSay(briefingSpeech(), function(){ render(); });
     render();
   },
-  /* Короткое нажатие на микрофон — подсказка: запись идёт, пока его
-     держат (см. «ЗАПИСЬ С ЗАЖАТОЙ КНОПКОЙ»). Удержание сюда не доходит. */
+  // Второе нажатие — не «стоп», а «отправить сказанное».
   'syn-voice': function(){
-    toast('Удерживайте микрофон, пока говорите, — отпустите, чтобы отправить');
+    if (voice.on) dictFinish();
+    else voiceStart();
   },
   /* Разобрать фразу своим парсером и завести задачу. Тот же путь, что у
      строки создания: «купить корм коту завтра в 11 утра» превращается в
@@ -13432,10 +13892,10 @@ var ACTS = {
     if (!item || !item.said) return;
     var parsed = parseSchedule(item.said, 'today');
     if (!parsed.title) return;
-    S.tasks.push({
+    S.tasks.push(withParsedExtras({
       id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
-      time: parsed.time, repeat: '', series: null, goalId: null, stageId: null, subtasks: []
-    });
+      time: parsed.time, series: null, goalId: null, stageId: null, subtasks: []
+    }, parsed));
     S.closed[parsed.bucket] = false;
     item.none = false;
     item.done = ['создана задача «' + parsed.title + '» — разобрано без Syn'];
@@ -13724,64 +14184,42 @@ var ACTS = {
     closeModal();
     commit('Категория добавлена');
   },
-  // keepFocus — до commit: после него перерисовка уже прошла, и курсор не
-  // возвращался вовсе.
-  'fin-kind': function(d){ S.finKind = d.kind; keepFocus('#finfield'); commit(); },
-
-  /* Голос для трат. Нажал — слушает, отпустил — записал.
-
-     Короткий тычок (меньше четверти секунды) слушание НЕ обрывает: человек
-     нажал и сразу отпустил, а говорить только начал. В этом случае слушание
-     держится само и кончится по паузе в речи — так работает и тычок, и
-     удержание, и не нужно объяснять, какой из них «правильный». */
+  /* Голос в финансах. Нажал — слушает и пишет в полосу, нажал ещё раз —
+     сказанное ушло Syn. Пауза в речи запись не обрывает. */
   'fin-voice': function(){
     if (finVoice.on) finVoiceStop(); else finVoiceStart();
   },
-
-  'fin-add': function(){
-    var field = $('finfield');
-    if (!field) return;
-    var parsed = finParse(field.value, S.finKind || 'spend');
-    if (!parsed){
-      return fieldError('finfield', field.value.trim()
-        ? 'Не вижу суммы. Напишите её в той же строке: «' + field.value.trim() + ' 350»'
-        : 'Напишите, что и на сколько: «кофе 350»');
-    }
-    var when = $('findate') ? $('findate').value : '';
-    /* «зарплата 95000» — доход, даже если переключатель стоит на «Трата».
-
-       Категория «Доход» узнаётся по словам (зарплата, аванс, премия,
-       кешбэк…), и раньше она ставилась, а сама запись всё равно уходила
-       тратой: зарплата вычиталась из бюджета вместо того, чтобы его
-       пополнить. Если слова однозначно про доход, а человек не переключал
-       вид явно, записываем доходом. */
-    var вид = S.finKind || 'spend';
-    if (вид === 'spend' && parsed.cat === 'salary' &&
-        /(зарплат|аванс|преми|гонорар|кешбэк|кэшбэк)/i.test(field.value)) вид = 'income';
-    S.finance.ops.push({
-      id: uid(), kind: вид, title: parsed.title,
-      amount: parsed.amount, cat: parsed.cat,
-      date: when || isoOf(todayDate()), at: Date.now(),
-      accountId: ''
-    });
-    field.value = '';
-    S.finDraft = '';
-    // Дата держится между записями: пачку за прошлую неделю иначе пришлось
-    // бы выставлять заново на каждой строке.
-    S.finDate = when || '';
-    keepFocus('#finfield');
-    commit();
+  'fin-syn': function(){
+    var field = $('finsyn');
+    var text = field ? field.value.trim() : '';
+    if (dict && dict.owner === 'fin') dictCancel();
+    if (!text) return fieldError('finsyn', 'Скажите или напишите, что записать: «кофе 350»');
+    finSynSend(text);
   },
-  'fin-ai': function(){
-    var field = $('finfield');
-    var draft = field ? field.value.trim() : '';
-    if (!draft) return toast('Напишите, что записать: «вчера кофе 350 и такси 450»');
-    S.synIntent = 'finance';
-    S.synGoalCreate = false;
-    if (field) field.value = '';
-    S.finDraft = '';
-    synRender(draft, '');
-    synSend(draft);
+  'fin-syn-close': function(){
+    FINSYN.open = false;
+    FINSYN.error = '';
+    render();
+  },
+  'fin-syn-focus': function(){
+    var field = $('finsyn');
+    if (field) field.focus();
+  },
+  /* Запасной путь, когда Syn недоступен (нет сети, кончились запросы):
+     простая трата «кофе 350» записывается кодом, как раньше. */
+  'fin-syn-local': function(){
+    var parsed = FINSYN.said ? finParse(FINSYN.said, 'spend') : null;
+    if (!parsed) return;
+    S.finance.ops.push({
+      id: uid(), kind: 'spend', title: parsed.title,
+      amount: parsed.amount, cat: parsed.cat,
+      date: isoOf(todayDate()), at: Date.now(), accountId: ''
+    });
+    FINSYN.said = '';
+    FINSYN.error = '';
+    FINSYN.draft = '';
+    FINSYN.open = false;
+    commit('Записано без Syn');
   },
   'fin-apply': function(d){
     // Деньги пишутся только после подтверждения: ошибка в сумме портит и
@@ -13791,10 +14229,13 @@ var ACTS = {
     var batch = synFinTake(d.i, 'Записано');
     if (!batch) return;
     var made = finApplyBatch(batch);
-    commit(made.length ? made.join(', ') : 'Ничего не записалось');
+    var said = made.length ? made.join(', ') : 'Ничего не записалось';
+    finCardSettleAt(d.i, 'done', made.length ? 'Записано: ' + said + '.' : said + '.');
+    commit(said);
   },
   'fin-drop': function(d){
     if (!synFinTake(d.i, 'Не записано')) return;
+    finCardSettleAt(d.i, 'dropped', 'Не записано.');
     commit('Не записано');
   },
   'fin-op-edit': function(d){
@@ -14272,7 +14713,7 @@ var ACTS = {
        эту щель кнопки правки и удаления успевали моргнуть. Вешаем на время
        анимации отдельный признак и снимаем его, когда всё улеглось. */
     var сворачиваем = !!S.open[d.task];
-    if (inApp() && сворачиваем){
+    if (appLook() && сворачиваем){
       var к = document.querySelector('.item[data-task="' + d.task + '"]');
       if (к){
         к.classList.add('folding');
@@ -14285,7 +14726,7 @@ var ACTS = {
        время перестройки высоты незачем: панель меряется по верхней строке в
        момент касания, а при сворачивании строка та же, только карточка вокруг
        другая. Проще начать жест заново, чем следить за согласованностью. */
-    if (inApp()) swipeCloseAll(null);
+    if (appLook()) swipeCloseAll(null);
     S.open[d.task] = !S.open[d.task];
     save();
     var card = document.querySelector('.item[data-task="' + d.task + '"]');
@@ -14458,6 +14899,18 @@ var ACTS = {
     commit('Цель сохранена');
   },
   'open-goal': function(d){ S.activeGoal = d.goal; go('goal'); },
+  /* «+ Шаг» у цели без задач. Этапы есть — открываем цель с курсором в поле
+     задачи первого незакрытого этапа: шаг пишется сразу. Этапов нет — сначала
+     этап: задача в цели живёт внутри этапа. */
+  'goal-first-step': function(d){
+    var g = findGoal(d.goal);
+    if (!g) return;
+    var stage = (g.stages || []).filter(function(st){ return st.status !== 'done'; })[0] || (g.stages || [])[0];
+    if (!stage) return openModal(modalStage(g.id));
+    S.activeGoal = g.id;
+    keepFocus('[data-goaltask="' + stage.id + '"]');
+    go('goal');
+  },
   /* Шаблон только подставляет текст в поле — поле остаётся своим, и написать
      «до защиты диплома» вместо «Год» никто не мешает. Перерисовки нет: она
      закрыла бы модалку. */
@@ -14697,13 +15150,15 @@ var ACTS = {
        признаки «день и время названы сами» не записывались вовсе. */
     if (!parsed.title){ toast('Напиши, что сделать, — одной даты мало'); return; }
     parsed = pushPastTimeToTomorrow(parsed, value);
+    var owner = goalOfStage(d.stage);
+    if (owner) d = { goal: owner.id, stage: d.stage };
     // Та же самая задача, что на экране «Задачи» — один объект в S.tasks.
-    S.tasks.push({
+    S.tasks.push(withParsedExtras({
       id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
-      time: parsed.time, repeat: '', rule: null, series: null,
+      time: parsed.time, series: null,
       hasExplicitDate: !!parsed.hasDate, hasExplicitTime: !!parsed.hasTime,
       goalId: d.goal, stageId: d.stage, subtasks: []
-    });
+    }, parsed));
     input.value = '';
     keepFocus('[data-goaltask="' + d.stage + '"]');
     commit('Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
@@ -15010,9 +15465,13 @@ document.addEventListener('change', function(event){
 
 document.addEventListener('input', function(event){
   var t = event.target;
-  // Взялись править сказанное руками — значит, отправлять пока рано.
-  if (t.id === 'syn-input'){
-    voiceCancelPending();
+  // Взялись править сказанное руками посреди записи — правка становится
+  // началом, и дальше услышанное дописывается после неё, а не поверх.
+  if (t.id === 'syn-input' || t.id === 'finsyn'){
+    if (dict && dict.field === t.id){ dict.base = t.value.trim(); dict.heard = ''; }
+    // Набранное переживает перерисовку: ответ Syn и запись трат перерисовывают
+    // экран, и полоса не должна при этом пустеть.
+    if (t.id === 'finsyn') FINSYN.draft = t.value;
     growInput(t);
     return;
   }
@@ -15045,10 +15504,10 @@ document.addEventListener('input', function(event){
 });
 
 document.addEventListener('focusin', function(event){
-  if (event.target.id === 'field' || event.target.id === 'gfield') composerFocused = true;
+  if (event.target.id === 'field' || event.target.id === 'gfield' || event.target.id === 'lnfield' || event.target.id === 'finsyn') composerFocused = true;
 });
 document.addEventListener('focusout', function(event){
-  if (event.target.id === 'field' || event.target.id === 'gfield') composerFocused = false;
+  if (event.target.id === 'field' || event.target.id === 'gfield' || event.target.id === 'lnfield' || event.target.id === 'finsyn') composerFocused = false;
 });
 
 document.addEventListener('keydown', function(event){
@@ -15057,6 +15516,11 @@ document.addEventListener('keydown', function(event){
   if (event.key === 'Enter' && !event.shiftKey && event.target.id === 'syn-input'){
     event.preventDefault();
     synSend(event.target.value.trim());
+    return;
+  }
+  if (event.key === 'Enter' && !event.shiftKey && event.target.id === 'finsyn'){
+    event.preventDefault();
+    ACTS['fin-syn']({});
     return;
   }
 
@@ -15085,7 +15549,6 @@ document.addEventListener('keydown', function(event){
   if (t.id === 'field'){ event.preventDefault(); addTask(); return; }
   if (t.id === 'authmail'){ event.preventDefault(); ACTS['auth-send']({}); return; }
   if (t.id === 'authcode'){ event.preventDefault(); ACTS['auth-check']({}); return; }
-  if (t.id === 'finfield'){ event.preventDefault(); ACTS['fin-add']({}); return; }
   if (t.id === 'medown'){ event.preventDefault(); ACTS['med-own']({}); return; }
   if (t.getAttribute && t.getAttribute('data-subadd')){
     event.preventDefault(); ACTS.subadd({ task: t.getAttribute('data-subadd') }); return;
@@ -15100,11 +15563,15 @@ document.addEventListener('keydown', function(event){
   }
   if (t.getAttribute && t.getAttribute('data-goaltask')){
     event.preventDefault();
+    // Цель — по этапу, а не по S.activeGoal: раскрытая на сетке карточка его
+    // не ставит, и задача уходила без цели.
     var stage = t.getAttribute('data-goaltask');
     /* Цель берём с самого поля, а не из S.activeGoal: цель, раскрытая прямо
        в списке, активной не становится, и задача уходила без цели или в
-       чужую — ту, что открывали последней. */
-    ACTS['goal-task']({ goal: t.getAttribute('data-goal') || S.activeGoal, stage: stage });
+       чужую — ту, что открывали последней. А цель этапа важнее обеих: задача
+       этапа без его цели в «Задачах» висела ничьей. */
+    var owner = goalOfStage(stage);
+    ACTS['goal-task']({ goal: owner ? owner.id : (t.getAttribute('data-goal') || S.activeGoal), stage: stage });
     return;
   }
   // Enter в модалке нажимает её главную кнопку.
@@ -15951,354 +16418,12 @@ window.addEventListener('pageshow', function(event){
   if (event.persisted) render();
 });
 
-/* ============ ЗАПИСЬ С ЗАЖАТОЙ КНОПКОЙ AI ============ */
+/* Записи с зажатой кнопкой AI больше нет.
 
-/* Быстрый голос: зажал AI — говоришь, отпустил — ушло Syn.
-
-   Окно ассистента с полем и микрофоном — это три шага там, где хватает
-   одного: открыть, нажать микрофон, дождаться. Здесь как в мессенджерах:
-   палец на кнопке — идёт запись, над строкой ввода волна и текст, который
-   уже расслышан; отпустил — фраза уходит Syn, и окно открывается уже с
-   ответом. Увёл палец в сторону — панель краснеет, и если отпустить там,
-   запись отменяется: передумать можно в любой момент, ничего не отправив.
-
-   Короткое нажатие остаётся прежним — открывает окно Syn. */
-var БГ_ПОРОГ = 260;      // мс удержания, после которых нажатие — запись
-var БГ_ОТМЕНА = 80;      // px от места касания, дальше которых — отмена
-var бг = null;
-var бгГлушитьКлик = 0;
-var бгУровень = 0, бгКадр = null;
-
-function бгПанель(){
-  var el = $('holdvoice');
-  if (el) return el;
-  el = document.createElement('div');
-  el.id = 'holdvoice';
-  el.className = 'holdvoice';
-  el.setAttribute('role', 'status');
-  el.setAttribute('aria-live', 'polite');
-  var bars = '';
-  for (var i = 0; i < 32; i++) bars += '<i></i>';
-  el.innerHTML = '<div class="hv-top"><span class="hv-dot"></span><b class="hv-title"></b></div>' +
-    '<div class="hv-wave" aria-hidden="true">' + bars + '</div>' +
-    '<p class="hv-text"></p><p class="hv-hint"></p>';
-  document.body.appendChild(el);
-  return el;
-}
-
-function бгРисовать(){
-  var el = бгПанель();
-  if (!бг || !бг.идёт){ el.classList.remove('on', 'cancel', 'sending'); document.documentElement.classList.remove('hv-on'); return; }
-  el.classList.add('on');
-  el.classList.toggle('cancel', !!бг.отмена);
-  el.classList.toggle('sending', !!бг.отпущен && !бг.отмена);
-  document.documentElement.classList.add('hv-on');
-  var якорь = (бг.вОкне && document.querySelector('.syn-bar')) || document.querySelector('.composer');
-  if (якорь) el.style.bottom = Math.max(12, window.innerHeight - якорь.getBoundingClientRect().top + 10) + 'px';
-  el.querySelector('.hv-title').textContent = SynI18n.tr(бг.отмена ? 'Отпустите — запись отменится'
-    : бг.отпущен ? 'Отправляю Syn…' : 'Слушаю');
-  var text = бгТекст();
-  el.querySelector('.hv-text').textContent = text || SynI18n.tr(бг.отмена ? '' : 'Говорите…');
-  el.querySelector('.hv-text').classList.toggle('empty', !text);
-  el.querySelector('.hv-hint').textContent = SynI18n.tr(бг.отмена ? 'Верните палец к кнопке, чтобы продолжить'
-    : 'Отпустите — отправить · уведите палец в сторону — отмена');
-}
-
-function бгТекст(){
-  if (!бг) return '';
-  return ((бг.накоплено || '') + ' ' + (бг.текст || '')).replace(/\s+/g, ' ').trim();
-}
-
-/* Волна: высота столбиков от громкости голоса. На Android громкость шлёт
-   оболочка (событие rms), в браузере её нет — там волна дышит сама и
-   подскакивает на каждом новом расслышанном слове. */
-function бгВолна(){
-  var el = $('holdvoice');
-  if (!бг || !бг.идёт || !el){ бгКадр = null; return; }
-  var bars = el.querySelectorAll('.hv-wave i');
-  var t = Date.now() / 1000;
-  бгУровень *= 0.9;
-  var level = бг.отпущен ? 0.08 : Math.max(0.12, бгУровень);
-  for (var i = 0; i < bars.length; i++){
-    var wave = 0.5 + 0.5 * Math.sin(t * 7 + i * 0.55) * Math.sin(t * 3.1 + i * 0.21);
-    var h = 0.14 + level * (0.35 + 0.65 * wave);
-    bars[i].style.transform = 'scaleY(' + Math.min(1, h).toFixed(3) + ')';
-  }
-  бгКадр = requestAnimationFrame(бгВолна);
-}
-
-function бгНачать(){
-  if (!бг) return;
-  бг.идёт = true;
-  бг.накоплено = ''; бг.текст = ''; бг.итог = null;
-  тактильно('tap');
-  // Окно Syn и обычная диктовка не должны слушать одновременно с нами.
-  if (voice.on) voiceStop();
-  synКлавиатура = false;
-  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-  бгРисовать();
-  if (!бгКадр) бгКадр = requestAnimationFrame(бгВолна);
-  бгСлушать();
-}
-
-function бгСлушать(){
-  var родной = voiceNative();
-  if (родной){
-    voice.cancelled = false;
-    (родной.startHold || родной.start).call(родной);
-    return;
-  }
-  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition){ бгЗакрыть(); toast('На этом устройстве нет распознавания речи'); return; }
-  var rec = new Recognition();
-  rec.lang = 'ru-RU';
-  rec.continuous = true;
-  rec.interimResults = true;
-  rec.onresult = function(event){
-    if (!бг || бг.rec !== rec) return;
-    var finalText = '', interim = '';
-    for (var i = 0; i < event.results.length; i++){
-      if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
-      else interim += event.results[i][0].transcript;
-    }
-    бг.накоплено = finalText; бг.текст = interim;
-    бгУровень = 1;
-    бгРисовать();
-  };
-  rec.onerror = function(event){
-    if (!бг || бг.rec !== rec) return;
-    if (event && event.error === 'not-allowed'){ бгЗакрыть(); toast('Нет доступа к микрофону'); }
-  };
-  rec.onend = function(){
-    if (!бг || бг.rec !== rec) return;
-    if (бг.отпущен) бгОтправить();
-    else { try { rec.start(); } catch (e){} }  // браузер сам замолк — слушаем дальше
-  };
-  бг.rec = rec;
-  try { rec.start(); } catch (e){ бгЗакрыть(); }
-}
-
-function бгЗавершить(){
-  бг.отпущен = true;
-  бгРисовать();
-  var родной = voiceNative();
-  if (родной) родной.stop();
-  else if (бг.rec){ try { бг.rec.stop(); } catch (e){ бгОтправить(); } }
-  // Итог может не прийти вовсе (тишина, сбой движка) — не ждём вечно.
-  var этот = бг;
-  setTimeout(function(){ if (бг === этот) бгОтправить(); }, 1800);
-}
-
-function бгОтправить(){
-  метка('voice_hold');
-  if (!бг || бг.отправлено) return;
-  бг.отправлено = true;
-  var text = бгТекст();
-  var бгВОкне = !!бг.вОкне && !!$('syn-log');
-  бгЗакрыть();
-  if (!text){ toast('Ничего не расслышал — зажмите и скажите ещё раз'); return; }
-  S.holdVoiceUsed = true;
-  if (бгВОкне){
-    // Записали из окна Syn: фраза уходит в его ленту, как напечатанная.
-    synSend(text);
-    if (tourCheck()) toast('Первые шаги пройдены');
-    return;
-  }
-  S.synIntent = '';
-  S.synGoalCreate = false;
-  /* Запрос — в фоне, окно Syn не открывается.
-
-     Человек сказал фразу затем, чтобы она стала задачей, а не чтобы
-     читать переписку. Раньше после отпускания открывалось окно ассистента,
-     и его приходилось закрывать. Теперь панель показывает «Syn думает…»,
-     затем коротко — что сделано, и сама уходит. Нажать на неё — открыть
-     разговор целиком. */
-  итогПоказать({ думает: true, сказано: text });
-  synSend(text, function(r){
-    if (!r.ok){
-      итогПоказать({ ошибка: true, сказано: text,
-        текст: r.busy ? 'Syn ещё отвечает на прошлое — попробуйте через секунду' : (r.text || 'Не получилось — попробуйте ещё раз'),
-        открыть: r.error && r.error.status === 402 ? 'pro' : 'syn' });
-      return;
-    }
-    var сделано = (r.result && r.result.done) || [];
-    итогПоказать({ сказано: text, текст: сделано.length ? сделано.join(' · ') : r.reply,
-      ответ: сделано.length ? r.reply : '', деньги: r.finance, открыть: r.finance ? 'syn' : '' });
-    if (tourCheck()) toast('Первые шаги пройдены');
-  });
-}
-
-/* Итог фоновой записи — карточка над строкой ввода.
-
-   Живёт несколько секунд (дольше, если в ответе деньги: их надо
-   подтвердить в окне Syn) и уходит сама. Нажатие открывает разговор. */
-var итогТаймер = null;
-function итогПоказать(o){
-  var el = $('voiceresult');
-  if (!el){
-    el = document.createElement('button');
-    el.type = 'button';
-    el.id = 'voiceresult';
-    el.className = 'voiceresult';
-    el.addEventListener('click', function(){
-      var куда = el.getAttribute('data-open');
-      итогСпрятать();
-      if (куда === 'pro'){ openModal(modalSynPaywall()); return; }
-      S.synIntent = ''; S.synGoalCreate = false;
-      synRender('', '');
-    });
-    document.body.appendChild(el);
-  }
-  clearTimeout(итогТаймер);
-  el.className = 'voiceresult on' + (o.ошибка ? ' err' : '') + (o.думает ? ' wait' : '');
-  el.setAttribute('data-open', o.открыть || 'syn');
-  el.innerHTML =
-    '<span class="vr-ic">' + (o.думает ? '<i class="vr-spin"></i>' : o.ошибка ? '!' : '✓') + '</span>' +
-    '<span class="vr-body"><b>' + esc(SynI18n.tr(o.думает ? 'Syn думает…' : o.ошибка ? 'Не вышло' : 'Готово')) + '</b>' +
-      '<span class="vr-said" translate="no">«' + esc(o.сказано || '') + '»</span>' +
-      (o.текст ? '<span class="vr-text">' + esc(o.текст) + '</span>' : '') +
-      (o.деньги ? '<span class="vr-more">' + esc(SynI18n.tr('Деньги ждут подтверждения — нажмите')) + '</span>' : '') +
-    '</span>';
-  var comp = document.querySelector('.composer');
-  el.style.bottom = (comp ? Math.max(12, window.innerHeight - comp.getBoundingClientRect().top + 10) : 150) + 'px';
-  if (!o.думает) итогТаймер = setTimeout(итогСпрятать, o.деньги ? 9000 : o.ошибка ? 6000 : 4200);
-}
-function итогСпрятать(){
-  var el = $('voiceresult');
-  if (el) el.classList.remove('on');
-}
-
-function бгОтменить(){
-  if (!бг) return;
-  var родной = voiceNative();
-  if (родной){
-    voice.cancelled = true;
-    if (родной.cancel) родной.cancel(); else родной.stop();
-  } else if (бг.rec){
-    var rec = бг.rec;
-    rec.onresult = rec.onerror = rec.onend = null;
-    try { rec.abort(); } catch (e){}
-  }
-  var шла = бг.идёт;
-  бгЗакрыть();
-  if (шла) toast('Запись отменена');
-}
-
-function бгЗакрыть(){
-  if (бг && бг.timer) clearTimeout(бг.timer);
-  бг = null;
-  бгРисовать();
-}
-
-/* События оболочки перехватываем раньше окна Syn (фаза захвата) и
-   дальше не пускаем: иначе Syn принял бы нашу фразу за свою диктовку. */
-window.addEventListener('android-voice', function(event){
-  if (!бг || !бг.идёт) return;
-  event.stopImmediatePropagation();
-  var d = event.detail || {};
-  if (d.kind === 'rms'){
-    // Громкость движка — примерно от −2 до 10 дБ; переводим в 0…1.
-    var v = (parseFloat(d.text) + 2) / 10;
-    if (!isNaN(v)) бгУровень = Math.max(бгУровень, Math.min(1, Math.max(0, v)));
-    return;
-  }
-  if (d.kind === 'start'){
-    if (бг.отпущен && !бг.накоплено && !бг.текст) бгОтправить();
-    return;
-  }
-  if (d.kind === 'partial'){ бг.текст = d.text || ''; бгУровень = Math.max(бгУровень, 0.6); бгРисовать(); return; }
-  if (d.kind === 'final'){
-    бг.накоплено = ((бг.накоплено || '') + ' ' + (d.text || бг.текст || '')).trim();
-    бг.текст = '';
-    if (бг.отпущен){ бгОтправить(); return; }
-    // Движок закончил фразу на паузе, а палец ещё на кнопке — слушаем дальше.
-    бгРисовать();
-    бгПерезапуск();
-    return;
-  }
-  if (d.kind === 'error'){
-    if (бг.отпущен){ бгОтправить(); return; }
-    /* Пока кнопка зажата, ошибки движка — не повод бросать запись.
-
-       На тишине движок Android сам завершает фразу, а на слишком быстром
-       перезапуске отвечает «занят» или «сбой клиента». Человек при этом
-       держит кнопку и просто подбирает слова — показывать ему ошибку
-       нельзя. Перезапускаемся с паузой. Сдаёмся только когда микрофон
-       запрещён: тут ждать бесполезно. */
-    if (/доступа к микрофону/.test(d.text || '')){ бгЗакрыть(); toast(d.text); return; }
-    бгПерезапуск();
-  }
-}, true);
-
-/// Запись с кнопки сейчас идёт — обычная диктовка Syn её не трогает.
-function бгЗанят(){ return !!(бг && бг.идёт); }
-
-/* Перезапуск слушания, пока кнопка зажата.
-
-   Каждый запуск движка на Android сопровождается системным сигналом, и
-   частые перезапуски превращались в писк. Поэтому не чаще раза в 0,7 с и
-   не больше двух раз за одно удержание: этого хватает, чтобы пережить
-   паузу посреди фразы, а дальше просто ждём, когда палец отпустят. */
-function бгПерезапуск(){
-  var этот = бг;
-  if (!этот || (этот.перезапусков || 0) >= 2) return;
-  этот.перезапусков = (этот.перезапусков || 0) + 1;
-  setTimeout(function(){
-    if (бг !== этот || !бг.идёт || бг.отпущен) return;
-    var родной = voiceNative();
-    if (родной){ voice.cancelled = false; (родной.startHold || родной.start).call(родной); }
-  }, 700);
-}
-
-function бгКнопка(target){
-  return target && target.closest ? target.closest('.say .ai[data-act="ai"], .syn-bar .syn-mic') : null;
-}
-
-document.addEventListener('pointerdown', function(event){
-  var btn = бгКнопка(event.target);
-  if (!btn || event.button > 0 || !voiceSupported()) return;
-  бг = { кнопка: btn, x: event.clientX, y: event.clientY, id: event.pointerId,
-    // Из окна Syn — фраза идёт в его ленту; с кнопки AI — в фоне.
-    вОкне: !!btn.closest('.syn-bar') };
-  try { btn.setPointerCapture(event.pointerId); } catch (e){}
-  бг.timer = setTimeout(бгНачать, БГ_ПОРОГ);
-});
-document.addEventListener('pointermove', function(event){
-  if (!бг || event.pointerId !== бг.id) return;
-  var dx = event.clientX - бг.x, dy = event.clientY - бг.y;
-  var dist = Math.sqrt(dx * dx + dy * dy);
-  if (!бг.идёт){
-    // Сдвинул палец раньше, чем началась запись, — это не удержание.
-    if (dist > 14){ clearTimeout(бг.timer); бг = null; }
-    return;
-  }
-  var отмена = dist > БГ_ОТМЕНА;
-  if (отмена !== !!бг.отмена){
-    бг.отмена = отмена;
-    тактильно(отмена ? 'reject' : 'tick');
-    бгРисовать();
-  }
-});
-function бгОтпустить(event, сорван){
-  if (!бг || (event && event.pointerId !== бг.id)) return;
-  clearTimeout(бг.timer);
-  if (!бг.идёт){ бг = null; return; }   // короткое нажатие — обычный клик
-  бгГлушитьКлик = Date.now();
-  if (сорван || бг.отмена) бгОтменить();
-  else бгЗавершить();
-}
-document.addEventListener('pointerup', function(event){ бгОтпустить(event, false); });
-document.addEventListener('pointercancel', function(event){ бгОтпустить(event, true); });
-// Клик после удержания не должен ещё и открывать окно Syn.
-document.addEventListener('click', function(event){
-  if (Date.now() - бгГлушитьКлик < 700 && бгКнопка(event.target)){
-    event.preventDefault();
-    event.stopImmediatePropagation();
-  }
-}, true);
-document.addEventListener('contextmenu', function(event){
-  if (бгКнопка(event.target)) event.preventDefault();
-});
+   Владелец: «нажал — запись пошла, нажал — отправилось, везде». Удержание
+   отправляло фразу по отпусканию пальца, а пауза в речи у него же обрывала
+   запись. Голос теперь один на всё приложение — движок диктовки dictStart:
+   первое нажатие на микрофон начинает запись, второе отправляет. */
 
 /* ============ УСТАНОВКА И РАБОТА БЕЗ СЕТИ ============ */
 
@@ -16329,6 +16454,20 @@ function registerServiceWorker(){
     // Первая установка управления — это не обновление, а первое открытие
     // вообще: перезагружать нечего.
     if (!hadController || reloading) return;
+    /* Не чаще раза в полминуты — и это переживает саму перезагрузку.
+
+       Флаг reloading живёт до перезагрузки, а после неё обнуляется. Если
+       браузер почему-то снова считает worker новым (Safari так делал после
+       серии выкладок подряд), страница перезагружалась опять, и опять — веб
+       «обновлялся без остановки». Метка в sessionStorage обрывает такую
+       петлю: в худшем случае свежая версия покажется со следующего
+       открытия, а не сразу. */
+    try {
+      var KEY = 'synapse.swReloadAt';
+      var last = Number(sessionStorage.getItem(KEY) || 0);
+      if (Date.now() - last < 30000) return;
+      sessionStorage.setItem(KEY, String(Date.now()));
+    } catch (e) {}
     reloading = true;
     location.reload();
   });
@@ -16359,9 +16498,10 @@ function registerServiceWorker(){
 
    Часть отличий приложения от сайта чисто оформительская: отступ, размер,
    плотность. Городить ради каждого такого ветку в разметке дороже, чем один
-   класс, по которому их разбирает CSS. Именно inApp(), а не touchUI(): сайт с
-   телефона остаётся сайтом, меняется только то, что внутри apk. */
-if (inApp()) document.documentElement.classList.add('in-app');
+   класс, по которому их разбирает CSS. Признак — appLook(), а не touchUI():
+   вид приложения получает сайт с телефона, но не планшет и не ноутбук с
+   сенсорным экраном. */
+if (appLook()) document.documentElement.classList.add('in-app');
 /* Отдельный признак сенсорного ввода. Перетаскивание пальцем нужно и на сайте,
    открытом с телефона: там оно единственный способ переложить задачу, а
    браузерный механизм на сенсоре не работает вовсе. Стили жеста висят на нём,
