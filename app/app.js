@@ -483,6 +483,9 @@ function починитьЗаписи(данные){
     g.sphere = g.sphere || '';
     g.horizon = g.horizon || '';
     g.pinned = !!g.pinned;
+    // «Syn составляет цель…» — только пока ждём ответ; после перезагрузки
+    // ответа уже не будет, цель остаётся с одним названием.
+    if (g.aiPending) delete g.aiPending;
     g.stages = (Array.isArray(g.stages) ? g.stages : []).filter(Boolean).map(function(st){
       return { id: st.id || uid(), title: String(st.title == null ? '' : st.title),
                detail: String(st.detail == null ? '' : st.detail),
@@ -5616,6 +5619,84 @@ function taskAiRefine(id, raw){
   });
 }
 
+/* Цель из строки целей — силами Syn.
+
+   Та же схема, что у задач (taskAiRefine): временная цель уже в списке,
+   Syn её не видит (иначе спрашивал бы «дополнить существующую?»), запрос
+   идёт с намерением «планирование» и подсказкой «это создание цели» — тем
+   же путём, что кнопка AI у строки целей. Ответ заменяет временную цель
+   целью с этапами и задачами. Пока Syn думал, цель переименовали или
+   удалили — ответ её не трогает. Syn цель не создал — остаётся временная, с
+   одним названием, а его ответ показывается подсказкой. */
+function goalAiRefine(id, raw){
+  function provisional(){ return findGoal(id); }
+  var snapshot = provisional();
+  var original = snapshot ? snapshot.title : null;
+  function settle(note){
+    var g = provisional();
+    if (g && g.aiPending){ delete g.aiPending; commit(note || ''); }
+    else if (note) toast(note);
+  }
+
+  synSession().then(function(token){
+    var all = S.goals;
+    S.goals = all.filter(function(x){ return x.id !== id; });
+    var workspace, context;
+    try {
+      workspace = synWorkspace();
+      context = synContext();
+    } finally {
+      S.goals = all;
+    }
+    workspace.assistantIntent = 'planning';
+    workspace.assistantGoalCreate = true;
+    return synFetch('/v1/synapse/reply', {
+      workspace: workspace,
+      workspaceContext: context,
+      messages: [{ role: 'user', text: raw }]
+    }, token);
+  }).then(function(data){
+    if (data && data.quota) SYN.quota = data.quota;
+    var g = provisional();
+    if (!g || g.title !== original){ settle(); return; }
+    var actions = (data && data.actions || []).filter(function(a){ return !finIsFinanceAction(a); });
+    var makesGoal = actions.some(function(a){
+      return synНормализоватьВид(String(a && a.kind || '').toLowerCase(), a || {}) === 'create_goal';
+    });
+    if (!makesGoal){
+      settle(data && data.reply ? String(data.reply).slice(0, 220) : '');
+      return;
+    }
+
+    var had = {};
+    S.goals.forEach(function(x){ if (x.id !== id) had[x.id] = true; });
+    S.goals = S.goals.filter(function(x){ return x.id !== id; });
+    delete S.openGoal[id];
+    actions.forEach(function(a){ a.sourcePrompt = raw; });
+    var result = synApplyActions(actions);
+    var made = S.goals.filter(function(x){ return !had[x.id]; });
+    if (!made.length){
+      // Обработчик цель не завёл (например, упёрлись в предел) — временная
+      // цель возвращается на место.
+      delete g.aiPending;
+      S.goals.push(g);
+      S.openGoal[g.id] = true;
+      commit(result.skipped && result.skipped.length ? result.skipped[0] : '');
+      return;
+    }
+    made.forEach(function(x){ S.openGoal[x.id] = true; });
+    var first = made[0];
+    commit('Syn составил цель «' + first.title + '»' + (first.stages.length
+      ? ': ' + first.stages.length + ' ' + plural(first.stages.length, 'этап', 'этапа', 'этапов') : ''));
+    if (result.skipped && result.skipped.length) console.warn('[goal-ai]', result.skipped);
+  }).catch(function(error){
+    if (error && error.data && error.data.quota) SYN.quota = error.data.quota;
+    settle(error && error.status === 402
+      ? 'Запросы к Syn на сегодня закончились — цель записана с одним названием.'
+      : 'Syn не ответил — цель записана с одним названием.');
+  });
+}
+
 /* Факты для описания задачи — из интернета, а не из памяти модели.
 
    «Съездить в поликлинику взять талон, в комментариях адрес и номер укажи
@@ -6559,7 +6640,8 @@ function vGoals(){
          ниже и так сказано, что этапов нет, поэтому нули не пишем — остаётся
          только срок, если он есть. */
       '<div class="gmeta">' +
-        (p.total || g.stages.length
+        (g.aiPending ? '<span class="chip ai-pending">Syn составляет цель…</span>' :
+        p.total || g.stages.length
           ? p.done + ' из ' + p.total + ' ' + p.unit +
             ' · ' + g.stages.length + ' ' + plural(g.stages.length, 'этап', 'этапа', 'этапов') +
             (g.horizon ? ' · ' + esc(g.horizon) : '')
@@ -12897,13 +12979,26 @@ var ACTS = {
      никто не возвращается, а цель без «зачем» через месяц не отличается от
      списка дел. Название уже введено, поэтому окно открывается с ним и
      курсором в следующем поле. */
+  /* Строка целей — через Syn, как строка задач и полоса финансов.
+
+     Раньше стрелка открывала форму с одним названием, а этапы и задачи
+     человек дописывал руками. Теперь цель сразу встаёт в список с пометкой
+     «Syn составляет цель…», а Syn в фоне превращает фразу в цель с этапами
+     и первыми задачами (goalAiRefine). Без сети или без запросов — прежняя
+     форма: записать цель можно и без ИИ. */
   'add-goal': function(){
     var field = $('gfield');
     var title = field ? field.value.trim() : '';
     if (!title) return;
     if (!canAdd('goals')) return openModal(modalPaywall('goals'));
     S.goalDraft = '';
-    openModal(modalGoal(null, title));
+    if (!taskAiAvailable()) return openModal(modalGoal(null, title));
+    var fresh = { id: uid(), title: title.charAt(0).toUpperCase() + title.slice(1), purpose: '', horizon: '',
+      targetDate: '', sphere: 'personal', pinned: false, stages: [], aiPending: true };
+    S.goals.push(fresh);
+    S.openGoal[fresh.id] = true;
+    commit();
+    goalAiRefine(fresh.id, title);
   },
   'export': function(){
     exportBackup().then(function(сообщение){
