@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Synapse Pro — pay from outside Russia</title>
+    <link rel="icon" href="/screens/mark.png">
+    <link rel="stylesheet" href="/fonts/fonts.css">
+    <link rel="stylesheet" href="/landing.css">
+    <link rel="stylesheet" href="/checkout.css">
+    <link rel="stylesheet" href="/site-theme.css">
+    <script src="/theme.js"></script>
+  </head>
+  <body>
+    <!-- Оплата из-за рубежа: доллары и евро через lava.top.
+
+         ЮKassa берёт только российские карты, поэтому для остальных — эта
+         страница. Сервер создаёт счёт на lava.top (/v1/synapse/checkout/
+         lava-start) и отдаёт ссылку на её форму оплаты; после оплаты человек
+         возвращается на ту же страницу с кодом, что и при оплате ЮKassa. -->
+    <header class="nav">
+      <a class="brand" href="/en/">
+        <img class="mark" src="/screens/mark.png" alt="" width="40" height="40">
+        <span>Synapse</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/en/">Home</a>
+        <a href="/checkout/">Оплата из России</a>
+      </nav>
+      <button class="theme-toggle" data-theme-toggle type="button" aria-label="Switch theme" title="Switch theme">☾</button>
+    </header>
+
+    <main class="flow">
+      <div class="flow-head">
+        <h1>Synapse Pro</h1>
+        <p class="lead">
+          Pay by card, PayPal or Apple&nbsp;Pay in US dollars or euros. After
+          payment you get a code that turns on Pro in the web app.
+        </p>
+      </div>
+
+      <div class="flow-grid">
+        <div>
+          <section class="panel">
+            <h2 class="panel-title">Plan</h2>
+            <fieldset class="pick" id="plans"></fieldset>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">Currency</h2>
+            <fieldset class="pick" id="currencies"></fieldset>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">Email</h2>
+            <p class="panel-note">
+              Your receipt and subscription management come to this email from
+              lava.top, our payment provider.
+            </p>
+            <div class="fld">
+              <label class="fld-label" for="email">Email</label>
+              <input id="email" type="email" autocomplete="email" placeholder="you@example.com" style="width:100%">
+            </div>
+
+            <p id="error" class="alert" hidden></p>
+
+            <p style="margin: 22px 0 0;">
+              <button class="btn btn-primary btn-wide" id="payButton" type="button">Continue to payment</button>
+            </p>
+
+            <p class="fine">
+              Payment is processed by lava.top — we never see your card. The
+              subscription renews automatically until you cancel it; you can
+              cancel any time from the lava.top email or by writing to
+              <a href="mailto:support@synapseapp.ru">support@synapseapp.ru</a>.
+            </p>
+          </section>
+        </div>
+
+        <aside class="summary">
+          <section class="panel">
+            <div class="summary-total">
+              <span id="totalLabel">Monthly</span>
+              <b id="totalPrice">$12.99</b>
+            </div>
+            <ul class="ticks">
+              <li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Syn assistant: 180 requests a day, 500 on yearly</li>
+              <li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Encrypted sync between your devices</li>
+              <li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Unlimited goals, lists, notes and finances</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      var BACKEND = "https://api.synapseapp.ru";
+      var PLANS = {
+        "pro.monthly": { title: "Monthly", note: "Renews every month", price: { USD: "$12.99", EUR: "€12.99" } },
+        "pro.yearly": { title: "Yearly", note: "Renews every year · save 35%", price: { USD: "$99.99", EUR: "€99.99" } }
+      };
+      var CURRENCIES = { USD: "US dollars", EUR: "Euros" };
+      var selectedPlan = "pro.yearly";
+      // Евро — тем, у кого язык браузера европейский (кроме английского), иначе доллары.
+      var lang = (navigator.language || "en").toLowerCase();
+      var selectedCurrency = /^(de|fr|es|it|nl|pt|fi|el|sk|sl|et|lv|lt|ga|mt|hr)/.test(lang) ? "EUR" : "USD";
+
+      var plansEl = document.getElementById("plans");
+      var currenciesEl = document.getElementById("currencies");
+      var emailEl = document.getElementById("email");
+      var errorEl = document.getElementById("error");
+      var payEl = document.getElementById("payButton");
+
+      function esc(text) {
+        return String(text).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+      }
+
+      function item(name, value, checked, title, note, price) {
+        return '<label class="pick-item">' +
+          '<input type="radio" name="' + name + '" value="' + value + '"' + (checked ? " checked" : "") + '>' +
+          '<span class="pick-dot" aria-hidden="true"></span>' +
+          '<span class="pick-body"><span class="pick-name">' + esc(title) + '</span>' +
+          (note ? '<span class="pick-note">' + esc(note) + '</span>' : '') + '</span>' +
+          (price ? '<span class="pick-price">' + esc(price) + '</span>' : '') +
+          '</label>';
+      }
+
+      function render() {
+        plansEl.innerHTML = Object.keys(PLANS).map(function (key) {
+          var plan = PLANS[key];
+          return item("plan", key, key === selectedPlan, plan.title, plan.note, plan.price[selectedCurrency]);
+        }).join("");
+        currenciesEl.innerHTML = Object.keys(CURRENCIES).map(function (key) {
+          return item("currency", key, key === selectedCurrency, CURRENCIES[key], "", "");
+        }).join("");
+        document.getElementById("totalLabel").textContent = PLANS[selectedPlan].title;
+        document.getElementById("totalPrice").textContent = PLANS[selectedPlan].price[selectedCurrency];
+        Array.prototype.forEach.call(document.querySelectorAll('input[name="plan"]'), function (input) {
+          input.addEventListener("change", function () { selectedPlan = input.value; render(); });
+        });
+        Array.prototype.forEach.call(document.querySelectorAll('input[name="currency"]'), function (input) {
+          input.addEventListener("change", function () { selectedCurrency = input.value; render(); });
+        });
+      }
+
+      function showError(text) {
+        errorEl.innerHTML = text || "";
+        errorEl.hidden = !text;
+      }
+
+      payEl.addEventListener("click", function () {
+        var email = emailEl.value.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          emailEl.focus();
+          showError("Please enter a valid email.");
+          return;
+        }
+        showError("");
+        payEl.disabled = true;
+        payEl.textContent = "Preparing payment…";
+        fetch(BACKEND + "/v1/synapse/checkout/lava-start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: selectedPlan, currency: selectedCurrency, email: email })
+        })
+          .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+          .then(function (result) {
+            if (!result.ok || !result.data.paymentURL) {
+              showError(esc(result.data.error || "Could not start the payment. Please try again."));
+              payEl.disabled = false;
+              payEl.textContent = "Continue to payment";
+              return;
+            }
+            try { localStorage.setItem("synapse.claim", result.data.claim); } catch (error) {}
+            window.location.href = result.data.paymentURL;
+          })
+          .catch(function () {
+            showError("The server did not respond. Check your connection and try again.");
+            payEl.disabled = false;
+            payEl.textContent = "Continue to payment";
+          });
+      });
+
+      render();
+    </script>
+  </body>
+</html>
