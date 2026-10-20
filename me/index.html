@@ -7,201 +7,326 @@
     <meta name="description" content="Статистика по партнёрской ссылке Synapse: переходы, оплаты, заработок и выплаты.">
     <meta name="robots" content="noindex">
     <link rel="icon" href="../screens/mark.png?v=18ab930c">
-    <link rel="stylesheet" href="../site.css">
+    <link rel="preload" as="font" type="font/woff2" href="../fonts/Manrope-cyrillic.woff2" crossorigin>
+    <link rel="stylesheet" href="../fonts/fonts.css">
+    <link rel="stylesheet" href="../landing.css">
+    <link rel="stylesheet" href="../checkout.css">
     <link rel="stylesheet" href="../site-theme.css">
     <script src="../theme.js"></script>
     <style>
-      /* Поля, плитки и таблицы есть только в кабинете — в общий site.css их
-         не тащим. Всё на токенах сайта, чтобы попадать в тему. */
-      .key-form { display: grid; gap: 12px; max-width: 460px; }
-      .key-form input {
-        width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; color: inherit;
-        background: var(--surface-elevated); border: 1px solid var(--stroke);
-        border-radius: 14px; padding: 13px 15px;
-      }
-      .key-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      /* Кабинет — та же стилистика, что «Подписка» и оформление: шапка сайта,
+         панели checkout.css, изумрудный акцент site-theme.css. Здесь только то,
+         чего нет больше нигде: сумма к выплате, кнопки «поделиться», воронка
+         и график по дням. */
+      .flow { max-width: 1040px; }
+      .me-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; }
+      .me-head .flow-head { margin-bottom: 0; }
+      .me-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .me-tools .stamp { font-size: 13px; color: var(--muted); margin-right: 4px; }
+      .me-body { margin-top: 30px; display: grid; gap: 18px; }
+      .me-grid { display: grid; gap: 18px; grid-template-columns: 1fr; }
+      @media (min-width: 860px) { .me-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+      .panel + .panel { margin-top: 0; }
 
-      /* ── Деньги: крупная сумма к выплате + три спутника ── */
-      .sum { display: grid; gap: 16px; grid-template-columns: 1fr; }
-      @media (min-width: 680px) { .sum { grid-template-columns: 1.1fr 1fr; align-items: stretch; } }
-      .sum-main {
-        background: var(--accent-soft); border: 1px solid var(--stroke);
-        border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; justify-content: center;
+      .btn { gap: 8px; cursor: pointer; font-family: inherit; }
+      .btn svg { width: 18px; height: 18px; flex: none; }
+      .btn-primary { background: var(--grad); color: var(--text-on-dark); border: 0; }
+      .btn-primary:hover { filter: brightness(1.05); }
+      .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+      .btn.is-done { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
+
+      /* Вход. */
+      .key-field {
+        width: 100%; box-sizing: border-box; padding: 13px 15px;
+        border: 1.5px solid var(--stroke); border-radius: 14px;
+        background: var(--surface); color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 16px; outline: none; transition: border-color .16s ease, box-shadow .16s ease;
       }
-      .sum-lbl { font-size: 13px; font-weight: 700; letter-spacing: .02em; color: var(--accent); text-transform: uppercase; }
-      .sum-big {
-        font-size: clamp(34px, 8vw, 52px); font-weight: 700; line-height: 1.02;
-        color: var(--accent); font-variant-numeric: tabular-nums; margin: 8px 0 6px; letter-spacing: -.01em;
+      .key-field:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+      #keyForm .btn { margin-top: 14px; }
+
+      /* ── Деньги: изумрудная карточка с суммой к выплате + три плитки ── */
+      .money { display: grid; gap: 18px; grid-template-columns: 1fr; }
+      @media (min-width: 860px) { .money { grid-template-columns: 1.15fr 1fr; } }
+      .payout {
+        position: relative; overflow: hidden;
+        background: var(--grad); color: #fff;
+        border-radius: var(--radius); padding: 28px 28px 26px;
+        box-shadow: 0 24px 50px -24px var(--accent);
+        display: flex; flex-direction: column; justify-content: space-between; gap: 18px; min-height: 210px;
       }
-      .sum-note { font-size: 13px; color: var(--muted); }
-      .sum-side { display: grid; gap: 12px; grid-template-columns: 1fr; align-content: center; }
-      @media (min-width: 420px) { .sum-side { grid-template-columns: 1fr 1fr; } }
-      @media (min-width: 680px) { .sum-side { grid-template-columns: 1fr; } }
-      .mini {
-        display: flex; align-items: center; gap: 12px;
-        background: var(--surface-elevated); border: 1px solid var(--stroke);
-        border-radius: 14px; padding: 12px 14px;
+      .payout::after {
+        content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px;
+        border-radius: 50%; background: rgba(255,255,255,.08); pointer-events: none;
       }
-      .mini .ic { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px;
-        background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; }
-      .mini .ic svg { width: 18px; height: 18px; }
-      .mini .txt { display: flex; flex-direction: column; min-width: 0; }
-      .mini .txt span { font-size: 12.5px; color: var(--muted); }
-      .mini .txt b { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--text); }
-      .mini .txt i { font-size: 11.5px; color: var(--muted); font-style: normal; opacity: .8; }
-      .refund { margin-top: 16px; font-size: 14px; color: var(--muted); }
+      /* В тёмной теме изумруд светлее, и белые цифры на нём теряются —
+         приглушаем заливку, чтобы сумма читалась так же, как днём. */
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) .payout { background: linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.22)), var(--grad); }
+      }
+      :root[data-theme="dark"] .payout { background: linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.22)), var(--grad); }
+      .payout-lbl { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+      .payout-big {
+        font-family: var(--font-display); font-size: clamp(40px, 7vw, 60px); font-weight: 800;
+        line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; margin-top: 10px;
+      }
+      .payout-note { font-size: 14px; opacity: .85; line-height: 1.45; max-width: 36ch; }
+      .stats { display: grid; gap: 12px; grid-template-columns: 1fr; }
+      @media (min-width: 520px) and (max-width: 859px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+      .stat {
+        display: flex; align-items: center; gap: 14px;
+        background: var(--surface); border: 1px solid var(--stroke); border-radius: 16px;
+        padding: 15px 16px; box-shadow: var(--shadow);
+      }
+      .stat .ic {
+        width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px;
+        background: var(--accent-soft); color: var(--accent);
+        display: flex; align-items: center; justify-content: center;
+      }
+      .stat .ic svg { width: 20px; height: 20px; }
+      .stat .txt { display: flex; flex-direction: column; min-width: 0; }
+      .stat .txt span { font-size: 13px; color: var(--muted); }
+      .stat .txt b { font-size: 21px; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+      .stat .txt i { font-size: 12px; color: var(--muted); font-style: normal; }
+      .refund { margin: 0; }
+
+      /* ── Поделиться ── */
+      .share-grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+      @media (min-width: 720px) { .share-grid { grid-template-columns: 1.4fr 1fr; } }
+      .share-box {
+        border: 1px solid var(--stroke); border-radius: 16px; background: var(--bg);
+        padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+      }
+      .share-lbl { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+      .share-val {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 15px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        user-select: all;
+      }
+      .share-val.code { font-size: 22px; font-weight: 700; letter-spacing: .08em; color: var(--accent); }
+      .share-box .btn { width: 100%; }
+      .tip {
+        margin: 16px 0 0; background: var(--accent-soft); border-radius: 14px;
+        padding: 13px 15px; font-size: 14px; color: var(--text); line-height: 1.55;
+      }
+      .msg-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 20px 0 8px; }
+      .msg-head b { font-size: 15px; }
+      .msgbox {
+        background: var(--bg); border: 1px solid var(--stroke); border-radius: 14px;
+        padding: 14px 16px; font-size: 14.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap;
+      }
+      .msg-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+      .msg-actions .btn { flex: 1 1 180px; }
 
       /* ── Воронка ── */
-      .conv { display: flex; align-items: baseline; gap: 8px; margin: -2px 0 14px; flex-wrap: wrap; }
-      .conv b { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+      .conv { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 16px; flex-wrap: wrap; }
+      .conv b { font-family: var(--font-display); font-size: 30px; font-weight: 800; color: var(--accent); letter-spacing: -.02em; }
       .conv span { font-size: 14px; color: var(--muted); }
-      .funnel { display: grid; gap: 12px; }
+      .funnel { display: grid; gap: 14px; }
       .step { display: grid; gap: 7px; }
-      .step-head { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text); }
+      .step-head { display: flex; justify-content: space-between; gap: 12px; font-size: 14.5px; color: var(--text); }
       .step-head b { font-variant-numeric: tabular-nums; }
       .step-head .pct { color: var(--muted); font-weight: 400; }
-      .bar { height: 12px; border-radius: 999px; background: var(--track); overflow: hidden; }
-      .bar i { display: block; height: 100%; border-radius: 999px;
-        background: linear-gradient(90deg, var(--accent), var(--olive)); transition: width .5s cubic-bezier(.2,.8,.2,1); }
+      .bar { height: 10px; border-radius: 999px; background: var(--track, var(--accent-soft)); overflow: hidden; }
+      .bar i { display: block; height: 100%; border-radius: 999px; background: var(--grad); transition: width .5s cubic-bezier(.2,.8,.2,1); }
 
       /* ── Таблицы ── */
-      table.rows { width: 100%; border-collapse: collapse; font-size: 14px; }
-      table.rows th, table.rows td { text-align: left; padding: 11px 6px; border-bottom: 1px solid var(--divider); }
-      table.rows thead th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
-      table.rows tbody tr:last-child td { border-bottom: none; }
-      table.rows td.num, table.rows th.num { text-align: right; font-variant-numeric: tabular-nums; }
-      table.rows td.share { color: var(--accent); font-weight: 650; }
-      table.rows td.day b { font-weight: 600; }
+      table.t { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+      table.t th, table.t td { text-align: left; padding: 12px 4px; border-bottom: 1px solid var(--stroke); }
+      table.t thead th { font-size: 11.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding-top: 4px; }
+      table.t tbody tr:last-child td { border-bottom: none; }
+      table.t .num { text-align: right; font-variant-numeric: tabular-nums; }
+      table.t td.share { color: var(--accent); font-weight: 700; }
+      table.t td.day b { font-weight: 600; }
 
-      .link-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-      .link-row code {
-        flex: 1; min-width: 240px; font-size: 14px; padding: 12px 14px;
-        background: var(--surface-elevated); border: 1px solid var(--stroke); border-radius: 14px;
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      /* ── График переходов по дням ── */
+      .chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; margin: 6px 0 4px; }
+      .chart .col { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }
+      .chart .col i {
+        display: block; width: 100%; max-width: 34px; min-height: 3px; border-radius: 7px 7px 3px 3px;
+        background: var(--grad); opacity: .9;
       }
-      .codechip { display: inline-block; font-weight: 700; font-variant-numeric: tabular-nums;
-        background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 3px 10px; letter-spacing: .04em; }
-      .tip { margin-top: 16px; background: var(--accent-soft); border: 1px solid var(--stroke);
-        border-radius: 14px; padding: 13px 15px; font-size: 13.5px; color: var(--text-secondary); line-height: 1.55; }
-      .tip b { color: var(--text); }
-      .msgbox { background: var(--surface-elevated); border: 1px solid var(--stroke); border-radius: 14px;
-        padding: 14px 16px; font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
-      .err { color: var(--error); font-size: 14px; }
-      .ebmark { width: 16px; height: 16px; border-radius: 4px; display: block; }
-      .updated { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+      .chart .col.zero i { background: var(--stroke); opacity: 1; }
+      .chart-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+
+      .err { color: var(--error, #e5484d); font-size: 14px; margin: 12px 0 0; }
+      .toast {
+        position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px);
+        background: var(--text); color: var(--bg); padding: 11px 18px; border-radius: 999px;
+        font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none;
+        transition: opacity .2s ease, transform .2s ease; z-index: 50;
+      }
+      .toast.on { opacity: 1; transform: translate(-50%, 0); }
+      @media (max-width: 560px) {
+        .flow { padding: 32px 16px 56px; }
+        .panel { padding: 20px; }
+        .payout { padding: 22px; min-height: 0; }
+        .me-tools { width: 100%; }
+        .me-tools .stamp { flex: 1 1 100%; }
+        .me-tools .btn { flex: 1 1 0; }
+        /* Дата в одну строку: «20 / октября» в два этажа растягивало таблицу вдвое. */
+        table.t { font-size: 13.5px; }
+        table.t th, table.t td { padding: 10px 3px; }
+        table.t thead th { font-size: 10px; letter-spacing: .03em; }
+        table.t td.day { white-space: nowrap; }
+      }
       [hidden] { display: none !important; }
     </style>
   </head>
   <body>
-    <main class="shell">
+    <header class="nav">
+      <a class="brand" href="../">
+        <img class="mark" src="../screens/mark.png?v=18ab930c" alt="" width="40" height="40">
+        <span>Synapse</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../partners/">Партнёрам</a>
+        <a href="../pricing/">Тарифы</a>
+        <a href="../support/">Поддержка</a>
+      </nav>
       <button class="theme-toggle" data-theme-toggle type="button" aria-label="Сменить тему" title="Сменить тему">☾</button>
+    </header>
 
-      <section class="hero">
-        <span class="eyebrow"><img class="ebmark" src="../screens/mark.png?v=18ab930c" alt="">Кабинет партнёра</span>
-        <h1 id="title">Ваша статистика</h1>
-        <p class="lead" id="subtitle">
-          Введите ключ, который мы выдали вместе с кодом. Он открывает только
-          ваши цифры и ничего больше.
-        </p>
-        <p class="updated" id="updated" hidden></p>
-      </section>
+    <main class="flow">
+      <div class="me-head">
+        <div class="flow-head">
+          <span class="eyebrow">Кабинет партнёра</span>
+          <h1 id="title">Ваша статистика</h1>
+          <p class="lead" id="subtitle">
+            Введите ключ, который мы выдали вместе с кодом. Он открывает только
+            ваши цифры и ничего больше.
+          </p>
+        </div>
+        <!-- Обновить и выйти — наверху, рядом с именем: раньше выход жил
+             отдельной карточкой в самом низу, и до него надо было листать. -->
+        <div class="me-tools" id="tools" hidden>
+          <span class="stamp" id="updated"></span>
+          <button class="btn btn-ghost btn-small" type="button" id="refreshButton">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Обновить
+          </button>
+          <button class="btn btn-ghost btn-small" type="button" id="exitButton">Выйти</button>
+        </div>
+      </div>
 
-      <section class="stack">
+      <div class="me-body">
 
-        <article class="card" id="askCard">
-          <h2>Вход</h2>
-          <form class="key-form" id="keyForm">
-            <input id="keyInput" type="text" inputmode="text" autocomplete="off"
+        <section class="panel flow-narrow" id="askCard">
+          <h2 class="panel-title">Вход</h2>
+          <p class="panel-note">Ключ хранится только в этом браузере — второй раз вводить не придётся.</p>
+          <form id="keyForm">
+            <input class="key-field" id="keyInput" type="text" inputmode="text" autocomplete="off"
                    spellcheck="false" placeholder="Ключ от кабинета" aria-label="Ключ от кабинета">
-            <button class="button" type="submit" id="enterButton">Показать статистику</button>
+            <button class="btn btn-primary btn-wide" type="submit" id="enterButton">Показать статистику</button>
             <p class="err" id="askError" hidden></p>
           </form>
-          <p style="margin-top:16px; color:var(--muted); font-size:14px">
-            Нет ключа? Напишите в <a href="https://t.me/synapseapp">Telegram</a> —
-            выдадим. Об условиях — на <a href="../partners/">странице партнёрам</a>.
+          <p class="fine">
+            Нет ключа? Напишите в <a href="https://t.me/synapseapp">Telegram</a> — выдадим.
+            Об условиях — на <a href="../partners/">странице партнёрам</a>.
           </p>
-        </article>
+        </section>
 
-        <article class="card" id="summaryCard" hidden>
-          <h2>Деньги</h2>
-          <div class="sum">
-            <div class="sum-main">
-              <span class="sum-lbl">Можно выплатить сейчас</span>
-              <b class="sum-big" id="sBig">—</b>
-              <span class="sum-note">прошло 30 дней после оплаты</span>
+        <section class="money" id="summaryCard" hidden>
+          <div class="payout">
+            <div>
+              <div class="payout-lbl">Можно выплатить сейчас</div>
+              <div class="payout-big" id="sBig">—</div>
             </div>
-            <div class="sum-side">
-              <div class="mini">
-                <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></span>
-                <span class="txt"><span>Заработано всего</span><b id="sEarned">—</b><i id="sShareLine"></i></span>
-              </div>
-              <div class="mini">
-                <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-                <span class="txt"><span>Ждёт срока</span><b id="sHeld">—</b><i>на случай возврата</i></span>
-              </div>
-              <div class="mini">
-                <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7L9.5 17.5 4 12"/></svg></span>
-                <span class="txt"><span>Уже выплачено</span><b id="sPaid">—</b></span>
-              </div>
+            <div class="payout-note">Деньги за оплаты, которым прошло 30 дней: срок возврата позади.</div>
+          </div>
+          <div class="stats">
+            <div class="stat">
+              <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></span>
+              <span class="txt"><span>Заработано всего</span><b id="sEarned">—</b><i id="sShareLine"></i></span>
+            </div>
+            <div class="stat">
+              <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+              <span class="txt"><span>Ждёт срока</span><b id="sHeld">—</b><i>на случай возврата</i></span>
+            </div>
+            <div class="stat">
+              <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7L9.5 17.5 4 12"/></svg></span>
+              <span class="txt"><span>Уже выплачено</span><b id="sPaid">—</b></span>
             </div>
           </div>
-          <p class="refund" id="refundNote" hidden></p>
-        </article>
+        </section>
+        <p class="notice refund" id="refundNote" hidden></p>
 
-        <article class="card" id="linkCard" hidden>
-          <h2>Ваша ссылка и код</h2>
-          <p style="color:var(--muted); font-size:14px; margin-top:0">
-            По ссылке считаются переходы; она ведёт на сайт — человек пробует
-            бесплатно, а код закрепляется сам и подставляется в оплату.
+        <section class="panel" id="linkCard" hidden>
+          <h2 class="panel-title">Поделиться</h2>
+          <p class="panel-note">
+            Ссылка ведёт на сайт: человек пробует бесплатно, а код закрепляется
+            сам и подставляется в оплату.
           </p>
-          <div class="link-row">
-            <code id="link">—</code>
-            <button class="button secondary" type="button" id="copyButton">Ссылку</button>
-          </div>
-          <div class="link-row" style="margin-top:10px">
-            <span style="flex:1; min-width:200px; font-size:14px; color:var(--muted)">
-              Код для оплаты: <span class="codechip" id="code">—</span>
-            </span>
-            <button class="button secondary" type="button" id="copyCode">Код</button>
+          <div class="share-grid">
+            <div class="share-box">
+              <span class="share-lbl">Ваша ссылка</span>
+              <span class="share-val" id="link">—</span>
+              <button class="btn btn-primary" type="button" id="copyButton">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Скопировать ссылку
+              </button>
+            </div>
+            <div class="share-box">
+              <span class="share-lbl">Код для оплаты</span>
+              <span class="share-val code" id="code">—</span>
+              <button class="btn btn-ghost" type="button" id="copyCode">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>Скопировать код
+              </button>
+            </div>
           </div>
           <div class="tip">
-            <b>Давайте людям и ссылку, и код.</b> Код — ваша страховка: он засчитает
-            даже тех, кого ссылка упустила (открыл в другом браузере или купил
-            с другого устройства). Ссылка ловит сама, код — наверняка.
+            <b>Давайте людям и ссылку, и код.</b> Код засчитает даже тех, кого
+            ссылка упустила: открыл в другом браузере или купил с другого
+            устройства. Ссылка ловит сама, код — наверняка.
           </div>
-          <p style="margin:16px 0 8px; font-size:14px; color:var(--text); font-weight:600">Готовое сообщение</p>
+          <div class="msg-head"><b>Готовое сообщение</b></div>
           <div class="msgbox" id="msg">—</div>
-          <button class="button" type="button" id="copyMsg" style="margin-top:12px">Скопировать сообщение</button>
-        </article>
+          <div class="msg-actions">
+            <button class="btn btn-primary" type="button" id="copyMsg">Скопировать сообщение</button>
+            <button class="btn btn-ghost" type="button" id="shareMsg" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13"/><path d="M7 8l5-5 5 5"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>Поделиться
+            </button>
+            <a class="btn btn-ghost" id="tgShare" href="https://t.me/share/url" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>Отправить в Telegram
+            </a>
+          </div>
+        </section>
 
-        <article class="card" id="funnelCard" hidden>
-          <h2>Путь человека по вашей ссылке</h2>
-          <p class="conv"><b id="convPct">—</b><span id="convText"></span></p>
-          <div class="funnel" id="funnel"></div>
-          <p style="margin-top:16px; color:var(--muted); font-size:14px">
-            Переходы считаются по ссылке, оплаты — по подтверждённым платежам.
-            Один человек может перейти дважды — точное число покупателей ниже.
-          </p>
-        </article>
+        <div class="me-grid">
+          <section class="panel" id="funnelCard" hidden>
+            <h2 class="panel-title">Путь по вашей ссылке</h2>
+            <p class="conv"><b id="convPct">—</b><span id="convText"></span></p>
+            <div class="funnel" id="funnel"></div>
+            <p class="fine">
+              Переходы считаются по ссылке, оплаты — по подтверждённым платежам.
+              Один человек может перейти дважды.
+            </p>
+          </section>
 
-        <article class="card" id="plansCard" hidden>
-          <h2>Что покупают</h2>
-          <table class="rows">
-            <thead>
-              <tr>
-                <th>Тариф</th>
-                <th class="num">Первых покупок</th>
-                <th class="num">Продлений</th>
-                <th class="num">Ваша доля</th>
-              </tr>
-            </thead>
-            <tbody id="plansBody"></tbody>
-          </table>
-        </article>
+          <section class="panel" id="plansCard" hidden>
+            <h2 class="panel-title">Что покупают</h2>
+            <p class="panel-note">Доля начисляется и с первой покупки, и с каждого продления.</p>
+            <table class="t">
+              <thead>
+                <tr>
+                  <th>Тариф</th>
+                  <th class="num">Первых</th>
+                  <th class="num">Продлений</th>
+                  <th class="num">Ваша доля</th>
+                </tr>
+              </thead>
+              <tbody id="plansBody"></tbody>
+            </table>
+          </section>
+        </div>
 
-        <article class="card" id="dailyCard" hidden>
-          <h2>По дням</h2>
-          <table class="rows">
+        <section class="panel" id="dailyCard" hidden>
+          <h2 class="panel-title">По дням</h2>
+          <p class="panel-note" id="dailyNote">Переходы по ссылке за последние дни.</p>
+          <div id="dailyChart" hidden>
+            <div class="chart" id="chart"></div>
+            <div class="chart-axis"><span id="axisFrom"></span><span id="axisTo"></span></div>
+          </div>
+          <table class="t" id="dailyTable">
             <thead>
               <tr>
                 <th>День</th>
@@ -212,22 +337,14 @@
             </thead>
             <tbody id="dailyBody"></tbody>
           </table>
-          <p style="margin-top:14px; color:var(--muted); font-size:14px" id="dailyEmpty" hidden>
+          <button class="btn btn-ghost btn-small" type="button" id="dailyMore" style="margin-top:12px" hidden>Показать все дни</button>
+          <p class="panel-note" id="dailyEmpty" hidden>
             Переходов пока не было. Как только кто-то откроет вашу ссылку,
             строка появится здесь.
           </p>
-        </article>
+        </section>
 
-        <article class="card" id="exitCard" hidden>
-          <h2>Выход</h2>
-          <p style="color:var(--muted); font-size:14px; margin-top:0">
-            Ключ хранится только в этом браузере. Если открывали с чужого
-            устройства — выйдите.
-          </p>
-          <button class="button secondary" type="button" id="exitButton">Забыть ключ</button>
-        </article>
-
-      </section>
+      </div>
     </main>
 
     <footer class="footer">
@@ -247,6 +364,8 @@
       </div>
     </footer>
 
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
     <script>
       (function () {
         "use strict";
@@ -256,6 +375,9 @@
 
         var element = function (id) { return document.getElementById(id); };
         var show = function (node, visible) { node.hidden = !visible; };
+        var currentToken = "";
+        var dailyAll = false;
+        var lastData = null;
 
         function money(kopecks) {
           return Math.round((kopecks || 0) / 100).toLocaleString("ru-RU") + " ₽";
@@ -272,6 +394,15 @@
           var parts = String(iso || "").split("-");
           if (parts.length !== 3) { return iso; }
           return parseInt(parts[2], 10) + " " + MONTHS[parseInt(parts[1], 10) - 1];
+        }
+
+        var toastTimer = null;
+        function toast(text) {
+          var node = element("toast");
+          node.textContent = text;
+          node.classList.add("on");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(function () { node.classList.remove("on"); }, 1800);
         }
 
         /* Воронка рисуется от самого широкого шага, а не от ста процентов:
@@ -307,23 +438,43 @@
             : "переходов пока нет";
         }
 
+        /* Столбики переходов — чтобы всплеск после поста был виден сразу,
+           без чтения таблицы. Высота — от лучшего дня в окне. */
+        function drawChart(days) {
+          var top = Math.max.apply(null, days.map(function (row) { return row.click || 0; }).concat([1]));
+          element("chart").innerHTML = days.map(function (row) {
+            var value = row.click || 0;
+            var height = value ? Math.max(4, Math.round(value / top * 100)) : 3;
+            return '<div class="col' + (value ? "" : " zero") + '" title="' + humanDay(row.day) + ": " + value + '">' +
+              '<i style="height:' + height + '%"></i></div>';
+          }).join("");
+          element("axisFrom").textContent = days.length ? humanDay(days[0].day) : "";
+          element("axisTo").textContent = days.length ? humanDay(days[days.length - 1].day) : "";
+        }
+
         function render(data) {
+          lastData = data;
           element("title").textContent = data.partner || "Ваша статистика";
           element("subtitle").textContent = data.active
-            ? "Код " + data.code + ", ваша доля " + data.sharePercent + "% с каждой оплаты, включая продления."
+            ? "Код " + data.code + " · ваша доля " + data.sharePercent + "% с каждой оплаты, включая продления."
             : "Код " + data.code + " сейчас выключен. Напишите нам, если это неожиданно.";
-          element("updated").textContent = "Обновлено только что";
-          show(element("updated"), true);
+          var now = new Date();
+          element("updated").textContent = "Обновлено в " +
+            String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+          show(element("tools"), true);
 
           show(element("askCard"), false);
-          ["summaryCard", "linkCard", "funnelCard", "plansCard", "dailyCard", "exitCard"]
+          ["summaryCard", "linkCard", "funnelCard", "plansCard", "dailyCard"]
             .forEach(function (id) { show(element(id), true); });
 
+          var message = "Пользуюсь Synapse — умным планировщиком с ИИ-ассистентом. Попробуй бесплатно:\n" +
+            data.link + "\nА когда захочешь оформить — вводи код " + data.code + ".";
           element("link").textContent = data.link;
           element("code").textContent = data.code;
-          element("msg").textContent =
-            "Пользуюсь Synapse — умным планировщиком с ИИ-ассистентом. Попробуй бесплатно:\n" +
-            data.link + "\nА когда захочешь оформить — вводи код " + data.code + ".";
+          element("msg").textContent = message;
+          element("tgShare").href = "https://t.me/share/url?url=" + encodeURIComponent(data.link) +
+            "&text=" + encodeURIComponent(message.replace(data.link + "\n", ""));
+          show(element("shareMsg"), !!navigator.share);
 
           element("sBig").textContent = money(data.availableKopecks);
           element("sEarned").textContent = money(data.shareKopecks);
@@ -352,17 +503,27 @@
               }).join("")
             : '<tr><td colspan="4" style="color:var(--muted)">Оплат пока не было.</td></tr>';
 
-          var daily = (data.daily || []).slice().reverse();
-          element("dailyBody").innerHTML = daily.map(function (row) {
+          var days = data.daily || [];
+          drawChart(days);
+          show(element("dailyChart"), days.length > 1);
+          var daily = days.slice().reverse();
+          // В таблице — последняя неделя; остальное по кнопке, график и так
+          // показывает весь месяц, а тридцать строк подряд никто не читает.
+          var shortList = !dailyAll && daily.length > 7;
+          show(element("dailyMore"), shortList);
+          element("dailyBody").innerHTML = (shortList ? daily.slice(0, 7) : daily).map(function (row) {
             return '<tr><td class="day"><b>' + humanDay(row.day) + "</b></td>" +
               '<td class="num">' + (row.click || 0) + "</td>" +
               '<td class="num">' + (row.checkout || 0) + "</td>" +
               '<td class="num">' + (row.started || 0) + "</td></tr>";
           }).join("");
+          show(element("dailyTable"), daily.length > 0);
+          show(element("dailyNote"), daily.length > 0);
           show(element("dailyEmpty"), daily.length === 0);
         }
 
         function load(token, button) {
+          var label = button ? button.innerHTML : "";
           if (button) { button.disabled = true; button.textContent = "Смотрим…"; }
           show(element("askError"), false);
 
@@ -377,9 +538,10 @@
           }).catch(function () {
             return { status: 0, body: {} };
           }).then(function (result) {
-            if (button) { button.disabled = false; button.textContent = "Показать статистику"; }
+            if (button) { button.disabled = false; button.innerHTML = label; }
 
             if (result.status === 200) {
+              currentToken = token;
               try { localStorage.setItem(STORE_KEY, token); } catch (error) {}
               render(result.body);
               return;
@@ -390,8 +552,14 @@
               : result.status === 429
                 ? "Слишком много попыток подряд. Подождите минуту."
                 : (result.body && result.body.error) || "Что-то пошло не так.";
-            element("askError").textContent = message;
-            show(element("askError"), true);
+            // Обновление уже открытого кабинета: ошибку — всплывашкой, а не
+            // возвратом к форме входа, цифры на экране остаются.
+            if (!element("askCard").hidden) {
+              element("askError").textContent = message;
+              show(element("askError"), true);
+            } else {
+              toast(message);
+            }
             if (result.status === 404) { try { localStorage.removeItem(STORE_KEY); } catch (error) {} }
           });
         }
@@ -407,10 +575,11 @@
           load(token, element("enterButton"));
         });
 
-        function copyValue(value, button, okText, normalText) {
+        function copyValue(value, button, okText) {
           var done = function () {
-            button.textContent = okText;
-            setTimeout(function () { button.textContent = normalText; }, 2000);
+            toast(okText);
+            button.classList.add("is-done");
+            setTimeout(function () { button.classList.remove("is-done"); }, 1600);
           };
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(value).then(done, function () {});
@@ -425,13 +594,23 @@
         }
 
         element("copyButton").addEventListener("click", function () {
-          copyValue(element("link").textContent, this, "Готово", "Ссылку");
+          copyValue(element("link").textContent, this, "Ссылка скопирована");
         });
         element("copyCode").addEventListener("click", function () {
-          copyValue(element("code").textContent, this, "Готово", "Код");
+          copyValue(element("code").textContent, this, "Код скопирован");
         });
         element("copyMsg").addEventListener("click", function () {
-          copyValue(element("msg").textContent, this, "Скопировано", "Скопировать сообщение");
+          copyValue(element("msg").textContent, this, "Сообщение скопировано");
+        });
+        element("shareMsg").addEventListener("click", function () {
+          navigator.share({ text: element("msg").textContent }).catch(function () {});
+        });
+        element("dailyMore").addEventListener("click", function () {
+          dailyAll = true;
+          if (lastData) { render(lastData); }
+        });
+        element("refreshButton").addEventListener("click", function () {
+          if (currentToken) { load(currentToken, this); }
         });
 
         element("exitButton").addEventListener("click", function () {
