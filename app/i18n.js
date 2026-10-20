@@ -701,8 +701,10 @@
     'Syn думает…': 'Syn is thinking…',
     'Syn на сегодня закончился': 'Syn is out for today',
     'Скажи словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель», «включи дождь на 15 минут».': 'Just say it: "move the call to Friday", "sort out my day", "turn this into a goal", "play rain for 15 minutes".',
-    'Скажи словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель», «включи дождь на 15 минут». Или продиктуй голосом — Syn выполнит сказанное.': 'Just say it: "move the call to Friday", "sort out my day", "turn this into a goal", "play rain for 15 minutes". Or dictate it out loud — Syn will do what you asked.',
-    'Или продиктуй голосом — Syn выполнит сказанное.': 'Or dictate it out loud — Syn will do what you asked.',
+    'Скажи словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель», «включи дождь на 15 минут». Или зажми микрофон, скажи и отпусти — Syn выполнит сказанное.': 'Just say it: "move the call to Friday", "sort out my day", "turn this into a goal", "play rain for 15 minutes". Or hold the mic, speak and let go — Syn will do what you asked.',
+    'Или зажми микрофон, скажи и отпусти — Syn выполнит сказанное.': 'Or hold the mic, speak and let go — Syn will do what you asked.',
+    'Удерживайте микрофон, пока говорите, — отпустите, чтобы отправить': 'Hold the mic while you speak — let go to send',
+    'Сообщение для Syn': 'Message to Syn',
     'Распознавание не сработало.': 'Speech recognition did not work.',
     'Браузер не дал доступ к микрофону.': 'The browser did not grant access to the microphone.',
     'Ничего не услышал.': 'I did not hear anything.',
@@ -1026,13 +1028,81 @@
 
     // — корзина: срок хранения —
     'Удалённые задачи, цели, списки и заметки лежат здесь 30 дней, и всё это время их можно вернуть.': 'Deleted tasks, goals, lists and notes stay here for 30 days, and you can bring them back the whole time.',
-    'Хранится 30 дней, потом уходит само': 'Kept for 30 days, then it goes by itself'
+    'Хранится 30 дней, потом уходит само': 'Kept for 30 days, then it goes by itself',
+
+    // — окна-вопросы перед необратимым (данные, корзина, подписка) —
+    'Заменить всё примерами?': 'Replace everything with examples?',
+    'Задачи, цели, списки, заметки и финансы в этом браузере заменятся примерами. Копия прежних данных останется на этом устройстве.': 'Tasks, goals, lists, notes and finances in this browser will be replaced with examples. A copy of the previous data stays on this device.',
+    'Заменить примерами': 'Replace with examples',
+    'Стереть всё в этом браузере?': 'Erase everything in this browser?',
+    'Задачи, цели, списки, заметки и финансы в этом браузере удалятся. Копия прежних данных останется на этом устройстве, подписка останется на месте.': 'Tasks, goals, lists, notes and finances in this browser will be deleted. A copy of the previous data stays on this device, and your subscription stays in place.',
+    'Стереть всё': 'Erase everything',
+    'Синхронизация ничего не сотрёт на других устройствах: при следующей сверке их данные вернутся и сюда.': 'Sync will not erase anything on your other devices: on the next sync their data will come back here too.',
+    'Запись сотрётся без возможности вернуть:': 'This item will be erased for good:',
+    'Отвязать код?': 'Unlink the code?',
+    'Pro в этом браузере выключится. Чтобы вернуть его, понадобится ввести код заново — сохраните его, если ещё не сохранили.': 'Pro will turn off in this browser. To bring it back you will need to enter the code again — save it if you have not yet.',
+
+    // — куски фраз вокруг названий, данных человеком (те стоят в translate="no") —
+    'Относится к цели «': 'Belongs to the goal "',
+    '», просто без этапа.': '", just without a stage.',
+    '»': '"',
+
+    // — уведомления на телефоне —
+    'Загляните в план на сегодня: с чего начнём?': 'Take a look at today\'s plan: where do we start?',
+    'Как прошёл день? Отметьте сделанное и наметьте завтра.': 'How did the day go? Tick off what is done and plan tomorrow.'
   };
 
 
   /* Фразы с числами внутри. Множественное число в английском проще русского:
      хватает «s» после единицы, поэтому правил немного. */
+  /* Название блока внутри кавычек («Сегодня») переводим, если оно в словаре;
+     что-то иное (название, данное человеком) — оставляем как есть. */
+  function known(word) { return EN[word] || word; }
+  // «запись» в корзине — не заметка, а любая удалённая вещь.
+  function items(n) { return n + (n === '1' ? ' item' : ' items'); }
+
   var PATTERNS = [
+    // — сообщения внизу экрана (тосты), собранные в app.js сложением —
+    [/^Задача в блоке «(.+)»$/, function (m) { return 'Task added to "' + known(m[1]) + '"'; }],
+    [/^Перенесено в «(.+)»$/, function (m) { return 'Moved to "' + known(m[1]) + '"'; }],
+    [/^Из корзины убрано: (\d+)$/, function (m) { return 'Cleared from trash: ' + m[1]; }],
+    [/^Перенесено на сегодня: (\d+)(?: · в архив: (\d+))?$/, function (m) {
+      return 'Moved to today: ' + m[1] + (m[2] ? ' · archived: ' + m[2] : '');
+    }],
+    [/^в архив: (\d+)$/, function (m) { return 'Archived: ' + m[1]; }],
+    [/^Корзина пуста: стёрто (\d+)$/, function (m) { return 'Trash emptied: ' + items(m[1]) + ' erased'; }],
+    [/^Вернули (\d+) (?:запись|записи|записей)$/, function (m) { return 'Restored ' + items(m[1]); }],
+    // Название вернувшейся вещи — текст человека, его не трогаем.
+    [/^Вернули «([\s\S]+)»$/, function (m) { return 'Restored "' + m[1] + '"'; }],
+    [/^Открывается: (.+?)( \(последний экран выключен\))?$/, function (m) {
+      return 'Opens with: ' + known(m[1]) + (m[2] ? ' (last screen turned off)' : '');
+    }],
+    [/^Суммы теперь с «(.+)»$/, function (m) { return 'Amounts now shown with "' + m[1] + '"'; }],
+    [/^Длина фокуса — (\d+) мин$/, function (m) { return 'Focus length — ' + m[1] + ' min'; }],
+    [/^(\d+) (?:запись|записи|записей) будет стёрто без возможности вернуть\.$/, function (m) {
+      return items(m[1]) + ' will be erased for good.';
+    }],
+    [/^(.+)\. Копию сохранить не удалось: нет места$/, function (m) {
+      return known(m[1]) + '. Could not keep a copy: not enough space';
+    }],
+    [/^Задачи этапа никуда не денутся: (\d+) (?:задача|задачи|задач) останутся у цели «$/, function (m) {
+      return 'The stage\'s tasks stay: ' + m[1] + (m[1] === '1' ? ' task' : ' tasks') + ' will remain with the goal "';
+    }],
+
+    // — уведомления на телефоне (собратьНапоминания в app.js) —
+    // Название цели внутри — текст человека, переносим как есть.
+    [/^(?:Цель: ([\s\S]+) · )?(?:через (\d+) мин, в |на )(\d{1,2}:\d{2})$/, function (m) {
+      return (m[1] ? 'Goal: ' + m[1] + ' · ' : '') + (m[2] ? 'in ' + m[2] + ' min, at ' : 'at ') + m[3];
+    }],
+    [/^([\s\S]+) — пройдено (\d+)%$/, function (m) { return m[1] + ' — ' + m[2] + '% done'; }],
+    [/^На сегодня (\d+) (?:задача|задачи|задач)(?:, и (\d+) ждут с прошлых дней)?\. С чего начнём\?$/, function (m) {
+      return (m[1] === '1' ? '1 task' : m[1] + ' tasks') + ' for today' +
+        (m[2] ? ', and ' + m[2] + ' waiting from earlier days' : '') + '. Where do we start?';
+    }],
+    [/^Закрыто (\d+) из (\d+)(?:\. Осталось (\d+) — перенести на завтра\?|(\. Всё сделано\.))$/, function (m) {
+      return 'Done ' + m[1] + ' of ' + m[2] + (m[3] ? '. ' + m[3] + ' left — move to tomorrow?' : '. All done.');
+    }],
+
     [/^Пройдено (\d+) из (\d+)$/, function (m) { return m[1] + ' of ' + m[2] + ' done'; }],
     [/^(\d+) из (\d+)$/, function (m) { return m[1] + ' of ' + m[2]; }],
     [/^просрочено на (\d+) (?:день|дня|дней)$/, function (m) {
@@ -1069,6 +1139,22 @@
       }]
   ];
 
+  /* Английская форма по числу: 1 — единственное, остальное — множественное.
+     Трогаем только простое слово из строчных букв (task, goal, stage):
+     сокращения вроде «min» и фразы оставляем как в словаре. */
+  var NO_PLURAL = { min: 1, sec: 1, h: 1, km: 1, kg: 1, empty: 1 };
+  function byNumber(n, word) {
+    if (!/^[a-z]+$/.test(word) || NO_PLURAL[word]) return word;
+    if (n === '1') {
+      // «1 задачи» не бывает, но словарь мог дать множественное — не ломаем.
+      return word;
+    }
+    if (/s$/.test(word)) return word;
+    if (/[^aeiou]y$/.test(word)) return word.slice(0, -1) + 'ies';
+    if (/(x|ch|sh)$/.test(word)) return word + 'es';
+    return word + 's';
+  }
+
   /* Переводим фразу ЦЕЛИКОМ или не трогаем вовсе.
 
      Подстановка по кускам (искать в тексте любые знакомые слова) выглядит
@@ -1084,8 +1170,10 @@
     if (EN[core]) return lead + EN[core] + tail;
 
     // «3 задачи» → «3 tasks»: число впереди, знакомое слово следом.
+    // Число по-английски решает само: «21 задача» в русском — единственное,
+    // а по-английски «21 tasks». Поэтому форму берём по числу, а не по слову.
     var counted = /^(\d+)\s+(\S+)$/.exec(core);
-    if (counted && EN[counted[2]]) return lead + counted[1] + ' ' + EN[counted[2]] + tail;
+    if (counted && EN[counted[2]]) return lead + counted[1] + ' ' + byNumber(counted[1], EN[counted[2]]) + tail;
 
     // Фразы, где число внутри: их не занести в словарь целиком.
     for (var i = 0; i < PATTERNS.length; i++) {
@@ -1097,14 +1185,55 @@
   }
 
   /* Перевод собранной разметки. Тронуты только видимый текст и читаемые
-     атрибуты — ни имена классов, ни data-атрибуты, ни обработчики. */
+     атрибуты — ни имена классов, ни data-атрибуты, ни обработчики.
+
+     И не то, что написал человек. Перевод по словарю не отличал подпись
+     интерфейса от записи: заметка «Работа» показывалась как «Focus», цель
+     «Дом» — как «Home», и первая же буква в поле сохраняла уже переведённый
+     текст поверх настоящего. Поэтому не трогаем содержимое <textarea> — там
+     всегда текст человека — и всё внутри элемента с translate="no" (так
+     помечены названия задач, целей, списков и заметок), включая его
+     собственные атрибуты: так же это слово понимает и браузер.
+
+     Атрибут ищем только после пробела: иначе data-title="…" принимался за
+     title и переводился. */
+  var VOID_TAGS = /^(area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)$/;
+
+  function trAttrs(tag) {
+    return tag.replace(/(\s)(placeholder|title|aria-label|alt)="([^"]*)"/g, function (m, sp, attr, value) {
+      return sp + attr + '="' + phrase(value) + '"';
+    });
+  }
+
   function tr(html) {
     if (lang !== 'en' || typeof html !== 'string' || !html) return html;
     if (html.indexOf('<') === -1) return phrase(html);
-    html = html.replace(/(placeholder|title|aria-label|alt)="([^"]*)"/g, function (m, attr, value) {
-      return attr + '="' + phrase(value) + '"';
-    });
-    return html.replace(/>([^<]+)</g, function (m, text) { return '>' + phrase(text) + '<'; });
+    // Чётные куски — текст между тегами, нечётные — сами теги.
+    var parts = html.split(/(<[^>]*>)/);
+    var skipTag = '', skipDepth = 0;
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i];
+      if (i % 2 === 0) {
+        // Текст до первого тега и после последнего не трогали и раньше.
+        if (!skipDepth && part && i > 0 && i < parts.length - 1) parts[i] = phrase(part);
+        continue;
+      }
+      var m = /^<(\/?)([a-zA-Z][\w-]*)/.exec(part);
+      if (!m) continue;   // комментарий, <!doctype> и прочее
+      var name = m[2].toLowerCase();
+      var closing = m[1] === '/';
+      var single = VOID_TAGS.test(name) || /\/>$/.test(part);
+      if (skipDepth) {
+        // Внутри «не переводить» считаем только вложенные теги того же имени.
+        if (name === skipTag && !single) skipDepth += closing ? -1 : 1;
+        continue;
+      }
+      if (closing) continue;
+      var keep = /\stranslate="no"/.test(part);
+      if (!keep) parts[i] = trAttrs(part);
+      if ((keep || name === 'textarea') && !single) { skipTag = name; skipDepth = 1; }
+    }
+    return parts.join('');
   }
 
   /* Заголовок вкладки и описание страницы. Браузер читает их из разметки ещё

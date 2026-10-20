@@ -17,7 +17,7 @@
          живой фон медитации, убывающее время помодоро, карта целей
          во всю область и раскладка широкого окна с меню у левого края.
          Внутри андроид-обёртки не подключается (признак — AndroidVoice, как у
-         счётчика ниже). См. web/README.md. -->
+         счётчика ниже). См. web/README.md в репозитории. -->
     <script>
       if (!window.AndroidVoice) document.write(
         '<link rel="stylesheet" href="web/desk.css">' +
@@ -28,9 +28,13 @@
         '<link rel="stylesheet" href="web/layout.css">' +
         '<link rel="stylesheet" href="web/subscription.css">' +
         '<link rel="stylesheet" href="web/profile.css">' +
-        '<link rel="stylesheet" href="web/lists-notes.css">' +
-        '<link rel="stylesheet" href="web/theme.css">');
+        '<link rel="stylesheet" href="web/lists-notes.css">');
     </script>
+    <!-- Цветовая система — общая для веба и андроида: темы в приложении
+         должны выглядеть так же, как на сайте. Поэтому эти два файла
+         грузятся всегда, без проверки на обёртку. Стоит после остальных
+         стилей веба — как и стоял в вебе: её правила должны перекрывать их. -->
+    <link rel="stylesheet" href="web/theme.css">
     <!-- Оформление заметок — и в вебе, и в андроиде: тело заметки общее, и
          без разбора знаков андроид показывал бы звёздочки как есть. -->
     <link rel="stylesheet" href="web/notes-edit.css">
@@ -120,10 +124,12 @@
     <script src="sync-bridge.js"></script>
     <!-- До app.js, а не после: первая отрисовка должна уже знать про дашборд,
          иначе на широком экране на миг мелькают вкладки. -->
+    <!-- Цветовая система — общая для веба и андроида, грузится всегда и
+         раньше остальных частей веб-версии: им нужны уже готовые цвета. -->
+    <script src="web/theme.js"></script>
     <script>
       if (!window.AndroidVoice) document.write(
         '<script src="web/mobile-app.js"><\/script>' +
-        '<script src="web/theme.js"><\/script>' +
         '<script src="web/subscription.js"><\/script>' +
         '<script src="web/profile.js"><\/script>' +
         '<script src="web/lists-notes.js"><\/script>' +

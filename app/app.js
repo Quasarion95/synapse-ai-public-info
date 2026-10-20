@@ -85,6 +85,12 @@ function собратьНапоминания(){
   if (!н.on) return список;
 
   var сейчас = Date.now();
+  /* Тексты уведомлений — через тот же перевод, что и экран. Уведомление
+     показывает система, а не наша разметка, поэтому SynI18n.tr до него не
+     доходил, и в английском режиме напоминания приходили по-русски.
+     Названия задач (заголовок напоминания о задаче) не переводим — это текст
+     человека; цели внутри фраз шаблоны в i18n.js оставляют как есть. */
+  var по = function(x){ return (window.SynI18n && SynI18n.tr) ? SynI18n.tr(x) : x; };
 
   if (н.tasks){
     // Задачи со временем — о каждой в её час. Выполненные молчат.
@@ -104,8 +110,8 @@ function собратьНапоминания(){
          клинику») — уведомление занимало два ряда, чтобы сказать одно. */
       var цель = t.goalId ? findGoal(t.goalId) : null;
       список.push({ когда: когда, заголовок: t.title,
-        текст: (цель ? 'Цель: ' + цель.title + ' · ' : '') +
-          ((н.заранее ? 'через ' + н.заранее + ' мин, в ' : 'на ') + t.time) });
+        текст: по((цель ? 'Цель: ' + цель.title + ' · ' : '') +
+          ((н.заранее ? 'через ' + н.заранее + ' мин, в ' : 'на ') + t.time)) });
     });
   }
 
@@ -119,8 +125,8 @@ function собратьНапоминания(){
       д.setDate(д.getDate() - 1);
       var п = goalProgress(g);
       if (д.getTime() > сейчас){
-        список.push({ когда: д.getTime(), заголовок: 'Завтра срок цели',
-          текст: g.title + ' — пройдено ' + pct(п.done, п.total) + '%' });
+        список.push({ когда: д.getTime(), заголовок: по('Завтра срок цели'),
+          текст: по(g.title + ' — пройдено ' + pct(п.done, п.total) + '%') });
       }
     });
   }
@@ -155,12 +161,12 @@ function собратьНапоминания(){
        подряд, пока человек не откроет приложение. Цифры знает только
        страница, поэтому в повторах — слова без цифр. */
     список.push({ когда: утро, ежедневно: true,
-      заголовок: 'План на день',
-      текст: наУтро.length
+      заголовок: по('План на день'),
+      текст: по(наУтро.length
         ? 'На сегодня ' + taskCount(наУтро.length) +
           (хвост ? ', и ' + хвост + ' ждут с прошлых дней' : '') + '. С чего начнём?'
-        : 'На сегодня пока пусто. Что важно успеть?',
-      потом: 'Загляните в план на сегодня: с чего начнём?' });
+        : 'На сегодня пока пусто. Что важно успеть?'),
+      потом: по('Загляните в план на сегодня: с чего начнём?') });
 
     /* Итог дня честен только про сегодняшний вечер: про завтрашний мы не
        знаем, сколько будет закрыто. */
@@ -168,14 +174,14 @@ function собратьНапоминания(){
     var осталось = наВечер.filter(function(t){ return !t.done; }).length;
     var итогСегодня = isoOf(new Date(вечер)) === сегодняISO;
     список.push({ когда: вечер, ежедневно: true,
-      заголовок: 'Как прошёл день',
-      текст: !итогСегодня
+      заголовок: по('Как прошёл день'),
+      текст: по(!итогСегодня
         ? 'Как прошёл день? Отметьте сделанное и наметьте завтра.'
         : наВечер.length
           ? 'Закрыто ' + (наВечер.length - осталось) + ' из ' + наВечер.length +
             (осталось ? '. Осталось ' + осталось + ' — перенести на завтра?' : '. Всё сделано.')
-          : 'Задач на сегодня не было. Наметить что-то на завтра?',
-      потом: 'Как прошёл день? Отметьте сделанное и наметьте завтра.' });
+          : 'Задач на сегодня не было. Наметить что-то на завтра?'),
+      потом: по('Как прошёл день? Отметьте сделанное и наметьте завтра.') });
   }
 
   // По времени: номера в мосте раздаются по порядку, и ближайшее должно
@@ -750,6 +756,7 @@ function rolloverIfNeeded(){
   if (данныеОтложены){ pendingToast = данныеОтложены; данныеОтложены = ''; }
   var today = isoOf(todayDate());
   if (S.lastOpened === today) return;
+  if (S.pomodoro) S.pomodoro.doneToday = 0;   // «сессий сегодня» — значит, с утра заново
 
   var moved = 0, archived = 0;
   for (var i = 0; i < S.tasks.length; i++){
@@ -833,7 +840,9 @@ if (typeof document !== 'undefined'){
     if (S.lastOpened === isoOf(todayDate())) return;
     if (синхроЖдёт()) return;   // перекатит приём синхронизации, см. перекатПосле
     rolloverIfNeeded();
-    render();
+    // Перекат двигает даты задач — будильники должны узнать об этом сразу.
+    пересобратьНапоминания();
+    renderKeepingInput();
   });
 }
 
@@ -992,6 +1001,15 @@ function freeLeft(kind){
 
 function canAdd(kind){ return freeLeft(kind) !== 0; }
 
+/* Возврат из корзины — тоже «добавить»: без проверки третья цель или
+   заметка возвращалась в обход лимита — удалил, создал новую, вернул старую.
+   Отдаёт вид лимита, в который запись не влезает, или пустую строку. */
+var КОРЗИНА_ЛИМИТ = { goal: 'goals', list: 'lists', note: 'notes' };
+function trashНеВлезает(item){
+  var kind = item && КОРЗИНА_ЛИМИТ[item.kind];
+  return kind && !canAdd(kind) ? kind : '';
+}
+
 /* Что из оформления открыто без подписки.
 
    Раньше здесь было пусто: темы, значки, звуки и режимы таймера отдавались
@@ -1006,7 +1024,7 @@ var FREE_LOOKS = {
   palettes: 2,   // «Бумага» и «Графит»
   boxes: 1,      // квадрат
   sounds: 1,     // дождь
-  pomoModes: 1   // самый короткий режим; остальные — в подписке
+  pomoModes: 1   // «Фокус»; перерывы — в подписке
 };
 
 /// Открыт ли элемент под номером index в наборе kind.
@@ -1355,12 +1373,25 @@ function parseSchedule(text, fallbackBucket){
   var today = todayDate();
   var date = null, time = null;
 
+  /* Кусок запоминается позицией, а не текстом.
+
+     Раньше в cuts лежала сама строка, и название потом резалось по первому её
+     вхождению — а оно не обязано быть тем, что распознали. «Сделать завтрак
+     завтра» превращалось в «Сделать к завтра»: «завтра» нашлось внутри
+     «завтрака». «Встреча вс» теряла «вс» из «встречи» и становилась «Треча
+     вс». Теперь режется ровно то место, где было совпадение.
+
+     И это место тут же забивается пробелами в work. Иначе следующие проверки
+     видят уже разобранное ещё раз: дата «16.10» читалась заодно и как время
+     16:10, а настоящее «в 9:00» оставалось в названии. */
   var take = function(regex){
-    var m = work.match(regex);
+    var m = regex.exec(work);
     if (!m) return null;
     // Первая группа — символ перед словом, его вырезать нельзя.
     var lead = m[1] || '';
-    cuts.push(m[0].slice(lead.length));
+    var at = m.index + lead.length, len = m[0].length - lead.length;
+    cuts.push({ at: at, len: len });
+    work = work.slice(0, at) + new Array(len + 1).join(' ') + work.slice(at + len);
     return m;
   };
   /* То же, но кусок ещё и стирается из рабочей строки. Нужно повтору, сроку и
@@ -1431,11 +1462,26 @@ function parseSchedule(text, fallbackBucket){
   }
 
   if (!date){
-    var numericProbe = work.match(new RegExp(WORD_START + '(\\d{1,2})[.\\/](\\d{1,2})(?:[.\\/](\\d{2,4}))?' + WORD_END));
-    // «в 9.30» — это половина десятого, а не тридцатый месяц.
-    var numeric = (numericProbe && Number(numericProbe[3]) >= 1 && Number(numericProbe[3]) <= 12 && Number(numericProbe[2]) <= 31)
-      ? take(new RegExp(WORD_START + '(\\d{1,2})[.\\/](\\d{1,2})(?:[.\\/](\\d{2,4}))?' + WORD_END))
-      : null;
+    /* «в 9.30» — это половина десятого, а не тридцатый месяц. И «в 9.05» —
+       пять минут десятого, а не девятое мая: месяц тут правдоподобный, и
+       раньше встреча молча уезжала на полгода. Число с точкой после «в»
+       читается как время; дату так не говорят — говорят «9.05» или «на 9.05».
+
+       Перебираются все такие числа, а не только первое: в «в 9.30 врач 16.10»
+       первое — время, а дата идёт вторым. */
+    var numericRe = new RegExp(WORD_START + '(\\d{1,2})[.\\/](\\d{1,2})(?:[.\\/](\\d{2,4}))?' + WORD_END, 'g');
+    var numeric = null, numericProbe;
+    while ((numericProbe = numericRe.exec(work))){
+      var probeAt = numericProbe.index + (numericProbe[1] || '').length;
+      var похожеНаВремя = /(^|[^а-яa-z0-9])в\s*$/.test(work.slice(0, probeAt));
+      if (!похожеНаВремя && Number(numericProbe[3]) >= 1 && Number(numericProbe[3]) <= 12 &&
+          Number(numericProbe[2]) >= 1 && Number(numericProbe[2]) <= 31){
+        numericRe.lastIndex = numericProbe.index;
+        numeric = take(numericRe);
+        break;
+      }
+      if (numericRe.lastIndex === numericProbe.index) numericRe.lastIndex += 1;
+    }
     if (numeric){
       var year = numeric[4] ? Number(numeric[4]) : today.getFullYear();
       if (year < 100) year += 2000;
@@ -1479,23 +1525,33 @@ function parseSchedule(text, fallbackBucket){
     // название «Позвонить дня».
     var withPeriod = take(new RegExp(WORD_START + '(?:(?:в|к)\\s*([01]?\\d|2[0-3])(?:\\s+час(?:а|ов)?)?\\s+(утра|дня|вечера|ночи)|на\\s*([01]?\\d|2[0-3])(?:\\s+час(?:а|ов)?)?\\s+(утра|вечера|ночи))' + WORD_END));
     if (withPeriod){
-      time = clock(adjustHour(Number(withPeriod[2]), withPeriod[3]), 0);
+      time = clock(adjustHour(Number(withPeriod[2] || withPeriod[4]), withPeriod[3] || withPeriod[5]), 0);
     } else {
       var named2 = take(wordRegex('(?:в|к|на)\\s+(полдень|полночь|обед(?:а)?)'));
       if (named2){
         var keyword = named2[2];
         time = keyword === 'полдень' ? '12:00' : keyword === 'полночь' ? '00:00' : '13:00';
       } else {
-        var wordHour = take(new RegExp(WORD_START + '(?:в|к|на)\\s+(час|часа|часов|одиннадцать|двенадцать|один|одну|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять)(?:\\s+(утра|дня|вечера|ночи))?' + WORD_END));
+        // «В час» — час дня только сам по себе или с «дня/ночи»: «в час пик»
+        // — это не 01:00.
+        var СЛОВА_ЧАСА = 'час(?!\\s+[а-яa-z0-9])|часа|часов|одиннадцать|двенадцать|один|одну|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять';
+        var wordHour = take(new RegExp(WORD_START + '(?:(?:в|к)\\s+(' + СЛОВА_ЧАСА.replace('(?!\\s+[а-яa-z0-9])', '') + ')(?:\\s+час(?:а|ов)?)?\\s+(утра|дня|вечера|ночи)|на\\s+(' + СЛОВА_ЧАСА.replace('(?!\\s+[а-яa-z0-9])', '') + ')(?:\\s+час(?:а|ов)?)?\\s+(утра|вечера|ночи))' + WORD_END))
+          || take(new RegExp(WORD_START + '(?:в|к)\\s+(' + СЛОВА_ЧАСА + ')(?:\\s+час(?:а|ов)?)?' + WORD_END + '(?!\\s+раз)'));
         if (wordHour){
-          time = clock(adjustHour(HOUR_WORDS[wordHour[2]], wordHour[3]), 0);
+          time = clock(adjustHour(HOUR_WORDS[wordHour[2] || wordHour[4]], wordHour[3] || wordHour[5]), 0);
         } else {
-          var hourOnly = take(new RegExp(WORD_START + '(?:в|к|на)\\s*([01]?\\d|2[0-3])' + WORD_END));
+          var hourOnly = take(new RegExp(WORD_START + '(?:в|к)\\s*([01]?\\d|2[0-3])(?:\\s+час(?:а|ов)?)?' + WORD_END + '(?!\\s+раз)'));
           if (hourOnly) time = clock(Number(hourOnly[2]), 0);
         }
       }
     }
   }
+
+  // Назвал ли человек день сам — запоминается до того, как день подставят из
+  // блока. Раньше hasDate считался в самом конце, и «встретить в 8» без всякого
+  // дня выходило «с явной датой»: карточка показывала выведенное нами число как
+  // обещание человека.
+  var названаДата = !!date;
 
   /* --- блок словами, если даты так и нет --- */
   var bucket = null;
@@ -1506,15 +1562,11 @@ function parseSchedule(text, fallbackBucket){
 
   /* --- название --- */
   // Режем ровно те куски, что распознали, из исходной строки — с учётом
-  // регистра и «ё». Куски искали в нормализованном тексте, поэтому ищем по
-  // нормализованной копии и вырезаем по найденным позициям.
-  var lowered = normalizeText(original);
+  // регистра и «ё». Позиции в нормализованном тексте совпадают с исходными:
+  // нормализация только меняет буквы, длину строки она не трогает.
   var keep = original.split('');
   for (var c = 0; c < cuts.length; c++){
-    var at = lowered.indexOf(cuts[c]);
-    if (at < 0) continue;
-    for (var k = at; k < at + cuts[c].length; k++) keep[k] = ' ';
-    lowered = lowered.slice(0, at) + new Array(cuts[c].length + 1).join(' ') + lowered.slice(at + cuts[c].length);
+    for (var k = cuts[c].at; k < cuts[c].at + cuts[c].len; k++) keep[k] = ' ';
   }
   var title = keep.join('').replace(/\s+/g, ' ').trim();
 
@@ -1543,7 +1595,7 @@ function parseSchedule(text, fallbackBucket){
   // 18:00» должно остаться на карточке, а чипа срока там нет.
   if (!time && deadlineTime && !windowFrom) time = deadlineTime;
 
-  if (!date && time){
+  if (!date && time && !bucket){
     // Время без дня ставит задачу на день блока по умолчанию.
     date = dateOf(dateForBucket(fallbackBucket || 'today')) || today;
   }
@@ -1556,9 +1608,15 @@ function parseSchedule(text, fallbackBucket){
   // Блоки «На неделе» и «Потом» не называют конкретный день, поэтому времени
   // там нет (TaskBucket.spansSeveralDays). Но названную вслух дату не теряем:
   // «оплатить 25.08» обязано помнить 25 августа.
-  if (spansSeveralDays(finalBucket)){
+  //
+  // И время при названной дате тоже не теряем. Раньше оно обнулялось по
+  // одному блоку, и «врач в понедельник в 9:00» или «созвон 20.10 в 15:00»
+  // приходили без часа — напоминание не срабатывало. День здесь конкретный,
+  // значит и время у него есть; напоминания считают по date и time, им блок
+  // не важен.
+  if (spansSeveralDays(finalBucket) && !названаДата){
     time = null;
-    if (!date) iso = null;
+    iso = null;
   }
 
   // Окно и срок живут в тот день, на который встала задача.
@@ -1567,7 +1625,7 @@ function parseSchedule(text, fallbackBucket){
     deadline = { date: deadlineDay || dayOfTask, time: deadlineTime, hard: true };
   }
 
-  return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: !!date, hasTime: !!time,
+  return { title: title, date: iso, time: time, bucket: finalBucket, hasDate: названаДата, hasTime: !!time,
     repeat: repeat, rule: rule, deadline: deadline, note: noteText,
     windowFrom: windowFrom ? { date: dayOfTask, time: windowFrom } : null,
     windowTo: windowTo ? { date: dayOfTask, time: windowTo } : null };
@@ -1810,30 +1868,49 @@ function advancedDate(date, rule){
   }
 
   if (rule.unit === 'week'){
+    /* Несколько дней в неделе — сначала оставшиеся дни этой же недели, и
+       только когда они кончились, прыжок через интервал к первому дню.
+
+       Раньше интервал при нескольких днях не участвовал вовсе: «каждые две
+       недели по вторникам и четвергам» шло каждую неделю. И «ближайший» брался
+       первым по порядку, а не ближайшим: со среды по правилу «пн и пт»
+       следующим выходил понедельник, а не пятница. Неделя считается с
+       понедельника, как в календаре у нас. */
     var days = (rule.weeklyWeekdays && rule.weeklyWeekdays.length) ? rule.weeklyWeekdays.slice() : [date.getDay()];
-    days.sort(function(a, b){ return a - b; });
-    // Несколько дней в неделе — берётся ближайший следующий.
+    var отПонедельника = function(day){ return (day + 6) % 7; };
+    days.sort(function(a, b){ return отПонедельника(a) - отПонедельника(b); });
+    var сейчас = отПонедельника(next.getDay());
     for (var d = 0; d < days.length; d++){
-      var delta = (days[d] - next.getDay() + 7) % 7;
-      if (delta > 0) return addDays(next, delta);
+      if (отПонедельника(days[d]) > сейчас) return addDays(next, отПонедельника(days[d]) - сейчас);
     }
-    return addDays(next, 7 * step - ((next.getDay() - days[0] + 7) % 7));
+    return addDays(next, 7 * step - сейчас + отПонедельника(days[0]));
   }
 
-  // Месяц. Число берётся из правила или из самой даты; в коротком месяце
-  // прижимается к последнему дню, а не уезжает в следующий.
-  var wanted = (rule.monthlyDays && rule.monthlyDays.length) ? rule.monthlyDays[0] : date.getDate();
+  /* Месяц. Число берётся из правила или из самой даты; в коротком месяце
+     прижимается к последнему дню, а не уезжает в следующий.
+
+     Чисел в правиле может быть несколько — «5 и 20 числа», — и раньше из них
+     бралось только первое: серия шла пятого и пропускала двадцатое. Теперь
+     сначала оставшиеся числа этого месяца, затем прыжок через интервал к
+     самому раннему. */
+  var wanted = (rule.monthlyDays && rule.monthlyDays.length) ? rule.monthlyDays.slice() : [date.getDate()];
+  wanted.sort(function(a, b){ return a - b; });
   var year = next.getFullYear(), month = next.getMonth();
-  var candidate = new Date(year, month, Math.min(wanted, daysInMonth(year, month)));
+  var candidate = null;
+  for (var w = 0; w < wanted.length && !candidate; w++){
+    var этот = new Date(year, month, Math.min(wanted[w], daysInMonth(year, month)));
+    if (этот > date) candidate = этот;
+  }
   var guard = 0;
-  while (candidate <= date && guard < 64){
+  while (!candidate && guard < 64){
     month += step;
     year += Math.floor(month / 12);
     month = ((month % 12) + 12) % 12;
-    candidate = new Date(year, month, Math.min(wanted, daysInMonth(year, month)));
+    candidate = new Date(year, month, Math.min(wanted[0], daysInMonth(year, month)));
+    if (candidate <= date) candidate = null;
     guard += 1;
   }
-  return candidate;
+  return candidate || addDays(date, 1);
 }
 
 function daysInMonth(year, month){
@@ -1874,7 +1951,16 @@ function nextOccurrence(fromISO, rule, minISO){
 
 /// Следующее повторение той же серии. Возвращает созданную задачу или null.
 function spawnNextOccurrence(task){
-  var base = task.date || isoOf(todayDate());
+  /* Серия считается от своего дня, а не от дня переноса.
+
+     Невыполненная задача наутро переезжает в «Сегодня», и её date становится
+     сегодняшним числом, а настоящий день повторения остаётся в carriedFrom.
+     Раньше следующее повторение считалось от date — и еженедельная задача на
+     понедельник, закрытая во вторник после переноса, дальше шла по вторникам.
+     Теперь шаг правила — от исходного дня, а «не раньше завтра» — от
+     сегодняшнего: дубль на уже прошедший день не нужен. */
+  var base = task.carriedFrom || task.date || isoOf(todayDate());
+  var сегодняЗадачи = task.date || base;
 
   /* Число месяца запоминается на первом повторении и едет с серией дальше.
 
@@ -1903,8 +1989,21 @@ function spawnNextOccurrence(task){
     }
   }
 
-  var next = nextOccurrence(base, правило, isoOf(addDays(dateOf(base) || todayDate(), 1)));
+  var next = nextOccurrence(base, правило, isoOf(addDays(dateOf(сегодняЗадачи > base ? сегодняЗадачи : base) || todayDate(), 1)));
   if (!next) return null;
+
+  /* Срок едет вместе с повторением, на тот же сдвиг в днях.
+
+     Раньше копия получала прошлый срок без изменений, и каждое следующее
+     повторение рождалось уже просроченным — красным с первого дня. */
+  var срок = null;
+  if (task.deadline && task.deadline.date){
+    срок = {};
+    for (var поле in task.deadline) if (task.deadline.hasOwnProperty(поле)) срок[поле] = task.deadline[поле];
+    срок.date = isoOf(addDays(dateOf(task.deadline.date), dayDiff(base, next)));
+  } else if (task.deadline){
+    срок = task.deadline;
+  }
 
   var series = task.series || task.id;
   // Дубль той же серии на тот же день не создаём — hasRecurringOccurrence.
@@ -1916,7 +2015,7 @@ function spawnNextOccurrence(task){
   var copy = {
     id: uid(), title: task.title, bucket: derivedBucket(next), date: next, done: false,
     note: task.note, time: task.time, repeat: task.repeat, rule: task.rule || null, series: series,
-    deadline: task.deadline || null, windowFrom: task.windowFrom || null, windowTo: task.windowTo || null,
+    deadline: срок, windowFrom: task.windowFrom || null, windowTo: task.windowTo || null,
     hasExplicitDate: task.hasExplicitDate, hasExplicitTime: task.hasExplicitTime,
     // Якорь едет с серией: иначе следующее повторение снова возьмёт число из
     // прижатой даты и серия опять сядет на 28-е.
@@ -2048,6 +2147,10 @@ var NAV_ICONS = {
   // «О сервисе», у которого тоже круг.
   support: navIcon('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M14.4 9.6l3.6-3.6M6 6l3.6 3.6M14.4 14.4l3.6 3.6M6 18l3.6-3.6"/>'),
   // Ещё — три точки.
+  // Кошелёк — финансы в нижней панели приложения.
+  wallet: navIcon('<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M16 13.5h1.5"/>'),
+  // Меню — три черты, как у выдвижной панели на айфоне.
+  menu: navIcon('<path d="M4.5 7h15M4.5 12h15M4.5 17h15"/>'),
   more: navIcon('<circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   // Закрыть «Ещё» — крест.
   close: navIcon('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'),
@@ -2073,6 +2176,10 @@ var NAV_ICONS = {
   // Отправить — стрелка вверх, как в строке создания.
   send: navIcon('<path d="M12 19.5V5"/><path d="M5.5 11.5L12 5l6.5 6.5"/>'),
   // Тема: солнце и месяц.
+  // Обновить — круговая стрелка (собрать брифинг заново).
+  refresh: navIcon('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/>'),
+  // Календарь — горизонт на две недели.
+  calendar: navIcon('<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>'),
   sun: navIcon('<circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.2M12 19v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.8 12h2.2M19 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>'),
   moon: navIcon('<path d="M20 13.5A8.2 8.2 0 0 1 10.5 4a8.2 8.2 0 1 0 9.5 9.5z"/>'),
   // Этап цели — ромб: шаг на пути, а не отметка.
@@ -2172,7 +2279,10 @@ var VIEWS = {
   subscription: { title: 'Моя подписка', render: vSubscription },
 };
 
-function go(view){
+/// Уборка при уходе с экрана. Общая для go() и для «назад»: системная
+/// кнопка ведёт мимо go(), и без этого дождь шумел дальше, а развёрнутая
+/// карта оставляла body без прокрутки.
+function уйтиСЭкрана(view){
   // Ушли со строки трат посреди записи — микрофон не должен слушать дальше.
   if (dict && dict.owner === 'fin' && view !== 'finance') dictCancel();
   // Прослушивание среды не должно продолжаться на другом экране: человек
@@ -2181,17 +2291,23 @@ function go(view){
     med.preview = false;
     medAudioStop();
   }
-  S.view = view;
-  // Последний экран запоминается всегда, а открывается только если это
-  // включили: хранить дешевле, чем спрашивать задним числом.
-  if (СТАРТОВЫЕ.some(function(в){ return в.id === view; })) S.lastView = view;
-  S.more = false;
   // Уход с аналитики закрывает развёрнутую карту: иначе она осталась бы
   // висеть поверх другого экрана.
   if (S.mm && S.mm.full){
     S.mm.full = false; S.mm.zoom = 1;
     document.body.classList.remove('mm-open');
   }
+}
+
+function go(view){
+  уйтиСЭкрана(view);
+  S.view = view;
+  // Последний экран запоминается всегда, а открывается только если это
+  // включили: хранить дешевле, чем спрашивать задним числом.
+  if (СТАРТОВЫЕ.some(function(в){ return в.id === view; })) S.lastView = view;
+  S.more = false;
+  // Регулярные операции — и при переходе между экранами: save() ниже их запишет.
+  finRunRecurring();
   save();
   rolloverIfNeeded();
   pushView(view);
@@ -2241,6 +2357,7 @@ window.addEventListener('popstate', function(event){
   var view = event.state && event.state.view;
   if (!view || !VIEWS[view]) return;
   // Не через go(): она сама пишет в историю, и мы бы зациклились.
+  уйтиСЭкрана(view);
   S.view = view;
   S.more = false;
   save();
@@ -2254,13 +2371,78 @@ window.addEventListener('popstate', function(event){
    не может требовать логин до первой задачи: человеку с лендинга обещано
    «без регистрации», а состояние входа всё равно лежит рядом с задачами.
    Вход есть, он живёт отдельным экраном и нужен для будущего аккаунта. */
+/* Фоновая перерисовка не стирает набранное.
+
+   render() пересобирает экран строкой, и поле, в котором человек печатает,
+   рождается заново — пустым или со старым значением из S, без фокуса.
+   Пока перерисовку вызывал сам человек, это было незаметно. Но экран
+   перерисовывают и без него: пришла синхронизация, закрылся помидор,
+   наступил новый день, догнались регулярные траты, сверилась подписка. И
+   подпункт, сумма траты или код связки, набранные наполовину, пропадали.
+
+   Поэтому фоновые пути зовут renderKeepingInput() (или commit внутри
+   фоном()): перед перерисовкой запоминаем поле в фокусе — по id или по его
+   data-атрибутам, плюс номер среди таких же — и его текст с выделением, после
+   — находим новое такое же и возвращаем всё как было. Пути, которые поле
+   очищают нарочно (добавили задачу — строка пустеет), идут обычным render():
+   вернуть туда старый текст значило бы добавить задачу второй раз. */
+var держатьВвод = 0;
+function фоном(fn){
+  держатьВвод++;
+  try { fn(); } finally { держатьВвод--; }
+}
+function renderKeepingInput(){ фоном(render); }
+
+function запомнитьВвод(){
+  if (!editableFocused()) return null;
+  var node = document.activeElement;
+  var где = null;
+  if ($('app') && $('app').contains(node)) где = $('app');
+  else if ($('top') && $('top').contains(node)) где = $('top');
+  if (!где) return null;   // окно и прочее render() не пересобирает
+  var кав = function(v){ return String(v).replace(/["\\]/g, '\\$&'); };
+  var sel = node.tagName.toLowerCase();
+  if (node.id) sel = '#' + (window.CSS && CSS.escape ? CSS.escape(node.id) : node.id);
+  else {
+    var есть = false;
+    for (var i = 0; i < node.attributes.length; i++){
+      var a = node.attributes[i];
+      if (a.name.indexOf('data-') === 0 || a.name === 'name'){ sel += '[' + a.name + '="' + кав(a.value) + '"]'; есть = true; }
+    }
+    if (!есть) return null;   // не за что зацепиться — не гадаем
+  }
+  var все = где.querySelectorAll(sel), номер = 0;
+  for (var j = 0; j < все.length; j++) if (все[j] === node){ номер = j; break; }
+  var снимок = { sel: sel, номер: номер, где: где.id, value: node.value, start: null, end: null };
+  try { снимок.start = node.selectionStart; снимок.end = node.selectionEnd; } catch (e) {}
+  return снимок;
+}
+function вернутьВвод(снимок){
+  var где = $(снимок.где);
+  var node = где ? где.querySelectorAll(снимок.sel)[снимок.номер] : null;
+  if (!node) return;   // поля больше нет (экран сменился) — и не надо
+  if (снимок.value != null && node.value !== снимок.value) node.value = снимок.value;
+  try { node.focus({ preventScroll: true }); } catch (e) { node.focus(); }
+  try { if (снимок.start != null) node.setSelectionRange(снимок.start, снимок.end); } catch (e) {}
+}
+
 function render(){
+  var ввод = держатьВвод ? запомнитьВвод() : null;
+  // Пульс кнопки AI ставит карточка «Первые шаги», если она на экране.
+  document.documentElement.classList.remove('tour-hold');
   applyTheme();
 
   var view = VIEWS[S.view] || VIEWS.tasks;
   $('top').innerHTML = SynI18n.tr(vTop() + (storageBroken ? vStorageWarning() : ''));
   $('tabbar').classList.remove('hidden');
   $('tabbar').innerHTML = SynI18n.tr(vTabbar());
+  if (appLook()) рисоватьМеню();
+  /* Экран задач в приложении — без шапки, как на айфоне: главный экран
+     держат чистым, первым на нём стоит «Сегодня». Меню, язык и тема
+     остаются в шапке остальных разделов — до них один тап по панели. */
+  document.documentElement.classList.toggle('no-top', appLook() && S.view === 'tasks');
+  if (inApp()) краеваяЗона();
+  if (inApp() && $('storeupd')) рисоватьОбновление();
   // Полоса вкладок финансов прокручена вбок, и перерисовка сбрасывала её в
   // самое начало: нажал «Подписки» справа — и они уехали за край экрана.
   // Запоминаем сдвиг до перерисовки, возвращаем после.
@@ -2293,6 +2475,7 @@ function render(){
   showToast();
   // Высота шапки могла поменяться вместе с размером шрифта.
   syncRail();
+  if (ввод) вернутьВвод(ввод);
 }
 
 /* ============ ТЕМА ============ */
@@ -2415,6 +2598,118 @@ var PALETTES = [
     v: [249,246,235,23,29,24,33,39,34,240,237,226,109,111,104,164,164,155,223,221,211,66,71,64,126,101,31,211,179,106,126,90,60,126,90,60,47,90,114,130,176,201,63,107,82,127,191,155,132,97,31,211,168,92],
     surf: [237,234,223,34,43,35] }
 ];
+
+
+/* Цветовые решения тем — заново, по правилам, а не на глаз.
+
+   Почему переделано. Все двадцать пять тем стояли на одном и том же
+   нейтральном фоне, а цвет нёс только едва заметный оттенок карточки (три
+   процента акцента). В итоге темы отличались, по словам владельца, «на
+   полтона»: тот же белый лист, та же серая карточка, чуть другая кнопка.
+
+   На что опираемся.
+   — Роли по ступеням светлоты, как в шкале Radix: у фона, карточки,
+     подложки, обводки, заливки и текста свои места на лестнице, одни и те
+     же во всех темах. Темы различаются цветом, а не устройством.
+   — Окрашенные поверхности, как в Material 3: фон и карточки берут оттенок
+     темы, а не нейтральный серый. Фон тонирован заметно, карточка над ним —
+     почти белая с тем же оттенком: тема видна сразу, а заливка не утомляет.
+   — Пространство OKLCH: одинаковая «светлота» в нём выглядит одинаково
+     для любого оттенка, поэтому синяя и жёлтая темы получаются одного веса.
+     Контраст текста при этом проверяется отдельно, по WCAG.
+
+   Каждая тема — пять чисел: оттенок и насыщенность поверхностей (h, c),
+   оттенок, насыщенность и светлота акцента (ah, ac, aL), плюс тёплый
+   второй акцент (wh) и характер (tone: soft — мягче, crisp — резче).
+   Прежние массивы PALETTES остаются: из них берутся служебные цвета и
+   названия, и они же совпадают с приложением на айфоне. */
+function oklchToRgb(L, C, h){
+  function conv(c){
+    var a = c * Math.cos(h * Math.PI / 180), b = c * Math.sin(h * Math.PI / 180);
+    var l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    var m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    var s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+    var l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+    var r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+    var g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+    var bb = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+    return [r, g, bb];
+  }
+  function inGamut(v){ return v.every(function(x){ return x >= -0.0005 && x <= 1.0005; }); }
+  var lo = 0, hi = C, lin = conv(C);
+  if (!inGamut(lin)){
+    for (var i = 0; i < 24; i++){ var mid = (lo + hi) / 2; if (inGamut(conv(mid))) lo = mid; else hi = mid; }
+    lin = conv(lo);
+  }
+  return lin.map(function(x){
+    x = Math.min(1, Math.max(0, x));
+    var v = x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
+    return Math.round(v * 255);
+  });
+}
+
+var PALETTE_SPEC = {
+  paper:      { h: 85,  c: 0.016, ah: 140, ac: 0.075, aL: 0.43, wh: 75 },
+  graphite:   { h: 255, c: 0.008, ah: 255, ac: 0.075, aL: 0.45, wh: 60, tone: 'crisp' },
+  forest:     { h: 155, c: 0.022, ah: 158, ac: 0.095, aL: 0.44, wh: 85 },
+  brass:      { h: 82,  c: 0.026, ah: 78,  ac: 0.115, aL: 0.52, wh: 55, tone: 'soft' },
+  burgundy:   { h: 12,  c: 0.018, ah: 12,  ac: 0.14,  aL: 0.42, wh: 60 },
+  tobacco:    { h: 58,  c: 0.024, ah: 52,  ac: 0.085, aL: 0.44, wh: 80, tone: 'soft' },
+  indigo:     { h: 275, c: 0.022, ah: 275, ac: 0.17,  aL: 0.47, wh: 330 },
+  plum:       { h: 322, c: 0.022, ah: 322, ac: 0.14,  aL: 0.46, wh: 20 },
+  sea:        { h: 205, c: 0.024, ah: 200, ac: 0.10,  aL: 0.50, wh: 60 },
+  charcoal:   { h: 60,  c: 0.003, ah: 60,  ac: 0.006, aL: 0.25, wh: 60, tone: 'crisp' },
+  nightbark:  { h: 245, c: 0.028, ah: 238, ac: 0.135, aL: 0.52, wh: 280 },
+  ember:      { h: 55,  c: 0.026, ah: 42,  ac: 0.17,  aL: 0.58, wh: 80 },
+  slate:      { h: 232, c: 0.012, ah: 236, ac: 0.075, aL: 0.48, wh: 200, tone: 'crisp' },
+  editorial:  { h: 90,  c: 0.012, ah: 27,  ac: 0.165, aL: 0.50, wh: 90 },
+  neon:       { h: 285, c: 0.012, ah: 135, ac: 0.20,  aL: 0.62, wh: 300, tone: 'crisp' },
+  kraft:      { h: 68,  c: 0.034, ah: 40,  ac: 0.14,  aL: 0.56, wh: 145, tone: 'soft' },
+  ultraviolet:{ h: 295, c: 0.03,  ah: 295, ac: 0.19,  aL: 0.50, wh: 350 },
+  atheneum:   { h: 100, c: 0.010, ah: 240, ac: 0.07,  aL: 0.45, wh: 75, tone: 'soft' },
+  cobalt:     { h: 262, c: 0.02,  ah: 262, ac: 0.20,  aL: 0.48, wh: 80 },
+  hunter:     { h: 140, c: 0.024, ah: 155, ac: 0.075, aL: 0.38, wh: 85 },
+  wineclub:   { h: 8,   c: 0.022, ah: 5,   ac: 0.15,  aL: 0.38, wh: 70 },
+  navy:       { h: 255, c: 0.016, ah: 255, ac: 0.11,  aL: 0.34, wh: 65 },
+  camel:      { h: 72,  c: 0.03,  ah: 65,  ac: 0.09,  aL: 0.52, wh: 145, tone: 'soft' },
+  ivory:      { h: 92,  c: 0.016, ah: 40,  ac: 0.09,  aL: 0.52, wh: 85, tone: 'soft' },
+  study:      { h: 112, c: 0.02,  ah: 150, ac: 0.08,  aL: 0.42, wh: 85 }
+};
+
+/// Роли одной стороны темы по общей лестнице светлоты (OKLCH).
+function построитьТему(sp, dark){
+  var soft = sp.tone === 'soft', crisp = sp.tone === 'crisp';
+  var c = sp.c;
+  if (!dark){
+    var bgL = soft ? 0.962 : crisp ? 0.972 : 0.966;
+    return {
+      background: oklchToRgb(bgL, c, sp.h),
+      panel: oklchToRgb(0.992, c * 0.4, sp.h),
+      panelStrong: oklchToRgb(bgL - 0.035, c * 1.15, sp.h),
+      stroke: oklchToRgb(crisp ? 0.86 : 0.885, c * 1.3, sp.h),
+      text: oklchToRgb(0.23, Math.min(0.03, c * 1.4), sp.h),
+      textSecondary: oklchToRgb(0.45, Math.min(0.045, c * 1.6), sp.h),
+      textTertiary: oklchToRgb(0.56, Math.min(0.04, c * 1.4), sp.h),
+      accent: oklchToRgb(sp.aL, sp.ac, sp.ah),
+      accentWarm: oklchToRgb(0.55, 0.11, sp.wh)
+    };
+  }
+  /* Тёмной стороне оттенка нужно больше, чем светлой: на почти чёрном
+     та же насыщенность не видна, и тёмные темы снова выходили одинаковыми. */
+  var dc = Math.max(c * 1.5, c ? 0.012 : 0);
+  var dL = crisp ? 0.155 : 0.175;
+  return {
+    background: oklchToRgb(dL, dc * 0.9, sp.h),
+    panel: oklchToRgb(dL + 0.055, dc * 0.95, sp.h),
+    panelStrong: oklchToRgb(dL + 0.105, dc, sp.h),
+    stroke: oklchToRgb(dL + 0.16, dc * 1.05, sp.h),
+    text: oklchToRgb(0.95, Math.min(0.02, c * 0.6), sp.h),
+    textSecondary: oklchToRgb(0.76, Math.min(0.035, c * 1.1), sp.h),
+    textTertiary: oklchToRgb(0.64, Math.min(0.035, c * 1.1), sp.h),
+    accent: oklchToRgb(sp.ac < 0.01 ? 0.93 : Math.max(0.74, sp.aL + 0.28), sp.ac * 0.85, sp.ah),
+    accentWarm: oklchToRgb(0.76, 0.1, sp.wh)
+  };
+}
 
 /* Значки на карточке задачи. Раньше здесь стояли символы шрифта — ⇅, ✎, ✕:
    они наследовали начертание, в разных браузерах выходили разной толщины, а
@@ -2585,14 +2880,6 @@ function contrastRatio(a, b){
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-/// Чем писать поверх заливки: белым или почти чёрным — что контрастнее.
-/// Порог по светлоте ошибался на средних тонах: белый на терракоте «Крафта»
-/// давал 3,4:1, хотя чёрный там читается лучше.
-function поверх(fill){
-  return contrastRatio([255, 255, 255], fill) >= contrastRatio([16, 16, 16], fill) ? '#FFFFFF' : '#101010';
-}
-
-
 /* Тот же цвет, но доведённый до читаемости на своём фоне.
 
    Двигаем только светлоту и только в ту сторону, где фон дальше: на светлой
@@ -2669,6 +2956,25 @@ function separated(surface, background, minDelta){
 function themeColors(){
   var pal = paletteOf(видимаяПалитра());
   var dark = isDarkNow();
+  var spec = PALETTE_SPEC[pal.id];
+  if (spec){
+    var t = построитьТему(spec, dark);
+    return {
+      dark: dark,
+      background: t.background,
+      panel: t.panel,
+      panelStrong: t.panelStrong,
+      stroke: t.stroke,
+      text: t.text,
+      textSecondary: t.textSecondary,
+      textTertiary: t.textTertiary,
+      accent: t.accent,
+      accentWarm: t.accentWarm,
+      focusGreen: themedStatus(paletteColor(pal, dark ? 'focusGreenDark' : 'focusGreen'), t.accent, t.panel),
+      focusBlue: themedStatus(paletteColor(pal, dark ? 'focusBlueDark' : 'focusBlue'), t.accent, t.panel),
+      focusOrange: themedStatus(paletteColor(pal, dark ? 'focusOrangeDark' : 'focusOrange'), t.accent, t.panel)
+    };
+  }
   var background = paletteColor(pal, dark ? 'darkBackground' : 'lightBackground');
   var accent = paletteColor(pal, dark ? 'accentDark' : 'accent');
 
@@ -2721,7 +3027,17 @@ function themeColors(){
   };
 }
 
+/// Чем писать поверх заливки: белым или почти чёрным — что контрастнее.
+/// Порог по светлоте ошибался на средних тонах: белый на терракоте «Крафта»
+/// давал 3,4:1, хотя чёрный там читается лучше.
+function поверх(fill){
+  return contrastRatio([255, 255, 255], fill) >= contrastRatio([16, 16, 16], fill) ? '#FFFFFF' : '#101010';
+}
+
 function applyTheme(){
+  // Плотность — тем же путём, что тема: раньше признак ставился только при
+  // запуске и в настройке, и после импорта или синхронизации расходился с S.
+  применитьПлотность();
   var c = themeColors();
   var root = document.documentElement.style;
   root.setProperty('--background', rgb(c.background));
@@ -2729,7 +3045,18 @@ function applyTheme(){
   root.setProperty('--panel-strong', rgb(c.panelStrong));
   root.setProperty('--stroke', rgb(c.stroke));
   root.setProperty('--text', rgb(c.text));
-  root.setProperty('--text-2', rgb(c.textSecondary));
+  /* Вторичный текст — не меньше 4,5:1 на самой тёмной из подложек, где он
+     лежит (чипы, поля, сегменты). Раньше он проверялся только «на глаз», и в
+     светлых «Графите», «Угле» и «Индиго» мелкие подписи на чипах давали
+     3,1–3,3:1. Третий уровень — настоящий, а не копия второго: он для
+     подсказок и подписей покрупнее, ему достаточно 3:1. */
+  root.setProperty('--text-2', rgb(readableOn(c.textSecondary, c.panelStrong, 4.5)));
+  root.setProperty('--text-3', rgb(readableOn(c.textTertiary || c.textSecondary, c.panel, 3)));
+  /* Край пустого чекбокса и полей — 3:1 к карточке, как требует WCAG для
+     элементов управления: обычная обводка давала 1,1–1,9:1, и пустой
+     квадратик задачи было почти не видно. Разделители (--line) остаются
+     тонкими, это не элементы управления. */
+  root.setProperty('--control-edge', rgb(readableOn(c.stroke, c.panel, 3)));
   root.setProperty('--accent', rgb(c.accent));
   root.setProperty('--accent-soft', rgba(c.accent, c.dark ? 0.2 : 0.12));
 
@@ -2739,7 +3066,7 @@ function applyTheme(){
      были тёмными. Среди новых тем есть кислотный лайм и светлое золото —
      белая иконка на них исчезает. Порог по светлоте, а не по яркости RGB:
      жёлтый и синий одной яркости читаются по-разному. */
-  root.setProperty('--on-accent', rgbToLab(c.accent)[0] > 62 ? '#101010' : '#FFFFFF');
+  root.setProperty('--on-accent', поверх(c.accent));
 
   /* Акцент как заливка и акцент как текст — разные требования.
 
@@ -2759,6 +3086,9 @@ function applyTheme(){
      появления новых: кнопку просто никто не смотрел в тёмной теме. */
   root.setProperty('--accent-warm', rgb(c.accentWarm));
   root.setProperty('--focus-green', rgb(c.focusGreen));
+  /* Галочка на зелёном — белая или чёрная по замеру, а не всегда белая: в
+     тёмной теме зелёный светлый, и белая галочка давала 1,4–2,6:1. */
+  root.setProperty('--on-ok', поверх(c.focusGreen));
   root.setProperty('--focus-blue', rgb(c.focusBlue));
   /* Тревожный цвет — настоящий красный, а не янтарь.
 
@@ -2769,9 +3099,9 @@ function applyTheme(){
      сюда, тёпло-кирпичный, чтобы не резал, но отделялся; в тёмной теме — светлее
      для контраста. Мягкое предупреждение остаётся за `--warn` (accentWarm).
      `focusOrange` живёт своей `--danger`-независимой переменной ниже. */
-  var dangerRGB = c.dark ? [240, 132, 122] : [176, 57, 49];
+  var dangerRGB = readableOn(c.dark ? [240, 132, 122] : [176, 57, 49], c.panelStrong, 4.5);
   root.setProperty('--danger', rgb(dangerRGB));
-  root.setProperty('--on-danger', rgbToLab(dangerRGB)[0] > 62 ? '#101010' : '#FFFFFF');
+  root.setProperty('--on-danger', поверх(dangerRGB));
   root.setProperty('--focus-orange', rgb(c.focusOrange));
   /* Живая зелёная и красная ДЛЯ ЗНАЧЕНИЙ (деньги, статусы), отдельные от --ok
      и --mark. Родная focusGreen (63,107,82) по светлоте почти как тёмный текст —
@@ -2779,13 +3109,15 @@ function applyTheme(){
      Здесь берём светлее и насыщеннее, ровно чтобы «плюс» и «минус» считывались
      мгновенно; в тёмной теме — ещё светлее для контраста. Галочки и прочие --ok
      не трогаем: их владелец намеренно держит приглушёнными. */
-  root.setProperty('--pos', c.dark ? 'rgb(112,201,151)' : 'rgb(38,132,86)');
+  root.setProperty('--pos', rgb(readableOn(c.dark ? [112, 201, 151] : [38, 132, 86], c.panelStrong, 4.5)));
   root.setProperty('--neg', rgb(dangerRGB));
   /* Янтарный «внимание» — тоже живее родного accentWarm. accentWarm (138,110,53)
      на тёплых палитрах почти неотличим от вторичного текста, и «В работе»,
      «я должен», «не выполнено» не читались как сигнал. Берём насыщенный янтарь;
      в тёмной теме — светлее. --accent-warm оставляем как есть для декора. */
-  root.setProperty('--warn', c.dark ? 'rgb(232,184,92)' : 'rgb(198,128,26)');
+  /* Янтарь «внимания» на светлом давал 2,2–2,9:1 — им набраны «В работе» и
+     «я должен». Доводим до 4,5 на той подложке, где он стоит. */
+  root.setProperty('--warn', rgb(readableOn(c.dark ? [232, 184, 92] : [198, 128, 26], c.panelStrong, 4.5)));
 
   // Начертание и размер — из тех же трёх вариантов, что в приложении.
   // Размер меняется одним множителем на корне, поэтому вся вёрстка, набранная
@@ -2814,12 +3146,77 @@ function applyTheme(){
      при загрузке страницы, и после смены темы часы и батарея оставались на
      полосе прежнего цвета до перезапуска. */
   if (window.AndroidBars){
-    try { window.AndroidBars.paint(rgb(c.background)); } catch (e){}
+    /* Цвет берём уже после того, как web/theme.js перекрасит переменные:
+       он оборачивает applyTheme и пишет свой фон следом за нашим. Иначе
+       полоса статуса оставалась бы цвета прежней палитры. */
+    setTimeout(function(){
+      try {
+        var фон = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
+        window.AndroidBars.paint(фон || rgb(c.background));
+      } catch (e){}
+    }, 0);
   }
+}
+
+/* ============ ВЫДВИЖНОЕ МЕНЮ (приложение) ============
+
+   Повторяет меню айфона: логотип, крестик, группы разделов в карточках, у
+   каждого пункта — значок в плашке своего цвета, как в настройках iOS. Узел
+   живёт вне нижней панели: у панели есть transform, и fixed внутри неё
+   считался бы от панели, а не от экрана. Узел создаётся один раз и только
+   меняет класс — иначе выезд не анимировался бы. */
+var ЦВЕТ_ПУНКТА = { lists:'lists', notes:'notes', pomodoro:'pomo', meditation:'med',
+  trash:'trash', subscription:'sub', settings:'set', support:'tasks' };
+
+function пунктМеню(id){
+  var t = tabByID(id);
+  if (!t) return '';
+  var inside = '<span class="dr-ic" style="--c:var(--c-' + (ЦВЕТ_ПУНКТА[id] || 'set') + ')">' +
+      (NAV_ICONS[id] || '') + '</span>' +
+    '<span class="dr-tx">' + esc(t.title) + '</span>' +
+    '<span class="dr-ch">' + NAV_ICONS.chevron + '</span>';
+  if (t.href){
+    return '<a class="dr-row" href="' + t.href + '" target="_blank" rel="noopener noreferrer">' + inside + '</a>';
+  }
+  return '<button class="dr-row' + (activeTab() === id ? ' on' : '') + '" data-act="go" data-view="' + id + '">' +
+    inside + '</button>';
+}
+
+function рисоватьМеню(){
+  var узел = $('drawer');
+  if (!узел){
+    узел = document.createElement('div');
+    узел.id = 'drawer';
+    узел.className = 'drawer';
+    document.body.appendChild(узел);
+  }
+  узел.innerHTML = SynI18n.tr(
+    '<div class="dr-scrim" data-act="drawer-close"></div>' +
+    '<aside class="dr-panel" aria-label="Меню">' +
+      '<div class="dr-head">' +
+        '<div class="dr-brand"><img src="icons/icon-192.png" alt="" width="34" height="34">' +
+          '<div><b>Synapse AI</b><span>создавай причины</span></div></div>' +
+        '<button class="dr-x" data-act="drawer-close" aria-label="Закрыть меню">' + NAV_ICONS.close + '</button>' +
+      '</div>' +
+      '<div class="dr-group">' + ['lists', 'notes', 'pomodoro', 'meditation'].map(пунктМеню).join('') + '</div>' +
+      '<div class="dr-group">' + ['subscription', 'settings', 'trash', 'support'].map(пунктМеню).join('') + '</div>' +
+      /* Выход — только на сайте, открытом с телефона: в приложении выходить
+         некуда, а на сайте это уход на главную synapseapp.ru. Записи при этом
+         остаются в браузере — об этом подсказка, как и в нижнем меню сайта. */
+      (inApp() ? '' :
+        '<div class="dr-group"><button class="dr-row" data-act="leave" title="Записи останутся в этом браузере">' +
+          '<span class="dr-ic" style="--c:var(--c-set)">' + NAV_ICONS.leave + '</span>' +
+          '<span class="dr-tx">Выйти</span><span class="dr-ch">' + NAV_ICONS.chevron + '</span></button></div>') +
+    '</aside>');
+  узел.classList.toggle('open', !!S.more);
+  узел.setAttribute('aria-hidden', S.more ? 'false' : 'true');
+  document.documentElement.classList.toggle('dr-on', !!S.more);
 }
 
 function vTop(){
   return '<div class="top-in">' +
+    (appLook() ? '<button class="iconbtn menubtn" data-act="drawer" aria-label="Меню" aria-expanded="' +
+      !!S.more + '">' + NAV_ICONS.menu + '</button>' : '') +
     // Логотип с названием — кнопка «домой»: из любого раздела возвращает к
     // задачам. Так устроен любой сайт, и человек пробует это первым, ещё до
     // того, как найдёт «Задачи» в меню.
@@ -2854,7 +3251,7 @@ function vTop(){
       '<button class="whoami' + (S.view === 'profile' ? ' on' : '') + '" data-act="go" data-view="profile" ' +
         'title="' + esc(S.profile.name ? 'Профиль: ' + S.profile.name : 'Профиль') + '" aria-label="' +
         esc(S.profile.name ? 'Профиль: ' + S.profile.name : 'Профиль') + '">' + avatarHTML() +
-        (S.profile.name ? '<span class="nm">' + esc(firstName()) + '</span>' : '') +
+        (S.profile.name ? '<span class="nm" translate="no">' + esc(firstName()) + '</span>' : '') +
       '</button>' +
     '</div>' +
   '</div>';
@@ -2886,8 +3283,11 @@ function activeTab(){
 
 function tabButton(t, cls){
   var on = activeTab() === t.id;
+  // В панели приложения финансы стоят рядом с аналитикой, и два значка со
+  // столбиками читались как один раздел. Там у денег — кошелёк.
+  var значок = (appLook() && t.id === 'finance') ? NAV_ICONS.wallet : NAV_ICONS[t.id];
   var inside =
-    '<span class="ic">' + (NAV_ICONS[t.id] || '') + '</span>' +
+    '<span class="ic">' + (значок || '') + '</span>' +
     '<span class="tx">' + esc(cls === 'tab' && t.short ? t.short : t.title) + '</span>';
 
   // Пункт со ссылкой — настоящая ссылка, а не кнопка: её можно открыть в
@@ -2905,7 +3305,27 @@ function tabButton(t, cls){
 /* Одна разметка на обе раскладки: слева колонка целиком, снизу четыре пункта
    и «Ещё». Пункты за «Ещё» лежат в том же дереве — на широком экране просто
    перестают быть спрятанными. */
+/* В приложении нижняя панель — пять разделов без «Ещё», как на айфоне.
+
+   Финансы поднялись в панель: деньги открывают каждый день, наравне с
+   задачами, и прятать их за «Ещё» значило каждый раз делать лишний шаг.
+   Порядок задан владельцем, слева направо: финансы, карта, аналитика, цели,
+   задачи — главный экран под правым большим пальцем. Остальное — списки,
+   заметки, помодоро, настройки — живёт в выдвижном меню слева, кнопка
+   которого стоит в шапке. */
+var ПАНЕЛЬ_ПРИЛОЖЕНИЯ = ['finance', 'analytics', 'focus', 'goals', 'tasks'];
+
+function tabByID(id){
+  for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) return TABS[i];
+  return null;
+}
+
 function vTabbar(){
+  if (appLook()){
+    return '<div class="tabs-main">' +
+      ПАНЕЛЬ_ПРИЛОЖЕНИЯ.map(function(id){ return tabButton(tabByID(id), 'tab'); }).join('') +
+    '</div>';
+  }
   var rest = TABS.filter(function(t){ return !t.primary; });
   var restOn = rest.some(function(t){ return t.id === activeTab(); });
 
@@ -2946,6 +3366,26 @@ function vTabbar(){
    кнопка браузера далеко, а на десктопе жеста нет вовсе. */
 function inApp(){
   return !!(window.AndroidVoice);
+}
+
+/* Тактильный отклик, как на айфоне: короткий щелчок там, где рука должна
+   почувствовать, что жест засчитан.
+
+   tick — лёгкий щелчок: перелистнул раздел, строка дошла до кнопок, карточка
+   встала на новое место. tap — нажатие клавиши. confirm — дело сделано
+   (задача закрыта). reject — отмена. long — карточку подняли удержанием.
+
+   В приложении — системный отклик через мост AndroidHaptic. В браузере —
+   короткая вибрация там, где она есть; где нет, молчим. */
+// В браузере вибромотор грубее щелчка, поэтому там — только то, что
+// вибрировало и раньше: подъём карточки, её шаг, начало записи и отмена.
+var ВИБРО_БРАУЗЕР = { tick: 12, tap: 12, reject: [8, 40, 8], long: 18 };
+function тактильно(вид){
+  try {
+    if (window.AndroidHaptic){ window.AndroidHaptic.tap(вид || 'tick'); return; }
+    var мс = ВИБРО_БРАУЗЕР[вид];
+    if (мс && navigator.vibrate) navigator.vibrate(мс);
+  } catch (e){}
 }
 
 /* Вид приложения: в самом приложении и на сайте, открытом с телефона.
@@ -2996,10 +3436,12 @@ function systemBack(){
   return inApp() || !!window.SynMobileBack;
 }
 
-function head(sub, title, backView){
+/// своё — заголовок написан человеком (название цели, списка, заметки):
+/// переводчик интерфейса его не трогает.
+function head(sub, title, backView, своё){
   return (backView && !systemBack() ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
     (sub ? '<p class="hi">' + esc(sub) + '</p>' : '') +
-    (title ? '<h1 class="page">' + esc(title) + '</h1>' : '');
+    (title ? '<h1 class="page"' + (своё ? ' translate="no"' : '') + '>' + esc(title) + '</h1>' : '');
 }
 
 function blank(icon, title, text, act, label, extra){
@@ -3104,18 +3546,13 @@ function вернутьВБлок(task){
   task.bucket = derivedBucket(task.date);
 }
 
-
 function trashRestore(id){
   var item = trashFind(id);
   if (!item) return '';
 
   if (item.kind === 'task'){
     var task = item.data;
-    if (task.date && task.date < isoOf(todayDate())){
-      task.date = isoOf(todayDate());
-      task.bucket = 'today';
-      task.archived = false;
-    }
+    вернутьВБлок(task);
     S.tasks.push(task);
   } else if (item.kind === 'goal'){
     S.goals.push(item.data);
@@ -3334,8 +3771,22 @@ function finParse(raw, kind){
   // Граница слова тут не \b: в JS она считается по латинице, и после
   // кириллической «к» в конце строки границы попросту нет — «1.5к»
   // не совпадало и превращалось в полтора рубля.
-  var multiplied = text.replace(/(\d+(?:[.,]\d+)?)\s*(к|k|тыс\.?|тысяч[аи]?)(?![а-яёa-z0-9])/gi, function(_, num){
-    return String(Math.round(parseFloat(num.replace(',', '.')) * 1000));
+  //
+  // Точка между группами по три — разделитель тысяч, а не копейки: «кофе
+  // 1.500» записывалось как полтора рубля. Копейки пишут двумя знаками
+  // («12.50»), а три цифры после точки в деньгах означают тысячи.
+  text = text.replace(/(^|[^\d.,])(\d{1,3}(?:\.\d{3})+)(?![\d.,])/g, function(_, lead, num){
+    return lead + num.replace(/\./g, '');
+  });
+
+  // «к» и «k» — только вплотную к числу («80к») или последним словом
+  // («80 к»). Через пробел посреди фразы это предлог: «торт 500 к чаю»
+  // превращался в полмиллиона. «тыс» через пробел по-прежнему множитель —
+  // предлогом оно не бывает.
+  // Помеченное множителем число — точно сумма: метка \u0001 потом решает,
+  // какое из нескольких чисел взять, и вычищается из названия.
+  var multiplied = text.replace(/(\d+(?:[.,]\d+)?)(?:\s*(?:тыс\.?|тысяч[аи]?)|[кk]|\s+[кk]\s*$)(?![а-яёa-z0-9])/gi, function(_, num){
+    return String(Math.round(parseFloat(num.replace(',', '.')) * 1000)) + '\u0001';
   });
 
   var joined = multiplied.replace(/(\d)[   ](?=\d{3}\b)/g, '$1');
@@ -3376,9 +3827,11 @@ function finParse(raw, kind){
   var amount = Math.round(Math.abs(parseFloat(found[0].replace(',', '.'))) * 100);
   if (!amount) return null;
 
-  var title = joined.replace(found[0], ' ').replace(/\s+/g, ' ').trim();
+  var title = (joined.slice(0, found.index) + ' ' + joined.slice(found.index + found[0].length))
+    .replace(/\u0001/g, '').replace(/\s+/g, ' ').trim();
   title = stripMoneyWords(title);
-  title = title.replace(/^[-–—:,.]+|[-–—:,.]+$/g, '').trim();
+  // Минус «−» (U+2212) — знак суммы, а не название: «−500» давало трату «−».
+  title = title.replace(/^[-−–—:,.]+|[-−–—:,.]+$/g, '').trim();
 
   var low = title.toLowerCase();
   var cat = 'other';
@@ -3520,8 +3973,7 @@ function finRunRecurring(){
     var rule = box[i];
     if (rule.off) continue;
     var every = FIN_EVERY[rule.every] || FIN_EVERY.month;
-    var cursor = rule.lastRun || rule.since;
-    if (!cursor) continue;
+    if (!rule.since) continue;
 
     /* Каждая дата считается от даты начала, а не от прошлого шага.
 
@@ -3547,7 +3999,7 @@ function finRunRecurring(){
       });
       rule.lastRun = when;
       made++;
-      when = finStepDate(when, every);
+      when = finRecNth(rule.since, every, ++n);
     }
   }
   return made;
@@ -3565,13 +4017,12 @@ function finRecNth(since, every, n){
   return isoOf(new Date(год, месяц, Math.min(начало.getDate(), daysInMonth(год, месяц))));
 }
 
-
-function finStepDate(iso, every){
-  var date = new Date(iso + 'T00:00:00');
-  if (every === FIN_EVERY.week) date.setDate(date.getDate() + 7);
-  else if (every === FIN_EVERY.year) date.setFullYear(date.getFullYear() + 1);
-  else date.setMonth(date.getMonth() + 1);
-  return isoOf(date);
+/// Последняя дата правила не позже limit — или '', если правило ещё не началось.
+function finRecLastDue(rule, limit){
+  var every = FIN_EVERY[rule.every] || FIN_EVERY.month;
+  var n = 0, last = '', when = finRecNth(rule.since, every, 0), guard = 0;
+  while (when && when <= limit && guard++ < 5000){ last = when; when = finRecNth(rule.since, every, ++n); }
+  return last;
 }
 
 /* Сколько откладывать в месяц, чтобы успеть к сроку копилки. Считается по
@@ -3765,14 +4216,25 @@ function finDueThisMonth(key){
     var sub = S.finance.subs[i];
     if (sub.off) continue;
     var every = FIN_EVERY[sub.every] || FIN_EVERY.month;
-    if (every !== FIN_EVERY.month){
+    /* Недельный платёж списывается в месяц четыре-пять раз, а считался
+       одним: «сколько ещё уйдёт» занижалось вчетверо. Считаем, сколько его
+       дат попадает в этот месяц, и умножаем. */
+    var раз = 1;
+    if (every === FIN_EVERY.week && sub.since){
+      раз = 0;
+      for (var w = 0, день = finRecNth(sub.since, every, 0); день && finMonthKey(день) <= key && w < 3000; день = finRecNth(sub.since, every, ++w)){
+        if (finMonthKey(день) === key) раз++;
+      }
+      if (!раз && !finSubPaidIn(sub, key)) continue;
+      раз = раз || 1;
+    } else if (every !== FIN_EVERY.month){
       var next = finSubNext(sub);
       if (finMonthKey(next) !== key && !finSubPaidIn(sub, key)) continue;
     }
     rows.push({
       sub: sub,
       paid: (sub.paid || {})[key] || 0,
-      expect: finSubTypical(sub),
+      expect: finSubTypical(sub) * раз,
       known: finSubKnown(sub)
     });
   }
@@ -3843,9 +4305,8 @@ var FIN_TABS = [
 
    Сам дашборд живёт в web/finance-desk.js — это часть только веб-версии:
    внутри андроид-обёртки index.html её не подключает, и SynFinDesk там не
-   существует вовсе. Отсюда
-   к нему ровно два хода — эта проверка и кнопка возврата в полосе вкладок;
-   все суммы дашборд считает функциями этого файла. */
+   существует вовсе. Отсюда к нему ровно два хода — эта проверка и кнопка
+   возврата в полосе вкладок; все суммы дашборд считает функциями этого файла. */
 function finDesk(){
   return !!(window.SynFinDesk && SynFinDesk.on());
 }
@@ -3856,7 +4317,9 @@ function vFinance(){
   var tab = S.finTab || 'sum';
   var html = '<div class="fintabs">' + FIN_TABS.map(function(t){
     return '<button class="fintab' + (t.id === tab ? ' on' : '') + '" data-act="fin-tab" data-tab="' + t.id + '">' +
-      esc(t.title) + '</button>';
+      // В приложении вкладки короче, как на айфоне: «Подписки и платежи» не
+      // помещались и полоса уезжала за край на половине слова.
+      esc(appLook() && t.short ? t.short : t.title) + '</button>';
   }).join('') + finCurButton() + (window.SynFinDesk ? SynFinDesk.backButton() : '') + '</div>';
 
   if (tab === 'ops') return html + vFinOps();
@@ -3886,6 +4349,7 @@ function finMonthBar(){
    есть, сколько должен и должны мне, на что ушло в этом месяце, успеваю ли
    копить. Ничего, что нельзя прочесть за десять секунд. */
 function vFinSummary(){
+  if (appLook()) return vFinSummaryApp();
   var month = finMonthTotals();
   var debts = finDebtSums();
   var free = finBalance() - finSaved();
@@ -3977,6 +4441,423 @@ function vFinSummary(){
   '</section>';
 
   return html;
+}
+
+/* ============ ФИНАНСЫ В ПРИЛОЖЕНИИ — как на айфоне ============
+
+   Повторяет FinanceView из iOS. Сводка: цветная карточка «Свободно» с тремя
+   плашками, копилки (если есть), карточка месяца — потрачено и заработано,
+   итог, кольцо трат по категориям и строки категорий, — и обязательные
+   платежи одной суммой «в месяц / в год». Траты: шапка месяца с тремя
+   числами и лента по дням, каждый день — своей карточкой. */
+
+/// Цвет категории для кольца и значков — насыщеннее, чем полоса в вебе:
+/// на маленьком значке бледный оттенок не читается.
+function finColor(cat){
+  var c = finCat(cat);
+  return c.id === 'other' ? 'var(--fg-3)' : 'hsl(' + c.hue + ' 58% 50%)';
+}
+
+/// Значок категории: первая буква на мягкой подложке её цвета. Доход —
+/// зелёная стрелка «пришло».
+function finBadge(cat, income, size){
+  size = size || 38;
+  var цвет = income ? 'var(--ok)' : finColor(cat);
+  return '<span class="fa-badge" style="--c:' + цвет + ';width:' + size + 'px;height:' + size + 'px;font-size:' +
+    Math.round(size * 0.42) + 'px">' + (income ? ICON_FIN.down : esc(String(finCat(cat).title).charAt(0).toUpperCase())) + '</span>';
+}
+
+var ICON_FIN = {
+  down: '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M17 7L7 17M7 9v8h8"/></svg>',
+  up: '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M7 17L17 7M9 7h8v8"/></svg>',
+  bank: '<svg viewBox="0 0 24 24" class="nav-ic"><rect x="3" y="6.5" width="18" height="11" rx="2.5"/><circle cx="12" cy="12" r="2.3"/></svg>',
+  repeat: '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M17 3.5l3 3-3 3"/><path d="M20 6.5H8.5A4.5 4.5 0 0 0 4 11v1"/><path d="M7 20.5l-3-3 3-3"/><path d="M4 17.5h11.5A4.5 4.5 0 0 0 20 13v-1"/></svg>',
+  jar: '<svg viewBox="0 0 24 24" class="nav-ic"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M14.5 9.5c-.5-.9-1.4-1.3-2.5-1.3-1.5 0-2.5.8-2.5 1.9 0 2.6 5.2 1.4 5.2 4 0 1.1-1.1 2-2.7 2-1.2 0-2.2-.5-2.7-1.4"/></svg>'
+};
+
+function finMonthSwitch(){
+  var key = finShownMonth();
+  return '<div class="fa-switch">' +
+    '<button class="prev" data-act="fin-month" data-step="-1" aria-label="Прошлый месяц">' + NAV_ICONS.chevron + '</button>' +
+    '<b>' + esc(monthName(key)) + '</b>' +
+    '<button data-act="fin-month" data-step="1"' + (key >= finMonthKey() ? ' disabled' : '') +
+      ' aria-label="Следующий месяц">' + NAV_ICONS.chevron + '</button>' +
+  '</div>';
+}
+
+/// Кольцо трат: доли категорий дугами с небольшим зазором, в центре — сумма.
+function finDonut(rows, total){
+  var r = 50, длина = 2 * Math.PI * r, зазор = rows.length > 1 ? 2.2 : 0, сдвиг = 0;
+  var дуги = rows.map(function(row){
+    var доля = total ? row.sum / total : 0;
+    var дуга = Math.max(0, доля * длина - зазор);
+    var html = '<circle cx="64" cy="64" r="' + r + '" fill="none" stroke="' + finColor(row.cat) + '" stroke-width="15" ' +
+      'stroke-linecap="butt" stroke-dasharray="' + дуга.toFixed(2) + ' ' + (длина - дуга).toFixed(2) + '" ' +
+      'stroke-dashoffset="' + (-сдвиг).toFixed(2) + '"/>';
+    сдвиг += доля * длина;
+    return html;
+  }).join('');
+  return '<div class="fa-donut"><svg viewBox="0 0 128 128"><g transform="rotate(-90 64 64)">' + дуги + '</g></svg>' +
+    '<div class="fa-donut-c"><span>Траты</span><b>' + finMoney(total) + '</b></div></div>';
+}
+
+function vFinSummaryApp(){
+  var month = finMonthTotals();
+  var debts = finDebtSums();
+  var free = finBalance() - finSaved();
+  var html = '';
+
+  // Пока раздел пуст — сначала рассказ Syn (finStartHTML): остаток, долги,
+  // подписки и доход одной фразой, а не каждый своей формой.
+  if (!S.finance.opening && !S.finance.ops.length && !S.finance.openingHidden){
+    html += '<section class="fa-card finhint">' + finStartHTML() + '</section>';
+  }
+
+  // Главное число — сколько можно тратить — крупно на цвете.
+  html += '<button class="fa-hero' + (free < 0 ? ' neg' : '') + '" data-act="fin-opening">' +
+    '<span class="fa-hero-ic">' + NAV_ICONS.wallet + '</span>' +
+    '<span class="fa-hero-l">Свободно</span>' +
+    '<b class="fa-hero-v">' + finMoney(free) + '</b>' +
+    '<span class="fa-pills">' +
+      finPill('Накоплено', finSaved(), ICON_FIN.bank) +
+      finPill('Я должен', debts.owe, ICON_FIN.up) +
+      finPill('Мне должны', debts.owed, ICON_FIN.down) +
+    '</span>' +
+  '</button>';
+
+  // Копилки — только когда они уже есть; призыв «начни копить» живёт в своей вкладке.
+  var jars = S.finance.jars || [];
+  if (jars.length){
+    html += '<button class="fa-card fa-jars" data-act="fin-tab" data-tab="jars">' +
+      '<span class="fa-row-h"><span class="fa-ib" style="--c:var(--ok)">' + ICON_FIN.jar + '</span>' +
+        '<b>Копилки</b><em>' + finMoney(finSaved()) + '</em></span>' +
+      jars.slice(0, 3).map(function(j){
+        var доля = j.target ? Math.min(1, (j.saved || 0) / j.target) : 0;
+        return '<span class="fa-jar"><span class="fa-jar-t"><span translate="no">' + esc(j.title) + '</span>' +
+            '<em>' + Math.round(доля * 100) + '%</em></span>' +
+          '<span class="fa-bar"><i style="width:' + (доля * 100).toFixed(1) + '%;background:var(--ok)"></i></span></span>';
+      }).join('') +
+      (jars.length > 3 ? '<span class="fa-more-n">Ещё ' + (jars.length - 3) + '</span>' : '') +
+    '</button>';
+  }
+
+  // Месяц: два числа, итог, кольцо и категории.
+  var cats = finByCat();
+  var net = month.earned - month.spent;
+  html += '<section class="fa-card fa-month">' + finMonthSwitch() +
+    '<div class="fa-tiles">' +
+      finStat('Потрачено', month.spent, ICON_FIN.up, 'var(--warn)') +
+      finStat('Заработано', month.earned, ICON_FIN.down, 'var(--ok)') +
+    '</div>' +
+    (month.spent || month.earned
+      ? '<div class="fa-net"><span>Итог месяца</span><b class="' + (net >= 0 ? 'up' : 'down') + '">' +
+          (net >= 0 ? '+' : '−') + finMoney(Math.abs(net)) + '</b></div>' : '') +
+    (cats.length
+      ? '<div class="fa-split"></div>' +
+        '<div class="fa-ring">' + finDonut(cats, month.spent) +
+          '<div class="fa-legend">' + cats.slice(0, 4).map(function(row){
+            return '<span><i style="background:' + finColor(row.cat) + '"></i><em>' + esc(row.title) + '</em><b>' +
+              (month.spent ? Math.round(row.sum * 100 / month.spent) : 0) + '%</b></span>';
+          }).join('') + (cats.length > 4 ? '<small>и ещё ' + (cats.length - 4) + '</small>' : '') + '</div>' +
+        '</div>' +
+        '<div class="fa-cats">' + cats.map(function(row){
+          var доля = month.spent ? row.sum / month.spent : 0;
+          var план = finBudget(row.cat);
+          var поверх = план && row.sum > план;
+          return '<div class="fa-cat">' + finBadge(row.cat, false, 34) +
+            '<div class="fa-cat-b"><div class="fa-cat-t"><b>' + esc(row.title) + '</b><em>' + Math.round(доля * 100) + '%</em>' +
+              '<span>' + finMoney(row.sum) + '</span></div>' +
+              '<span class="fa-bar"><i style="width:' + (план ? Math.min(100, row.sum * 100 / план) : доля * 100).toFixed(1) +
+                '%;background:' + (поверх ? 'var(--danger)' : finColor(row.cat)) + '"></i></span>' +
+              (план ? '<small class="' + (поверх ? 'bad' : '') + '">' + (поверх
+                ? 'Перерасход ' + finMoney(row.sum - план)
+                : 'Осталось ' + finMoney(план - row.sum) + ' из ' + finMoney(план)) + '</small>' : '') +
+            '</div></div>';
+        }).join('') + '</div>'
+      : '<p class="fa-hint fa-center">В этом месяце ещё ничего не записано.</p>') +
+  '</section>';
+
+  // Обязательные платежи: годовая сумма — главный довод, когда решаешь, от чего отказаться.
+  var вГод = finSubsYear();
+  if (вГод > 0){
+    html += '<button class="fa-card fa-duty" data-act="fin-tab" data-tab="subs">' +
+      '<span class="fa-ib big" style="--c:var(--c-sub, #8b5cf6)">' + ICON_FIN.repeat + '</span>' +
+      '<span class="fa-duty-b"><em>Обязательные платежи</em><b>' + finMoney(Math.round(вГод / 12)) + ' в месяц</b>' +
+        '<small>' + finMoney(вГод) + ' в год</small></span>' +
+      '<span class="fa-go">' + NAV_ICONS.chevron + '</span>' +
+    '</button>';
+  }
+  return html;
+}
+
+/* ---- остальные вкладки в приложении — как на айфоне ----
+
+   Над каждой — строка-итог раздела (если есть что сказать) и большая
+   кнопка «+ …» во всю ширину. Ниже — карточки, у каждой по две кнопки
+   действия одинаковой ширины: главное залито цветом, второе — мягкой
+   подложкой. Удаление — свайпом влево, как у трат. */
+var ICON_PLUS = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M12 5v14M5 12h14"/></svg>';
+var ICON_BACKARROW = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>';
+var ICON_TICK = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+var ICON_PEN = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M14.5 5.5l4 4L8 20H4v-4z"/></svg>';
+var ICON_MINUS = '<svg viewBox="0 0 24 24" class="nav-ic"><path d="M5 12h14"/></svg>';
+
+function finAddButton(act, подпись, лимит, extra){
+  return '<button class="fa-act primary fa-add" data-act="' + act + '"' + (extra || '') + '>' + ICON_PLUS + esc(подпись) + '</button>' +
+    (лимит ? '<div class="fa-free">' + finLeftHint(лимит) + '</div>' : '');
+}
+
+function finCardBtn(act, attrs, подпись, значок, цвет, главная){
+  return '<button class="fa-btn' + (главная ? ' primary' : '') + '" style="--c:' + цвет + '" data-act="' + act + '"' + attrs + '>' +
+    значок + '<span>' + esc(подпись) + '</span></button>';
+}
+
+function finSubtitle(text){
+  return text ? '<p class="fa-subt">' + text + '</p>' : '';
+}
+
+/// Карточка с удалением свайпом: кнопки под ней, лицо уезжает влево.
+function finSwipeCard(cls, killAct, attr, inner){
+  return '<div class="fa-swipe swipe ' + cls + '">' +
+    '<div class="side"><button class="kill" data-act="' + killAct + '"' + attr + ' aria-label="Удалить">' + ICON.kill + '</button></div>' +
+    '<div class="swipe-face fa-card">' + inner + '</div></div>';
+}
+
+function vFinBudgetsApp(){
+  var rows = finBudgetRows();
+  var html = '<section class="fa-card fa-mini">' + finMonthSwitch() + '</section>' +
+    finAddButton('fin-budget-new', 'Новый конверт', 'budgets');
+  if (!rows.length){
+    return html + finEmptyApp('Конвертов пока нет',
+      'Конверт — это сколько ты кладёшь на категорию в месяц: он говорит, сколько ещё можно потратить, а не куда ушло.');
+  }
+  var plan = 0, spent = 0;
+  rows.forEach(function(r){ plan += r.plan; spent += r.spent; });
+  html += '<div class="fa-metrics">' +
+    finMetric('Разложено', finMoney(plan), '') +
+    finMetric('Потрачено', finMoney(spent), '') +
+    finMetric('Осталось', finMoney(plan - spent), plan - spent < 0 ? 'bad' : 'good') +
+  '</div>';
+  return html + rows.map(function(row){
+    var over = row.left < 0;
+    return finSwipeCard('fa-env', 'fin-budget-kill', ' data-cat="' + row.cat + '"',
+      '<div class="fa-env-h"><i style="background:' + finColor(row.cat) + '"></i><b>' + esc(row.title) + '</b>' +
+        '<span>' + finMoney(row.spent) + ' / ' + finMoney(row.plan) + '</span></div>' +
+      '<span class="fa-bar"><i style="width:' + Math.min(100, row.share) + '%;background:' +
+        (over ? 'var(--danger)' : finColor(row.cat)) + '"></i></span>' +
+      '<div class="fa-env-f"><span class="' + (over ? 'bad' : '') + '">' +
+        (over ? 'перерасход ' + finMoney(-row.left) : 'осталось ' + finMoney(row.left)) + '</span>' +
+        finCardBtn('fin-budget-edit', ' data-cat="' + row.cat + '"', 'Править', ICON_PEN, 'var(--accent)', false) +
+      '</div>');
+  }).join('');
+}
+
+function finMetric(подпись, значение, тон){
+  return '<div class="fa-metric"><em>' + esc(подпись) + '</em><b class="' + тон + '">' + значение + '</b></div>';
+}
+
+function finEmptyApp(заголовок, подсказка){
+  return '<div class="fa-empty">' + NAV_ICONS.finance + '<b>' + esc(заголовок) + '</b><p>' + esc(подсказка) + '</p></div>';
+}
+
+function vFinDebtsApp(){
+  var sums = finDebtSums();
+  var open = S.finance.debts.filter(function(d){ return !d.closed; });
+  var closed = S.finance.debts.filter(function(d){ return d.closed; });
+  var сегодня = isoOf(todayDate());
+  var html = finSubtitle(open.length ? 'Я должен ' + finMoney(sums.owe) + ' · Мне должны ' + finMoney(sums.owed) : '') +
+    finAddButton('fin-debt-new', 'Записать долг');
+  if (!open.length && !closed.length){
+    return html + finEmptyApp('Долгов нет', 'Запиши, кто кому должен и до какого числа, — Syn напомнит.');
+  }
+  html += open.map(function(d){
+    var left = Math.max(0, d.amount - (d.paid || 0));
+    var просрочен = d.due && d.due < сегодня;
+    return finSwipeCard('fa-debt', 'fin-debt-kill', ' data-debt="' + d.id + '"',
+      '<div class="fa-debt-h"><b translate="no">' + esc(d.who) + '</b>' +
+        '<span class="' + (d.mine ? 'mine' : 'owed') + '">' + finMoney(left) + '</span></div>' +
+      '<em class="fa-k">' + (d.mine ? 'Я должен' : 'Мне должны') + '</em>' +
+      (d.paid ? '<span class="fa-bar"><i style="width:' + Math.min(100, d.paid * 100 / d.amount).toFixed(1) +
+          '%;background:var(--accent)"></i></span>' +
+        '<em class="fa-k">' + (d.mine ? 'Отдал' : 'Вернули') + ': ' + finMoney(d.paid) + ' из ' + finMoney(d.amount) + '</em>' : '') +
+      (d.due ? '<em class="fa-k' + (просрочен ? ' late' : '') + '">' +
+        (просрочен ? 'Просрочен с ' : 'Когда вернуть: ') + esc(humanDate(d.due)) + '</em>' : '') +
+      '<div class="fa-btns">' +
+        // Коротко: на узком экране «Записать возврат» резалось до «Записать воз…».
+        finCardBtn('fin-debt-pay', ' data-debt="' + d.id + '"', d.mine ? 'Платёж' : 'Возврат', ICON_BACKARROW, 'var(--accent)', false) +
+        finCardBtn('fin-debt-close', ' data-debt="' + d.id + '"', 'Закрыть', ICON_TICK, 'var(--ok)', true) +
+      '</div>');
+  }).join('');
+  // Закрытые — короткой строкой с возвратом в открытые: на айфоне их нет на
+  // экране вовсе, но здесь закрытый по ошибке долг иначе не вернуть.
+  if (closed.length){
+    html += '<p class="fa-lbl">Закрытые</p><div class="fa-card fa-closed">' + closed.map(function(d){
+      return '<div class="fa-cl"><span translate="no">' + esc(d.who) + '</span><em>' + finMoney(d.amount) + '</em>' +
+        '<button data-act="fin-debt-open" data-debt="' + d.id + '" aria-label="Вернуть в открытые">' + ICON_BACKARROW + '</button>' +
+        '<button data-act="fin-debt-kill" data-debt="' + d.id + '" aria-label="Удалить">' + ICON.kill + '</button></div>';
+    }).join('') + '</div>';
+  }
+  return html;
+}
+
+function vFinJarsApp(){
+  var jars = S.finance.jars;
+  var html = finSubtitle(jars.length ? 'Накоплено ' + finMoney(finSaved()) : '') +
+    finAddButton('fin-jar-new', 'Новая копилка');
+  if (!jars.length){
+    if (S.jarsIntroHidden) return html + finEmptyApp('Копилок пока нет', 'Заведи копилку под цель — Syn подскажет, сколько откладывать в месяц.');
+    return html + '<div class="fa-intro">' +
+      '<button class="fa-intro-b" data-act="fin-jar-intro">' +
+        '<span class="fa-intro-ic">' + ICON_FIN.jar + '</span>' +
+        '<span><b>Начни копить</b><em>Заведи копилку под цель — Syn подскажет, сколько откладывать в месяц.</em></span></button>' +
+      '<button class="fa-intro-x" data-act="fin-jar-intro-x" aria-label="Закрыть">' + NAV_ICONS.close + '</button></div>';
+  }
+  return html + jars.map(function(jar){
+    var saved = jar.saved || 0;
+    var доля = jar.target ? Math.min(1, saved / jar.target) : 0;
+    var pace = finJarPace(jar);
+    var темп = '';
+    if (saved >= jar.target) темп = '<em class="fa-k ok">Собрано.</em>';
+    else if (pace && pace.late) темп = '<em class="fa-k bad">Срок прошёл ' + esc(humanDate(jar.due)) + ' · не хватает ' + finMoney(pace.left) + '</em>';
+    else if (pace && !pace.done && jar.due) темп = '<em class="fa-k">К ' + esc(humanDate(jar.due)) + ' · чтобы успеть — ' + finMoney(pace.perMonth) + ' в месяц</em>';
+    // «Снять» — под свайпом рядом с удалением: в карточке, как на айфоне, две
+    // кнопки, а три на узком экране резались до «Прав…» и «Отло…».
+    return '<div class="fa-swipe swipe fa-jarc">' +
+      '<div class="side">' +
+        (saved > 0 ? '<button data-act="fin-jar-take" data-jar="' + jar.id + '" aria-label="Снять">' + ICON_MINUS + '</button>' : '') +
+        '<button class="kill" data-act="fin-jar-kill" data-jar="' + jar.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+      '</div><div class="swipe-face fa-card' + (saved > 0 ? ' two' : '') + '">' + (
+      '<div class="fa-jar-h"><span class="fa-jar-ic">' + (доля >= 1 ? ICON_TICK : ICON_FIN.jar) + '</span>' +
+        '<span class="fa-jar-n"><b translate="no">' + esc(jar.title) + '</b><em>из ' + finMoney(jar.target) + '</em></span>' +
+        '<span class="fa-jar-v"><b>' + finMoney(saved) + '</b><em>' + Math.round(доля * 100) + '%</em></span></div>' +
+      '<span class="fa-bar fat"><i style="width:' + (доля * 100).toFixed(1) + '%;background:var(--ok)"></i></span>' +
+      темп +
+      '<em class="fa-k">Осталось ' + finMoney(Math.max(0, jar.target - saved)) + '</em>' +
+      '<div class="fa-btns">' +
+        finCardBtn('fin-jar-edit', ' data-jar="' + jar.id + '"', 'Править', ICON_PEN, 'var(--accent)', false) +
+        finCardBtn('fin-jar-put', ' data-jar="' + jar.id + '"', 'Отложить', ICON_PLUS, 'var(--ok)', true) +
+      '</div>') + '</div></div>';
+  }).join('');
+}
+
+function vFinSubsApp(){
+  var key = finMonthKey();
+  var duty = S.finPayTab === 'duty';
+  var rows = finSubsOf(duty);
+  var вМесяц = 0;
+  rows.forEach(function(sub){ if (!sub.off && finSubKnown(sub)) вМесяц += finPerMonth(sub); });
+  var html = '<div class="fa-seg">' +
+      '<button class="' + (duty ? '' : 'on') + '" data-act="fin-pay-tab" data-kind="subs">Подписки</button>' +
+      '<button class="' + (duty ? 'on' : '') + '" data-act="fin-pay-tab" data-kind="duty">Платежи</button>' +
+    '</div>' +
+    finSubtitle(rows.length ? finMoney(вМесяц) + ' в месяц' : '') +
+    finAddButton('fin-sub-new', duty ? 'Новый платёж' : 'Новая подписка', 'subs', ' data-duty="' + (duty ? '1' : '') + '"');
+  if (!rows.length){
+    return html + finEmptyApp(duty ? 'Платежей пока нет' : 'Подписок пока нет',
+      duty ? 'Квартплата, кредиты, детский сад — то, что уйдёт в любом случае. В день списания появится задача «Оплатить».'
+           : 'Добавь подписки — в день списания появится задача «Оплатить».');
+  }
+  var сегодня = isoOf(todayDate());
+  return html + '<div class="fa-card fa-subs">' + rows.map(function(sub){
+    var paid = finSubPaidIn(sub, key);
+    var next = finSubNext(sub);
+    var every = FIN_EVERY[sub.every] || FIN_EVERY.month;
+    var сумма = finSubKnown(sub) ? (finSubVaries(sub) ? '≈ ' : '') + finMoney(finSubTypical(sub)) : 'по счётчику';
+    var строка = '', цвет = '';
+    if (!sub.off){
+      if (paid){ строка = 'Оплачено за этот месяц' + (next ? ' · дальше ' + humanDate(next) : ''); цвет = 'ok'; }
+      else if (next && next < сегодня){ строка = 'Не оплачено, списание было ' + humanDate(next); цвет = 'warn'; }
+      else if (next === сегодня){ строка = 'Списание сегодня'; цвет = 'warn'; }
+      else if (next){ строка = 'Списание ' + humanDate(next); цвет = 'acc'; }
+    }
+    return '<div class="fa-sub swipe' + (sub.off ? ' off' : '') + '">' +
+      '<div class="side">' +
+        '<button data-act="fin-sub-edit" data-sub="' + sub.id + '" aria-label="Править">' + ICON.edit + '</button>' +
+        '<button class="kill" data-act="fin-sub-kill" data-sub="' + sub.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+      '</div>' +
+      '<div class="swipe-face">' +
+        (sub.off ? '' : '<button class="fa-paid' + (paid ? ' on' : '') + '" data-act="fin-sub-pay" data-sub="' + sub.id + '" aria-label="' +
+          (paid ? 'Снять отметку об оплате' : 'Отметить оплаченной') + '">' + (paid ? ICON_TICK : '') + '</button>') +
+        '<span class="fa-logo">' + finSubLogo(sub) + '</span>' +
+        '<button class="fa-sub-t" data-act="fin-sub-edit" data-sub="' + sub.id + '"><b translate="no">' + esc(sub.title) + '</b>' +
+          '<em>' + сумма + ' · ' + esc(every.title) + '</em>' +
+          (строка ? '<small class="' + цвет + '">' + esc(строка) + '</small>' : '') + '</button>' +
+        '<button class="fa-onoff' + (sub.off ? ' off' : '') + '" data-act="fin-sub-toggle" data-sub="' + sub.id + '">' +
+          (sub.off ? 'Включить' : 'Отключить') + '</button>' +
+      '</div></div>';
+  }).join('') + '</div>';
+}
+
+function finPill(подпись, сумма, значок){
+  return '<span class="fa-pill"><span class="fa-pill-l">' + значок + esc(подпись) + '</span><b>' + finMoney(сумма) + '</b></span>';
+}
+
+function finStat(подпись, сумма, значок, цвет){
+  return '<div class="fa-stat" style="--c:' + цвет + '"><span class="fa-ib" style="--c:' + цвет + '">' + значок + '</span>' +
+    '<em>' + esc(подпись) + '</em><b>' + finMoney(сумма) + '</b></div>';
+}
+
+/// Подпись дня в ленте: «Сегодня», «Вчера» или «12 октября».
+function finDayTitle(iso){
+  var сегодня = isoOf(todayDate());
+  var вчера = new Date(todayDate().getTime()); вчера.setDate(вчера.getDate() - 1);
+  if (iso === сегодня) return 'Сегодня';
+  if (iso === isoOf(вчера)) return 'Вчера';
+  return humanDate(iso);
+}
+
+function vFinOpsApp(){
+  var key = finShownMonth();
+  var month = finMonthTotals(key);
+  // В день — за прошедшие дни текущего месяца или за весь прошлый месяц.
+  var parts = key.split('-');
+  var дней = key === finMonthKey() ? todayDate().getDate()
+    : new Date(Number(parts[0]), Number(parts[1]), 0).getDate();
+  var html = '<div class="finance-has-composer">' +
+    '<section class="fa-card fa-ophead">' + finMonthSwitch() +
+      '<div class="fa-three">' +
+        '<span><em>Потрачено</em><b>' + finMoney(month.spent) + '</b></span>' +
+        '<span><em>В день</em><b>' + finMoney(дней ? Math.round(month.spent / дней) : 0) + '</b></span>' +
+        '<span><em>Доход</em><b class="up">' + finMoney(month.earned) + '</b></span>' +
+      '</div>' +
+    '</section>';
+  // Поля даты больше нет: записывает Syn, и день он берёт из сказанного
+  // («вчера такси 450»).
+
+  var ops = finMonthOps(key).slice().sort(function(a, b){
+    return a.date === b.date ? b.at - a.at : (a.date < b.date ? 1 : -1);
+  });
+  if (!ops.length){
+    return html + '<div class="fa-empty">' + NAV_ICONS.finance +
+      '<b>В этом месяце ещё ничего не записано.</b>' +
+      '<p>Скажи Syn внизу: «кофе 350» — или нажми микрофон и расскажи.</p></div></div>';
+  }
+  var дни = [], поДню = {};
+  ops.forEach(function(op){
+    if (!поДню[op.date]){ поДню[op.date] = []; дни.push(op.date); }
+    поДню[op.date].push(op);
+  });
+  html += дни.map(function(date){
+    var rows = поДню[date];
+    var ушло = rows.reduce(function(acc, op){ return acc + (op.kind === 'income' ? 0 : op.amount); }, 0);
+    return '<div class="fa-day"><div class="fa-day-h"><b>' + esc(finDayTitle(date)) + '</b>' +
+        (ушло ? '<span>−' + finMoney(ушло) + '</span>' : '') + '</div>' +
+      '<div class="fa-card fa-ops">' + rows.map(function(op){
+        var доход = op.kind === 'income';
+        return '<div class="finrow fa-op swipe">' +
+          '<div class="side">' +
+            '<button data-act="fin-op-edit" data-op="' + op.id + '" aria-label="Править">' + ICON.edit + '</button>' +
+            '<button class="kill" data-act="fin-op-kill" data-op="' + op.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
+          '</div>' +
+          '<div class="swipe-face">' + finBadge(op.cat, доход, 38) +
+            '<button class="fa-op-t" data-act="fin-op-edit" data-op="' + op.id + '"><b translate="no">' + esc(op.title) + '</b>' +
+              '<em>' + esc(finCat(op.cat).title) + '</em></button>' +
+            '<span class="fa-op-v' + (доход ? ' up' : '') + '">' + (доход ? '+' : '−') + finMoney(op.amount) + '</span>' +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div></div>';
+  }).join('');
+  return html + '</div>';
 }
 
 /* Первый рассказ о деньгах — голосом и целиком.
@@ -4096,11 +4977,9 @@ function finSynDraw(draft, error){
 }
 
 /// Карточка с решённой пачкой остаётся в разговоре, но с итогом вместо кнопок.
-function finCardSettle(state, result){
-  for (var i = S.synChat.length - 1; i >= 0; i--){
-    var card = S.synChat[i].finance;
-    if (card && !card.state){ card.state = state; card.result = result; return; }
-  }
+function finCardSettleAt(index, state, result){
+  var item = S.synChat[Number(index)];
+  if (item && item.finance){ item.finance.state = state; item.finance.result = result; }
 }
 
 function finSynSend(text){
@@ -4131,6 +5010,7 @@ function finVoiceStop(){
 }
 
 function vFinOps(){
+  if (appLook()) return vFinOpsApp();
   // Даты над лентой больше нет: записывает Syn, и день он берёт из сказанного
   // («вчера такси 450»), а не из поля, которое надо не забыть переставить.
   var html = '<div class="finance-has-composer">' + finMonthBar();
@@ -4144,7 +5024,15 @@ function vFinOps(){
   // По дням, свежие сверху: список трат читают как ленту, а не как таблицу.
   var days = {};
   var order = [];
-  var sorted = S.finance.ops.slice().sort(function(a, b){
+  /* Лента — за показанный месяц. Переключатель месяцев над ней менял цифры
+     в разборе, а сама лента показывала все записи за всё время: в марте
+     листали августовские траты. */
+  var monthOps = finMonthOps(finShownMonth());
+  if (!monthOps.length){
+    html += blank(NAV_ICONS.finance, 'В этом месяце записей нет',
+      'Переключите месяц стрелками сверху или запишите трату строкой внизу.');
+  }
+  var sorted = monthOps.slice().sort(function(a, b){
     return a.date === b.date ? b.at - a.at : (a.date < b.date ? 1 : -1);
   });
   for (var i = 0; i < sorted.length; i++){
@@ -4170,7 +5058,7 @@ function vFinOps(){
             '</div>' +
             '<div class="swipe-face">' : '') +
           '<span class="fr-dot" style="background:' + finTint(op.cat, .95) + '"></span>' +
-          '<button class="fr-t" data-act="fin-op-edit" data-op="' + op.id + '">' + esc(op.title) +
+          '<button class="fr-t" data-act="fin-op-edit" data-op="' + op.id + '"><span translate="no">' + esc(op.title) + '</span>' +
             '<span class="fr-c">' + esc(finCat(op.cat).title) + '</span></button>' +
           '<span class="fr-v' + (op.kind === 'income' ? ' up' : '') + '">' +
             finMoney(op.amount * (op.kind === 'income' ? 1 : -1), { plus: op.kind === 'income' }) + '</span>' +
@@ -4189,6 +5077,7 @@ function vFinOps(){
 }
 
 function vFinBudgets(){
+  if (appLook()) return vFinBudgetsApp();
   var rows = finBudgetRows();
   var html = finMonthBar();
 
@@ -4282,7 +5171,15 @@ function vFinChart(inline){
   '</section>';
 
   // Что выросло и что упало — по категориям, к прошлому месяцу.
-  var moved = finByCat(key).map(function(row){
+  /* Категории берутся из обоих месяцев. Раньше — только из текущего, и то,
+     на что в прошлом месяце тратили, а в этом перестали, в «Что изменилось»
+     не попадало вовсе: самое приятное изменение месяца оставалось невидимым. */
+  var current = finByCat(key), seen = {};
+  current.forEach(function(row){ seen[row.cat] = true; });
+  finByCat(prevKey).forEach(function(row){
+    if (!seen[row.cat]) current.push({ cat: row.cat, title: row.title, sum: 0 });
+  });
+  var moved = current.map(function(row){
     var was = finBudgetSpent(row.cat, prevKey);
     return { title: row.title, cat: row.cat, sum: row.sum, was: was, diff: row.sum - was };
   }).filter(function(r){ return r.was || r.sum; });
@@ -4331,6 +5228,7 @@ function finLeftHint(kind){
 }
 
 function vFinDebts(){
+  if (appLook()) return vFinDebtsApp();
   var sums = finDebtSums();
   var html = '';
 
@@ -4369,7 +5267,7 @@ function vFinDebts(){
           '<button class="kill" data-act="fin-debt-kill" data-debt="' + d.id + '" aria-label="Удалить">' + ICON.kill + '</button>' +
         '</div>' : '') +
       '<div class="dr-main' + (touchUI() ? ' swipe-face' : '') + '">' +
-        '<span class="dr-t">' + esc(d.who) +
+        '<span class="dr-t"><span translate="no">' + esc(d.who) + '</span>' +
           '<span class="dr-n dr-n--' + (d.mine ? 'mine' : 'owed') + '">' + (d.mine ? 'я должен' : 'мне должны') +
             /* Прошедший срок называем прошедшим.
 
@@ -4406,6 +5304,7 @@ function vFinDebts(){
 }
 
 function vFinJars(){
+  if (appLook()) return vFinJarsApp();
   var html = '<div class="acts center" style="margin:0 0 14px">' +
     '<button class="btn" data-act="fin-jar-new">+ Новая копилка</button></div>';
 
@@ -4421,7 +5320,7 @@ function vFinJars(){
     var pace = finJarPace(jar);
     return '<article class="card jar' + (saved >= jar.target ? ' full' : '') + '">' +
       '<div class="finhead">' +
-        '<h3>' + esc(jar.title) + '</h3>' +
+        '<h3 translate="no">' + esc(jar.title) + '</h3>' +
         '<span class="sub">' + share + '%</span>' +
       '</div>' +
       '<div class="debt-sum"><b>' + finMoney(saved) + '</b>' +
@@ -4448,6 +5347,7 @@ function vFinJars(){
 }
 
 function vFinSubs(){
+  if (appLook()) return vFinSubsApp();
   var key = finShownMonth();
   var duty = S.finPayTab === 'duty';
   var html = finMonthBar();
@@ -4530,7 +5430,7 @@ function finPayTable(rows, key, title, lead){
             '</div>' +
             '<div class="swipe-face">' : '') +
           '<span class="pr-main">' + finSubLogo(sub) +
-            '<span class="pr-t">' + esc(sub.title) +
+            '<span class="pr-t"><span translate="no">' + esc(sub.title) + '</span>' +
               '<span class="pr-n">' + esc(note) + '</span></span>' +
           '</span>' +
           '<span class="pr-v">' + (known ? (finSubVaries(sub) ? '≈ ' : '') + finMoney(finPerMonth(sub)) : '—') + '</span>' +
@@ -4930,13 +5830,13 @@ function finTemplateChips(duty){
 }
 
 function modalSubEdit(sub){
-  return '<h3>' + esc(sub.title) + '</h3>' +
+  return '<h3 translate="no">' + esc(sub.title) + '</h3>' +
     '<div class="field"><label for="m-title">Название</label>' +
       '<input class="inp" id="m-title" value="' + esc(sub.title) + '"></div>' +
     '<div class="pairfields">' +
       '<div class="field"><label for="m-amount">Сумма</label>' +
-        '<input class="inp" id="m-amount" inputmode="numeric" value="' +
-          (sub.amount ? Math.round(sub.amount / 100) : '') + '" placeholder="необязательно"></div>' +
+        '<input class="inp" id="m-amount" inputmode="decimal" value="' +
+          (sub.amount ? finAmountInput(sub.amount) : '') + '" placeholder="необязательно"></div>' +
       '<div class="field"><label for="m-every">Раз в</label>' +
         '<select class="inp" id="m-every">' +
           '<option value="week"' + (sub.every === 'week' ? ' selected' : '') + '>неделю</option>' +
@@ -4990,6 +5890,38 @@ function finSubRemind(sub){
   return task;
 }
 
+/* Дата записи об оплате — внутри того месяца, за который платят.
+
+   Оплату отмечают и задним числом, листнув на прошлый месяц, — а трата
+   ложилась сегодняшним днём: отметка стояла в июле, деньги в ленте — в
+   августе, и оба месяца считались неверно. В текущем месяце — сегодня, в
+   другом — день списания платежа, прижатый к длине месяца, или последний. */
+function finSubPayDate(sub, key){
+  if (key === finMonthKey()) return isoOf(todayDate());
+  var parts = String(key).split('-');
+  var год = Number(parts[0]), месяц = Number(parts[1]) - 1;
+  var день = sub.since ? Number(String(sub.since).slice(8, 10)) : 0;
+  var последний = daysInMonth(год, месяц);
+  return isoOf(new Date(год, месяц, день ? Math.min(день, последний) : последний));
+}
+
+/// Отвязать запись от оплаты платежа: снять sub.paid и sub.ops того месяца.
+/// Возвращает платёж и месяц, если связь была.
+function finSubUnlinkOp(op){
+  if (!op || !op.fromSub) return null;
+  var sub = finSub(op.fromSub);
+  if (!sub || !sub.ops) return null;
+  for (var key in sub.ops){
+    if (sub.ops.hasOwnProperty(key) && sub.ops[key] === op.id){
+      delete sub.ops[key];
+      if (sub.paid) delete sub.paid[key];
+      if (!sub.paid) sub.paid = {};
+      return { sub: sub, key: key };
+    }
+  }
+  return null;
+}
+
 function finSub(id){
   for (var i = 0; i < S.finance.subs.length; i++) if (S.finance.subs[i].id === id) return S.finance.subs[i];
   return null;
@@ -5019,7 +5951,7 @@ function modalJarMove(jar, sign){
   var кладём = sign > 0;
   var осталось = Math.max(0, (jar.target || 0) - (jar.saved || 0));
   return '<h3>' + (кладём ? 'Отложить в копилку' : 'Снять из копилки') + '</h3>' +
-    '<p class="s">' + esc(jar.title) + ' · ' + finMoney(jar.saved || 0) +
+    '<p class="s"><span translate="no">' + esc(jar.title) + '</span> · ' + finMoney(jar.saved || 0) +
       (jar.target ? ' из ' + finMoney(jar.target) : '') + '</p>' +
     '<div class="field"><label for="m-amount">Сколько</label>' +
       '<input class="inp" id="m-amount" inputmode="numeric" placeholder="' +
@@ -5054,11 +5986,11 @@ function finJarApply(jar, sign, amount){
 function modalDebtPay(debt){
   var left = Math.max(0, debt.amount - (debt.paid || 0));
   return '<h3>' + (debt.mine ? 'Платёж по долгу' : 'Возврат долга') + '</h3>' +
-    '<p class="s">' + esc(debt.who) + ' · осталось ' + finMoney(left) +
+    '<p class="s"><span translate="no">' + esc(debt.who) + '</span> · осталось ' + finMoney(left) +
       (debt.paid ? ' из ' + finMoney(debt.amount) : '') + '</p>' +
     '<div class="field"><label for="m-amount">' +
       (debt.mine ? 'Сколько отдали' : 'Сколько вернули') + '</label>' +
-      '<input class="inp" id="m-amount" inputmode="numeric" placeholder="можно частью"></div>' +
+      '<input class="inp" id="m-amount" inputmode="decimal" placeholder="можно частью"></div>' +
     '<div class="acts center" style="margin:0 0 14px">' +
       '<button class="btn sm soft" data-act="fin-debt-pay-all" data-debt="' + debt.id + '">' +
         'Всё сразу — ' + finMoney(left) + '</button></div>' +
@@ -5074,11 +6006,11 @@ function modalDebtPay(debt){
 function modalSubPay(sub){
   var обычно = finSubTypical(sub);
   return '<h3>Отметить оплату</h3>' +
-    '<p class="s">' + esc(sub.title) +
+    '<p class="s"><span translate="no">' + esc(sub.title) + '</span>' +
       (обычно ? ' · обычно ' + finMoney(обычно) : '') + '</p>' +
     '<div class="field"><label for="m-amount">Сколько заплатили</label>' +
-      '<input class="inp" id="m-amount" inputmode="numeric" value="' +
-      (обычно ? esc(String(Math.round(обычно / 100))) : '') + '" placeholder="600"></div>' +
+      '<input class="inp" id="m-amount" inputmode="decimal" value="' +
+      (обычно ? esc(finAmountInput(обычно)) : '') + '" placeholder="600"></div>' +
     '<button class="btn full" data-act="fin-sub-pay-save" data-sub="' + sub.id + '">Записать</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
@@ -5113,13 +6045,25 @@ function finCatSelect(id, chosen){
   }).join('') + '</select>';
 }
 
+/* Сумма в поле правки — ровно та, что записана, с копейками через запятую.
+
+   Поля заполнялись Math.round(x / 100): у траты 450,50 в окне стояло 451, и
+   простое «Сохранить» без единой правки меняло сумму. Копейки терялись на
+   каждом пересохранении. Пробелов-разделителей тут нет нарочно: строку
+   потом читает finParse, а ему «1500,50» понятнее, чем «1 500,50». */
+function finAmountInput(kop){
+  kop = Math.round(kop || 0);
+  var abs = Math.abs(kop), rest = abs % 100;
+  return (kop < 0 ? '-' : '') + Math.floor(abs / 100) + (rest ? ',' + ('0' + rest).slice(-2) : '');
+}
+
 function modalOpening(){
   return '<h3>Сколько у вас сейчас</h3>' +
     '<p class="s">Одним числом: карта, наличные и всё остальное вместе. ' +
       'Дальше Synapse считает сам — прибавляет доходы и вычитает траты.</p>' +
     '<div class="field"><label for="m-amount">Всего сейчас</label>' +
       '<input class="inp" id="m-amount" inputmode="numeric" value="' +
-        (S.finance.opening ? Math.round(S.finance.opening / 100) : '') + '" placeholder="35 000"></div>' +
+        (S.finance.opening ? finAmountInput(S.finance.opening) : '') + '" placeholder="35 000"></div>' +
     '<button class="btn full" data-act="fin-opening-save">Записать</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
@@ -5131,7 +6075,7 @@ function modalBudget(cat){
     '<div class="field"><label for="m-cat">Категория</label>' + finCatSelect('m-cat', cat) + '</div>' +
     '<div class="field"><label for="m-amount">Сколько в месяц</label>' +
       '<input class="inp" id="m-amount" value="' +
-        (fresh ? '' : Math.round(finBudget(cat) / 100)) + '" placeholder="25 000"></div>' +
+        (fresh ? '' : finAmountInput(finBudget(cat))) + '" placeholder="25 000"></div>' +
     '<button class="btn full" data-act="fin-budget-save">' + (fresh ? 'Разложить' : 'Сохранить') + '</button>' +
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
 }
@@ -5146,7 +6090,7 @@ function modalOp(op){
     '<div class="field"><label for="m-title">Название</label>' +
       '<input class="inp" id="m-title" value="' + esc(op.title) + '"></div>' +
     '<div class="field"><label for="m-amount">Сумма</label>' +
-      '<input class="inp" id="m-amount" value="' + Math.round(op.amount / 100) + '"></div>' +
+      '<input class="inp" id="m-amount" value="' + finAmountInput(op.amount) + '"></div>' +
     '<div class="field"><label for="m-cat">Категория</label>' + finCatSelect('m-cat', op.cat) + '</div>' +
     '<div class="field"><label for="m-due">Дата</label>' +
       полеДаты('m-due', op.date) + '</div>' +
@@ -5169,7 +6113,7 @@ function modalRecurring(rule){
     '<div class="field"><label for="m-title">Название</label>' +
       '<input class="inp" id="m-title" value="' + esc(fresh ? '' : rule.title) + '" placeholder="Аренда"></div>' +
     '<div class="field"><label for="m-amount">Сумма</label>' +
-      '<input class="inp" id="m-amount" value="' + (fresh ? '' : Math.round(rule.amount / 100)) +
+      '<input class="inp" id="m-amount" value="' + (fresh ? '' : finAmountInput(rule.amount)) +
         '" placeholder="45 000"></div>' +
     '<div class="field"><label for="m-cat">Категория</label>' +
       finCatSelect('m-cat', fresh ? 'home' : rule.cat) + '</div>' +
@@ -5194,7 +6138,7 @@ function modalJar(jar){
     '<div class="field"><label for="m-title">На что</label>' +
       '<input class="inp" id="m-title" value="' + esc(fresh ? '' : jar.title) + '" placeholder="Отпуск"></div>' +
     '<div class="field"><label for="m-amount">Сколько нужно</label>' +
-      '<input class="inp" id="m-amount" value="' + (fresh ? '' : Math.round(jar.target / 100)) +
+      '<input class="inp" id="m-amount" value="' + (fresh ? '' : finAmountInput(jar.target)) +
         '" placeholder="120 000"></div>' +
     '<div class="field"><label for="m-due">К какому числу</label>' +
       полеДаты('m-due', fresh ? '' : (jar.due || '')) + '</div>' +
@@ -5205,7 +6149,7 @@ function modalJar(jar){
         '<option value="">Сама по себе</option>' +
         goals.map(function(g){
           return '<option value="' + g.id + '"' +
-            (!fresh && jar.goalId === g.id ? ' selected' : '') + '>' + esc(g.title) + '</option>';
+            (!fresh && jar.goalId === g.id ? ' selected' : '') + ' translate="no">' + esc(g.title) + '</option>';
         }).join('') + '</select></div>' : '') +
     '<button class="btn full" data-act="fin-jar-save"' + (fresh ? '' : ' data-jar="' + jar.id + '"') + '>' +
       (fresh ? 'Завести' : 'Сохранить') + '</button>' +
@@ -5282,7 +6226,7 @@ function vTrash(){
          больше. Именно за этим в корзину и приходят — окинуть взглядом. */
       return '<article class="trashrow">' +
         '<div class="trashrow-t">' +
-          '<b>' + esc(item.title) + '</b>' +
+          '<b translate="no">' + esc(item.title) + '</b>' +
           '<span class="sub">' + esc(kind.title) + сНими + ' · ' +
             (left ? left + ' ' + plural(left, 'день', 'дня', 'дней') : 'сегодня') +
           '</span>' +
@@ -5376,6 +6320,8 @@ function vTour(){
   for (var i = 0; i < TOUR_STEPS.length; i++){
     if (!TOUR_STEPS[i].done()){ current = TOUR_STEPS[i]; break; }
   }
+
+  // Пока текущий шаг — «зажми AI», кнопка AI пульсирует: вот она.
 
   return '<section class="card tour">' +
     '<div class="tour-head">' +
@@ -5537,7 +6483,11 @@ function itemRow(t, внутриЦели){
   var meta = [];
   // Дату показываем, когда её назвали сами или когда блок не «сегодня».
   // Выведенная нами дата сегодняшнего блока не сообщает ничего.
-  if (t.date && (t.hasExplicitDate || t.bucket !== 'today')){
+  // В приложении — как на айфоне: под «Сегодня» и «Завтра» даты нет вовсе,
+  // её называет заголовок блока, а строке нужно место.
+  var датаЛишняя = appLook() ? (t.bucket === 'today' || t.bucket === 'tomorrow')
+    : !(t.hasExplicitDate || t.bucket !== 'today');
+  if (t.date && !датаЛишняя){
     meta.push('<span class="chip">' + esc(humanDateWithDay(t.date)) + '</span>');
   }
   if (t.aiPending) meta.push('<span class="chip ai-pending">' +
@@ -5564,7 +6514,8 @@ function itemRow(t, внутриЦели){
   if (isOverdue(t)){
     var дней = днейПросрочки(t);
     meta.push('<span class="chip late">' +
-      (дней >= 1 ? 'просрочено на ' + дней + ' ' + склонДень(дней) : 'просрочено') +
+      // В плотной строке приложения — одно слово: на сколько, видно по дате.
+      (дней >= 1 && !appLook() ? 'просрочено на ' + дней + ' ' + склонДень(дней) : 'просрочено') +
       '</span>');
   }
   // Один перенос — житейское дело, о нём молчим. Со второго это уже привычка,
@@ -5574,7 +6525,7 @@ function itemRow(t, внутриЦели){
   // Цель — такой же чип, как дата, только акцентный: задача, которая ведёт к
   // цели, этим и отличается от рядовой, и сказать об этом надо словами, а не
   // припиской «· цель», из которой не понять, к какой именно.
-  if (goal) meta.push('<span class="chip goal">' + esc(goal.title) + '</span>');
+  if (goal) meta.push('<span class="chip goal" translate="no">' + esc(goal.title) + '</span>');
   // Подпункты — последним чипом и только когда они есть. Раньше слово
   // «подпункты» стояло в каждой карточке, включая те, где их ноль: подпись
   // обещала содержимое, которого нет.
@@ -5586,6 +6537,51 @@ function itemRow(t, внутриЦели){
   }
 
   var expandable = t.subtasks.length || t.note;
+  var подстрока = '';
+
+  /* Строка задачи в приложении — значки как на айфоне.
+
+     Там у каждого признака свой маленький символ: календарик у даты,
+     часики у времени, стрелки по кругу у повтора, флажок у срока. Подпись
+     рядом — мелко и тихо. Просрочка — красной обведённой меткой «не
+     выполнено», а подпункты и описание — стрелкой вниз с числом. Цели в
+     строке нет: название цели не помещалось и обрывалось на полуслове, а
+     к какой цели относится задача, видно в раскрытой задаче. Порядок тот
+     же, что на айфоне, только весь ряд — справа от названия. */
+  if (appLook()){
+    var мета = function(icon, text, cls){
+      return '<span class="mi' + (cls ? ' ' + cls : '') + '">' + icon + '<span>' + esc(text) + '</span></span>';
+    };
+    var знак = function(path){ return '<svg viewBox="0 0 24 24" aria-hidden="true">' + path + '</svg>'; };
+    var календарик = знак('<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/>');
+    var часики = знак('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>');
+    var повтор = знак('<path d="M5 9a7 7 0 0 1 12.2-3.2L19 7.5M19 3.5v4h-4M19 15a7 7 0 0 1-12.2 3.2L5 16.5M5 20.5v-4h4"/>');
+    var флажок = знак('<path d="M6 21V4M6 4.5h10.5l-2 4 2 4H6"/>');
+    meta = [];
+    if (t.date && !датаЛишняя){
+      var дт = dateOf(t.date);
+      var мес = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+      meta.push(мета(календарик, дт ? дт.getDate() + ' ' + мес[дт.getMonth()] + ', ' + WEEKDAYS_SHORT[(дт.getDay() + 6) % 7] : humanDate(t.date)));
+    }
+    if (t.windowFrom && t.windowFrom.time){
+      meta.push(мета(часики, t.windowFrom.time + (t.windowTo && t.windowTo.time ? '–' + t.windowTo.time : '')));
+    } else if (t.time){
+      meta.push(мета(часики, t.time));
+    }
+    if (t.repeat) meta.push(мета(повтор, repeatLabel(t.repeat, t)));
+    if (t.deadline && (t.deadline.date || t.deadline.time)) meta.push(мета(флажок, deadlineText(t.deadline)));
+    // Подпункты и описание — строкой под названием, как на айфоне: справа
+    // им не место, там только время и даты.
+    if (expandable){
+      подстрока = '<span class="mi exp"><span class="car">' + NAV_ICONS.caret + '</span>' +
+        (t.subtasks.length ? '<span>' + subDone + ' из ' + t.subtasks.length + '</span>' : '<span>описание</span>') + '</span>';
+    }
+    /* «Не выполнено» — тоже под названием, а не третьим значком справа.
+       Справа столбик из времени, повтора и метки делал строку втрое выше
+       названия, и между задачами появлялись провалы. Под названием метка
+       занимает ту строку, где и так стоят подпункты. */
+    if (isOverdue(t)) подстрока += '<span class="mi late">не выполнено</span>';
+  }
 
   /* Внутренность рисуется всегда, а не только у раскрытой карточки: чтобы
      раскрытие было плавным, элемент должен быть в дереве заранее — иначе
@@ -5597,12 +6593,12 @@ function itemRow(t, внутриЦели){
     detail = '<div class="detail-wrap"><div class="detail">' +
       // Принадлежность цели — строкой словами, а не чипом с названием: чип
       // читался как метка, а не как «эта задача про вот эту цель».
-      (goal ? '<p class="belongs">Относится к цели «' + esc(goal.title) + '»</p>' : '') +
-      (t.note ? '<p class="note">' + esc(t.note) + '</p>' : '') +
+      (goal ? '<p class="belongs">Относится к цели «<span translate="no">' + esc(goal.title) + '</span>»</p>' : '') +
+      (t.note ? '<p class="note" translate="no">' + esc(t.note) + '</p>' : '') +
       t.subtasks.map(function(s){
         return '<div class="subline' + (s.done ? ' on' : '') + '">' +
           '<button class="box' + (s.done ? ' on' : '') + '" data-act="subtoggle" data-task="' + t.id + '" data-sub="' + s.id + '" aria-label="Выполнено">✓</button>' +
-          '<span>' + esc(s.title) + '</span>' +
+          '<span translate="no">' + esc(s.title) + '</span>' +
           '<button class="kill" data-act="subkill" data-task="' + t.id + '" data-sub="' + s.id + '" aria-label="Удалить">✕</button>' +
         '</div>';
       }).join('') +
@@ -5634,8 +6630,10 @@ function itemRow(t, внутриЦели){
     '<div class="item-main' + (touchUI() ? ' swipe-face' : '') + '" data-act="expand" data-task="' + t.id + '">' +
       '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
-        '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '">' +
+        (подстрока ? '<div class="tcol">' : '') +
+        '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '" translate="no">' +
           esc(t.title) + '</button>' +
+        (подстрока ? '<div class="tsub">' + подстрока + '</div></div>' : '') +
         /* Всё, что известно о задаче, — рядом чипов под названием.
 
            Мелкой серой строкой справа это занимало одну строку вместо двух, но
@@ -5759,6 +6757,9 @@ function addTask(){
   S.tasks.push(fresh);
   S.draft = '';
   S.closed[parsed.bucket] = false;
+  // Подсказка под строкой гасла только по кнопке «Добавить» (ACTS.add), а
+  // добавляющие по Enter видели её вечно. Добавил задачу — значит, понял.
+  S.hintSeen = true;
   commit(viaSyn ? '' : 'Задача в блоке «' + bucketTitle(parsed.bucket) + '»');
   if (viaSyn) taskAiRefine(fresh.id, raw);
 }
@@ -6030,6 +7031,7 @@ function taskResearch(id, query, mode, append){
    работает — вместо выдуманного текста экран показывает то, что можно
    посчитать по самим задачам, и прямо говорит, откуда это взялось. */
 function vFocus(){
+  if (appLook()) return vFocusApp();
   var today = liveTasks().filter(function(t){ return t.bucket === 'today'; });
   var todayDone = today.filter(function(t){ return t.done; }).length;
   var overdue = liveTasks().filter(isOverdue).length;
@@ -6070,6 +7072,168 @@ function vFocus(){
   html += vFocusGoals();
 
   return html;
+}
+
+/* ============ ФОКУС ДНЯ В ПРИЛОЖЕНИИ — как на айфоне ============
+
+   Повторяет CoachView из iOS: сверху то, на чём сосредоточиться, и крупный
+   процент дня; под ними брифинг Syn, свёрнутый до двух разделов; затем одна
+   карточка «День + Горизонт». Счётчиков и списка «Требуют внимания» здесь
+   нет, как и на айфоне: счётчики повторяли плашки под полосой дня, а
+   забытая цель сама встаёт заголовком карточки. */
+var фокусРазвёрнут = false;
+
+/* На чём сосредоточиться — порядок из SynapseDayFocus.hottest:
+   1. то, что Syn назвал главным в брифинге, если это задача или цель;
+   2. задача, просроченная дольше всех;
+   3. цель, у которой нет ни одной задачи (на айфоне — дольше всех без
+      движения; времени правки у целей здесь нет, «без задач» — тот же смысл);
+   4. ближайшая по времени задача дня, или просто первая открытая;
+   5. первая незакрытая цель. */
+function фокусГлавное(today, brief){
+  var главное = String((brief && brief.main) || '').trim().toLowerCase();
+  if (главное){
+    var g0 = S.goals.filter(function(g){ return String(g.title).toLowerCase() === главное; })[0];
+    if (g0) return { title: g0.title, goal: true, id: g0.id };
+    var t0 = liveTasks().filter(function(t){ return !t.done && String(t.title).toLowerCase() === главное; })[0];
+    if (t0) return { title: t0.title, id: t0.id };
+  }
+  var просрочены = liveTasks().filter(isOverdue).sort(function(a, b){
+    return (a.date + ' ' + a.time) < (b.date + ' ' + b.time) ? -1 : 1;
+  });
+  if (просрочены.length) return { title: просрочены[0].title, id: просрочены[0].id };
+  var забыта = S.goals.filter(function(g){
+    return g.title && g.status !== 'done' && !tasksOfGoal(g.id).length;
+  })[0];
+  if (забыта) return { title: забыта.title, goal: true, id: забыта.id };
+  var открытые = today.filter(function(t){ return !t.done; });
+  var сейчас = new Date();
+  var часы = ('0' + сейчас.getHours()).slice(-2) + ':' + ('0' + сейчас.getMinutes()).slice(-2);
+  var поВремени = открытые.filter(function(t){ return t.time && t.time >= часы; })
+    .sort(function(a, b){ return a.time < b.time ? -1 : 1; });
+  var следующая = поВремени[0] || открытые[0];
+  if (следующая) return { title: следующая.title, id: следующая.id };
+  var цель = S.goals.filter(function(g){ return g.title && g.status !== 'done'; })[0];
+  return цель ? { title: цель.title, goal: true, id: цель.id } : null;
+}
+
+function vFocusApp(){
+  var today = liveTasks().filter(function(t){ return t.bucket === 'today'; });
+  var done = today.filter(function(t){ return t.done; }).length;
+  var overdue = today.filter(isOverdue).length;
+  var open = Math.max(0, today.length - done - overdue);
+  var percent = pct(done, today.length);
+
+  var сегодня = isoOf(todayDate());
+  var brief = S.briefing && S.briefing.text && S.briefing.date === сегодня ? S.briefing : null;
+  var отказ = S.briefing && S.briefing.error && S.briefing.errorDate === сегодня ? S.briefing.error : '';
+  var главное = фокусГлавное(today, brief);
+
+  // Подпись под заголовком: собран ли разбор, а если нет — сколько задач.
+  var подпись = BRIEFING.busy ? 'Syn собирает брифинг…'
+    : brief ? 'Syn собрал ' + esc(brief.at || '')
+    : today.length ? 'Сегодня в фокусе ' + taskCount(today.length)
+    : 'Можно задать спокойный ритм';
+
+  // Разделы: брифинг, а пока его нет — та же сводка, что в вебе.
+  var разделы = brief ? briefingLines(brief.text) : фокусСводка(today, done, overdue);
+  var длинный = разделы.length > 2 || разделы.map(function(l){ return l[1]; }).join(' ').length > 320;
+  var видно = (длинный && !фокусРазвёрнут) ? разделы.slice(0, 2) : разделы;
+
+  var html = '<section class="fx-card">' +
+    '<div class="fx-top">' +
+      '<div class="fx-main">' +
+        (главное
+          ? '<span class="fx-kicker">' + (главное.goal ? 'Сфокусируйся на цели' : 'Сфокусируйся на задаче') + '</span>' +
+            '<button class="fx-title" data-act="' + (главное.goal ? 'open-goal" data-goal="' : 'fx-task" data-task="') +
+              главное.id + '" translate="no">' + esc(главное.title) + '</button>'
+          : '<span class="fx-title">День свободен</span>') +
+        '<div class="fx-sub"><span>' + подпись + '</span>' +
+          (BRIEFING.busy ? '<i class="fx-spin"></i>'
+            : '<button class="fx-refresh" data-act="briefing" aria-label="' +
+                (brief ? 'Собрать брифинг заново' : 'Собрать брифинг') + '">' + NAV_ICONS.refresh +
+                (brief ? '' : '<span>Брифинг</span>') + '</button>') +
+        '</div>' +
+      '</div>' +
+      '<div class="fx-pct' + (percent > 0 ? ' on' : '') + '"><b>' + percent + '<small>%</small></b><span>Прогресс дня</span></div>' +
+    '</div>' +
+    '<div class="fx-secs' + (длинный && !фокусРазвёрнут ? ' clamp' : '') + '">' +
+      видно.map(function(l){
+        return '<div class="fx-sec">' + (l[0] && l[0] !== 'SYN' ? '<b class="' + (l[2] ? 'fx-' + l[2] : '') + '">' + esc(l[0]) + '</b>' : '') +
+          '<p>' + esc(l[1]) + '</p></div>';
+      }).join('') +
+    '</div>' +
+    (длинный ? '<button class="fx-more" data-act="fx-more">' + (фокусРазвёрнут ? 'Свернуть' : 'Показать полностью') +
+      '<span class="fx-chev' + (фокусРазвёрнут ? ' up' : '') + '">' + NAV_ICONS.caret + '</span></button>' : '') +
+    (отказ && !BRIEFING.busy ? '<p class="fx-err">Брифинг не собрался — ' + esc(отказ) + '</p>' : '') +
+    (brief && speechSupported()
+      ? '<button class="fx-listen' + (speech.on ? ' on' : '') + '" data-act="briefing-say"' + (speech.busy ? ' disabled' : '') + '>' +
+          '<span class="listen-ic">' + (speech.on ? (ICON.stop || '■') : '▶') + '</span>' +
+          (speech.busy ? 'Готовлю голос…' : speech.on ? 'Остановить' : 'Прослушать отчёт') + '</button>'
+      : '') +
+  '</section>';
+
+  // День и горизонт — одной карточкой: что сегодня и что дальше.
+  html += '<section class="fx-card fx-strips">' +
+    '<div class="fx-h"><span class="fx-hic">' + NAV_ICONS.sun + '</span><b>День</b>' +
+      (today.length ? '<span class="fx-of"><b>' + done + '</b> из ' + today.length + '</span>' : '') + '</div>' +
+    (today.length
+      ? '<div class="fx-seg">' + today.map(function(t){
+          return '<i class="' + (t.done ? 'done' : isOverdue(t) ? 'late' : 'open') + '" title="' + esc(t.title) + '"></i>';
+        }).join('') + '</div><p class="fx-note">Каждый блок — одна задача на сегодня</p>'
+      : '<div class="fx-empty">' + NAV_ICONS.meditation + 'На сегодня пусто</div>') +
+    '<div class="fx-chips">' +
+      фокусПлашка('var(--ok)', done, 'закрыто') +
+      (overdue ? фокусПлашка('var(--warn)', overdue, 'просрочено') : '') +
+      фокусПлашка('var(--fg-2)', open, 'осталось') +
+    '</div>' +
+    '<div class="fx-split"></div>' +
+    фокусГоризонт() +
+  '</section>';
+  return html;
+}
+
+function фокусСводка(today, done, overdue){
+  var строки = [];
+  строки.push(['ДЕНЬ', today.length
+    ? done + ' из ' + today.length + ' ' + plural(done, 'закрыта', 'закрыты', 'закрыто') +
+      '. Осталось ' + taskCount(today.length - done) + '.'
+    : 'На сегодня ничего не назначено. Можно задать спокойный ритм.']);
+  var сВременем = today.filter(function(t){ return t.time && !t.done; })
+    .sort(function(a, b){ return a.time < b.time ? -1 : 1; });
+  if (сВременем.length) строки.push(['БЛИЖАЙШЕЕ', сВременем[0].time + ' — ' + сВременем[0].title]);
+  if (overdue) строки.push(['ПРОСРОЧЕНО', taskCount(overdue) + ' ' +
+    plural(overdue, 'уже просрочена', 'уже просрочены', 'уже просрочено') + '.', 'warn']);
+  return строки;
+}
+
+function фокусПлашка(цвет, число, подпись){
+  return '<div class="fx-chip" style="--c:' + цвет + '"><span><i></i><b>' + число + '</b></span><em>' + esc(подпись) + '</em></div>';
+}
+
+/* Горизонт: 14 дней вперёд. Столбик стоит на подложке во всю высоту —
+   видно и полный день, и свободный; сегодня подсвечено целиком; точка —
+   задача с точным временем. */
+function фокусГоризонт(){
+  var дни = [], пик = 1;
+  for (var i = 0; i < 14; i++){
+    var d = new Date(todayDate().getTime());
+    d.setDate(d.getDate() + i);
+    var iso = isoOf(d);
+    var задачи = liveTasks().filter(function(t){ return t.date === iso; });
+    дни.push({ n: задачи.length, срок: задачи.some(function(t){ return !!t.time; }),
+      день: d.getDate(), нед: WEEKDAYS_SHORT[(d.getDay() + 6) % 7], сегодня: i === 0 });
+    if (задачи.length > пик) пик = задачи.length;
+  }
+  return '<div class="fx-h"><span class="fx-hic">' + NAV_ICONS.calendar + '</span><b>Горизонт</b></div>' +
+    '<p class="fx-note fx-note-top">14 дней вперёд: столбик — сколько задач, точка — задача со временем</p>' +
+    '<div class="fx-hz">' + дни.map(function(д){
+      var h = д.n ? 6 + (д.n / пик) * 40 : 4;
+      return '<div class="fx-d' + (д.сегодня ? ' now' : '') + '">' +
+        '<i class="fx-dot' + (д.срок ? ' on' : '') + '"></i>' +
+        '<span class="fx-track"><i style="height:' + h.toFixed(0) + 'px"></i></span>' +
+        '<em>' + д.нед + '</em><b>' + д.день + '</b></div>';
+    }).join('') + '</div>';
 }
 
 /* Цели без задач — внизу фокуса.
@@ -6638,6 +7802,9 @@ function ttsFromServer(text){
       body: JSON.stringify({ text: text })
     });
   }).then(function(response){
+    // Сессию сервер забыл — следующий запрос возьмёт новую, а этот прочтёт
+    // системный голос.
+    if (response.status === 401){ SYN.token = ''; SYN.expiresAt = 0; }
     if (!response.ok) throw new Error('tts ' + response.status);
     return response.blob();
   });
@@ -6671,7 +7838,7 @@ function briefingRun(){
   render();
 
   var morning = briefingIsMorning();
-  synSession().then(function(token){
+  synWithSession(function(token){
     return synFetch('/v1/synapse/research', {
       query: 'Собери брифинг по этому срезу.',
       taskTitle: morning ? 'morning' : 'evening',
@@ -6680,9 +7847,17 @@ function briefingRun(){
     }, token);
   }).then(function(data){
     BRIEFING.busy = false;
+    data = data || {};
+    // Брифинг тратит тот же дневной запас, что и разговор с Syn: остаток под
+    // полем должен уменьшиться и от него.
+    synQuotaSet(data.quota);
     var raw = String(data.note || '').trim();
     if (!raw){
       S.briefing.error = 'Syn не собрал брифинг. Попробуй ещё раз.';
+      // Без даты ошибка не показывалась вовсе: экран выводит отказ, только
+      // если errorDate — сегодня. Человек жал «Собрать», кнопка оживала, и
+      // ничего не происходило — ни брифинга, ни слова о том, почему.
+      S.briefing.errorDate = isoOf(todayDate());
       commit();
       return;
     }
@@ -6729,6 +7904,13 @@ function briefingRun(){
       снимок: briefingSnapshot(),
       собранВ: Date.now(), устарел: false
     };
+    /* Слепок — до commit, иначе свежий брифинг тут же помечался устаревшим.
+
+       commit сравнивает слепок с прошлым, а прошлый мог записать commit
+       задолго до сборки: Syn меняет задачи через save(), мимо commit. Разница
+       копилась, и первый же commit — вот этот — объявлял только что собранный
+       разбор устаревшим. */
+    БРИФИНГ_СЛЕД = брифингСледОтДел();
     commit('Брифинг собран');
   }).catch(function(error){
     BRIEFING.busy = false;
@@ -6758,7 +7940,7 @@ function vDayStrip(today, todayDone, overdue){
 
   html += '<div class="strip">' + today.map(function(t){
     var kind = t.done ? 'done' : (isOverdue(t) ? 'late' : 'open');
-    return '<i class="' + kind + '" title="' + esc(t.title) + '"></i>';
+    return '<i class="' + kind + '" title="' + esc(t.title) + '" translate="no"></i>';
   }).join('') + '</div>';
 
   return html + '<p class="strip-note">Каждый блок — одна задача на сегодня</p>';
@@ -6881,7 +8063,7 @@ function vGoals(){
          содержимое: карточка едет целиком, как задача. */
       (touchUI() ? '<div class="swipe-face gc-face">' : '') +
       '<button class="goalcard-h" data-act="fold-goal" data-goal="' + g.id + '" aria-expanded="' + open + '">' +
-        '<span class="gt">' + esc(g.title) + '</span>' +
+        '<span class="gt" translate="no">' + esc(g.title) + '</span>' +
         '<span class="gp mono' + (p.total && p.done >= p.total ? ' gp--done' : '') + '">' + pct(p.done, p.total) + '%</span>' +
         '<span class="car">' + NAV_ICONS.caret + '</span>' +
       '</button>' +
@@ -6929,12 +8111,12 @@ function stageBlock(g, st, номер){
     '<p class="st-num">Этап ' + номер + '</p>' +
     '<div class="stage-h">' +
       '<button class="box' + (st.status === 'done' ? ' on' : '') + '" data-act="stage-toggle" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Готово">✓</button>' +
-      '<span class="t">' + esc(st.title) + '</span>' +
+      '<span class="t" translate="no">' + esc(st.title) + '</span>' +
       '<span class="status status--' + st.status + '">' + STATUS[st.status] + '</span>' +
       '<button class="kill" data-act="edit-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Править этап" title="Править">' + ICON.edit + '</button>' +
       '<button class="kill" data-act="kill-stage" data-goal="' + g.id + '" data-stage="' + st.id + '" aria-label="Удалить этап">✕</button>' +
     '</div>' +
-    (st.detail ? '<p class="detail">' + esc(st.detail) + '</p>' : '') +
+    (st.detail ? '<p class="detail" translate="no">' + esc(st.detail) + '</p>' : '') +
     (st.targetDate && st.status !== 'done'
       ? '<p class="detail stage-target' + dueSoonClass(st.targetDate) + '">К ' +
         esc(humanDate(st.targetDate)) + ' · ' + esc(untilText(st.targetDate)) + '</p>'
@@ -6946,7 +8128,7 @@ function stageBlock(g, st, номер){
       ? '<div class="tasks">' + list.map(function(t){ return itemRow(t, true); }).join('') + '</div>'
       : '<p class="none">У этого этапа пока нет задач.</p>') +
     '<div class="rowadd">' +
-      '<input class="inp" type="text" placeholder="Задача этапа" data-goaltask="' + st.id + '" autocomplete="off">' +
+      '<input class="inp" type="text" placeholder="Задача этапа" data-goaltask="' + st.id + '" data-goal="' + g.id + '" autocomplete="off">' +
       '<button class="btn sm" data-act="goal-task" data-goal="' + g.id + '" data-stage="' + st.id + '">Добавить</button>' +
     '</div>' +
   '</div>';
@@ -6956,7 +8138,7 @@ function stageBlock(g, st, номер){
 function goalBody(g){
   var html = '<div class="goalbody">';
 
-  if (g.purpose) html += '<p class="sub gpurpose">' + esc(g.purpose) + '</p>';
+  if (g.purpose) html += '<p class="sub gpurpose" translate="no">' + esc(g.purpose) + '</p>';
 
   /* Дата цели — вместе с тем, сколько до неё осталось. Сама дата без остатка
      заставляет считать в голове, а именно остаток и есть повод шевелиться. */
@@ -7013,10 +8195,10 @@ function vGoal(){
     blank(NAV_ICONS.goals, 'Похоже, она уже была удалена', 'Вернись к списку целей.', 'go', 'Все цели', ' data-view="goals"');
 
   var p = goalProgress(g);
-  var html = head('Цель', g.title, 'goals');
+  var html = head('Цель', g.title, 'goals', true);
 
   html += '<section class="card">' +
-    (g.purpose ? '<p class="sub" style="margin:0 0 14px">' + esc(g.purpose) + '</p>' : '') +
+    (g.purpose ? '<p class="sub" style="margin:0 0 14px" translate="no">' + esc(g.purpose) + '</p>' : '') +
     bar(p.done, p.total, p.done + ' из ' + p.total + ' ' + p.unit) +
     '<div class="acts">' +
       '<button class="btn sm" data-act="new-stage" data-goal="' + g.id + '">+ Создать этап</button>' +
@@ -7171,7 +8353,8 @@ function mmNode(x, y, w, text, sub, fillColor, done, colors){
       'fill="' + (done ? rgba(fillColor, MM.fillDone) : 'none') + '" ' +
       'stroke="' + line + '"/>' +
     lines.map(function(line, i){
-      return '<text class="mm-label" x="' + (left + 11) + '" y="' + (first + i * MM.lineH) + '">' + esc(line) + '</text>';
+      // Подпись узла — название, данное человеком: переводчик её не трогает.
+      return '<text class="mm-label" translate="no" x="' + (left + 11) + '" y="' + (first + i * MM.lineH) + '">' + esc(line) + '</text>';
     }).join('') +
     (sub ? '<text class="mm-label sec" x="' + (left + 11) + '" y="' + (first + lines.length * MM.lineH + 2) + '">' + esc(sub) + '</text>' : '') +
   '</g>';
@@ -7243,17 +8426,20 @@ function vMindMap(){
       var goalY = cursor + block / 2;
       var goalCx = cx + dir * MM.goalX;
 
-      var goalTasks = tasksOfGoal(goal.id);
-      var goalDone = goalTasks.filter(function(t){ return t.done; }).length;
-      var goalRatio = fillRatio(goalDone, goalTasks.length);
-      doneAll += goalDone; totalAll += goalTasks.length;
+      /* Готовность цели — та же, что на карточке цели: по этапам, а без
+         этапов по задачам (goalProgress). Карта считала по задачам всегда и
+         расходилась с экраном целей: закрытые этапы без задач давали тут 0%.
+         Ствол — среднее по целям, каждая весит одинаково. */
+      var gp = goalProgress(goal);
+      var goalRatio = fillRatio(gp.done, gp.total);
+      doneAll += goalRatio; totalAll += 1;
 
       body += mmLink(cx + dir * MM.coreR, cy, goalCx - dir * MM.goalW / 2, goalY, colors, goalRatio);
 
       var stageCursor = cursor;
       var rows = goal.stages.slice();
       var loose = S.tasks.filter(function(t){ return t.goalId === goal.id && !findStage(goal, t.stageId); });
-      if (loose.length) rows.push({ id: null, title: 'Задача без этапа', status: 'planned' });
+      if (loose.length) rows.push({ id: null, title: SynI18n.tr('Задача без этапа'), status: 'planned' });
 
       for (var s = 0; s < rows.length; s++){
         var stage = rows[s];
@@ -7284,8 +8470,8 @@ function vMindMap(){
       }
 
       body += mmNode(goalCx, goalY, MM.goalW, goal.title,
-        goalTasks.length ? goalDone + ' / ' + goalTasks.length + ' задач' : 'без задач',
-        colors.accent, goalTasks.length > 0 && goalRatio >= 1, colors);
+        gp.total ? gp.done + ' / ' + gp.total + ' ' + gp.unit : 'без задач',
+        colors.accent, gp.total > 0 && goalRatio >= 1, colors);
 
       cursor += block + MM.goalGap;
     }
@@ -7312,23 +8498,41 @@ function vMindMap(){
   var shown = Math.round(width * zoom);
   var full = !!(S.mm && S.mm.full);
 
-  var canvas = '<div class="mmwrap"><svg viewBox="0 0 ' + width + ' ' + height + '" width="' + shown + '" ' +
+  /* Масштаб — кнопками прямо на карте, а не строкой под ней.
+
+     Раньше «−» и «+» были мелкими текстовыми чипами в конце легенды, а
+     увеличивать карту толком можно было только развернув её на весь экран.
+     Теперь кнопки висят в углу самой рамки, крупные и рисованные, и
+     масштаб меняется на месте, вокруг середины того, что видно. Двумя
+     пальцами карту тоже можно растянуть или сжать — тоже внутри рамки. */
+  var mmIcon = function(path){
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + path + '</svg>';
+  };
+  var controls = '<div class="mmctl">' +
+      '<button type="button" data-act="mm-zoom" data-dir="in" aria-label="Крупнее">' + mmIcon('<path d="M12 6v12M6 12h12"/>') + '</button>' +
+      '<button type="button" data-act="mm-zoom" data-dir="out" aria-label="Мельче">' + mmIcon('<path d="M6 12h12"/>') + '</button>' +
+    '</div>';
+
+  var canvas = '<div class="mmbox"><div class="mmwrap"><svg viewBox="0 0 ' + width + ' ' + height + '" width="' + shown + '" ' +
       'height="' + Math.round(height * zoom) + '" role="img" aria-label="Карта целей">' +
       body + core +
-    '</svg></div>';
+    '</svg></div>' + controls + '</div>';
 
-  var zoomButtons =
-    '<button class="chip" data-act="mm-zoom" data-dir="out" aria-label="Мельче">−</button> ' +
-    '<button class="chip" data-act="mm-zoom" data-dir="in" aria-label="Крупнее">+</button>';
+  /* Легенда — цветными плашками с понятными словами.
 
+     Прежняя строка «задача выполнена · цель или этап закрыты · ещё в работе»
+     шла мелким серым текстом с квадратиками в 10 пикселей, и было неясно,
+     какой цвет к чему. Теперь каждое состояние — плашка его же цвета:
+     зелёная — сделано, цвета акцента — закрыто, серая — в работе. И одна
+     строка о том, что значит плотность заливки. */
+  var плашка = function(fill, border, title){
+    return '<span class="mmkey"><i style="background:' + fill + '; border-color:' + border + '"></i>' + title + '</span>';
+  };
   var legend = '<div class="mmlegend">' +
-      '<span><i style="background:' + rgba(colors.focusGreen, MM.fillDone) +
-        '; border-color:' + rgba(colors.focusGreen, 0.9) + '"></i>задача выполнена</span>' +
-      '<span><i style="background:' + rgba(colors.accent, MM.fillDone) +
-        '; border-color:' + rgba(colors.accent, 0.9) + '"></i>цель или этап закрыты</span>' +
-      '<span><i style="background:' + rgb(colors.panel) +
-        '; border-color:' + rgba(colors.textSecondary, 0.5) + '"></i>ещё в работе</span>' +
-      (full ? '' : '<span style="margin-left:auto">' + zoomButtons + '</span>') +
+      плашка(rgba(colors.focusGreen, MM.fillDone), rgba(colors.focusGreen, 0.9), 'Задача сделана') +
+      плашка(rgba(colors.accent, MM.fillDone), rgba(colors.accent, 0.9), 'Этап закрыт') +
+      плашка(rgb(colors.panel), rgba(colors.textSecondary, 0.5), 'В работе') +
+      '<p class="mmhint">Цвет акцента — закрытый этап или цель. Чем гуще заливка карточки, тем больше в ней сделано.</p>' +
     '</div>';
 
   // В рамке высотой с ладонь видно ствол и обрезанные края двух целей —
@@ -7337,16 +8541,22 @@ function vMindMap(){
     return '<div class="mmfull">' +
       '<div class="mmfull-bar">' +
         '<span class="ttl">Карта целей</span>' +
-        '<span class="sp">' + zoomButtons +
+        '<span class="sp">' +
           '<button class="chip" data-act="mm-full" data-full="0">Закрыть</button></span>' +
       '</div>' + canvas + legend +
     '</div>';
   }
 
+  /* В приложении карта — это весь экран, а не врезка.
+
+     Рамка, легенда и кнопка «Развернуть» делили и без того узкий экран:
+     сама карта получала полоску посередине. Теперь холст занимает всё место
+     между шапкой и нижним меню, без рамки, и поверх — только «+» и «−».
+     Двигать пальцем и щипать её можно сразу, разворачивать незачем. */
+  if (appLook()) return '<div class="mmscreen">' + canvas + '</div>';
+
   return canvas + legend +
-    '<div class="acts" style="margin-top:-4px">' +
-      '<button class="btn sm soft" data-act="mm-full" data-full="1">' + ICON.full + ' Развернуть карту</button>' +
-    '</div>';
+    '<button class="btn soft mm-open-btn" data-act="mm-full" data-full="1">' + ICON.full + ' Развернуть карту</button>';
 }
 
 /* Карта открывается ровно в ширину окна. В приложении на этом была бага:
@@ -7360,9 +8570,20 @@ var MM_MIN_SCALE = 0.85;
 
 function fitMindMap(){
   var wrap = document.querySelector('.mmwrap');
+  // Снимаем раньше любых выходов: иначе после ухода с карты страница
+  // оставалась бы без прокрутки.
+  if (!wrap || !wrap.closest('.mmscreen')) document.body.classList.remove('mm-screen');
   if (!wrap) return;
   var svg = wrap.querySelector('svg');
   if (!svg) return;
+
+  // Карта во весь экран: рамка тянется от своего верха до нижнего меню.
+  var экран = !!wrap.closest('.mmscreen');
+  document.body.classList.toggle('mm-screen', экран);
+  if (экран){
+    var низ = $('tabbar') ? $('tabbar').getBoundingClientRect().top : window.innerHeight;
+    wrap.style.height = Math.max(200, Math.round(низ - wrap.getBoundingClientRect().top - 6)) + 'px';
+  }
 
   var box = (svg.getAttribute('viewBox') || '').split(' ');
   var vw = Number(box[2]) || 1, vh = Number(box[3]) || 1;
@@ -7387,6 +8608,7 @@ function fitMindMap(){
     // ни на телефоне, ни на ноутбуке. Общий вид достаётся кнопкой «−» —
     // осознанным действием, а не по умолчанию вместо текста.
     var floorFull = MM_MIN_SCALE;
+    wrap.setAttribute('data-base', String(Math.max(floorFull, Math.min(2.2, fitFull))));
     var scale = Math.max(floorFull, Math.min(2.2, fitFull)) * zoom;
     svg.setAttribute('width', Math.max(60, Math.round(vw * scale)));
     svg.setAttribute('height', Math.round(vh * scale));
@@ -7442,9 +8664,16 @@ function fitMindMap(){
 
      Рамка ровно по карте, но не выше своего предела — дальше прокрутка
      внутри неё. */
+  wrap.setAttribute('data-base', String(base));
   if (!(S.mm && S.mm.full)){
-    var limit = Math.round(window.innerHeight * (narrow ? 0.62 : 0.72));
-    wrap.style.height = Math.min(limit, drawnH + 24) + 'px';
+    /* На телефоне рамка — ровно полэкрана: в ней карту удобно двигать и
+       растягивать, не разворачивая, а под ней ещё видно легенду и кнопку. */
+    if (экран){ /* высота уже задана выше */ }
+    else if (narrow) wrap.style.height = Math.round(window.innerHeight * 0.5) + 'px';
+    else {
+      var limit = Math.round(window.innerHeight * 0.72);
+      wrap.style.height = Math.min(limit, drawnH + 24) + 'px';
+    }
   } else {
     wrap.style.height = '';
   }
@@ -7455,6 +8684,60 @@ function fitMindMap(){
   wrap.scrollLeft = narrow ? 0 : Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
 }
 
+/* Масштаб на месте, без перерисовки страницы.
+
+   Прежде каждое «+» шло через commit() и перерисовку всего экрана: карта
+   прыгала в начало, и увеличенный кусок приходилось искать заново. Теперь
+   меняется только размер холста, а прокрутка подгоняется так, чтобы точка
+   под пальцем (или середина рамки) осталась на месте. */
+var MM_ZOOM_MIN = 0.5, MM_ZOOM_MAX = 3;
+var mmSaveTimer = null;
+function mmSetZoom(next, anchorX, anchorY){
+  var wrap = document.querySelector('.mmwrap');
+  var svg = wrap && wrap.querySelector('svg');
+  if (!svg) return;
+  if (!S.mm) S.mm = { zoom: 1 };
+  next = Math.min(MM_ZOOM_MAX, Math.max(MM_ZOOM_MIN, next));
+  var box = (svg.getAttribute('viewBox') || '').split(' ');
+  var vw = Number(box[2]) || 1, vh = Number(box[3]) || 1;
+  var base = Number(wrap.getAttribute('data-base')) || 1;
+  var rect = wrap.getBoundingClientRect();
+  var ax = anchorX === undefined ? rect.width / 2 : anchorX - rect.left;
+  var ay = anchorY === undefined ? rect.height / 2 : anchorY - rect.top;
+  var oldW = svg.getBoundingClientRect().width || 1, oldH = svg.getBoundingClientRect().height || 1;
+  var fx = (wrap.scrollLeft + ax) / Math.max(oldW, wrap.scrollWidth);
+  var fy = (wrap.scrollTop + ay) / Math.max(oldH, wrap.scrollHeight);
+  S.mm.zoom = next;
+  svg.setAttribute('width', Math.max(60, Math.round(vw * base * next)));
+  svg.setAttribute('height', Math.round(vh * base * next));
+  wrap.scrollLeft = Math.max(0, fx * wrap.scrollWidth - ax);
+  wrap.scrollTop = Math.max(0, fy * wrap.scrollHeight - ay);
+  clearTimeout(mmSaveTimer);
+  mmSaveTimer = setTimeout(save, 400);
+}
+
+/* Щипок двумя пальцами внутри рамки. Страница при этом не масштабируется:
+   жест принадлежит карте. */
+var mmPinch = null;
+function mmTouchDist(t){ return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+document.addEventListener('touchstart', function(event){
+  if (event.touches.length !== 2) return;
+  var wrap = event.target.closest ? event.target.closest('.mmwrap') : null;
+  if (!wrap) return;
+  mmPan = null;
+  mmPinch = { dist: mmTouchDist(event.touches), zoom: (S.mm && S.mm.zoom) || 1 };
+}, { passive: true });
+document.addEventListener('touchmove', function(event){
+  if (!mmPinch || event.touches.length !== 2) return;
+  event.preventDefault();
+  var t = event.touches;
+  mmSetZoom(mmPinch.zoom * mmTouchDist(t) / mmPinch.dist,
+    (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
+}, { passive: false });
+document.addEventListener('touchend', function(event){
+  if (event.touches.length < 2) mmPinch = null;
+});
+
 /* Перетаскивание карты пальцем и мышью: при увеличении она шире рамки. */
 var mmPan = null;
 document.addEventListener('pointerdown', function(event){
@@ -7463,7 +8746,7 @@ document.addEventListener('pointerdown', function(event){
   mmPan = { wrap: wrap, x: event.clientX, left: wrap.scrollLeft };
 });
 document.addEventListener('pointermove', function(event){
-  if (!mmPan) return;
+  if (!mmPan || mmPinch) return;
   mmPan.wrap.scrollLeft = mmPan.left - (event.clientX - mmPan.x);
 });
 document.addEventListener('pointerup', function(){ mmPan = null; });
@@ -7493,7 +8776,7 @@ function listItemLine(l, it){
   }
   return '<div class="line' + (it.done ? ' on' : '') + '">' +
     '<button class="box' + (it.done ? ' on' : '') + '" data-act="item-toggle" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Готово">✓</button>' +
-    '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить">' + esc(it.title) + '</span>' +
+    '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить" translate="no">' + esc(it.title) + '</span>' +
     '<button class="kill" data-act="item-kill" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Удалить">✕</button>' +
   '</div>';
 }
@@ -7546,7 +8829,7 @@ function vLists(){
       var p = listProgress(l);
       html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-list="' + l.id + '">' +
         '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-list" data-list="' + l.id + '">' +
-          '<h3>' + esc(l.title) + '</h3>' +
+          '<h3 translate="no">' + esc(l.title) + '</h3>' +
           '<p class="sub' + (p.full ? ' sub--done' : '') + '">Готово ' + p.done + ' из ' + p.total + '</p>' +
           '<div style="margin-top:12px"><div class="bar slim"><i style="width:' + pct(p.done, p.total) + '%"></i></div></div>' +
         '</button>' +
@@ -7565,7 +8848,7 @@ function vLists(){
       var p = listProgress(l);
       return '<article class="card row-card listtile" data-list="' + l.id + '">' +
         '<button class="main" data-act="open-list" data-list="' + l.id + '">' +
-          '<h3>' + esc(l.title) + '</h3>' +
+          '<h3 translate="no">' + esc(l.title) + '</h3>' +
           '<p class="sub' + (p.full ? ' sub--done' : '') + '">' + p.done + ' / ' + p.total + '</p>' +
           '<div class="bar slim" style="margin-top:10px"><i style="width:' + pct(p.done, p.total) + '%"></i></div>' +
         '</button>' +
@@ -7588,7 +8871,7 @@ function vLists(){
         '<div class="acc-h">' +
           '<button class="acc-toggle" data-act="list-acc" data-list="' + l.id + '" aria-expanded="' + open + '">' +
             '<span class="car">' + NAV_ICONS.caret + '</span>' +
-            '<span class="acc-t">' + esc(l.title) + '</span>' +
+            '<span class="acc-t" translate="no">' + esc(l.title) + '</span>' +
             '<span class="sub' + (p.full ? ' sub--done' : '') + '">' + p.done + ' / ' + p.total + '</span>' +
           '</button>' +
           '<div class="side">' +
@@ -7608,7 +8891,7 @@ function vLists(){
     var p = listProgress(l);
     return '<section class="listcol" data-list="' + l.id + '">' +
       '<div class="listcol-h">' +
-        '<h3>' + esc(l.title) + '</h3>' +
+        '<h3 translate="no">' + esc(l.title) + '</h3>' +
         '<span class="lc-count' + (p.full ? ' sub--done' : '') + '">' + p.done + '/' + p.total + '</span>' +
         '<div class="side">' +
           '<button data-act="rename-list" data-list="' + l.id + '" aria-label="Переименовать список" title="Переименовать">' + ICON.edit + '</button>' +
@@ -7627,9 +8910,9 @@ function vList(){
   if (!l) return head('', 'Список не найден', 'lists') +
     blank(NAV_ICONS.lists, 'Похоже, он уже был удалён', 'Вернись к спискам.', 'go', 'Списки', ' data-view="lists"');
 
-  var html = head('', l.title, 'lists');
+  var html = head('', l.title, 'lists', true);
   html += '<section class="card">' +
-    (l.note ? '<p class="sub" style="margin:0 0 10px">' + esc(l.note) + '</p>' : '') +
+    (l.note ? '<p class="sub" style="margin:0 0 10px" translate="no">' + esc(l.note) + '</p>' : '') +
     (l.items.length
       ? '<div class="lines">' + l.items.map(function(it){
           /* Название пункта правится на месте.
@@ -7651,7 +8934,7 @@ function vList(){
           }
           return '<div class="line' + (it.done ? ' on' : '') + '">' +
             '<button class="box' + (it.done ? ' on' : '') + '" data-act="item-toggle" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Готово">✓</button>' +
-            '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить">' + esc(it.title) + '</span>' +
+            '<span class="line-text" data-act="item-edit" data-list="' + l.id + '" data-item="' + it.id + '" title="Нажмите, чтобы изменить" translate="no">' + esc(it.title) + '</span>' +
             '<button class="kill" data-act="item-kill" data-list="' + l.id + '" data-item="' + it.id + '" aria-label="Удалить">✕</button>' +
           '</div>';
         }).join('') + '</div>'
@@ -7679,8 +8962,8 @@ function vNotes(){
     var n = S.notes[i];
     html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-note="' + n.id + '">' +
       '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-note" data-note="' + n.id + '">' +
-        '<h3>' + esc(n.title) + '</h3>' +
-        '<p class="sub">' + esc(n.body ? n.body.slice(0, 120) : 'Пустая запись') + '</p>' +
+        '<h3 translate="no">' + esc(n.title) + '</h3>' +
+        (n.body ? '<p class="sub" translate="no">' + esc(n.body.slice(0, 120)) + '</p>' : '<p class="sub">Пустая запись</p>') +
       '</button>' +
       '<div class="side">' +
         '<button data-act="rename-note" data-note="' + n.id + '" aria-label="Переименовать запись" title="Переименовать">' + ICON.edit + '</button>' +
@@ -7706,14 +8989,14 @@ function vNote(){
      текстом: удаление живёт в списке записей на свайпе, и держать его ещё и
      здесь, где на него можно ткнуть промахнувшись мимо текста, незачем. */
   if (!touchUI()){
-    return head('', n.title, 'notes') +
+    return head('', n.title, 'notes', true) +
       '<section class="card">' +
         '<textarea class="note-field" data-notebody="' + n.id + '" placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>' +
         '<p class="hint">Сохраняется по мере набора — заметка, которую надо не забыть сохранить, это заметка, которую теряют.</p>' +
         '<div class="acts"><button class="btn sm soft" data-act="kill-note" data-note="' + n.id + '">Удалить запись</button></div>' +
       '</section>';
   }
-  return head('', n.title, 'notes') +
+  return head('', n.title, 'notes', true) +
     '<textarea class="note-field solo" data-notebody="' + n.id + '" ' +
       'placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>';
 }
@@ -7739,11 +9022,17 @@ function pomoOrdered(){
   });
 }
 
-/// Номер режима в том порядке, в каком он показан человеку. Замок и экран
-/// обязаны считать одинаково, иначе открытым окажется не тот, что виден первым.
+/* Номер режима для замка. Бесплатен «Фокус» — по имени, а не по месту.
+
+   Раньше бесплатным был самый короткий из показанных. Но режим по умолчанию —
+   фокус, и без подписки человек оказывался в закрытом режиме с первого же
+   запуска; а поставив фокус на 1 минуту в «Длине фокуса», открывал его себе
+   сам. Фокус и есть помодоро, перерывы — уже надстройка. Остальные считаем
+   по порядку на экране, следом за ним. */
 function порядковыйРежима(id){
-  var список = pomoOrdered();
-  for (var i = 0; i < список.length; i++) if (список[i].id === id) return i;
+  if (id === 'focus') return 0;
+  var список = pomoOrdered().filter(function(p){ return p.id !== 'focus'; });
+  for (var i = 0; i < список.length; i++) if (список[i].id === id) return i + 1;
   return 0;
 }
 
@@ -7765,12 +9054,8 @@ function vPomodoro(){
     '<p class="phase">' + m.title + ' · ' + S.pomodoro[m.key] + ' мин</p>' +
     '<div class="modes">' + pomoOrdered().map(function(p){
       // Минуты прямо на карточке режима — ровно то, что чинили в приложении.
-      /* Считаем по порядку НА ЭКРАНЕ, а не в массиве.
-
-         Массив идёт «фокус, перерыв, длинный», экран — по возрастанию минут:
-         5, 15, 25. Замок вешался по массиву, поэтому бесплатным оказывался
-         «Фокус» на 25 минут, стоящий третьим, а первая карточка на экране была
-         закрыта. Бесплатен первый из показанных — самый короткий. */
+      /* Экран идёт по возрастанию минут, а замок — от «Фокуса»: он бесплатен
+         всегда, где бы ни стоял (см. порядковыйРежима). */
       var режимОткрыт = lookOpen('pomoModes', порядковыйРежима(p.id));
       return '<button class="mode' + (режимОткрыт ? '' : ' locked') + '" data-act="pomo-mode" data-mode="' + p.id + '" aria-pressed="' + (p.id === S.pomodoro.mode) + '">' +
         '<b>' + p.title + '</b><span>' + S.pomodoro[p.key] + ' мин</span></button>';
@@ -7824,7 +9109,8 @@ function pomoЗавершить(){
   remaining = 0;
   S.pomodoro.endsAt = 0;
   if (S.pomodoro.mode === 'focus') S.pomodoro.doneToday += 1;
-  commit('Помидор закрыт');
+  // Помидор закрывается сам по таймеру — в это время человек может печатать.
+  фоном(function(){ commit('Помидор закрыт'); });
 }
 
 /// Остаток по часам. null — таймер не запущен.
@@ -7835,7 +9121,9 @@ function pomoОстаток(){
 
 function startTicker(){
   stopTicker();
-  if (remaining === null) remaining = S.pomodoro[modeOf().key] * 60;
+  // Ноль — это закрытый помидор. Старт с нуля закрывался мгновенно и
+  // засчитывал ещё одну сессию, которой не было; начинаем круг заново.
+  if (!remaining) remaining = S.pomodoro[modeOf().key] * 60;
   S.pomodoro.endsAt = Date.now() + remaining * 1000;
   save();
   ticker = setInterval(function(){
@@ -8040,8 +9328,22 @@ function medTick(){
       medStop(false);
       return;
     }
-    if (S.view === 'meditation') render();
+    if (S.view === 'meditation') medDialUpdate();
   }, 1000);
+}
+
+/// Тик трогает только круг, цифры и слово дыхания. Полная перерисовка раз в
+/// секунду пересоздавала ползунок громкости прямо под пальцем, и тянуть его
+/// во время сеанса было невозможно — он срывался каждую секунду.
+function medDialUpdate(){
+  var dial = document.querySelector('.med-dial');
+  if (!dial) return render();
+  var total = S.meditation.minutes * 60;
+  dial.style.setProperty('--p', (total ? Math.min(1, med.elapsed / total) : 0).toFixed(4));
+  var time = dial.querySelector('.med-face b');
+  if (time) time.textContent = clockText(Math.max(0, total - med.elapsed));
+  var word = dial.querySelector('.med-face span');
+  if (word) word.textContent = SynI18n.tr(breathWord());
 }
 
 /* Экран сеанса, а не форма настроек. В центре — круг, который заполняется по
@@ -8183,13 +9485,13 @@ function vProfile(){
       '<input class="inp" id="pname" data-name type="text" maxlength="40" placeholder="Как к вам обращаться" ' +
         'value="' + esc(S.profile.name) + '" autocomplete="name">' +
     '</div>' +
-    '<p class="hint">Имя и фото никуда не отправляются: они лежат в этом браузере рядом с задачами.</p>' +
+    '<p class="hint">Имя и фото никуда не отправляются: они лежат ' + (inApp() ? 'на этом телефоне' : 'в этом браузере') + ' рядом с задачами.</p>' +
   '</section>';
 
   /* Вместо входа — прямой ответ на вопрос «а где мои записи». Он и был
      настоящей причиной, по которой люди искали здесь вход. */
   html += '<p class="lbl">Где записи</p><section class="card">' +
-    '<h3>Только в этом браузере</h3>' +
+    '<h3>' + (inApp() ? 'Только на этом телефоне' : 'Только в этом браузере') + '</h3>' +
     '<p class="sub">Входа нет и не нужно: задачи, цели, списки и заметки лежат здесь, на этом устройстве, и никуда не отправляются. Подписка включается кодом с сайта — он и опознаёт вас, если оплата есть.</p>' +
     '<div class="acts">' +
       '<button class="btn sm soft" data-act="go" data-view="settings-data">Сохранить копию</button>' +
@@ -8315,7 +9617,7 @@ function vSettings(){
   if (appLook()){
     html += '<p class="setgroup-t">Настройки</p>' +
       '<button class="setprofile" data-act="go" data-view="profile">' + avatarHTML() +
-        '<span class="sl-text"><b>' + esc(S.profile.name || 'Ваш профиль') + '</b>' +
+        '<span class="sl-text"><b' + (S.profile.name ? ' translate="no"' : '') + '>' + esc(S.profile.name || 'Ваш профиль') + '</b>' +
           '<i>' + (S.profile.name ? 'Имя и фото видны только вам' : 'Добавьте имя и фото — их видите только вы') + '</i></span>' +
         '<span class="sl-arrow">' + NAV_ICONS.chevron + '</span></button>' +
       '<div class="setcats">' + РАЗДЕЛЫ_НАСТРОЕК.filter(function(р){ return !р.есть || р.есть(); }).map(function(р){
@@ -8329,7 +9631,7 @@ function vSettings(){
 
   html += группаНастроек('Профиль',
     '<button class="setline" data-act="go" data-view="profile">' +
-      '<span class="sl-text"><b>' + esc(S.profile.name || 'Без имени') + '</b>' +
+      '<span class="sl-text"><b' + (S.profile.name ? ' translate="no"' : '') + '>' + esc(S.profile.name || 'Без имени') + '</b>' +
         '<i>Имя и фото видны только вам</i></span>' +
       '<span class="sl-arrow">' + NAV_ICONS.chevron + '</span></button>');
 
@@ -8718,11 +10020,13 @@ function телоДанных(){
 
   html += '<p class="lbl">Содержимое</p>' +
     '<button class="setrow" data-act="reset-demo"><span>Заполнить примерами</span><span class="arrow">' + NAV_ICONS.chevron + '</span></button>' +
-    '<button class="setrow" data-act="wipe"><span>Стереть всё в этом браузере</span><span class="arrow">' + NAV_ICONS.chevron + '</span></button>';
+    '<button class="setrow" data-act="wipe"><span>' + (inApp() ? 'Стереть всё в приложении' : 'Стереть всё в этом браузере') + '</span><span class="arrow">' + NAV_ICONS.chevron + '</span></button>';
 
   html += '<section class="card" style="margin-top:14px">' +
     '<h3>Где лежат данные</h3>' +
-    '<p class="sub">Только в этом браузере, на этом устройстве. Пока синхронизация устройств выключена, копии на сервере нет: очистка данных сайта или режим инкогнито удалят задачи, цели и заметки безвозвратно.</p>' +
+    '<p class="sub">' + (inApp()
+      ? 'Только на этом телефоне. Пока синхронизация устройств выключена, копии на сервере нет: если удалить приложение или стереть его данные, задачи, цели и заметки пропадут безвозвратно.'
+      : 'Только в этом браузере, на этом устройстве. Пока синхронизация устройств выключена, копии на сервере нет: очистка данных сайта или режим инкогнито удалят задачи, цели и заметки безвозвратно.') + '</p>' +
   '</section>';
 
   return html;
@@ -8760,7 +10064,9 @@ function vAbout(){
     }).join('') + '</div></section>';
 
   html += '<p class="lbl">Где лежат записи</p><section class="card">' +
-    '<p class="sub">Только в этом браузере, на этом устройстве. Пока синхронизация устройств выключена, копии на сервере нет: очистка данных сайта или режим инкогнито удалят их безвозвратно. Копию можно сохранить файлом в разделе «Данные».</p>' +
+    '<p class="sub">' + (inApp()
+      ? 'Только на этом телефоне. Пока синхронизация устройств выключена, копии на сервере нет: если удалить приложение или стереть его данные, они пропадут безвозвратно. Копию можно сохранить файлом в разделе «Данные».'
+      : 'Только в этом браузере, на этом устройстве. Пока синхронизация устройств выключена, копии на сервере нет: очистка данных сайта или режим инкогнито удалят их безвозвратно. Копию можно сохранить файлом в разделе «Данные».') + '</p>' +
     '<p class="hint">К Syn уходит срез задач и целей — иначе он не знает, о чём его спрашивают. Сам срез не сохраняется, а вот разговор с ассистентом и его память лежат на сервере: без них он не помнил бы сказанное раньше. Стереть их можно в настройках.</p>' +
   '</section>';
 
@@ -9104,16 +10410,27 @@ function webInstallID(){
   return id.indexOf('web-') === 0 ? id : 'web-' + id;
 }
 
+/* Сколько ждём ответа сервера, прежде чем сказать об этом вслух.
+
+   Срока не было вовсе: подвисшее соединение в метро или в лифте держало
+   «Syn думает…» бесконечно, поле отправки оставалось выключенным, и выйти из
+   этого можно было только перезагрузкой. Сорок секунд — с запасом на долгий
+   ответ модели, но меньше, чем человек готов смотреть на троеточие. */
+var SYN_FETCH_MS = 40000;
+
 function synFetch(path, body, token){
   var headers = { 'Content-Type': 'application/json' };
   if (token){
     headers.Authorization = 'Bearer ' + token;
     headers['X-Synapse-Install-ID'] = webInstallID();
   }
-  return fetch(SYN.base + path, {
+  var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  var timer = null;
+  var request = fetch(SYN.base + path, {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: ctrl ? ctrl.signal : undefined
   }).then(function(response){
     return response.json().catch(function(){ return {}; }).then(function(data){
       if (!response.ok){
@@ -9125,6 +10442,60 @@ function synFetch(path, body, token){
       return data;
     });
   });
+  // Срок ставим гонкой, а не только через abort: в старых WebView
+  // AbortController нет, и подвисший запрос иначе так и висел бы.
+  var deadline = new Promise(function(resolve, reject){
+    timer = setTimeout(function(){
+      if (ctrl) ctrl.abort();
+      var error = new Error('Syn не ответил за ' + Math.round(SYN_FETCH_MS / 1000) +
+        ' секунд. Проверь соединение и попробуй ещё раз.');
+      error.status = 0;
+      error.timeout = true;
+      reject(error);
+    }, SYN_FETCH_MS);
+  });
+  return Promise.race([request, deadline]).then(function(data){
+    clearTimeout(timer);
+    return data;
+  }, function(error){
+    clearTimeout(timer);
+    throw error;
+  });
+}
+
+/* Запрос с сессией и одной попыткой заново на 401.
+
+   Сессия жила по сроку, который назвал сервер, — но сервер может забыть её
+   раньше: перезапуск, смена ключа. Тогда каждый запрос получал 401, а токен
+   в памяти считался свежим ещё час, и Syn молчал до перезагрузки страницы.
+   Теперь 401 сбрасывает токен, и запрос повторяется один раз с новой
+   сессией; второй 401 уже честно показывается. */
+function synWithSession(request){
+  return synSession().then(request).catch(function(error){
+    if (!error || error.status !== 401) throw error;
+    SYN.token = '';
+    SYN.expiresAt = 0;
+    return synSession().then(request);
+  });
+}
+
+/* Остаток запросов привязан к дню.
+
+   Число от сервера жило в памяти без даты: приложение на андроиде не
+   выгружается неделями, и после полуночи под полем висело вчерашнее
+   «осталось 0», хотя норма уже обновилась. Теперь при смене дня старое число
+   забывается, и до первого ответа показывается дневная норма. */
+function synQuotaSet(quota){
+  if (!quota || typeof quota !== 'object') return;
+  var copy = {};
+  for (var key in quota) if (Object.prototype.hasOwnProperty.call(quota, key)) copy[key] = quota[key];
+  copy.date = isoOf(todayDate());
+  SYN.quota = copy;
+}
+
+function synQuotaNow(){
+  if (SYN.quota && SYN.quota.date !== isoOf(todayDate())) SYN.quota = null;
+  return SYN.quota;
 }
 
 /// Сессия берётся один раз и живёт до истечения срока.
@@ -9412,10 +10783,17 @@ function modalSyn(draft, error){
     '</div>' +
     '<div class="syn-log" id="syn-log">' + synLogHTML() + '</div>' +
     (error ? '<p class="err syn-error">' + esc(error) + '</p>' : '') +
-    '<form class="syn-bar" data-form="syn-send">' +
+    /* Поле во всю ширину и одна кнопка, как в Telegram.
+
+       Пока в поле пусто — кнопка микрофона: держишь — идёт запись,
+       отпустил — фраза уходит Syn, увёл палец — отмена. Как только в поле
+       что-то напечатано — на её месте кнопка «отправить». Раньше рядом
+       стояли обе, и поле сжималось; а диктовка отправлялась сама после
+       паузы, хотя человек ещё думал. Теперь когда отправить, решает он. */
+    '<form class="syn-bar' + ((draft || '').trim() || SYN.busy || !voiceSupported() ? ' has-text' : '') + '" data-form="syn-send">' +
       '<label class="visually-hidden" for="syn-input">Что сделать</label>' +
       '<textarea class="inp" id="syn-input" rows="1" enterkeyhint="send" ' +
-        'placeholder="Перенеси урок на субботу">' + esc(draft || '') + '</textarea>' +
+        'placeholder="Сообщение для Syn">' + esc(draft || '') + '</textarea>' +
       (voiceSupported()
         ? '<button class="syn-mic' + (voice.on ? ' on' : '') + '" type="button" data-act="syn-voice" ' +
           'aria-label="' + (voice.on ? 'Отправить сказанное' : 'Продиктовать') + '" ' +
@@ -9435,7 +10813,7 @@ function synLogHTML(){
   if (!S.synChat.length){
     return '<p class="syn-empty">Скажи словами: «перенеси созвон на пятницу», «разбери мой день», ' +
       '«сделай из этого цель», «включи дождь на 15 минут».' +
-      (voiceSupported() ? ' Или продиктуй голосом — Syn выполнит сказанное.' : '') + '</p>';
+      (voiceSupported() ? ' Или зажми микрофон, скажи и отпусти — Syn выполнит сказанное.' : '') + '</p>';
   }
 
   return S.synChat.map(synItemHTML).join('') +
@@ -9466,19 +10844,25 @@ function synItemHTML(item, index){
   // Карточка подтверждения: что именно запишется и на какую сумму.
   // Решённая карточка остаётся в разговоре, но уже без кнопок — с итогом:
   // иначе «Применить» под старой карточкой применял бы новую пачку.
+  /* Кнопки — только у карточки, чья пачка ещё не решена, и только в этом
+     заходе на страницу (SYN_СЕССИЯ). Пачка лежит в самой реплике, кнопка
+     знает свою реплику по data-i: нажатие на старой карточке не запишет
+     суммы из новой, а вчера предложенное сегодня не подтверждается. */
   if (item.finance && item.finance.rows.length){
-    var state = item.finance.state;
+    var at = typeof index === 'number' ? index : S.synChat.indexOf(item);
+    var state = item.finance.state ||
+      (item.finance.actions && item.finance.actions.length && item.finance.session === SYN_СЕССИЯ ? '' : 'dropped');
     html += '<div class="syn-fin' + (state ? ' off' : '') + '">' +
       '<b>' + esc(item.finance.head) + '</b>' +
       '<ul>' + item.finance.rows.map(function(row){
         return '<li>' + esc(row) + '</li>';
       }).join('') + '</ul>' +
       (state
-        ? '<p class="syn-fin-done">' + esc(item.finance.result ||
+        ? '<p class="syn-fin-done">' + esc(item.finance.result || item.finance.outcome ||
             (state === 'done' ? 'Записано.' : 'Не записано.')) + '</p>'
         : '<div class="syn-none-acts">' +
-            '<button class="btn sm" data-act="fin-apply">' + esc(item.finance.button || 'Записать') + '</button>' +
-            '<button class="btn sm soft" data-act="fin-drop">Не надо</button>' +
+            '<button class="btn sm" data-act="fin-apply" data-i="' + at + '">' + esc(item.finance.button || 'Записать') + '</button>' +
+            '<button class="btn sm soft" data-act="fin-drop" data-i="' + at + '">Не надо</button>' +
           '</div>') +
     '</div>';
   }
@@ -9536,9 +10920,10 @@ function synScrollDown(){
 function synQuotaHTML(){
   var limit = isPro() ? proSynLimit(S.pro.plan) : FREE_SYN_LIMIT;
   var text;
-  if (SYN.quota && typeof SYN.quota.used === 'number'){
-    limit = SYN.quota.limit || limit;
-    var left = Math.max(0, limit - SYN.quota.used);
+  var quota = synQuotaNow();
+  if (quota && typeof quota.used === 'number'){
+    limit = quota.limit || limit;
+    var left = Math.max(0, limit - quota.used);
     text = 'Осталось ' + left + ' из ' + limit + ' запросов на сегодня.';
   } else {
     text = (isPro() ? 'В подписке ' : 'Бесплатно ') + limit + ' запросов к Syn в день.';
@@ -9550,8 +10935,54 @@ function synQuotaHTML(){
 }
 
 /// Перерисовать окно, не трогая остального экрана.
+/* Клавиатура в окне Syn — только по желанию человека.
+
+   Раньше окно ставило курсор в поле при каждом открытии и каждой
+   перерисовке. На телефоне это значит: открыл ассистента — выскочила
+   клавиатура и подбросила окно вверх, хотя человек, может, собирался
+   говорить голосом. Нажал микрофон — клавиатура спряталась, после фразы
+   окно перерисовалось и вытащило её снова, и закрывать её приходилось
+   руками.
+
+   Теперь курсор возвращается в поле, только если человек сам в него
+   нажал и печатает. Открытие окна и микрофон этот признак снимают. */
+var synКлавиатура = false;
+document.addEventListener('focusin', function(e){
+  if (e.target && e.target.id === 'syn-input' && e.isTrusted) synКлавиатура = true;
+});
+
+/* Клавиатуру спрятали, а поле осталось в фокусе.
+
+   На Android «назад» убирает клавиатуру, не снимая фокуса с поля, и
+   следующая перерисовка окна (ответ Syn, слово диктовки) звала focus() и
+   вытаскивала её снова. Признак того, что клавиатуру убрали, — экран снова
+   вырос до прежней высоты: тогда снимаем и признак, и фокус. */
+var synВысотаБезКлавиатуры = window.innerHeight;
+window.addEventListener('resize', function(){
+  var h = window.innerHeight;
+  if (h >= synВысотаБезКлавиатуры - 40){
+    synВысотаБезКлавиатуры = Math.max(synВысотаБезКлавиатуры, h);
+    var a = document.activeElement;
+    if (synКлавиатура && a && a.id === 'syn-input' && touchUI()){
+      synКлавиатура = false;
+      a.blur();
+    }
+  }
+});
+
+// Пусто в поле — микрофон, есть текст — «отправить» (класс has-text).
+document.addEventListener('input', function(e){
+  if (!e.target || e.target.id !== 'syn-input') return;
+  var bar = e.target.closest('.syn-bar');
+  if (bar) bar.classList.toggle('has-text', !!e.target.value.trim() || SYN.busy || !voiceSupported());
+});
+
 function synRender(draft, error){
-  openModal(modalSyn(draft, error), true);
+  /* Первое открытие окна на телефоне — без клавиатуры: нажать на поле
+     человек успеет. На компьютере клавиатура не выезжает и ничего не
+     заслоняет — там курсор, как и раньше, сразу в поле. */
+  if (!$('syn-log')) synКлавиатура = !touchUI();
+  openModal(modalSyn(draft, error), synКлавиатура ? true : 'none');
   var field = $('syn-input');
   if (field){
     growInput(field);
@@ -9560,22 +10991,63 @@ function synRender(draft, error){
   synScrollDown();
 }
 
+/* Перерисовать окно, только если оно ещё открыто.
+
+   synRender открывает окно всегда — так его и открывают кнопки Syn. Но
+   ответ сервера, слово диктовки и ошибка распознавания приходят позже, когда
+   человек мог окно уже закрыть, и раньше каждое такое событие открывало его
+   заново. Теперь всё, что приходит само, обновляет только состояние: ответ
+   ляжет в ленту и будет виден при следующем открытии, а окно не выскочит
+   поверх другого экрана или другого окна. */
+function synRedraw(draft, error){
+  if (!$('syn-log')) return;
+  synRender(draft, error);
+}
+
+/// Номер захода на страницу: пачка денег подтверждается только в том же.
+var SYN_СЕССИЯ = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+/* Забрать пачку денег у реплики, чтобы записать её или отказаться.
+
+   Пачка отдаётся один раз: после этого у карточки нет кнопок, и второе
+   нажатие — или нажатие на старой карточке — уже ничего не запишет. */
+function synFinTake(index, outcome){
+  var item = S.synChat[Number(index)];
+  if (!item || !item.finance || item.finance.session !== SYN_СЕССИЯ) return null;
+  var batch = item.finance.actions;
+  if (!batch || !batch.length) return null;
+  item.finance.actions = null;
+  item.finance.outcome = outcome;
+  synRedraw($('syn-input') ? $('syn-input').value : '', '');
+  return batch;
+}
+
 /// Отправка и применение. Текст в поле сохраняем при ошибке — иначе повторить
 /// запрос с правкой было бы нечем.
 function synSend(text, where){
   if (!text || SYN.busy) return;
   voiceStop();
   // Из полосы финансов разговор идёт прямо на экране, без окна Syn.
-  var draw = where === 'fin' ? finSynDraw : synRender;
+  // Ответ, пришедший после закрытия окна, окно заново не открывает (synRedraw).
+  var draw = where === 'fin' ? finSynDraw : synRedraw;
 
   SYN.busy = true;
+  метка('syn_request');
   synChatPush('user', text, null);
   if (where === 'fin') FINSYN.from = S.synChat[S.synChat.length - 1];
   save();
   draw('', '');
 
+  /* Отказ ловится только у самого запроса.
+
+     Раньше catch стоял в конце цепочки и ловил всё подряд: если действия уже
+     применились, а упала перерисовка или подсчёт карточки, catch выкидывал
+     из ленты вопрос и возвращал его в поле. Человек жал «отправить» ещё раз
+     и получал вторую такую же задачу. Теперь ошибка после применения — это
+     ошибка экрана, а не запроса: ответ остаётся в ленте, повторять нечего. */
   synAsk().then(function(data){
-    if (data.quota) SYN.quota = data.quota;
+    data = data || {};
+    synQuotaSet(data.quota);
     /* Финансовые действия не применяются сразу.
 
        Задачу Syn создаёт молча — ошибку видно и её легко убрать. С деньгами
@@ -9584,7 +11056,6 @@ function synSend(text, where){
        показывается карточкой, и пишется только по нажатию. */
     var finance = (data.actions || []).filter(finIsFinanceAction);
     var rest = (data.actions || []).filter(function(a){ return !finIsFinanceAction(a); });
-    S.finPending = finance.length ? finance : null;
 
     var result = synApplyActions(rest);
     SYN.busy = false;
@@ -9607,11 +11078,13 @@ function synSend(text, where){
       var card = S.synChat[S.synChat.length - 1];
       card.none = false;
       card.finance = finPreview(finance);
+      card.finance.actions = finance;
+      card.finance.session = SYN_СЕССИЯ;
     }
     save();
     draw('', '');
     // Экран под окном должен показывать уже новые данные.
-    if (draw === synRender) render();
+    if (draw === synRedraw) render();
   }).catch(function(error){
     SYN.busy = false;
     // Неотвеченный вопрос не остаётся в ленте: иначе он уедет на сервер
@@ -9628,6 +11101,7 @@ function synSend(text, where){
        лечится. Показываем один раз за сутки — окно, которое выскакивает на
        каждую попытку, из предложения превращается в помеху. */
     if (error && error.status === 402) synOfferPro();
+    if (onDone) onDone({ ok: false, error: error, text: synErrorText(error) });
   });
 }
 
@@ -9642,7 +11116,9 @@ function synOfferPro(){
   S.proOfferShown = сегодня;
   save();
   // Даём дочитать ответ Syn, а не накрываем его окном в ту же миллисекунду.
-  setTimeout(function(){ openModal(modalSynPaywall()); }, 700);
+  // За эти 700 мс окно Syn могли закрыть или сменить другим — тогда
+  // предложение не выскакивает поверх чужого экрана или чужой формы.
+  setTimeout(function(){ if ($('syn-log')) openModal(modalSynPaywall()); }, 700);
 }
 
 /* Окно должно вести к покупке, а не к ожиданию.
@@ -9656,7 +11132,7 @@ function synOfferPro(){
    починится само. Недельный тариф стоит первым: 149 рублей — это решение на
    один вечер, а не обязательство на год, и именно с него начинают. */
 function modalSynPaywall(){
-  var limit = (SYN.quota && SYN.quota.limit) || FREE_SYN_LIMIT;
+  var limit = (synQuotaNow() && SYN.quota.limit) || FREE_SYN_LIMIT;
   var неделя = planPrice('pro.weekly'), месяц = planPrice('pro.monthly');
   return '<h3>Syn на сегодня закончился</h3>' +
     '<p class="s">Бесплатно он отвечает ' + limit + ' раз в сутки. В подписке — ' +
@@ -9684,7 +11160,7 @@ function synErrorText(error){
   if (error.status === 503) return 'Syn для веба ещё не включён на сервере.';
   if (error.status === 404) return 'Syn в браузере ещё не включён на сервере.';
   if (error.status === 402){
-    if (error.data && error.data.quota) SYN.quota = error.data.quota;
+    if (error.data && error.data.quota) synQuotaSet(error.data.quota);
     return error.data && error.data.error ? error.data.error : 'Запросы к Syn на сегодня закончились.';
   }
   if (error.status === 403) return 'Сервер не принял запрос с этого адреса.';
@@ -9888,12 +11364,24 @@ function voiceStart(){
   synRender($('syn-input') ? $('syn-input').value : '', '');
 }
 
+/* Остановить диктовку — значит отменить, а не досказать.
+
+   «Стоп» нажимают, когда сказалось не то, — но фраза всё равно уходила Syn.
+   В браузере abort() тоже зовёт onend, а тот видел накопленный voice.final и
+   отправлял его; заодно приходила ложная ошибка «aborted» с красной строкой
+   «распознавание не сработало». На андроиде stop() просит движок закончить
+   фразу, и итог прилетал событием final — с той же отправкой.
+
+   Теперь в браузере обработчики снимаются до abort(), а накопленное
+   забывается; на андроиде движок отменяется через cancel(), а всё, что он
+   успеет прислать после, отбрасывается по voice.cancelled. Текст в поле
+   остаётся: захочет человек — отправит его сам. */
 function voiceStop(){
   if (dict && dict.owner === 'syn') dictCancel();
 }
 
 function synAsk(){
-  return synSession().then(function(token){
+  return synWithSession(function(token){
     var workspace = synWorkspace();
     if (S.synIntent) workspace.assistantIntent = S.synIntent;
     if (S.synGoalCreate) workspace.assistantGoalCreate = true;
@@ -9926,16 +11414,16 @@ function synAsk(){
 function activateFromLink(code){
   code = String(code || '').trim();
   if (!code) return;
-  openModal(modalProCode('', true));
+  openModal(modalProCode('', true, code));
   proActivate(code).then(function(pro){
     if (!pro || !pro.active){
-      openModal(modalProCode('Код принят, но подписка по нему неактивна.', false));
+      openModal(modalProCode('Код принят, но подписка по нему неактивна.', false, code));
       return;
     }
     closeModal();
     commit('Подписка включена');
   }).catch(function(error){
-    openModal(modalProCode((error && error.message) || 'Не получилось проверить код.', false));
+    openModal(modalProCode((error && error.message) || 'Не получилось проверить код.', false, code));
   });
 }
 
@@ -9952,6 +11440,7 @@ function proActivate(code){
       // Отметка живого подтверждения: от неё считается срок годности признака.
       checkedAt: Date.now()
     };
+    if (S.pro.active) метка('pro_activated');
     save();
     return S.pro;
   });
@@ -10124,15 +11613,39 @@ function synWeekdayDate(text){
   return null;
 }
 
+/* Дата и время от модели — только проверенные.
+
+   Проверка была по началу строки: «9:30:» проходило как время, «9:30» без
+   ведущего нуля резалось до «9:30» вместо «09:30» (а время без даты не
+   дополнялось нулём вовсе), «25:99» и «2026-02-31» ложились в задачу как
+   есть. Дальше такое значение ломало сортировку по времени, напоминания и
+   полосу дня, а «31 февраля» Date молча превращал в 3 марта.
+
+   Теперь время — ЧЧ:ММ с необязательными секундами и поясом, часы до 23 и
+   минуты до 59, с нулём впереди. Дата — настоящий день календаря: разбираем
+   и собираем обратно, и если вышло другое число, такого дня нет. */
+function synClock(text){
+  var m = /^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}(?::?\d{2})?)?$/.exec(String(text || ''));
+  if (!m) return null;
+  var h = Number(m[1]), min = Number(m[2]);
+  if (h > 23 || min > 59 || (m[3] && Number(m[3]) > 59)) return null;
+  return (h < 10 ? '0' : '') + h + ':' + m[2];
+}
+
+function synISODate(text){
+  var iso = String(text || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  return isoOf(dateOf(iso)) === iso ? iso : null;
+}
+
 function synSplitDateTime(value){
   var raw = String(value || '').trim();
   if (!raw) return { date: null, time: null };
   var parts = raw.split(/[ T]/);
-  var date = /^\d{4}-\d{2}-\d{2}$/.test(parts[0]) ? parts[0] : null;
+  var date = synISODate(parts[0]);
   if (!date) date = synWeekdayDate(raw);
-  var time = parts[1] && /^\d{1,2}:\d{2}/.test(parts[1])
-    ? parts[1].slice(0, 5).padStart(5, '0') : null;
-  if (!date && /^\d{1,2}:\d{2}/.test(parts[0])) time = parts[0].slice(0, 5);
+  var time = synClock(parts[1]);
+  if (!date && synClock(parts[0])) time = synClock(parts[0]);
   return { date: date, time: time };
 }
 
@@ -10504,7 +12017,12 @@ synAct('complete_task mark_task_done reopen_task uncomplete_task', function(a, d
 });
 
 synAct('restore_task', function(a, done, skipped){
-  var target = String(a.target || '').toLowerCase().trim();
+  /* Имя — теми же правилами, что у прочих действий с задачей, и без имени
+     ничего не возвращаем. Раньше читался только target, а пустая строка
+     «входит» в любое название: indexOf('') === 0, и из корзины доставалась
+     первая попавшаяся задача — не та, о которой просили. */
+  var target = synTaskName(a).toLowerCase();
+  if (!target) return skipped.push('не понял, какую задачу вернуть');
 
   // Сначала корзина: «верни задачу» после удаления — самый частый случай.
   for (var t = 0; t < S.trash.length; t++){
@@ -10519,7 +12037,7 @@ synAct('restore_task', function(a, done, skipped){
   for (var i = 0; i < S.tasks.length; i++){
     if (S.tasks[i].archived && S.tasks[i].title.toLowerCase().indexOf(target) >= 0){ found = S.tasks[i]; break; }
   }
-  if (!found) return skipped.push('ни в корзине, ни в архиве нет «' + (a.target || '') + '»');
+  if (!found) return skipped.push('ни в корзине, ни в архиве нет «' + synTaskName(a) + '»');
   found.archived = false;
   found.done = false;
   found.bucket = 'today';
@@ -10821,6 +12339,8 @@ synAct('set_pomodoro_mode set_pomodoro_focus_minutes set_pomodoro_break_minutes 
   if (a.kind === 'set_pomodoro_mode'){
     var mode = String(a.mode || a.value || '');
     if (['focus', 'shortBreak', 'longBreak'].indexOf(mode) < 0) return skipped.push('не понял режим помодоро');
+    // Syn не обходит замки: тот же запрет, что у кнопки режима.
+    if (!lookOpen('pomoModes', порядковыйРежима(mode))) return skipped.push('этот режим помодоро — в подписке');
     stopTicker();
     S.pomodoro.mode = mode;
     remaining = S.pomodoro[modeOf().key] * 60;
@@ -10851,7 +12371,8 @@ synAct('start_meditation stop_meditation', function(a, done, skipped){
   var wanted = String(a.value || a.sound || '').toLowerCase();
   if (wanted){
     var sound = soundByAnyName(wanted);
-    if (sound) S.meditation.sound = sound.title;
+    if (sound && !lookOpen('sounds', SOUNDS.indexOf(sound))) skipped.push('среда «' + sound.title + '» — в подписке, включена прежняя');
+    else if (sound) S.meditation.sound = sound.title;
     else skipped.push('среды «' + wanted + '» нет, включена прежняя');
   }
   S.view = 'meditation';
@@ -10879,6 +12400,7 @@ synAct('set_color_theme', function(a, done, skipped){
     if (!found && (p.id === wanted || p.title.toLowerCase() === wanted)) found = p;
   });
   if (!found) return skipped.push('палитры «' + wanted + '» нет');
+  if (!lookOpen('palettes', PALETTES.indexOf(found))) return skipped.push('палитра «' + found.title + '» — в подписке');
   S.palette = found.id;
   done.push('палитра — «' + found.title + '»');
 });
@@ -10991,10 +12513,26 @@ synAct('delete_all_goals clear_goals reset_goals', function(a, done, skipped){
 synAct('delete_all_goals_and_tasks clear_goals_and_tasks reset_goals_and_tasks', function(a, done, skipped){
   var count = S.tasks.length + S.goals.length;
   if (!count) return skipped.push('удалять нечего');
+  /* В корзину, как у соседей выше. Здесь удаление шло мимо неё — и это была
+     самая крупная пачка из всех: одна неверно понятая фраза стирала и цели,
+     и задачи без возврата. Задачи цели кладём внутрь её записи — так же, как
+     при удалении цели с задачами из её экрана: вернёт человек цель, и задачи
+     вернутся вместе с ней на свои этапы, а не повиснут со ссылкой на цель,
+     которой нет. Остальные задачи — каждую своей записью. */
+  S.goals.forEach(function(g){
+    var свои = S.tasks.filter(function(t){ return t.goalId === g.id; });
+    trashPut('goal', g, {
+      taskIDs: свои.map(function(t){ return { id: t.id, stageId: t.stageId }; }),
+      tasks: свои
+    });
+  });
+  S.tasks.forEach(function(t){
+    if (!t.goalId || !findGoal(t.goalId)) trashPut('task', t);
+  });
   S.tasks = [];
   S.goals = [];
   S.activeGoal = null;
-  done.push('удалено всё: ' + count);
+  done.push('удалено всё: ' + count + ' — лежит в корзине');
 });
 
 /* Понять действие, имя которого модель придумала сама.
@@ -11098,16 +12636,11 @@ function synApplyActions(actions){
 }
 
 /// Из даты в блок дня — обратное к dateForBucket.
+/// Одна граница на всё приложение: раньше здесь «на неделе» кончалось на
+/// седьмом дне, а в derivedBucket — на шестом, и задача через неделю после
+/// создания лежала в «Потом», а после первого переката — в «На неделе».
 function bucketForDate(iso){
-  var target = dateOf(iso);
-  if (!target) return 'later';
-  var today = todayDate();
-  var days = Math.round((target - today) / 86400000);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'tomorrow';
-  if (days === 2) return 'dayAfterTomorrow';
-  if (days <= 7) return 'thisWeek';
-  return 'later';
+  return derivedBucket(iso);
 }
 
 /* ============ ПЕРЕНОС ДАННЫХ ============ */
@@ -11512,7 +13045,9 @@ function importBackup(text){
     fresh = seed();
     var ПЕРЕНОСИМЫЕ = Object.keys(fresh).concat(['currency', 'mm', 'proOfferShown', 'lastView']);
     var НЕ_ПЕРЕНОСИМ = ['version', 'view', 'sub', 'drag', 'more', 'draft', 'finPending', 'finDate',
-      'pro', 'installID', 'activeGoal', 'activeList', 'activeNote'];
+      'pro', 'installID', 'activeGoal', 'activeList', 'activeNote',
+      // Когда просили оценку — своё у каждого устройства: магазин у каждого свой.
+      'оценка'];
     for (var i = 0; i < ПЕРЕНОСИМЫЕ.length; i++){
       var ключ = ПЕРЕНОСИМЫЕ[i];
       if (НЕ_ПЕРЕНОСИМ.indexOf(ключ) !== -1) continue;
@@ -11660,6 +13195,17 @@ function setPageInert(on){
 }
 
 function openModal(html, toInput){
+  /* Запись в историю — только когда окна на экране ещё не было.
+
+     Раньше запись добавлялась на каждый вызов, а окно Syn перерисовывается
+     через openModal на каждое слово диктовки и на каждый ответ. Один разговор
+     оставлял в истории два десятка записей, и чтобы закрыть окно на андроиде,
+     «назад» приходилось жать столько же раз. Окно поверх окна — та же одна
+     запись: закрывается оно тоже одним нажатием. */
+  var былоОткрыто = modalOpen();
+  // Окно Syn сменилось другим — диктовка без своего окна слушать не должна:
+  // распознанное ушло бы платным запросом в закрытый разговор.
+  if (былоОткрыто && $('syn-log') && html.indexOf('id="syn-log"') < 0) voiceStop();
   $('modalIn').innerHTML = SynI18n.tr(html);
   foldModalActions();
   $('modal').classList.add('on');
@@ -11671,7 +13217,7 @@ function openModal(html, toInput){
      озвучки. */
   setPageInert(true);
 
-  if (window.history && window.history.pushState){
+  if (!былоОткрыто && window.history && window.history.pushState){
     modalDepth++;
     window.history.pushState({ modal: modalDepth }, '', location.href);
   }
@@ -11679,6 +13225,8 @@ function openModal(html, toInput){
   // Окно ассистента перерисовывается на каждую реплику, и курсор должен
   // остаться в строке ввода: иначе после ответа нельзя дописать следующее
   // слово, не ткнув в поле.
+  // 'none' — окно само решает, что фокус не нужен (Syn без клавиатуры).
+  if (toInput === 'none') return;
   if (toInput){
     var input = $('syn-input');
     if (input){
@@ -11721,6 +13269,29 @@ function hideModal(){
 
 function modalOpen(){
   return $('modal') && $('modal').classList.contains('on');
+}
+
+/* Переход в раздел прямо из окна — без гонки с историей.
+
+   Раньше «go» делал closeModal(), то есть history.back(), и сразу go() с
+   pushState. Только back() асинхронный: новая запись ложилась поверх записи
+   окна, а потом back() срабатывал и снимал уже её — человек оказывался на
+   прежнем экране, или popstate закрывал окно, которого нет, и modalDepth
+   уезжал. Теперь запись окна не снимается, а превращается в запись раздела:
+   replaceState синхронный, гоняться не с чем.
+
+   Возвращает true, если переходить уже не нужно: раздел тот же, и хватает
+   закрыть окно обычным способом. */
+function closeModalBeforeGo(view){
+  if (!modalOpen()) return false;
+  var своя = modalDepth > 0 && window.history && window.history.replaceState &&
+    window.history.state && window.history.state.modal;
+  if (!своя){ hideModal(); return false; }
+  if (S.view === view){ closeModal(); return true; }
+  hideModal();
+  modalDepth--;
+  window.history.replaceState({ view: view }, '', location.href);
+  return false;
 }
 
 var HORIZONS = ['Месяц', 'Квартал', 'Полгода', 'Год', 'Три года'];
@@ -11794,11 +13365,11 @@ function modalTask(t){
   var goalOptions = '<option value="">Без цели</option>';
   for (var i = 0; i < S.goals.length; i++){
     var g = S.goals[i];
-    goalOptions += '<option value="' + g.id + '"' + (t.goalId === g.id ? ' selected' : '') + '>' + esc(g.title) + '</option>';
+    goalOptions += '<option value="' + g.id + '"' + (t.goalId === g.id ? ' selected' : '') + ' translate="no">' + esc(g.title) + '</option>';
     for (var j = 0; j < g.stages.length; j++){
       var st = g.stages[j];
       goalOptions += '<option value="' + g.id + ':' + st.id + '"' +
-        (t.goalId === g.id && t.stageId === st.id ? ' selected' : '') + '>— ' + esc(st.title) + '</option>';
+        (t.goalId === g.id && t.stageId === st.id ? ' selected' : '') + ' translate="no">— ' + esc(st.title) + '</option>';
     }
   }
 
@@ -11916,7 +13487,7 @@ function modalTask(t){
 
 function modalMove(task){
   return '<h3>Перенести в блок</h3>' +
-    '<p class="s">' + esc(task.title) + '</p>' +
+    '<p class="s" translate="no">' + esc(task.title) + '</p>' +
     BUCKETS.map(function(b){
       return '<button class="setrow" data-act="move-task" data-task="' + task.id + '" data-bucket="' + b.id + '">' +
         '<span>' + b.title + '</span>' +
@@ -11940,10 +13511,10 @@ function modalMove(task){
 function modalKillStage(goal, stage){
   var count = S.tasks.filter(function(t){ return t.stageId === stage.id; }).length;
   return '<h3>Удалить этап?</h3>' +
-    '<p class="s">' + esc(stage.title) + '</p>' +
+    '<p class="s" translate="no">' + esc(stage.title) + '</p>' +
     '<p class="s">' + (count
-      ? 'Задачи этапа никуда не денутся: ' + taskCount(count) + ' останутся у цели «' +
-        esc(goal.title) + '», просто без этапа.'
+      ? 'Задачи этапа никуда не денутся: ' + taskCount(count) + ' останутся у цели «<span translate="no">' +
+        esc(goal.title) + '</span>», просто без этапа.'
       : 'Задач у этапа нет.') + '</p>' +
     '<p class="s">Сам этап вернуть будет нельзя.</p>' +
     '<button class="btn full" data-act="kill-stage-do" data-goal="' + goal.id + '" data-stage="' + stage.id + '">Удалить этап</button>' +
@@ -11958,13 +13529,13 @@ function modalKillGoal(goal){
      заглянуть в корзину, когда он передумал. */
   if (!count){
     return '<h3>Удалить цель?</h3>' +
-      '<p class="s">' + esc(goal.title) + '</p>' +
+      '<p class="s" translate="no">' + esc(goal.title) + '</p>' +
       '<p class="s">Задач у цели нет. Сама цель уйдёт в корзину — оттуда её можно вернуть ' + TRASH_DAYS + ' дней.</p>' +
       '<button class="btn full" data-act="kill-goal-confirm" data-goal="' + goal.id + '">Удалить цель</button>' +
       '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>';
   }
   return '<h3>Удалить цель?</h3>' +
-    '<p class="s">' + esc(goal.title) + '</p>' +
+    '<p class="s" translate="no">' + esc(goal.title) + '</p>' +
     '<p class="s">У цели ' + taskCount(count) + '. Что с ними сделать?</p>' +
     '<button class="btn full" data-act="kill-goal-confirm" data-goal="' + goal.id + '">' +
       'Оставить задачи в списке</button>' +
@@ -12037,12 +13608,16 @@ function modalPaywall(kind){
 /* Код с сайта. Проверяет его сервер — тот же маршрут, что у приложения, и та
    же связка «один код, одно устройство». Локально ничего не решается: иначе
    подписка включалась бы правкой localStorage. */
-function modalProCode(error, busy){
+/* code — что человек уже вписал. Окно пересобирается на «Проверяем…» и на
+   ошибку, и раньше поле рождалось пустым: опечатался в одном знаке — набирай
+   все двенадцать заново. */
+function modalProCode(error, busy, code){
   return '<h3>Код подписки</h3>' +
     '<p class="s">Код приходит после оплаты на сайте. Выглядит так: XXXX-XXXX-XXXX.</p>' +
     '<form class="field" data-form="pro-activate">' +
       '<label for="procode">Код</label>' +
       '<input class="inp mono" id="procode" type="text" placeholder="KBNQ-E2S5-M9BW" ' +
+        'value="' + esc(code || '') + '" ' +
         'autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">' +
     '</form>' +
     (error ? '<p class="err">' + esc(error) + '</p>' : '') +
@@ -12097,7 +13672,17 @@ function syncCompletion(){
   for (i = 0; i < S.tasks.length; i++){
     var t = S.tasks[i];
     if (!t.subtasks || !t.subtasks.length) continue;
+    var былаЗакрыта = !!t.done;
     t.done = t.subtasks.every(function(sub){ return sub.done; });
+    /* Задача, закрытая последним подпунктом, — тоже закрытая задача.
+
+       Следующее повторение ставила только галочка на самой карточке
+       (ACTS.toggle). Повторяющаяся задача, которую закрыли подпунктами,
+       просто кончалась — серия обрывалась без единого слова. Ставим здесь
+       ровно на переходе «открыта → закрыта»: у галочки задача к этому моменту
+       уже закрыта, так что второй копии не будет, а от дубля на тот же день
+       spawnNextOccurrence бережёт и сам. */
+    if (!былаЗакрыта && t.done && t.repeat) spawnNextOccurrence(t);
   }
 
   for (i = 0; i < S.goals.length; i++){
@@ -12127,9 +13712,13 @@ function syncCompletion(){
 
    Слепок берём тот же самый, что уходит в срез: если он совпал с прошлым,
    значит, с точки зрения брифинга ничего и не произошло. */
+/* Просрочку в слепок не берём: она зависит от часов, а не от дел. Задача на
+   девять утра становилась «просроченной» в 9:01 сама по себе, слепок менялся,
+   и первый же commit после этого — любая галочка в настройках — помечал
+   брифинг устаревшим, хотя ни одно дело не поменялось. */
 function брифингСледОтДел(){
   var задачи = liveTasks().map(function(t){
-    return t.id + (t.done ? 'd' : isOverdue(t) ? 'm' : 'o');
+    return t.id + (t.done ? 'd' : 'o');
   }).sort().join(',');
   var цели = S.goals.map(function(g){
     return g.id + ':' + (g.stages || []).map(function(st){ return st.id + st.status; }).sort().join('|');
@@ -12261,8 +13850,38 @@ function showToast(){
 
 /* ============ ДЕЙСТВИЯ ============ */
 
+
+/* Замена всех данных («Примеры», «Стереть всё») — уже после окна-вопроса.
+
+   Прежнее состояние кладём рядом, в KEY + '.before-wipe': промахнулся — есть
+   откуда достать. Квоты может не хватить — тогда меняем всё равно (человек
+   уже подтвердил), но говорим, что копии нет. Подписка и номер установки —
+   не «данные», а привязка этого браузера: раньше seed() их обнулял, и Pro
+   слетал вместе с задачами.
+
+   Синхронизация: раньше save() через 2,5 с отправлял пустой снимок поверх
+   серверного, и пустота уезжала на айфон и андроид. Теперь забываем базу
+   прошлой сверки и ставим «сначала принять»: авто-отправка вместо записи
+   делает приём, а без базы приём объединяет (ничего не стирает ни там, ни
+   здесь). Стереть серверную копию — отдельная кнопка «Удалить копию». */
+function заменитьВсеДанные(новое, тост){
+  var копияЕсть = false;
+  try { localStorage.setItem(KEY + '.before-wipe', JSON.stringify(S)); копияЕсть = true; } catch (e) {}
+  var прежнее = S;
+  S = новое;
+  S.theme = прежнее.theme;
+  S.palette = прежнее.palette;
+  S.view = прежнее.view;
+  S.pro = прежнее.pro;
+  S.installID = прежнее.installID;
+  if (syncEnabled()){
+    syncForgetSynced();
+    syncStoreSet('pullFirst', '1');
+  }
+  commit(копияЕсть ? тост : тост + '. Копию сохранить не удалось: нет места');
+}
 var ACTS = {
-  go: function(d){ closeModal(); go(d.view); },
+  go: function(d){ if (!closeModalBeforeGo(d.view)) go(d.view); },
 
   theme: function(){
     S.theme = isDarkNow() ? 'light' : 'dark';
@@ -12273,9 +13892,25 @@ var ACTS = {
      пережил очистку данных приложения и был известен ещё до загрузки app.js. */
   lang: function(){
     SynI18n.set(SynI18n.isEnglish() ? 'ru' : 'en');
+    // Уже поставленные уведомления несут текст на прежнем языке.
+    пересобратьНапоминания();
     render();
   },
   more: function(){ S.more = !S.more; commit(); },
+  /* Меню приложения. Системное «назад» закрывает его через
+     window.synapseBack (его спрашивает MainActivity), а не через историю:
+     запись, положенную pushState после жеста, WebView иногда считает
+     пропускаемой, и «назад» сворачивало приложение с открытым меню. */
+  drawer: function(){
+    if (S.more) return ACTS['drawer-close']();
+    S.more = true;
+    тактильно('tap');
+    commit();
+  },
+  'drawer-close': function(){
+    S.more = false;
+    commit();
+  },
 
   /* Ассистент. Строка из композера подставляется в поле — чаще всего человек
      уже начал печатать там и только потом сообразил, что это просьба к Syn. */
@@ -12314,6 +13949,18 @@ var ACTS = {
     synSend(field ? field.value.trim() : '');
   },
   briefing: function(){ briefingRun(); },
+  'fx-more': function(){ фокусРазвёрнут = !фокусРазвёрнут; тактильно('tick'); render(); },
+  // Главная задача фокуса открывает задачи и раскрывает её карточку.
+  'fx-task': function(d){
+    var t = findTask(d.task);
+    if (!t) return;
+    if (S.closed) S.closed[t.bucket] = false;
+    go('tasks');
+    setTimeout(function(){
+      var it = document.querySelector('.item[data-task="' + d.task + '"]');
+      if (it) it.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 60);
+  },
   'briefing-say': function(){
     if (speech.on){ speechStop(); render(); return; }
     // Перерисовываем по окончании: кнопка должна вернуться в «Прослушать»
@@ -12374,11 +14021,11 @@ var ACTS = {
     var field = $('procode');
     var code = field ? field.value.trim() : '';
     if (!code) return;
-    openModal(modalProCode('', true));
+    openModal(modalProCode('', true, code));
 
     proActivate(code).then(function(pro){
       if (!pro.active){
-        openModal(modalProCode('Код принят, но подписка по нему неактивна.', false));
+        openModal(modalProCode('Код принят, но подписка по нему неактивна.', false, code));
         return;
       }
       closeModal();
@@ -12386,7 +14033,7 @@ var ACTS = {
     }).catch(function(error){
       var message = error && error.message ? error.message : 'Не получилось';
       if (error && error.status === undefined) message = 'Сервер не ответил. Проверь соединение.';
-      openModal(modalProCode(message, false));
+      openModal(modalProCode(message, false, code));
     });
   },
 
@@ -12399,7 +14046,17 @@ var ACTS = {
     });
   },
 
+  /* Отвязка стирает код из браузера, а вернуть Pro можно только вводом кода
+     заново — его часто уже не найти. Поэтому сначала спрашиваем. */
   'pro-forget': function(){
+    openModal(
+      '<h3>Отвязать код?</h3>' +
+      '<p class="s">Pro ' + (inApp() ? 'в приложении' : 'в этом браузере') + ' выключится. Чтобы вернуть его, понадобится ввести код заново — сохраните его, если ещё не сохранили.</p>' +
+      '<button class="btn full danger" data-act="pro-forget-confirm">Отвязать</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+  },
+  'pro-forget-confirm': function(){
+    closeModal();
     S.pro = { active: false, plan: '', expiresAt: '', code: '' };
     commit('Код отвязан от этого браузера');
   },
@@ -12510,8 +14167,9 @@ var ACTS = {
   'avatar-clear': function(){ S.profile.avatar = ''; commit('Фото убрано'); },
   'mm-zoom': function(d){
     if (!S.mm) S.mm = { zoom: 1 };
-    S.mm.zoom = Math.min(2, Math.max(0.5, S.mm.zoom + (d.dir === 'in' ? 0.25 : -0.25)));
-    commit();
+    var z = S.mm.zoom || 1;
+    var next = d.dir === 'fit' ? 1 : z * (d.dir === 'in' ? 1.25 : 0.8);
+    mmSetZoom(next);
   },
   /* Карта на весь экран. Масштаб при закрытии сбрасывается: то, что удобно
      развернув, во врезке снова не поместится. */
@@ -12652,21 +14310,21 @@ var ACTS = {
     FINSYN.open = false;
     commit('Записано без Syn');
   },
-  'fin-apply': function(){
+  'fin-apply': function(d){
     // Деньги пишутся только после подтверждения: ошибка в сумме портит и
     // сводку, и конверты, и остаток на счёте — в отличие от задачи, где
     // промах видно сразу и он ничего не ломает.
-    var batch = S.finPending;
-    if (!batch || !batch.length) return;
-    S.finPending = null;
+    // Пачка — та, что у нажатой карточки (data-i), а не последняя пришедшая.
+    var batch = synFinTake(d.i, 'Записано');
+    if (!batch) return;
     var made = finApplyBatch(batch);
     var said = made.length ? made.join(', ') : 'Ничего не записалось';
-    finCardSettle('done', made.length ? 'Записано: ' + said + '.' : said + '.');
+    finCardSettleAt(d.i, 'done', made.length ? 'Записано: ' + said + '.' : said + '.');
     commit(said);
   },
-  'fin-drop': function(){
-    S.finPending = null;
-    finCardSettle('dropped', 'Не записано.');
+  'fin-drop': function(d){
+    if (!synFinTake(d.i, 'Не записано')) return;
+    finCardSettleAt(d.i, 'dropped', 'Не записано.');
     commit('Не записано');
   },
   'fin-op-edit': function(d){
@@ -12683,10 +14341,25 @@ var ACTS = {
     op.cat = $('m-cat') ? $('m-cat').value : op.cat;
     op.kind = $('m-opkind') ? $('m-opkind').value : op.kind;
     op.date = mval('m-due') || op.date;
+    /* Запись из оплаты платежа связана с ним: sub.paid[месяц] — сумма, по
+       которой считаются «обычно» и годовой итог. Правка суммы или даты здесь
+       раньше до платежа не доходила, и он продолжал помнить старое. */
+    var link = finSubUnlinkOp(op);
+    if (link && op.kind !== 'income'){
+      var newKey = finMonthKey(op.date);
+      if (!link.sub.ops[newKey]){
+        link.sub.paid[newKey] = op.amount;
+        link.sub.ops[newKey] = op.id;
+      } else delete op.fromSub;
+    } else if (link) delete op.fromSub;
     closeModal();
     commit('Запись изменена');
   },
   'fin-op-kill': function(d){
+    // Удалили запись об оплате — снимаем и отметку «оплачено» у платежа,
+    // иначе он числился бы оплаченным деньгами, которых в ленте больше нет.
+    var killed = finOp(d.op);
+    if (killed) finSubUnlinkOp(killed);
     S.finance.ops = S.finance.ops.filter(function(op){ return op.id !== d.op; });
     closeModal();
     commit('Запись удалена');
@@ -12739,7 +14412,9 @@ var ACTS = {
   'fin-debt-pay-all': function(d){
     var debt = finDebt(d.debt);
     var field = $('m-amount');
-    if (debt && field) field.value = String(Math.round(Math.max(0, debt.amount - (debt.paid || 0)) / 100));
+    // Остаток ровно до копейки: округлённый до рубля 1 234,56 становился 1 235,
+    // а 999,40 — 999, и долг с копейками «всё сразу» не закрывался никогда.
+    if (debt && field) field.value = finAmountInput(Math.max(0, debt.amount - (debt.paid || 0)));
   },
   'fin-debt-pay-save': function(d){
     var debt = finDebt(d.debt);
@@ -12748,7 +14423,7 @@ var ACTS = {
     if (!parsed) return fieldError('m-amount', 'Сколько отдали? Можно частью.');
     closeModal();
     debt.paid = Math.min(debt.amount, (debt.paid || 0) + parsed.amount);
-    if (debt.paid >= debt.amount){
+    if (debt.amount - debt.paid <= 0){
       debt.closed = true;
       if (debt.taskId) S.tasks = S.tasks.filter(function(t){ return t.id !== debt.taskId; });
       debt.taskId = '';
@@ -12816,6 +14491,10 @@ var ACTS = {
     finJarApply(jar, 1, Math.max(0, (jar.target || 0) - (jar.saved || 0)));
   },
   'fin-jar-kill': function(d){
+    // Этап цели, заведённый под копилку, уходит вместе с ней: иначе в цели
+    // оставался этап «накопить» без копилки, который никогда не закроется.
+    var jar = finJar(d.jar);
+    if (jar) finLinkJarToGoal(jar, '');
     S.finance.jars = S.finance.jars.filter(function(x){ return x.id !== d.jar; });
     commit('Копилка удалена');
   },
@@ -12865,6 +14544,10 @@ var ACTS = {
       : (S.finDraftCat || (S.finDraftDuty ? 'home' : 'subs'));
     var duty = $('m-duty') ? $('m-duty').value === '1' : !!S.finDraftDuty;
     var sub = finSub(d.sub);
+    // Напоминание — задача со своей датой, повтором и суммой в названии.
+    // Сменили дату, период или сумму — а задача напоминала по-старому.
+    var перенести = !!(sub && sub.taskId && (sub.since !== since || sub.every !== every ||
+      sub.amount !== parsed.amount || sub.title !== title));
     if (sub){
       sub.title = title; sub.amount = parsed.amount; sub.every = every;
       sub.since = since; sub.cat = cat; sub.duty = duty;
@@ -12878,6 +14561,10 @@ var ACTS = {
 
     var remind = $('m-remind');
     var want = !!(remind && remind.checked);
+    if (want && перенести){
+      S.tasks = S.tasks.filter(function(t){ return t.id !== sub.taskId; });
+      sub.taskId = '';
+    }
     if (want && !sub.taskId) finSubRemind(sub);
     if (!want && sub.taskId){
       // Галочку сняли — напоминание уходит вместе с ней.
@@ -12908,7 +14595,16 @@ var ACTS = {
       since: mval('m-due') || isoOf(todayDate()),
       accountId: ''
     };
-    if (rule){ for (var k in patch) if (patch.hasOwnProperty(k)) rule[k] = patch[k]; }
+    if (rule){
+      /* Сменили дату начала или период — расписание другое, а lastRun
+         оставался от старого, и новые даты шли от него. Ставим lastRun на
+         последнюю дату нового расписания, которая не позже уже пройденной:
+         всё до неё уже записано старым правилом, и задвоений не будет. */
+      var другоеРасписание = rule.since !== patch.since || rule.every !== patch.every;
+      var былоДо = rule.lastRun;
+      for (var k in patch) if (patch.hasOwnProperty(k)) rule[k] = patch[k];
+      if (другоеРасписание && былоДо) rule.lastRun = finRecLastDue(rule, былоДо);
+    }
     else {
       patch.id = uid(); patch.off = false; patch.lastRun = '';
       S.finance.recurring.push(patch);
@@ -12921,6 +14617,13 @@ var ACTS = {
     var rule = finRec(d.rec);
     if (!rule) return;
     rule.off = !rule.off;
+    /* Включили после паузы — пропущенное за паузу не догоняем. Раньше
+       finRunRecurring записывал разом все списания за то время, пока правило
+       стояло выключенным: пауза ровно для того и ставится, чтобы их не было. */
+    if (!rule.off){
+      var последняя = finRecLastDue(rule, isoOf(todayDate()));
+      if (последняя && последняя > (rule.lastRun || '')) rule.lastRun = последняя;
+    }
     commit();
   },
   'fin-rec-kill': function(d){
@@ -12964,7 +14667,7 @@ var ACTS = {
     var op = {
       id: uid(), kind: 'spend', title: sub.title, amount: parsed.amount,
       cat: finCat(sub.cat || 'subs').id,
-      date: isoOf(todayDate()), at: Date.now(),
+      date: finSubPayDate(sub, key), at: Date.now(),
       accountId: '',
       fromSub: sub.id
     };
@@ -12995,13 +14698,27 @@ var ACTS = {
     commit('Удалено');
   },
   'trash-restore': function(d){
+    var лимит = trashНеВлезает(trashFind(d.item));
+    if (лимит) return openModal(modalPaywall(лимит));
     var title = trashRestore(d.item);
     if (!title) return;
     commit('Вернули «' + title + '»');
   },
+  /* Одна запись насовсем — так же необратимо, как вся корзина, а крестик
+     мелкий и рядом с «Вернуть»: раньше стиралось с одного промаха. */
   'trash-kill': function(d){
     var item = trashFind(d.item);
     if (!item) return;
+    openModal(
+      '<h3>Стереть навсегда?</h3>' +
+      '<p class="s">Запись сотрётся без возможности вернуть:</p>' +
+      '<p class="s" translate="no"><b>' + esc(item.title || '') + '</b></p>' +
+      '<button class="btn full danger" data-act="trash-kill-confirm" data-item="' + esc(item.id) + '">Стереть навсегда</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+  },
+  'trash-kill-confirm': function(d){
+    closeModal();
+    if (!trashFind(d.item)) return;
     S.trash = S.trash.filter(function(entry){ return entry.id !== d.item; });
     commit('Стёрто навсегда');
   },
@@ -13031,22 +14748,41 @@ var ACTS = {
     if (!S.trash.length) return;
     // Идём по копии списка: trashRestore вынимает записи из S.trash по ходу.
     var ids = S.trash.map(function(entry){ return entry.id; });
-    var back = 0;
-    for (var i = 0; i < ids.length; i++) if (trashRestore(ids[i])) back++;
+    var back = 0, лимит = '';
+    for (var i = 0; i < ids.length; i++){
+      // Что не влезает в лимит, остаётся в корзине; о причине — окном подписки.
+      var сверх = trashНеВлезает(trashFind(ids[i]));
+      if (сверх){ лимит = лимит || сверх; continue; }
+      if (trashRestore(ids[i])) back++;
+    }
     commit(back ? 'Вернули ' + back + ' ' + plural(back, 'запись', 'записи', 'записей')
                 : 'Вернуть не удалось');
+    if (лимит) openModal(modalPaywall(лимит));
   },
   'tour-hide': function(){ S.tourDone = true; commit('Первые шаги скрыты'); },
+  'fin-jar-intro': function(){ S.jarsIntroHidden = true; save(); ACTS['fin-jar-new']({}); },
+  'fin-jar-intro-x': function(){ S.jarsIntroHidden = true; тактильно('tick'); commit(); },
   'fin-hint-hide': function(){ S.finance.openingHidden = true; commit('Подсказка скрыта'); },
   toggle: function(d){
     var t = findTask(d.task);
     if (!t) return;
     t.done = !t.done;
+    тактильно(t.done ? 'confirm' : 'tick');
+    if (t.done){ оценкаПослеДела(); метка('task_done'); }
     // Родитель ведёт за собой подпункты. Без этого syncCompletion пересчитал
     // бы задачу обратно по незакрытым подпунктам — нажатие выглядело бы
     // как не сработавшее.
+    //
+    // Но только при закрытии. Снятие галочки раньше сбрасывало все подпункты
+    // разом, и случайное нажатие стирало всю отмеченную работу. Теперь при
+    // открытии снимается один последний подпункт — ровно столько, сколько
+    // нужно, чтобы пересчёт не закрыл задачу обратно.
     if (t.subtasks && t.subtasks.length){
-      for (var si = 0; si < t.subtasks.length; si++) t.subtasks[si].done = t.done;
+      if (t.done){
+        for (var si = 0; si < t.subtasks.length; si++) t.subtasks[si].done = true;
+      } else if (t.subtasks.every(function(sub){ return sub.done; })){
+        t.subtasks[t.subtasks.length - 1].done = false;
+      }
     }
     // createNextRecurringTaskIfNeeded(afterCompleting:) из WorkspaceStore:
     // закрытая повторяющаяся задача не исчезает, а ставит следующую в серии.
@@ -13116,9 +14852,19 @@ var ACTS = {
     var title = mval('m-title');
     if (title) t.title = title;
     t.note = $('m-note') ? $('m-note').value.trim() : t.note;
+    /* Дата пересчитывается из блока, только если блок поменяли.
+
+       Раньше она пересчитывалась на каждом сохранении, а у «На неделе» и
+       «Потом» dateForBucket даёт пустоту: правка одного описания у задачи
+       «врач в понедельник» стирала понедельник. Блок тот же — значит, и день
+       тот же, который назвали.
+
+       Время у таких блоков держим, пока у задачи есть свой день: «в
+       понедельник в 9:00» — это конкретный час, и напоминание о нём нужно. */
+    var прежнийБлок = t.bucket;
     t.bucket = mval('m-bucket') || t.bucket;
-    t.date = dateForBucket(t.bucket);
-    t.time = spansSeveralDays(t.bucket) ? null : (mval('m-time') || null);
+    if (t.bucket !== прежнийБлок) t.date = dateForBucket(t.bucket);
+    t.time = (spansSeveralDays(t.bucket) && !t.date) ? null : (mval('m-time') || null);
     t.repeat = mval('m-repeat');
     if (t.repeat === CUSTOM_REPEAT){
       var days = [].map.call(document.querySelectorAll('#m-rdays .radio[aria-pressed="true"]'), function(b){
@@ -13461,6 +15207,8 @@ var ACTS = {
     st.status = закрываем ? 'done' : 'active';
     S.tasks.forEach(function(t){
       if (t.stageId !== st.id || t.done === закрываем) return;
+      // Архив не трогаем: снятая галочка этапа воскрешала бы давно убранные задачи.
+      if (t.archived) return;
       t.done = закрываем;
       if (t.subtasks) t.subtasks.forEach(function(sub){ sub.done = закрываем; });
     });
@@ -13497,12 +15245,21 @@ var ACTS = {
     var value = input.value.trim();
     if (!value) return;
     var parsed = parseSchedule(value, 'today');
+    /* Те же проверки, что у addTask на экране «Задачи».
+
+       Раньше их здесь не было: «завтра в 9» без названия давало задачу с
+       пустым заголовком, прошедшее время ставилось на сегодня просроченным, а
+       признаки «день и время названы сами» не записывались вовсе. */
+    if (!parsed.title){ toast('Напиши, что сделать, — одной даты мало'); return; }
+    parsed = pushPastTimeToTomorrow(parsed, value);
     var owner = goalOfStage(d.stage);
     if (owner) d = { goal: owner.id, stage: d.stage };
     // Та же самая задача, что на экране «Задачи» — один объект в S.tasks.
     S.tasks.push(withParsedExtras({
       id: uid(), title: parsed.title, bucket: parsed.bucket, date: parsed.date, done: false, note: '',
-      time: parsed.time, series: null, goalId: d.goal, stageId: d.stage, subtasks: []
+      time: parsed.time, series: null,
+      hasExplicitDate: !!parsed.hasDate, hasExplicitTime: !!parsed.hasTime,
+      goalId: d.goal, stageId: d.stage, subtasks: []
     }, parsed));
     input.value = '';
     keepFocus('[data-goaltask="' + d.stage + '"]');
@@ -13669,6 +15426,8 @@ var ACTS = {
     commit();
   },
   'pomo-toggle': function(){
+    // Старт в закрытом режиме — тот же замок, что и при выборе режима.
+    if (!ticker && !lookOpen('pomoModes', порядковыйРежима(S.pomodoro.mode))) return openModal(modalLookPaywall('режим'));
     if (ticker) stopTicker(); else startTicker();
     render();
   },
@@ -13723,24 +15482,37 @@ var ACTS = {
   'med-stop': function(){ medStop(true); },
 
   /* --- данные --- */
+  /* Раньше обе строки меняли все данные с одного касания, а следом
+     автосохранение в файл и синхронизация разносили пустоту дальше. Теперь —
+     своим окном, как «Стереть навсегда» в корзине, а сама замена — в
+     заменитьВсеДанные(): копия на этом устройстве и пауза отправки. */
   'reset-demo': function(){
-    var theme = S.theme, view = S.view, palette = S.palette;
-    S = demoState();
-    S.theme = theme;
-    S.palette = palette;
-    S.view = view;
-    commit('Примеры на месте');
+    openModal(
+      '<h3>Заменить всё примерами?</h3>' +
+      '<p class="s">Задачи, цели, списки, заметки и финансы ' + (inApp() ? 'в приложении' : 'в этом браузере') + ' заменятся примерами. Копия прежних данных останется на этом устройстве.</p>' +
+      (syncEnabled() ? '<p class="s">Синхронизация ничего не сотрёт на других устройствах: при следующей сверке их данные вернутся и сюда.</p>' : '') +
+      '<button class="btn full danger" data-act="reset-demo-confirm">Заменить примерами</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+  },
+  'reset-demo-confirm': function(){
+    closeModal();
+    заменитьВсеДанные(demoState(), 'Примеры на месте');
   },
   wipe: function(){
-    var theme = S.theme, view = S.view, palette = S.palette;
-    S = seed();
-    S.view = view;
-    S.palette = palette;
-    S.tasks = []; S.goals = []; S.lists = []; S.notes = [];
-    S.pomodoro.doneToday = 0;
-    S.meditation.doneTotal = 0;
-    S.theme = theme;
-    commit('Пусто');
+    openModal(
+      '<h3>' + (inApp() ? 'Стереть всё в приложении?' : 'Стереть всё в этом браузере?') + '</h3>' +
+      '<p class="s">Задачи, цели, списки, заметки и финансы ' + (inApp() ? 'в приложении' : 'в этом браузере') + ' удалятся. Копия прежних данных останется на этом устройстве, подписка останется на месте.</p>' +
+      (syncEnabled() ? '<p class="s">Синхронизация ничего не сотрёт на других устройствах: при следующей сверке их данные вернутся и сюда.</p>' : '') +
+      '<button class="btn full danger" data-act="wipe-confirm">Стереть всё</button>' +
+      '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+  },
+  'wipe-confirm': function(){
+    closeModal();
+    var пусто = seed();
+    пусто.tasks = []; пусто.goals = []; пусто.lists = []; пусто.notes = [];
+    пусто.pomodoro.doneToday = 0;
+    пусто.meditation.doneTotal = 0;
+    заменитьВсеДанные(пусто, 'Пусто');
   },
 
   'close-modal': function(){ closeModal(); }
@@ -13806,12 +15578,13 @@ document.addEventListener('input', function(event){
     return;
   }
   if (t.id === 'field'){ S.draft = t.value; return; }
+  if (t.id === 'finfield'){ S.finDraft = t.value; return; }
   if (t.id === 'gfield'){ S.goalDraft = t.value; return; }
   // Громкость ведём без перерисовки: она бы дёргала ползунок из-под пальца.
   if (t.hasAttribute && t.hasAttribute('data-volume')){
     S.meditation.volume = Number(t.value) / 100;
     if (medAudio) medAudio.volume = S.meditation.volume;
-    var readout = document.querySelector('.volume .vv');
+    var readout = document.querySelector('.med-vol .vv');
     if (readout) readout.textContent = String(Math.round(S.meditation.volume * 100));
     save();
     return;
@@ -13895,8 +15668,12 @@ document.addEventListener('keydown', function(event){
     // Цель — по этапу, а не по S.activeGoal: раскрытая на сетке карточка его
     // не ставит, и задача уходила без цели.
     var stage = t.getAttribute('data-goaltask');
+    /* Цель берём с самого поля, а не из S.activeGoal: цель, раскрытая прямо
+       в списке, активной не становится, и задача уходила без цели или в
+       чужую — ту, что открывали последней. А цель этапа важнее обеих: задача
+       этапа без его цели в «Задачах» висела ничьей. */
     var owner = goalOfStage(stage);
-    ACTS['goal-task']({ goal: owner ? owner.id : S.activeGoal, stage: stage });
+    ACTS['goal-task']({ goal: owner ? owner.id : (t.getAttribute('data-goal') || S.activeGoal), stage: stage });
     return;
   }
   // Enter в модалке нажимает её главную кнопку.
@@ -14180,7 +15957,9 @@ document.addEventListener('pointerdown', function(event){
   if (!карточка) return;
   // Отказываемся только от настоящих органов управления: название задачи —
   // тоже кнопка, и именно за него карточку берут.
-  if (event.target.closest('.box, .side, .btn')) return;
+  // Поля и раскрытая часть — тоже не «ручка»: долгое нажатие в поле подпункта
+  // или в тексте заметки значит «выделить», а поднимало карточку.
+  if (event.target.closest('.box, .side, .btn, input, textarea, select, [contenteditable], .detail')) return;
 
   НЕСУ = {
     id: карточка.getAttribute('data-task'),
@@ -14265,7 +16044,7 @@ function поднять(y){
     document.documentElement.classList.remove('no-drag-anim');
   }
 
-  if (!НЕСУ.мышь && navigator.vibrate){ try { navigator.vibrate(18); } catch (e){} }
+  if (!НЕСУ.мышь) тактильно('long');
   вести(y);
 }
 
@@ -14304,7 +16083,7 @@ function вести(y){
        как раз то место, где она случается. Двенадцать миллисекунд против
        восемнадцати на подъёме: подъём надо заметить, а это отметка «прошли
        ещё одну» — она должна ощущаться, но не спорить с подъёмом. */
-    if (прежний && !НЕСУ.мышь && navigator.vibrate){ try { navigator.vibrate(12); } catch (e){} }
+    if (прежний && !НЕСУ.мышь) тактильно('tick');
   }
 
   подкрутить(y);
@@ -14379,7 +16158,15 @@ document.addEventListener('pointerup', function(){
   commit(изменилось ? 'Перенесено в «' + bucketTitle(выбор.день.bucket) + '»' : '');
 });
 
-document.addEventListener('pointercancel', function(){ if (НЕСУ){ бросить(); render(); } });
+/* Отмена жеста приходит и тогда, когда карточку не поднимали вовсе: браузер
+   забрал палец под прокрутку. Раньше render() шёл и тут — и стирал набранное
+   в полях. Перерисовка нужна, только если карточка была поднята. */
+document.addEventListener('pointercancel', function(){
+  if (!НЕСУ) return;
+  var был = НЕСУ.активен;
+  бросить();
+  if (был) render();
+});
 
 /**
  * Убрать за жестом. Чистим по разметке, а не по памяти о нём: оборвавшийся
@@ -14417,7 +16204,10 @@ function бросить(){
    main). Совпадение здесь не случайность, а способ попасть в ту же линию. */
 function railTop(){
   var top = $('top');
-  var height = top ? Math.round(top.getBoundingClientRect().height) : 72;
+  // Замер — в экранных пикселях, а переменная применяется внутри
+  // html{zoom:var(--scale)}, и браузер умножит её на масштаб ещё раз: при
+  // крупном шрифте колонка съезжала ниже шапки. Делим обратно.
+  var height = top ? Math.round(top.getBoundingClientRect().height / масштаб()) : 72;
   return height + 24;
 }
 
@@ -14466,7 +16256,10 @@ function syncViewportShift(){
   var vv = window.visualViewport;
   if (!vv) return;
   var raw = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-  var shift = (editableFocused() && raw >= KEYBOARD_MIN_HEIGHT) ? raw : 0;
+  // Высота клавиатуры — в экранных пикселях, а --vv-shift живёт под
+  // html{zoom}: без деления строка создания при крупном шрифте взлетала выше
+  // клавиатуры, при мелком — пряталась под неё.
+  var shift = (editableFocused() && raw >= KEYBOARD_MIN_HEIGHT) ? Math.round(raw / масштаб()) : 0;
   var root = document.documentElement;
   // Пишем, только когда значение поменялось: присвоение переменной каждый
   // кадр прокрутки заставляет браузер пересчитывать вёрстку зря.
@@ -14534,8 +16327,10 @@ document.addEventListener('focusin', function(event){
          center, а не nearest: у нижнего края экрана «ближайшее» положение —
          это остаться под клавиатурой. */
       var видно = node.getBoundingClientRect();
+      // --vv-shift записан в пикселях до масштаба (см. syncViewportShift) —
+      // сравниваем с экраном, умножив обратно.
       var низ = window.innerHeight - (parseInt(
-        getComputedStyle(document.documentElement).getPropertyValue('--vv-shift')) || 0);
+        getComputedStyle(document.documentElement).getPropertyValue('--vv-shift')) || 0) * масштаб();
       if (видно.bottom > низ - 24 || видно.top < 80){
         node.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }
@@ -14683,6 +16478,10 @@ document.addEventListener('pointermove', function(event){
   // выглядит поломкой, а не жестом.
   var сдвиг = Math.max(-SWIPE_OPEN, Math.min(0, swipe.сдвиг + dx));
   swipe.лицо.style.left = сдвиг + 'px';
+  // Щелчок на середине пути — там, где отпускание уже откроет кнопки.
+  var заПорогом = сдвиг < -SWIPE_OPEN / 2;
+  if (swipe.заПорогом !== undefined && заПорогом !== swipe.заПорогом && window.AndroidHaptic) тактильно('tick');
+  swipe.заПорогом = заПорогом;
   swipe.последний = сдвиг;
 }, { passive: true });
 
@@ -14720,6 +16519,13 @@ document.addEventListener('click', function(event){
 window.addEventListener('pageshow', function(event){
   if (event.persisted) render();
 });
+
+/* Записи с зажатой кнопкой AI больше нет.
+
+   Владелец: «нажал — запись пошла, нажал — отправилось, везде». Удержание
+   отправляло фразу по отпусканию пальца, а пауза в речи у него же обрывала
+   запись. Голос теперь один на всё приложение — движок диктовки dictStart:
+   первое нажатие на микрофон начинает запись, второе отправляет. */
 
 /* ============ УСТАНОВКА И РАБОТА БЕЗ СЕТИ ============ */
 
@@ -14815,6 +16621,12 @@ if (!синхроЖдёт()) rolloverIfNeeded();
    не открывать неделю, и пропущенные списания всё равно должны появиться —
    каждое своим днём. Сохраняем сразу, иначе следующий заход добавит их снова. */
 if (finRunRecurring()) save();
+/* Только при холодном старте — мало: на андроиде приложение неделями живёт
+   свёрнутым в памяти и открывается без перезагрузки, и аренда первого числа
+   не появлялась, пока его не убьёт система. Догоняем и при возвращении. */
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible' && finRunRecurring()){ save(); renderKeepingInput(); }
+});
 finSyncJarStages();
 render();
 // При каждом открытии переставляем будильники: время прошло, задачи закрылись,
@@ -14851,7 +16663,7 @@ function сверитьПодписку(){
   proActivate(S.pro.code).then(function(pro){
     // Перерисовываем в обе стороны: замки встают на место или снимаются
     // (продлённая подписка снова открывает платное).
-    render();
+    renderKeepingInput();
   }).catch(function(){});
 }
 
@@ -15057,7 +16869,10 @@ function syncApplyRemote(r){
   починитьЗаписи(S);
   save();
   syncMarkSynced(S);   // применили чужое — не гнать его обратно
-  render();            // показать подтянутое
+  // Пришли чужие даты и задачи — без пересборки будильники звенели бы по
+  // старому расписанию (на андроиде — до следующей правки здесь).
+  пересобратьНапоминания();
+  renderKeepingInput();  // показать подтянутое, не стерев набираемое
 }
 
 /* Слить пришедшее с местными правками — когда здесь есть неотправленное.
@@ -15088,21 +16903,25 @@ function syncMergeList(местные, пришли, база){
   });
   return итог;
 }
-function syncMergeRemote(r){
+function syncMergeRemote(r, послеЗамены){
   var база = syncBase();
   S.tasks = syncMergeList(S.tasks, r.tasks, база && база.t);
   S.goals = syncMergeList(S.goals, r.goals, база && база.g);
   S.lists = syncMergeList(S.lists, r.lists, база && база.l);
   S.notes = syncMergeList(S.notes, r.notes, база && база.n);
-  if (r.finance && база && syncHashOf(syncFinPart(S)) === база.f) S.finance = r.finance;
-  if (r.trash && база && syncHashOf(syncTrashPart(S)) === база.tr) S.trash = r.trash;
+  // После «Стереть всё»/«Примеры» базы нет, и местные (пустые или
+  // примерные) финансы и корзина остались бы — а следом уехали бы поверх
+  // серверных. Тут правда за сервером: местное только что заменили нарочно.
+  if (r.finance && (послеЗамены || (база && syncHashOf(syncFinPart(S)) === база.f))) S.finance = r.finance;
+  if (r.trash && (послеЗамены || (база && syncHashOf(syncTrashPart(S)) === база.tr))) S.trash = r.trash;
   S._iosFolders = r.folders || S._iosFolders || [];
   починитьЗаписи(S);
   save();
   // База — то, что сейчас на сервере: следующая сверка отличит настоящие
   // местные правки от только что принятого.
   syncSetBase(r);
-  render();
+  пересобратьНапоминания();   // слитые задачи — новое расписание
+  renderKeepingInput();
 }
 
 /* Последняя серверная копия, поверх которой пишем при конфликте, — в сторону.
@@ -15128,13 +16947,13 @@ function syncDropConflictStash(){
 
 /* ---- оркестровка ---- */
 function syncDo(promiseFn){
-  SYNC.busy = true; render();
+  SYNC.busy = true; renderKeepingInput();
   return Promise.resolve().then(promiseFn).catch(function(e){
     if (e && e.status === 402) SYNC.status = 'Синхронизация устройств доступна в Pro.';
     else if (e && e.status === 401){ syncStoreSet('token', null); SYNC.status = 'Нужно включить синхронизацию заново.'; }
     else if (e && e.status === 404) SYNC.status = 'Код не подошёл. Проверьте, что он введён целиком.';
     else SYNC.status = (e && e.message) ? e.message : 'Не получилось. Попробуйте ещё раз.';
-  }).then(function(){ SYNC.busy = false; render(); });
+  }).then(function(){ SYNC.busy = false; renderKeepingInput(); });
 }
 
 /* Приём и отправка идут строго по очереди.
@@ -15161,12 +16980,16 @@ function syncLocalDirty(){ return syncLastHash === null || syncContentHash() !==
 function syncPullApply(){ return syncSerial('pull', syncPullInner); }
 function syncPullInner(){
   if (!syncReady()) return Promise.resolve();
+  // «Сначала принять» (после «Стереть всё»/«Примеры», см. заменитьВсеДанные):
+  // не верим «сервер не менялся» — база забыта, сливаем пришедшее целиком.
+  var сначалаПринять = syncStore('pullFirst') === '1';
   return syncApiPull().then(function(d){
     if (!d.snapshot || !d.snapshot.cipher){
+      syncStoreSet('pullFirst', null);   // на сервере пусто — затирать нечего
       if (syncLocalDirty()) syncScheduleAutoPush();
       return;
     }
-    if (d.updatedAt && d.updatedAt === syncStore('lastServerUpdatedAt')){
+    if (!сначалаПринять && d.updatedAt && d.updatedAt === syncStore('lastServerUpdatedAt')){
       // Сервер не менялся. Неотправленное (например, с прошлого открытия) — отправить.
       if (syncLocalDirty()) syncScheduleAutoPush();
       return;
@@ -15177,12 +17000,14 @@ function syncPullInner(){
         // Проверка — здесь, вплотную к записи в S, а не до сети: правка могла
         // случиться, пока шёл запрос и расшифровка.
         if (syncLocalDirty()){
-          syncMergeRemote(r);
+          syncMergeRemote(r, сначалаПринять);
           syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+          syncStoreSet('pullFirst', null);
           syncScheduleAutoPush();
         } else {
           syncApplyRemote(r);
           syncStoreSet('lastServerUpdatedAt', d.updatedAt || '');
+          syncStoreSet('pullFirst', null);
         }
       });
     });
@@ -15192,6 +17017,9 @@ function syncPullInner(){
 function syncPushCurrent(){ return syncSerial('push', function(){ return syncPushInner(true); }); }
 function syncPushInner(можноСлить){
   if (!syncReady()) return Promise.resolve();
+  // Приём после замены всех данных ещё не прошёл (сеть, расшифровка) — молчим,
+  // иначе «Синхронизировать сейчас» записал бы пустоту поверх сервера.
+  if (syncStore('pullFirst') === '1') return Promise.resolve();
   var копия = syncFreeze();
   return syncEncryptEnvelope(копия).then(function(cipher){
     return syncApiPush(cipher, syncStore('lastServerUpdatedAt')).then(function(d){
@@ -15363,6 +17191,8 @@ function syncForgetSynced(){
 function syncAutoPush(){
   if (!syncEnabled() || !syncReady()) return;
   if (!syncLocalDirty()) return;                    // не менялось — молчим
+  // После замены всех данных — не писать поверх сервера, а сперва принять.
+  if (syncStore('pullFirst') === '1'){ syncPullApply().catch(function(){}); return; }
   syncPushCurrent().catch(function(){});            // тихо; ошибка — таймер повторит
 }
 function syncScheduleAutoPush(){
@@ -15507,4 +17337,316 @@ try { syncPullOnLoad(); } catch (e) { if (синхроЖдёт()) перекат
   document.addEventListener('focusout', запомнить);
   window.addEventListener('resize', подвинуть);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', подвинуть);
+})();
+
+/* ============ ЛИСТАНИЕ РАЗДЕЛОВ СВАЙПОМ (приложение) ============
+
+   Как на айфоне: провёл пальцем влево — следующий раздел нижней панели,
+   вправо — предыдущий. Экран идёт за пальцем, и если отпустить, не дотянув
+   до четверти ширины (и без быстрого броска), он возвращается на место.
+
+   Жест уступает всему, у чего свой горизонтальный жест:
+   - строке задачи влево — там кнопки действий; вправо по закрытой строке
+     свайпа нет, и это движение отдаётся листанию;
+   - карте целей, полям ввода, ползункам, горизонтальным полосам вкладок;
+   - открытому окну, меню, переносу карточки и записи голосом.
+   Края экрана не трогаем: это системный жест «назад» у Android.
+
+   Двигаются только дети main без position:fixed. Если сдвинуть сам main,
+   fixed внутри него (строка ввода над панелью) стал бы считаться от main и
+   уехал бы вниз страницы на всё время жеста. */
+var листание = null;
+
+function листаемыйРаздел(){
+  return ПАНЕЛЬ_ПРИЛОЖЕНИЯ.indexOf(activeTab());
+}
+
+function листаниеЗапрещено(цель){
+  if (!цель || typeof цель.closest !== 'function') return true;
+  if (modalOpen() || S.more) return true;
+  if (typeof НЕСУ !== 'undefined' && НЕСУ && НЕСУ.активен) return true;
+  if (typeof бг !== 'undefined' && бг) return true;
+  if (document.documentElement.classList.contains('kbd')) return true;
+  if (цель.closest('input, textarea, select, [contenteditable], .composer, .side')) return true;
+  // Горизонтальная прокрутка внутри экрана — её жест, не наш. Сюда же
+  // попадает карта целей: пока она вписана в экран, свайп листает разделы,
+  // а увеличенную палец двигает внутри рамки.
+  if (mmPinch) return true;
+  for (var узел = цель; узел && узел !== document.body; узел = узел.parentElement){
+    if (узел.scrollWidth > узел.clientWidth + 2){
+      var ox = getComputedStyle(узел).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+    }
+  }
+  return false;
+}
+
+function листаемыеУзлы(){
+  var main = $('app'), out = [];
+  if (!main) return out;
+  for (var i = 0; i < main.children.length; i++){
+    var el = main.children[i];
+    if (getComputedStyle(el).position !== 'fixed') out.push(el);
+  }
+  return out;
+}
+
+function листаниеСдвиг(узлы, x, анимировать){
+  узлы.forEach(function(el){
+    el.style.transition = анимировать ? 'transform .2s cubic-bezier(.2,.8,.2,1), opacity .2s ease' : 'none';
+    el.style.transform = x ? 'translateX(' + x + 'px)' : '';
+  });
+}
+
+document.addEventListener('touchstart', function(event){
+  листание = null;
+  if (!appLook() || event.touches.length !== 1) return;
+  if (листаемыйРаздел() < 0) return;
+  var t = event.touches[0];
+  var w = window.innerWidth;
+  // Края экрана — системный «назад». Исключение — левый край в финансах:
+  // оттуда, как на айфоне, вытягивают меню, и система этот край уступает
+  // (см. краеваяЗона).
+  var менюСКрая = листаемыйРаздел() === 0 && t.clientX < 24;
+  if ((t.clientX < 24 && !менюСКрая) || t.clientX > w - 24) return;
+  if (листаниеЗапрещено(event.target)) return;
+  var строка = event.target.closest('.swipe');
+  листание = {
+    x: t.clientX, y: t.clientY, t0: Date.now(),
+    // На строке задачи влево — её кнопки; открытая строка забирает оба направления.
+    строка: строка ? (строка.classList.contains('swiped') ? 'вся' : 'влево') : null,
+    решено: false, наше: false, dx: 0, узлы: null
+  };
+}, { passive: true });
+
+document.addEventListener('touchmove', function(event){
+  var л = листание;
+  if (!л) return;
+  var t = event.touches[0];
+  var dx = t.clientX - л.x, dy = t.clientY - л.y;
+  if (!л.решено){
+    if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+    л.решено = true;
+    л.наше = Math.abs(dx) > Math.abs(dy) * 1.4 &&
+      !(л.строка === 'вся') && !(л.строка === 'влево' && dx < 0);
+    if (!л.наше){ листание = null; return; }
+    // Свайп строки уже мог начаться на том же движении — гасим его.
+    if (typeof swipe !== 'undefined' && swipe){
+      swipe.карточка.classList.remove('swiping');
+      swipe.лицо.style.left = '';
+      swipe = null;
+    }
+    if (typeof бросить === 'function' && typeof НЕСУ !== 'undefined' && НЕСУ && !НЕСУ.активен) бросить();
+    л.узлы = листаемыеУзлы();
+  }
+  event.preventDefault();
+  var i = листаемыйРаздел();
+  /* Слева от финансов разделов нет — там меню. Свайп вправо вытягивает
+     его за пальцем, а не упирается резинкой. */
+  if (i === 0 && (dx > 0 || л.меню)){
+    л.меню = true;
+    л.dx = dx;
+    менюТянуть(Math.max(0, dx));
+    return;
+  }
+  var край = (dx > 0 && i === 0) || (dx < 0 && i === ПАНЕЛЬ_ПРИЛОЖЕНИЯ.length - 1);
+  // У края дальше листать некуда — резинка втрое туже, чтобы это читалось.
+  л.dx = край ? dx / 3 : dx;
+  листаниеСдвиг(л.узлы, л.dx, false);
+  var дотянул = !край && Math.abs(л.dx) > window.innerWidth * 0.25;
+  if (дотянул && !л.дотянул) тактильно('tick');
+  л.дотянул = дотянул;
+}, { passive: false });
+
+function листаниеКонец(){
+  var л = листание;
+  листание = null;
+  if (!л || !л.наше || !л.узлы) return;
+  if (л.меню){ менюОтпустить(л); return; }
+  var w = window.innerWidth;
+  var i = листаемыйРаздел();
+  var скорость = Math.abs(л.dx) / Math.max(1, Date.now() - л.t0);
+  var шаг = (Math.abs(л.dx) > w * 0.25 || (скорость > 0.5 && Math.abs(л.dx) > 40)) ? (л.dx < 0 ? 1 : -1) : 0;
+  var куда = ПАНЕЛЬ_ПРИЛОЖЕНИЯ[i + шаг];
+  if (!шаг || !куда){ листаниеСдвиг(л.узлы, 0, true); return; }
+
+  if (!л.дотянул) тактильно('tick');
+  листаниеСдвиг(л.узлы, -шаг * w, true);
+  setTimeout(function(){
+    go(куда);
+    // Новый раздел въезжает с той стороны, куда ушёл палец.
+    var новые = листаемыеУзлы();
+    листаниеСдвиг(новые, шаг * w * 0.35, false);
+    новые.forEach(function(el){ el.style.opacity = '0'; });
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      листаниеСдвиг(новые, 0, true);
+      новые.forEach(function(el){ el.style.opacity = ''; });
+      setTimeout(function(){ новые.forEach(function(el){ el.style.transition = ''; }); }, 240);
+    }); });
+  }, 170);
+}
+/* Меню за пальцем. Панель и затемнение ведём прямо стилями, класс open
+   ставим только в конце: перерисовка меню посреди жеста сбросила бы
+   положение панели. */
+function менюУзлы(){
+  var d = $('drawer');
+  return d ? { панель: d.querySelector('.dr-panel'), фон: d.querySelector('.dr-scrim') } : null;
+}
+function менюТянуть(dx){
+  var у = менюУзлы();
+  if (!у || !у.панель) return;
+  var ширина = у.панель.offsetWidth || 300;
+  var x = Math.min(dx, ширина);
+  у.панель.style.transition = 'none';
+  у.панель.style.transform = 'translateX(' + (x - ширина) + 'px)';
+  у.фон.style.transition = 'none';
+  у.фон.style.opacity = String(x / ширина);
+  var дотянул = x > ширина * 0.35;
+  if (дотянул !== !!листание.дотянул) тактильно('tick');
+  листание.дотянул = дотянул;
+}
+function менюОтпустить(л){
+  var у = менюУзлы();
+  if (!у || !у.панель) return;
+  var скорость = л.dx / Math.max(1, Date.now() - л.t0);
+  var открыть = л.дотянул || скорость > 0.5;
+  у.панель.style.transition = 'transform .24s cubic-bezier(.2,.8,.2,1)';
+  у.фон.style.transition = 'opacity .24s ease';
+  у.панель.style.transform = открыть ? 'translateX(0)' : 'translateX(-104%)';
+  у.фон.style.opacity = открыть ? '1' : '0';
+  setTimeout(function(){
+    у.панель.style.cssText = '';
+    у.фон.style.cssText = '';
+    if (открыть && !S.more) ACTS.drawer();
+  }, 250);
+}
+
+/* Системное «назад» сначала спрашивает страницу. Открытое меню
+   закрывается само и ответ true говорит приложению, что шаг назад по
+   истории делать не надо: «назад» убирает то, что сверху. */
+window.synapseBack = function(){
+  if (S.more){ S.more = false; commit(); return true; }
+  return false;
+};
+
+/* Левый край в финансах отдаём меню, а не системному «назад».
+
+   На Android с жестами свайп от левого края забирает система, и до
+   страницы он не доходит. setSystemGestureExclusionRects просит её
+   уступить полосу — не больше 200 dp на край, поэтому берём середину
+   высоты. На остальных экранах край снова системный. */
+var краеваяЗонаВкл = null;
+function краеваяЗона(){
+  if (!window.AndroidBars || typeof window.AndroidBars.edge !== 'function') return;
+  var нужна = inApp() && S.view === ПАНЕЛЬ_ПРИЛОЖЕНИЯ[0] && !S.more;
+  if (нужна === краеваяЗонаВкл) return;
+  краеваяЗонаВкл = нужна;
+  try { window.AndroidBars.edge(нужна); } catch (e){}
+}
+
+document.addEventListener('touchend', листаниеКонец);
+document.addEventListener('touchcancel', листаниеКонец);
+
+
+/* ============ RUSTORE: ОЦЕНКА И ОБНОВЛЕНИЕ (приложение) ============
+
+   Оценку просим в хорошую минуту, а не на запуске: человек только что закрыл
+   дело, и это пятое закрытое с прошлой просьбы. Ещё три условия, чтобы не
+   надоесть: приложением пользуются хотя бы три дня, с прошлой просьбы прошёл
+   месяц, и всего просим не больше трёх раз. Окно показывает сам RuStore; если
+   человек уже оценивал, RuStore его просто не покажет.
+
+   Обновление: оболочка при запуске спрашивает RuStore о новой версии и шлёт
+   событие store-update. Тогда над экраном появляется плашка «Обновить»; после
+   загрузки она меняется на «Перезапустить». Закрыть плашку можно — до
+   следующего запуска. */
+function оценкаПослеДела(){
+  if (!window.AndroidStore) return;
+  var o = S.оценка || (S.оценка = { с: Date.now(), дел: 0, раз: 0, когда: 0 });
+  o.дел = (o.дел || 0) + 1;
+  var день = 86400000;
+  if (o.дел < 5 || (o.раз || 0) >= 3) return;
+  if (Date.now() - (o.с || Date.now()) < 3 * день) return;
+  if (o.когда && Date.now() - o.когда < 30 * день) return;
+  o.дел = 0; o.раз = (o.раз || 0) + 1; o.когда = Date.now();
+  save();
+  // Пусть галочка и отклик отыграют — окно поверх сразу после касания резко.
+  setTimeout(function(){ try { window.AndroidStore.review(); } catch (e){} }, 1200);
+}
+
+var обновление = { версия: '', готово: false, процент: -1, скрыто: false };
+
+function рисоватьОбновление(){
+  var el = $('storeupd');
+  var нужно = inApp() && !обновление.скрыто && (обновление.версия || обновление.готово);
+  if (!нужно){ if (el) el.remove(); return; }
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'storeupd';
+    el.className = 'storeupd';
+    document.body.appendChild(el);
+  }
+  var текст = обновление.готово ? 'Новая версия скачана'
+    : обновление.процент >= 0 ? 'Скачиваю обновление… ' + обновление.процент + '%'
+    : 'Вышла версия ' + (обновление.версия || 'новее');
+  el.innerHTML = SynI18n.tr('<span class="su-t">' + esc(текст) + '</span>' +
+    (обновление.процент >= 0 && !обновление.готово ? ''
+      : '<button class="su-go" data-act="' + (обновление.готово ? 'store-install' : 'store-update') + '">' +
+          (обновление.готово ? 'Перезапустить' : 'Обновить') + '</button>') +
+    '<button class="su-x" data-act="store-hide" aria-label="Скрыть">' + NAV_ICONS.close + '</button>');
+  // Над строкой ввода, если она на экране, иначе — над нижней панелью: так
+  // плашка не закрывает кнопку AI и отправку.
+  var якорь = document.querySelector('.composer') || $('tabbar');
+  if (якорь) el.style.bottom = Math.max(12, window.innerHeight - якорь.getBoundingClientRect().top + 10) + 'px';
+}
+
+ACTS['store-update'] = function(){
+  обновление.процент = 0; рисоватьОбновление();
+  try { window.AndroidStore.update(); } catch (e){}
+};
+ACTS['store-install'] = function(){ try { window.AndroidStore.install(); } catch (e){} };
+ACTS['store-hide'] = function(){ обновление.скрыто = true; рисоватьОбновление(); };
+
+window.addEventListener('store-update', function(e){ обновление.версия = e.detail || ''; рисоватьОбновление(); });
+window.addEventListener('store-update-progress', function(e){ обновление.процент = Number(e.detail) || 0; рисоватьОбновление(); });
+window.addEventListener('store-update-ready', function(){ обновление.готово = true; обновление.процент = -1; рисоватьОбновление(); });
+window.addEventListener('store-update-cancel', function(){ обновление.процент = -1; рисоватьОбновление(); });
+window.addEventListener('store-update-failed', function(){
+  обновление.процент = -1; рисоватьОбновление();
+  toast('Обновление не скачалось. Попробуйте позже или обновите в RuStore.');
+});
+
+
+/* ============ АНАЛИТИКА (MyTracker, приложение) ============
+
+   Только названия действий — «закрыл задачу», «спросил Syn». Ни текста задач,
+   ни сумм, ни названий целей в аналитику не уходит. Оболочка пропускает лишь
+   имена из своего списка и без ключа MyTracker не шлёт ничего.
+
+   Создание задач, целей и записей о деньгах ловим по росту счётчиков после
+   commit: путей создать задачу десяток (строка, голос, Syn, повтор), и
+   метить каждый — значит рано или поздно пропустить новый. */
+function метка(имя){
+  try { if (window.AndroidAnalytics) window.AndroidAnalytics.event(имя); } catch (e){}
+}
+
+var счётАналитики = null;
+function сверитьСчётАналитики(){
+  if (!window.AndroidAnalytics) return;
+  var сейчас = { t: S.tasks.length, g: S.goals.length, f: (S.finance && S.finance.ops || []).length };
+  if (счётАналитики){
+    if (сейчас.t > счётАналитики.t) метка('task_added');
+    if (сейчас.g > счётАналитики.g) метка('goal_created');
+    if (сейчас.f > счётАналитики.f) метка('fin_op_added');
+  }
+  счётАналитики = сейчас;
+}
+(function(){
+  var прежний = commit;
+  commit = function(){
+    var итог = прежний.apply(this, arguments);
+    try { сверитьСчётАналитики(); } catch (e){}
+    return итог;
+  };
+  try { сверитьСчётАналитики(); } catch (e){}
 })();
