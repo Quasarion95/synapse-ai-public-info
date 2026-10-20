@@ -3199,7 +3199,11 @@ function рисоватьМеню(){
         '<button class="dr-x" data-act="drawer-close" aria-label="Закрыть меню">' + NAV_ICONS.close + '</button>' +
       '</div>' +
       '<div class="dr-group">' + ['lists', 'notes', 'pomodoro', 'meditation'].map(пунктМеню).join('') + '</div>' +
-      '<div class="dr-group">' + ['subscription', 'settings', 'trash', 'support'].map(пунктМеню).join('') + '</div>' +
+      '<div class="dr-group dr-bottom">' + ['subscription', 'settings', 'trash', 'support'].map(пунктМеню).join('') + '</div>' +
+      /* Документы — под меню, мелко, но всегда в одном касании. Модерация
+         RuStore просит, чтобы политика конфиденциальности была видна внутри
+         приложения, а не только в глубине настроек. */
+      '<p class="dr-legal"><a href="../privacy/">Политика конфиденциальности</a> · <a href="../terms/">Соглашение</a></p>' +
     '</aside>');
   узел.classList.toggle('open', !!S.more);
   узел.setAttribute('aria-hidden', S.more ? 'false' : 'true');
@@ -6345,6 +6349,9 @@ function vTour(){
     // Кнопка словом, а не только крестиком в углу: пропустить знакомство —
     // это нормальный выбор, и он не должен выглядеть как закрытие рекламы.
     '<button class="btn soft tour-skip" data-act="tour-hide">Пропустить знакомство</button>' +
+    // С первого экрана видно, где лежат записи и где об этом написано.
+    '<p class="tour-legal">Записи хранятся на этом устройстве. ' +
+      '<a href="../privacy/">Политика конфиденциальности</a></p>' +
   '</section>';
 }
 
