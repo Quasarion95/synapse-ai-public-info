@@ -193,9 +193,12 @@
         return '<button class="dcol' + (r.key === key ? ' on' : '') + '" data-act="fin-desk-month" data-key="' + r.key + '" ' +
             'title="' + esc(monthName(r.key) + ': пришло ' + finMoney(r.earned) + ', ушло ' + finMoney(r.spent)) + '">' +
           '<span class="dc-v">' + (r.spent ? esc(finShort(r.spent)) : '') + '</span>' +
+          /* Пустой столбик не рисуется вовсе. Нулевой высоты он всё равно
+             занимал своё место по ширине, и единственный столбик месяца
+             («ушло» без дохода) стоял не по центру, а справа от подписи. */
           '<span class="dc-b">' +
-            '<i class="in" style="height:' + hIn + '%"></i>' +
-            '<i class="out" style="height:' + hOut + '%"></i>' +
+            (hIn ? '<i class="in" style="height:' + hIn + '%"></i>' : '') +
+            (hOut ? '<i class="out" style="height:' + hOut + '%"></i>' : '') +
           '</span>' +
           '<span class="dc-t">' + esc(monthShort(r.key)) + '</span>' +
         '</button>';
