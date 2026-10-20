@@ -33,10 +33,10 @@
         <span>Synapse</span>
       </a>
       <nav class="nav-links">
-        <a href="/#features">Возможности</a>
-        <a href="/pricing/">Тарифы</a>
-        <a href="/account/">Подписка</a>
-        <a href="/support/">Поддержка</a>
+        <a href="/#features" data-en="Features">Возможности</a>
+        <a href="/pricing/" data-en="Pricing">Тарифы</a>
+        <a href="/account/" data-en="Subscription">Подписка</a>
+        <a href="/support/" data-en="Support">Поддержка</a>
       </nav>
       <button class="theme-toggle" data-theme-toggle type="button" aria-label="Сменить тему" title="Сменить тему">☾</button>
     </header>
@@ -44,8 +44,8 @@
     <main class="flow">
       <div class="flow-head">
         <span class="eyebrow">Synapse Pro</span>
-        <h1 id="title">Проверяем оплату</h1>
-        <p class="lead" id="lead">Это занимает несколько секунд.</p>
+        <h1 id="title" data-en="Checking your payment">Проверяем оплату</h1>
+        <p class="lead" id="lead" data-en="This takes a few seconds.">Это занимает несколько секунд.</p>
       </div>
 
       <div class="flow-narrow">
@@ -53,13 +53,13 @@
         <section class="panel" id="waitCard">
           <div class="state">
             <div class="spinner" id="spinner" role="status" aria-live="polite"></div>
-            <div class="state-text" id="waitTitle">Ждём подтверждения от банка</div>
+            <div class="state-text" id="waitTitle" data-en="Waiting for the payment to be confirmed">Ждём подтверждения от банка</div>
           </div>
-          <p class="panel-note" id="waitText">
+          <p class="panel-note" id="waitText" data-en="You can keep this page open — your code will appear here by itself. The payment has gone through; we are just waiting for the confirmation.">
             Страницу можно не закрывать — код появится здесь сам. Деньги уже
             списаны, банку осталось только сообщить нам об этом.
           </p>
-          <p class="notice">
+          <p class="notice" data-en="Closed it by accident? This link keeps working: open it again and your code will be here.">
             Закрыли случайно? Ссылка остаётся рабочей: откройте её снова, и код
             будет здесь.
           </p>
@@ -71,10 +71,10 @@
             <div class="badge-ok" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
-            <div class="state-text">Подписка оформлена</div>
+            <div class="state-text" data-en="Your subscription is active">Подписка оформлена</div>
           </div>
 
-          <p class="panel-note">Вот код доступа. На телефоне нажмите «Активировать в приложении» — Pro включится сам. Если приложения нет, код вводится вручную: «Моя подписка» → «У меня есть код».</p>
+          <p class="panel-note" data-en="Here is your access code. On your phone, tap &quot;Activate in the app&quot; and Pro turns on by itself. In the web app, paste it under &quot;My subscription&quot; → &quot;I have a code&quot;.">Вот код доступа. На телефоне нажмите «Активировать в приложении» — Pro включится сам. Если приложения нет, код вводится вручную: «Моя подписка» → «У меня есть код».</p>
 
           <!-- Мост с компьютера на телефон. Человек, купивший с ноутбука, иначе
                остаётся с кодом, которому некуда деться: поля для ввода в
@@ -82,7 +82,7 @@
                кнопка, а свой же экран не сканируют. -->
           <div class="qr-card" id="qrCard" hidden>
             <div class="qr-image" id="qrImage"></div>
-            <p class="qr-note">Наведите камеру телефона — приложение откроется и включит Pro. Если оно ещё не установлено, откроется эта же страница.</p>
+            <p class="qr-note" data-en="Point your phone camera here — the app opens and turns Pro on. If it is not installed yet, this page opens instead.">Наведите камеру телефона — приложение откроется и включит Pro. Если оно ещё не установлено, откроется эта же страница.</p>
           </div>
 
           <!-- Сам код — ссылка, а не текст. С телефона это самый короткий путь:
@@ -91,11 +91,11 @@
           <a class="code-box" id="codeLink" href="#"><code id="code"></code></a>
 
           <div class="btn-row">
-            <button class="btn btn-primary" id="copyButton" type="button">Скопировать код</button>
-            <a class="btn btn-ghost" id="openButton" href="#">Активировать в приложении</a>
+            <button class="btn btn-primary" id="copyButton" type="button" data-en="Copy code">Скопировать код</button>
+            <a class="btn btn-ghost" id="openButton" href="#" data-en="Activate in the app">Активировать в приложении</a>
           </div>
 
-          <p class="fine">
+          <p class="fine" data-en="In another browser, enter the code by hand — copy it. Tapping the code and &quot;Activate in the app&quot; work on a phone where the app is installed.">
             В другом браузере код вводится вручную — скопируйте его. Нажатие на
             код и кнопка «Активировать в приложении» работают на телефоне, где стоит
             приложение.
@@ -103,22 +103,22 @@
         </section>
 
         <section class="panel" id="howCard" hidden>
-          <h2 class="panel-title">Что дальше</h2>
+          <h2 class="panel-title" data-en="What next">Что дальше</h2>
           <ol class="steps" style="margin-top: 14px;">
-            <li><span><b>В браузере:</b> откройте <a href="/app/">веб-версию</a>, «Моя подписка»&nbsp;→&nbsp;«У меня есть код», вставьте код.</span></li>
-            <li><span><b>На телефоне:</b> нажмите «Активировать в приложении» — Synapse откроется и включит Pro сам, вводить ничего не нужно. Работает и на iPhone, и на Android.</span></li>
-            <li><span><b>Pro включится сразу</b> — и в браузере, и на телефоне. Перезапускать ничего не нужно.</span></li>
-            <li><span><b>Сохраните эту страницу.</b> Ссылка рабочая, по ней код открывается снова.</span></li>
+            <li data-en-html="<span><b>In the browser:</b> open the <a href=&quot;/app/&quot;>web app</a>, go to &quot;My subscription&quot; → &quot;I have a code&quot; and paste the code.</span>"><span><b>В браузере:</b> откройте <a href="/app/">веб-версию</a>, «Моя подписка»&nbsp;→&nbsp;«У меня есть код», вставьте код.</span></li>
+            <li data-en-html="<span><b>On your phone:</b> tap &quot;Activate in the app&quot; — Synapse opens and turns Pro on, nothing to type. Works on iPhone and Android.</span>"><span><b>На телефоне:</b> нажмите «Активировать в приложении» — Synapse откроется и включит Pro сам, вводить ничего не нужно. Работает и на iPhone, и на Android.</span></li>
+            <li data-en-html="<span><b>Pro turns on right away</b> — in the browser and on the phone. No restart needed.</span>"><span><b>Pro включится сразу</b> — и в браузере, и на телефоне. Перезапускать ничего не нужно.</span></li>
+            <li data-en-html="<span><b>Save this page.</b> The link keeps working and shows your code again.</span>"><span><b>Сохраните эту страницу.</b> Ссылка рабочая, по ней код открывается снова.</span></li>
           </ol>
 
-          <p class="notice">
+          <p class="notice" data-en-html="The code works in <b>one browser and on one phone at a time</b>. Enter it in another browser and Pro turns off in the previous one. You can move it as often as you like, but it cannot be shared with another person.">
             Код работает <b>в одном браузере и на одном телефоне
             одновременно</b>. Ввели его в другом браузере — в прежнем Pro
             выключится. Менять места можно сколько угодно, а поделиться кодом
             с другим человеком не получится.
           </p>
 
-          <p class="fine">
+          <p class="fine" data-en-html="To cancel, check the end date or manage the subscription, use the <a href=&quot;/account/&quot;>Subscription</a> page with this code, or the link in the receipt email from lava.top.">
             Отменить подписку, отвязать карту и посмотреть срок действия можно
             на странице <a href="/account/">Подписка</a> — туда нужен этот же код.
             Писать в поддержку для этого не нужно.
@@ -128,12 +128,12 @@
         <!-- НЕ НАШЛИ --------------------------------------------------- -->
         <section class="panel" id="failCard" hidden>
           <div class="state">
-            <div class="state-text" id="failTitle">Не нашли оплату</div>
+            <div class="state-text" id="failTitle" data-en="Payment not found">Не нашли оплату</div>
           </div>
           <p class="panel-note" id="failText"></p>
           <div class="btn-row" style="margin-top: 18px;">
-            <a class="btn btn-ghost" href="/account/">Ввести код вручную</a>
-            <a class="btn btn-ghost" href="/support/">Написать в поддержку</a>
+            <a class="btn btn-ghost" href="/account/" data-en="Enter a code">Ввести код вручную</a>
+            <a class="btn btn-ghost" href="/support/" data-en="Contact support">Написать в поддержку</a>
           </div>
         </section>
       </div>
@@ -146,15 +146,15 @@
           <span>Synapse</span>
         </div>
         <nav class="footer-links">
-          <a href="/pricing/">Тарифы</a>
-          <a href="/account/">Подписка</a>
-          <a href="/support/">Поддержка</a>
-          <a href="/privacy/">Конфиденциальность</a>
-          <a href="/terms/">Условия</a>
-          <a href="/offer/">Оферта</a>
-          <a href="/requisites/">Реквизиты</a>
+          <a href="/pricing/" data-en="Pricing">Тарифы</a>
+          <a href="/account/" data-en="Subscription">Подписка</a>
+          <a href="/support/" data-en="Support">Поддержка</a>
+          <a href="/privacy/" data-en="Privacy">Конфиденциальность</a>
+          <a href="/terms/" data-en="Terms">Условия</a>
+          <a href="/offer/" data-en="Offer">Оферта</a>
+          <a href="/requisites/" data-en="Company details">Реквизиты</a>
         </nav>
-        <p class="copy">© 2026 Synapse. Все права защищены.</p>
+        <p class="copy" data-en="© 2026 Synapse. All rights reserved.">© 2026 Synapse. Все права защищены.</p>
       </div>
     </footer>
 
@@ -164,6 +164,20 @@
 
       var params = new URLSearchParams(window.location.search);
       var claim = params.get("claim") || "";
+
+      /* Английский — тем, кто платил из-за рубежа (lava.top возвращает сюда с
+         lang=en), и тем, у кого браузер не на русском. Тексты — в data-en у
+         самих элементов, чтобы русский остался в разметке как был. */
+      var langParam = (params.get("lang") || "").toLowerCase();
+      var EN = langParam ? langParam === "en" : !/^ru/i.test(navigator.language || "ru");
+      try { if (langParam) { localStorage.setItem("synapse.successLang", langParam); } else if (localStorage.getItem("synapse.successLang")) { EN = localStorage.getItem("synapse.successLang") === "en"; } } catch (error) {}
+      function T(ru, en) { return EN ? en : ru; }
+      if (EN) {
+        document.documentElement.lang = "en";
+        document.title = "Your Synapse Pro code";
+        Array.prototype.forEach.call(document.querySelectorAll("[data-en]"), function (el) { el.textContent = el.getAttribute("data-en"); });
+        Array.prototype.forEach.call(document.querySelectorAll("[data-en-html]"), function (el) { el.innerHTML = el.getAttribute("data-en-html"); });
+      }
       // Человек мог вернуться сюда позже без ссылки — тогда берём ту, что
       // сохранили при оплате на этом устройстве.
       if (!claim) {
@@ -207,10 +221,10 @@
         // своей схемой обходится плохо, а ссылку открывает всегда — с
         // установленным приложением сразу в нём.
         showQR("https://synapseapp.ru/activate?code=" + encodeURIComponent(code));
-        titleEl.textContent = "Готово";
+        titleEl.textContent = T("Готово", "Done");
         // Не «введите код»: на телефоне вводить его негде и не нужно — там
         // работает кнопка ниже, а поля для кода в приложении нет вовсе.
-        leadEl.textContent = "На телефоне — одна кнопка, в браузере — вставить код.";
+        leadEl.textContent = T("На телефоне — одна кнопка, в браузере — вставить код.", "One tap on your phone, or paste the code in the browser.");
         waitCardEl.hidden = true;
         failCardEl.hidden = true;
         codeCardEl.hidden = false;
@@ -219,8 +233,8 @@
       }
 
       function fail(text) {
-        titleEl.textContent = "Не нашли оплату";
-        leadEl.textContent = "Деньги при этом никуда не пропали.";
+        titleEl.textContent = T("Не нашли оплату", "Payment not found");
+        leadEl.textContent = T("Деньги при этом никуда не пропали.", "Your money is safe.");
         failTextEl.textContent = text;
         waitCardEl.hidden = true;
         failCardEl.hidden = false;
@@ -230,15 +244,15 @@
       // крутится дальше, а текст должен честно сказать, что делать.
       function stillWaiting(text) {
         spinnerEl.remove();
-        waitTitleEl.textContent = "Банк пока не подтвердил платёж";
+        waitTitleEl.textContent = T("Банк пока не подтвердил платёж", "The payment is not confirmed yet");
         waitTextEl.textContent = text;
       }
 
       copyEl.addEventListener("click", function () {
         var code = codeEl.textContent;
         var done = function () {
-          copyEl.textContent = "Скопировано";
-          setTimeout(function () { copyEl.textContent = "Скопировать код"; }, 2000);
+          copyEl.textContent = T("Скопировано", "Copied");
+          setTimeout(function () { copyEl.textContent = T("Скопировать код", "Copy code"); }, 2000);
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(code).then(done, function () {});
@@ -258,7 +272,7 @@
         if (saved) {
           showCode(saved);
         } else {
-          fail("В ссылке нет отметки об оплате. Откройте страницу по той ссылке, на которую вас вернуло после платежа, — или введите код вручную, если он у вас уже есть.");
+          fail(T("В ссылке нет отметки об оплате. Откройте страницу по той ссылке, на которую вас вернуло после платежа, — или введите код вручную, если он у вас уже есть.", "This link has no payment mark. Open the page from the link you were sent back to after paying — or enter your code by hand if you already have it."));
         }
       } else {
         var attempts = 0;
@@ -274,14 +288,14 @@
               // Банк иногда думает дольше нескольких секунд, поэтому ждём до
               // двух минут, а потом честно говорим, что делать.
               if (attempts > 40) {
-                stillWaiting("Если деньги списались, вернитесь на эту страницу через несколько минут — код появится здесь. Ссылка остаётся рабочей.");
+                stillWaiting(T("Если деньги списались, вернитесь на эту страницу через несколько минут — код появится здесь. Ссылка остаётся рабочей.", "If you were charged, come back to this page in a few minutes — your code will appear here. The link keeps working."));
                 return;
               }
               setTimeout(poll, 3000);
             })
             .catch(function () {
               if (attempts > 40) {
-                stillWaiting("Не получается связаться с сервером. Откройте страницу позже — ссылка остаётся рабочей.");
+                stillWaiting(T("Не получается связаться с сервером. Откройте страницу позже — ссылка остаётся рабочей.", "Cannot reach the server. Open this page later — the link keeps working."));
                 return;
               }
               setTimeout(poll, 3000);
