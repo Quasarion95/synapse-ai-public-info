@@ -14726,12 +14726,18 @@ function syncPushCurrent(){
 }
 
 function syncTurnOn(){ return syncDo(function(){ return syncApiEnable().then(function(){ syncEnsureDataKey(); syncStoreSet('enabled', '1'); return syncPullApply(); }).then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизация включена.'; }); }); }
-function syncTurnOff(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); SYNC.code = ''; SYNC.status = 'Синхронизация отключена. Данные в этом браузере остались.'; render(); }
+function syncTurnOff(){ if (typeof syncWatchStop === 'function') syncWatchStop(); syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); SYNC.code = ''; SYNC.status = 'Синхронизация отключена. Данные в этом браузере остались.'; render(); }
 function syncShowCode(){ return syncDo(function(){ var ready = syncToken() ? Promise.resolve() : syncApiEnable().then(function(){ syncEnsureDataKey(); syncStoreSet('enabled', '1'); }); return ready.then(function(){ var code = SynSyncCrypto.newCode(); return SynSyncCrypto.wrap(syncDataKeyRaw(), code).then(function(wrapped){ return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiStorePair(lookup, wrapped); }).then(function(){ SYNC.code = code; SYNC.status = 'Введите этот код на другом устройстве — код живёт 10 минут.'; }); }); }); }); }
 function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete(code)){ SYNC.status = 'Код неполный. Проверьте, что ввели его целиком.'; return; } return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiRedeem(lookup); }).then(function(res){ return SynSyncCrypto.unwrap(res.wrappedKey, code).then(function(key){ if (!key){ SYNC.status = 'Код не подошёл.'; return; } syncStoreSet('dataKey', SynSyncCrypto.b64(key)); syncStoreSet('token', res.token); syncStoreSet('syncID', res.syncID); syncStoreSet('enabled', '1'); syncStoreSet('lastServerUpdatedAt', null); SYNC.joinOpen = false; return syncPullApply().then(function(){ SYNC.status = 'Устройство связано. Данные подтянуты.'; }); }); }); }); }
 function syncNow(){ return syncDo(function(){ return syncPullApply().then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизировано.'; }); }); }
 function syncDeleteRemote(){ return syncDo(function(){ return syncApiDelete().then(function(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('dataKey', null); syncStoreSet('lastServerUpdatedAt', null); SYNC.code = ''; SYNC.status = 'Копия с сервера удалена. Данные в браузере остались.'; }); }); }
-function syncPullOnLoad(){ if (syncEnabled() && syncToken() && syncDataKeyRaw()) syncDo(function(){ return syncPullApply(); }); }
+function syncPullOnLoad(){
+  if (syncEnabled() && syncToken() && syncDataKeyRaw()){
+    syncDo(function(){ return syncPullApply(); }).then(function(){
+      if (typeof syncWatchStart === 'function') syncWatchStart();
+    });
+  }
+}
 
 /* ---- экран в разделе «Данные» ---- */
 function разделСинхро(){
@@ -14801,12 +14807,66 @@ if (typeof document !== 'undefined' && !window.__syncVisHandler){
     }
   });
 }
+/* Синхронизация вживую: открытая вкладка держит запрос /sync/watch, и сервер
+   отвечает в тот же миг, как с другого устройства пришёл новый снимок, —
+   тогда забираем его. Нет правок — сервер отвечает «не менялось» через 25 с, и
+   мы спрашиваем снова. Раньше вкладка сама опрашивала сервер раз в 25 секунд,
+   и правка с телефона доходила с такой же задержкой.
+
+   «Знаемую» версию берём из ответа, а не только из lastServerUpdatedAt: если
+   снимок не применился (здесь есть неотправленные правки), сервер иначе
+   отвечал бы «есть новое» на каждый запрос без остановки. Вкладка скрыта —
+   ожидание прекращается; вернулись — подтягиваем и начинаем заново. */
+var syncWatch = { on: false, known: null, gen: 0 };
+function syncWatchReady(){ return syncEnabled() && syncToken() && syncDataKeyRaw() && !document.hidden; }
+function syncWatchStart(){
+  if (syncWatch.on || !syncWatchReady()) return;
+  syncWatch.on = true;
+  var gen = ++syncWatch.gen;
+  syncWatch.known = null;
+  var again = function(ms){ setTimeout(step, ms); };
+  function step(){
+    if (gen !== syncWatch.gen) return;
+    if (!syncWatchReady()){ syncWatch.on = false; return; }
+    var known = syncWatch.known !== null ? syncWatch.known : (syncStore('lastServerUpdatedAt') || '');
+    syncAuthed(function(){
+      return synFetch('/v1/synapse/sync/watch', { knownUpdatedAt: known }, syncToken());
+    }).then(function(d){
+      if (gen !== syncWatch.gen) return;
+      d = d || {};
+      syncWatch.known = d.updatedAt || '';
+      if (d.changed){
+        // Пауза в четверть секунды: наш же снимок мог прийти раньше ответа на
+        // его отправку — тогда версия совпадёт, и тянуть нечего.
+        return new Promise(function(r){ setTimeout(r, 250); })
+          .then(function(){ return syncPullApply(); })
+          .catch(function(){})
+          .then(function(){ again(0); });
+      }
+      again(d.retryAfter ? d.retryAfter * 1000 : 0);
+    }).catch(function(){
+      // Нет сети, сервер перезапускается — пробуем снова чуть позже.
+      if (gen === syncWatch.gen) again(5000);
+    });
+  }
+  step();
+}
+function syncWatchStop(){ syncWatch.gen++; syncWatch.on = false; }
+if (typeof document !== 'undefined' && !window.__syncWatchVis){
+  window.__syncWatchVis = true;
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) syncWatchStop(); else syncWatchStart();
+  });
+}
+// Запасная сверка раз в минуту — на случай, если ожидание где-то оборвалось
+// молча (прокси, сон ноутбука). Обычно её опережает ожидание.
 if (typeof window !== 'undefined' && !window.__syncPullTimer){
   window.__syncPullTimer = setInterval(function(){
-    if (syncEnabled() && syncToken() && syncDataKeyRaw() && !document.hidden){
+    if (syncWatchReady()){
       syncPullApply().catch(function(){});
+      syncWatchStart();
     }
-  }, 25000);
+  }, 60000);
 }
 
 ACTS['sync-on'] = function(){ syncTurnOn(); };
@@ -14815,6 +14875,15 @@ ACTS['sync-code'] = function(){ syncShowCode(); };
 ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; render(); };
 ACTS['sync-join-do'] = function(){ var el = document.getElementById('sync-code-input'); syncJoin(el ? el.value : ''); };
 ACTS['sync-now'] = function(){ syncNow(); };
+// Включили синхронизацию или связали устройство — сразу начинаем ждать правки.
+['sync-on', 'sync-join-do', 'sync-code'].forEach(function(act){
+  var base = ACTS[act];
+  ACTS[act] = function(d){
+    var r = base(d);
+    setTimeout(function(){ if (typeof syncWatchStart === 'function') syncWatchStart(); }, 3000);
+    return r;
+  };
+});
 ACTS['sync-delete'] = function(){ syncDeleteRemote(); };
 
 try { syncPullOnLoad(); } catch (e) {}
