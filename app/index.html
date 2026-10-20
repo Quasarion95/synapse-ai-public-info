@@ -22,8 +22,6 @@
       if (!window.AndroidVoice) document.write(
         '<link rel="stylesheet" href="web/desk.css">' +
         '<link rel="stylesheet" href="web/finance-desk.css">' +
-        '<link rel="stylesheet" href="web/meditation-scenes.css">' +
-        '<link rel="stylesheet" href="web/pomodoro-timer.css">' +
         '<link rel="stylesheet" href="web/goal-map.css">' +
         '<link rel="stylesheet" href="web/layout.css">' +
         '<link rel="stylesheet" href="web/subscription.css">' +
@@ -35,6 +33,11 @@
          грузятся всегда, без проверки на обёртку. Стоит после остальных
          стилей веба — как и стоял в вебе: её правила должны перекрывать их. -->
     <link rel="stylesheet" href="web/theme.css">
+    <!-- Живой фон медитации и убывающая «вода» помодоро — тоже общие: на
+         телефоне на эти экраны смотрят дольше всего, и пустая карточка там
+         выглядела беднее, чем на сайте. -->
+    <link rel="stylesheet" href="web/meditation-scenes.css">
+    <link rel="stylesheet" href="web/pomodoro-timer.css">
     <!-- Оформление заметок — и в вебе, и в андроиде: тело заметки общее, и
          без разбора знаков андроид показывал бы звёздочки как есть. -->
     <link rel="stylesheet" href="web/notes-edit.css">
@@ -137,8 +140,6 @@
         '<script src="web/i18n-web.js"><\/script>' +
         '<script src="web/desk.js"><\/script>' +
         '<script src="web/finance-desk.js"><\/script>' +
-        '<script src="web/meditation-scenes.js"><\/script>' +
-        '<script src="web/pomodoro-timer.js"><\/script>' +
         '<script src="web/goal-map.js"><\/script>' +
         '<script src="web/layout.js"><\/script>');
     </script>
@@ -147,6 +148,8 @@
     <!-- Живое дерево и анимированная карта целей — тоже везде: карта общая. -->
     <script src="web/goal-tree.js"></script>
     <script src="app.js"></script>
+    <script src="web/meditation-scenes.js"></script>
+    <script src="web/pomodoro-timer.js"></script>
     <script src="syn-parity.js"></script>
   </body>
 </html>
