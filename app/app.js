@@ -489,6 +489,9 @@ function починитьЗаписи(данные){
     g.sphere = g.sphere || '';
     g.horizon = g.horizon || '';
     g.pinned = !!g.pinned;
+    // «Syn составляет цель…» — только пока ждём ответ; после перезагрузки
+    // ответа уже не будет, цель остаётся с одним названием.
+    if (g.aiPending) delete g.aiPending;
     g.stages = (Array.isArray(g.stages) ? g.stages : []).filter(Boolean).map(function(st){
       return { id: st.id || uid(), title: String(st.title == null ? '' : st.title),
                detail: String(st.detail == null ? '' : st.detail),
@@ -6860,6 +6863,84 @@ function taskAiRefine(id, raw){
   });
 }
 
+/* Цель из строки целей — силами Syn.
+
+   Та же схема, что у задач (taskAiRefine): временная цель уже в списке,
+   Syn её не видит (иначе спрашивал бы «дополнить существующую?»), запрос
+   идёт с намерением «планирование» и подсказкой «это создание цели» — тем
+   же путём, что кнопка AI у строки целей. Ответ заменяет временную цель
+   целью с этапами и задачами. Пока Syn думал, цель переименовали или
+   удалили — ответ её не трогает. Syn цель не создал — остаётся временная, с
+   одним названием, а его ответ показывается подсказкой. */
+function goalAiRefine(id, raw){
+  function provisional(){ return findGoal(id); }
+  var snapshot = provisional();
+  var original = snapshot ? snapshot.title : null;
+  function settle(note){
+    var g = provisional();
+    if (g && g.aiPending){ delete g.aiPending; commit(note || ''); }
+    else if (note) toast(note);
+  }
+
+  synSession().then(function(token){
+    var all = S.goals;
+    S.goals = all.filter(function(x){ return x.id !== id; });
+    var workspace, context;
+    try {
+      workspace = synWorkspace();
+      context = synContext();
+    } finally {
+      S.goals = all;
+    }
+    workspace.assistantIntent = 'planning';
+    workspace.assistantGoalCreate = true;
+    return synFetch('/v1/synapse/reply', {
+      workspace: workspace,
+      workspaceContext: context,
+      messages: [{ role: 'user', text: raw }]
+    }, token);
+  }).then(function(data){
+    if (data && data.quota) SYN.quota = data.quota;
+    var g = provisional();
+    if (!g || g.title !== original){ settle(); return; }
+    var actions = (data && data.actions || []).filter(function(a){ return !finIsFinanceAction(a); });
+    var makesGoal = actions.some(function(a){
+      return synНормализоватьВид(String(a && a.kind || '').toLowerCase(), a || {}) === 'create_goal';
+    });
+    if (!makesGoal){
+      settle(data && data.reply ? String(data.reply).slice(0, 220) : '');
+      return;
+    }
+
+    var had = {};
+    S.goals.forEach(function(x){ if (x.id !== id) had[x.id] = true; });
+    S.goals = S.goals.filter(function(x){ return x.id !== id; });
+    delete S.openGoal[id];
+    actions.forEach(function(a){ a.sourcePrompt = raw; });
+    var result = synApplyActions(actions);
+    var made = S.goals.filter(function(x){ return !had[x.id]; });
+    if (!made.length){
+      // Обработчик цель не завёл (например, упёрлись в предел) — временная
+      // цель возвращается на место.
+      delete g.aiPending;
+      S.goals.push(g);
+      S.openGoal[g.id] = true;
+      commit(result.skipped && result.skipped.length ? result.skipped[0] : '');
+      return;
+    }
+    made.forEach(function(x){ S.openGoal[x.id] = true; });
+    var first = made[0];
+    commit('Syn составил цель «' + first.title + '»' + (first.stages.length
+      ? ': ' + first.stages.length + ' ' + plural(first.stages.length, 'этап', 'этапа', 'этапов') : ''));
+    if (result.skipped && result.skipped.length) console.warn('[goal-ai]', result.skipped);
+  }).catch(function(error){
+    if (error && error.data && error.data.quota) SYN.quota = error.data.quota;
+    settle(error && error.status === 402
+      ? 'Запросы к Syn на сегодня закончились — цель записана с одним названием.'
+      : 'Syn не ответил — цель записана с одним названием.');
+  });
+}
+
 /* Факты для описания задачи — из интернета, а не из памяти модели.
 
    «Съездить в поликлинику взять талон, в комментариях адрес и номер укажи
@@ -7984,7 +8065,8 @@ function vGoals(){
          ниже и так сказано, что этапов нет, поэтому нули не пишем — остаётся
          только срок, если он есть. */
       '<div class="gmeta">' +
-        (p.total || g.stages.length
+        (g.aiPending ? '<span class="chip ai-pending">Syn составляет цель…</span>' :
+        p.total || g.stages.length
           ? p.done + ' из ' + p.total + ' ' + p.unit +
             ' · ' + g.stages.length + ' ' + plural(g.stages.length, 'этап', 'этапа', 'этапов') +
             (g.horizon ? ' · ' + esc(g.horizon) : '')
@@ -14938,13 +15020,26 @@ var ACTS = {
      никто не возвращается, а цель без «зачем» через месяц не отличается от
      списка дел. Название уже введено, поэтому окно открывается с ним и
      курсором в следующем поле. */
+  /* Строка целей — через Syn, как строка задач и полоса финансов.
+
+     Раньше стрелка открывала форму с одним названием, а этапы и задачи
+     человек дописывал руками. Теперь цель сразу встаёт в список с пометкой
+     «Syn составляет цель…», а Syn в фоне превращает фразу в цель с этапами
+     и первыми задачами (goalAiRefine). Без сети или без запросов — прежняя
+     форма: записать цель можно и без ИИ. */
   'add-goal': function(){
     var field = $('gfield');
     var title = field ? field.value.trim() : '';
     if (!title) return;
     if (!canAdd('goals')) return openModal(modalPaywall('goals'));
     S.goalDraft = '';
-    openModal(modalGoal(null, title));
+    if (!taskAiAvailable()) return openModal(modalGoal(null, title));
+    var fresh = { id: uid(), title: title.charAt(0).toUpperCase() + title.slice(1), purpose: '', horizon: '',
+      targetDate: '', sphere: 'personal', pinned: false, stages: [], aiPending: true };
+    S.goals.push(fresh);
+    S.openGoal[fresh.id] = true;
+    commit();
+    goalAiRefine(fresh.id, title);
   },
   'export': function(){
     exportBackup().then(function(сообщение){
@@ -16958,7 +17053,7 @@ function syncResolveConflict(){
 }
 
 function syncTurnOn(){ return syncDo(function(){ return syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); return syncPullApply(); }).then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизация включена.'; }); }); }
-function syncTurnOff(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Синхронизация отключена. Данные в этом браузере остались.'; render(); }
+function syncTurnOff(){ if (typeof syncWatchStop === 'function') syncWatchStop(); syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Синхронизация отключена. Данные в этом браузере остались.'; render(); }
 function syncShowCode(){ return syncDo(function(){ var ready = syncToken() ? Promise.resolve() : syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); }); return ready.then(function(){ var code = SynSyncCrypto.newCode(); return SynSyncCrypto.wrap(syncDataKeyRaw(), code).then(function(wrapped){ return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiStorePair(lookup, wrapped); }).then(function(){ SYNC.code = code; SYNC.status = 'Введите этот код на другом устройстве — код живёт 10 минут.'; }); }); }); }); }
 function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete(code)){ SYNC.status = 'Код неполный. Проверьте, что ввели его целиком.'; return; } return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiRedeem(lookup); }).then(function(res){ return SynSyncCrypto.unwrap(res.wrappedKey, code).then(function(key){ if (!key){ SYNC.status = 'Код не подошёл.'; return; }
   // Сначала ключ, потом «включено»: не влез ключ — не включаем вовсе, иначе
@@ -16975,7 +17070,11 @@ function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete
 function syncNow(){ return syncDo(function(){ return syncPullApply().then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизировано.'; }); }); }
 function syncDeleteRemote(){ return syncDo(function(){ return syncSerial('delete', function(){ return syncApiDelete(); }).then(function(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('dataKey', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Копия с сервера удалена. Данные в браузере остались.'; }); }); }
 function syncPullOnLoad(){
-  if (syncEnabled() && syncReady()) перекатПосле(syncDo(function(){ return syncPullApply(); }));
+  if (syncEnabled() && syncReady()){
+    перекатПосле(syncDo(function(){ return syncPullApply(); }));
+    // Синхронизация вживую: дальше ждём сигнал сервера «есть новое».
+    setTimeout(function(){ if (typeof syncWatchStart === 'function') syncWatchStart(); }, 3000);
+  }
   else if (синхроЖдёт()) перекатПосле(null);
 }
 
@@ -17104,12 +17203,66 @@ if (typeof document !== 'undefined' && !window.__syncVisHandler){
     if (!document.hidden && typeof сверитьПодписку === 'function') сверитьПодписку();
   });
 }
+/* Синхронизация вживую: открытая вкладка держит запрос /sync/watch, и сервер
+   отвечает в тот же миг, как с другого устройства пришёл новый снимок, —
+   тогда забираем его. Нет правок — сервер отвечает «не менялось» через 25 с, и
+   мы спрашиваем снова. Раньше вкладка сама опрашивала сервер раз в 25 секунд,
+   и правка с телефона доходила с такой же задержкой.
+
+   «Знаемую» версию берём из ответа, а не только из lastServerUpdatedAt: если
+   снимок не применился (здесь есть неотправленные правки), сервер иначе
+   отвечал бы «есть новое» на каждый запрос без остановки. Вкладка скрыта —
+   ожидание прекращается; вернулись — подтягиваем и начинаем заново. */
+var syncWatch = { on: false, known: null, gen: 0 };
+function syncWatchReady(){ return syncEnabled() && syncToken() && syncDataKeyRaw() && !document.hidden; }
+function syncWatchStart(){
+  if (syncWatch.on || !syncWatchReady()) return;
+  syncWatch.on = true;
+  var gen = ++syncWatch.gen;
+  syncWatch.known = null;
+  var again = function(ms){ setTimeout(step, ms); };
+  function step(){
+    if (gen !== syncWatch.gen) return;
+    if (!syncWatchReady()){ syncWatch.on = false; return; }
+    var known = syncWatch.known !== null ? syncWatch.known : (syncStore('lastServerUpdatedAt') || '');
+    syncAuthed(function(){
+      return synFetch('/v1/synapse/sync/watch', { knownUpdatedAt: known }, syncToken());
+    }).then(function(d){
+      if (gen !== syncWatch.gen) return;
+      d = d || {};
+      syncWatch.known = d.updatedAt || '';
+      if (d.changed){
+        // Пауза в четверть секунды: наш же снимок мог прийти раньше ответа на
+        // его отправку — тогда версия совпадёт, и тянуть нечего.
+        return new Promise(function(r){ setTimeout(r, 250); })
+          .then(function(){ return syncPullApply(); })
+          .catch(function(){})
+          .then(function(){ again(0); });
+      }
+      again(d.retryAfter ? d.retryAfter * 1000 : 0);
+    }).catch(function(){
+      // Нет сети, сервер перезапускается — пробуем снова чуть позже.
+      if (gen === syncWatch.gen) again(5000);
+    });
+  }
+  step();
+}
+function syncWatchStop(){ syncWatch.gen++; syncWatch.on = false; }
+if (typeof document !== 'undefined' && !window.__syncWatchVis){
+  window.__syncWatchVis = true;
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) syncWatchStop(); else syncWatchStart();
+  });
+}
+// Запасная сверка раз в минуту — на случай, если ожидание где-то оборвалось
+// молча (прокси, сон ноутбука). Обычно её опережает ожидание.
 if (typeof window !== 'undefined' && !window.__syncPullTimer){
   window.__syncPullTimer = setInterval(function(){
-    if (syncEnabled() && syncToken() && syncDataKeyRaw() && !document.hidden){
+    if (syncWatchReady()){
       syncPullApply().catch(function(){});
+      syncWatchStart();
     }
-  }, 25000);
+  }, 60000);
 }
 
 ACTS['sync-on'] = function(){ syncTurnOn(); };
@@ -17129,6 +17282,15 @@ ACTS['sync-delete'] = function(){
     '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
 };
 ACTS['sync-delete-confirm'] = function(){ closeModal(); syncDeleteRemote(); };
+// Включили синхронизацию или связали устройство — сразу начинаем ждать правки.
+['sync-on', 'sync-join-do', 'sync-code'].forEach(function(act){
+  var base = ACTS[act];
+  ACTS[act] = function(d){
+    var r = base(d);
+    setTimeout(function(){ if (typeof syncWatchStart === 'function') syncWatchStart(); }, 3000);
+    return r;
+  };
+});
 
 try { syncPullOnLoad(); } catch (e) { if (синхроЖдёт()) перекатПосле(null); }
 

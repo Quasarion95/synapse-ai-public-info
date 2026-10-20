@@ -382,6 +382,9 @@
     '+ Шаг': '+ Step',
     'Добавить первый шаг': 'Add a first step',
     'Syn уточняет…': 'Syn is refining…',
+    'Syn составляет цель…': 'Syn is drafting the goal…',
+    'Запросы к Syn на сегодня закончились — цель записана с одним названием.': 'Your Syn requests for today are used up — the goal is saved with its title only.',
+    'Syn не ответил — цель записана с одним названием.': 'Syn did not answer — the goal is saved with its title only.',
     'Syn ищет в интернете…': 'Syn is searching the web…',
     'Запросы к Syn на сегодня закончились — задачи разбираются без ИИ.': 'Your Syn requests for today are used up — tasks are parsed without AI.',
     'Syn: помочь с текстом': 'Syn: help with the text',
@@ -1119,6 +1122,8 @@
     [/^Ещё (\d+)$/, function (m) { return m[1] + ' more'; }],
     [/^Профиль: (.+)$/, function (m) { return 'Profile: ' + m[1]; }],
     [/^Syn разобрал фразу: задач — (\d+)$/, function (m) { return 'Syn split the phrase into ' + m[1] + ' tasks'; }],
+    [/^Syn составил цель «(.+)»: (\d+) (?:этап|этапа|этапов)$/, function (m) { return 'Syn drafted the goal “' + m[1] + '”: ' + m[2] + (m[2] === '1' ? ' stage' : ' stages'); }],
+    [/^Syn составил цель «(.+)»$/, function (m) { return 'Syn drafted the goal “' + m[1] + '”'; }],
     [/^(\d+) (?:этап|этапа|этапов)$/, function (m) { return m[1] + (m[1] === '1' ? ' stage' : ' stages'); }],
     // «Август 2026» — месяц склеен с годом, целиком в словарь не занести.
     [/^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|Сентябрь|Октябрь|Ноябрь|Декабрь)\s+(\d{4})$/,
