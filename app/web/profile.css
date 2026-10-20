@@ -1,0 +1,61 @@
+/* ============ «ПРОФИЛЬ» В НОВОЙ СТИЛИСТИКЕ — только веб ============
+   Разметку рисует web/profile.js. Цвета — из системы theme.js, баннер —
+   тем же приёмом, что у страницы подписки. */
+
+.pf{display:flex; flex-direction:column; gap:18px}
+
+/* ---- баннер ---- */
+.pf-hero{position:relative; overflow:hidden; display:flex; align-items:center; gap:28px;
+  padding:32px 36px; border-radius:24px; color:#fff;
+  background:radial-gradient(120% 140% at 100% 0%, var(--brand-2, var(--accent)) 0%, transparent 55%),
+             linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 62%, #000));
+  box-shadow:var(--shadow-lift)}
+.pf-orb{position:absolute; right:-70px; bottom:-120px; width:320px; height:320px; border-radius:50%;
+  background:rgba(255,255,255,.08); pointer-events:none}
+
+.pf-ava{position:relative; flex:none; padding:0; border:0; background:none; border-radius:50%; cursor:pointer; z-index:1}
+.pf-ava .avatar.lg{width:112px; height:112px; font-size:40px; color:#fff;
+  background-color:rgba(255,255,255,.16); box-shadow:0 0 0 4px rgba(255,255,255,.28)}
+.pf-ava .avatar.anon .nav-ic{color:#fff}
+.pf-cam{position:absolute; right:2px; bottom:2px; width:34px; height:34px; border-radius:50%;
+  display:grid; place-items:center; background:#fff; color:var(--accent); box-shadow:0 4px 12px rgba(0,0,0,.18);
+  transition:transform .15s ease}
+.pf-cam svg{width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linejoin:round}
+.pf-ava:hover .pf-cam{transform:scale(1.08)}
+
+.pf-who{position:relative; z-index:1; min-width:0}
+.pf-badge{display:inline-flex; align-items:center; gap:6px; padding:5px 11px; margin-bottom:10px; border-radius:999px;
+  background:rgba(255,255,255,.18); font-size:12.5px; font-weight:600}
+.pf-name{margin:0; font-size:clamp(26px, 3vw, 34px); font-weight:800; line-height:1.15; color:#fff;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pf-who p{margin:8px 0 0; color:rgba(255,255,255,.85); font-size:14.5px}
+.pf-stats{display:flex; flex-wrap:wrap; gap:8px; margin-top:18px}
+.pf-stats span{display:inline-flex; align-items:baseline; gap:6px; padding:8px 13px; border-radius:12px;
+  background:rgba(0,0,0,.18); font-size:13px; color:rgba(255,255,255,.85)}
+.pf-stats b{font-family:var(--display); font-size:17px; font-weight:800; color:#fff}
+
+/* ---- карточки ---- */
+.pf-grid{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px}
+.pf-card{display:flex; flex-direction:column; gap:14px; padding:22px; margin:0}
+.pf-h{display:flex; align-items:center; gap:10px}
+.pf-h b{font-size:16px}
+.pf-ic{width:32px; height:32px; border-radius:10px; display:grid; place-items:center; flex:none;
+  background:color-mix(in srgb, var(--c, var(--accent)) 15%, transparent); color:var(--c, var(--accent))}
+.pf-ic svg{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round}
+.pf-card .field{margin:0}
+.pf-txt{margin:0; color:var(--fg-2); font-size:14px; line-height:1.5}
+.pf-acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:auto}
+
+/* ---- узко ---- */
+@media (max-width:900px){
+  .pf-grid{grid-template-columns:1fr}
+  .pf-hero{flex-direction:column; align-items:flex-start; gap:18px; padding:24px 22px}
+  .pf-ava .avatar.lg{width:88px; height:88px; font-size:32px}
+}
+
+/* ---- профиль в меню, когда он открыт ----
+   Было: чёрная заливка во всю кнопку — самое тёмное пятно меню. Теперь —
+   как выбранный пункт: мягкая подложка и кольцо фирменного цвета. */
+.whoami.on{background:var(--accent-soft); color:var(--fg); border-color:transparent;
+  box-shadow:0 0 0 2px var(--accent)}
+.whoami.on .avatar{background:var(--grad); color:var(--on-accent, #fff)}

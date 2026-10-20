@@ -21,6 +21,10 @@
    Андроид-обёртка этот файл не подключает вовсе. */
 
 @media (min-width:1040px){
+  /* Валюта на широком экране — в самих финансах (finCurButton), а не в
+     левом меню среди языка и темы. */
+  .top-acts .iconbtn.cur:not(.fin-cur){display:none}
+  .iconbtn.fin-cur{display:grid}
   :root{
     --rail:228px;
     --pad:28px;
@@ -45,7 +49,12 @@
     padding:82px 14px 18px;
     display:flex; flex-direction:column; overflow-y:auto;
   }
-  .kbd .tabbar{display:flex !important}
+  /* В режиме «клавиатура» (курсор в любом поле) app.css отпускает низ панели
+     — bottom:auto, — и на широком экране служебный блок внизу меню прыгал
+     вверх при каждом входе в поле и обратно при выходе: заметнее всего на
+     кнопке копирования в окне Syn. Здесь панель — колонка на всю высоту, и
+     её низ держим всегда. */
+  .kbd .tabbar{display:flex !important; bottom:0 !important}
 
   /* Знак и название наверху меню. В разметке они живут в шапке над текстом —
      ставим их сюда рисунком, а в шапке прячем: два логотипа на экране
@@ -91,6 +100,21 @@
     background:var(--card); border-top:1px solid var(--line); border-right:1px solid var(--line)}
   .top-acts .whoami{margin-left:auto; max-width:132px}
   .tabbar{padding-bottom:78px}
+
+  /* Полоса кнопок перенесена в меню (web/layout.js) — над чертой служебной
+     группы. Пружиной теперь служит она сама: всё, что ниже, прижато к низу,
+     а кнопки стоят прямо над чертой «Моей подписки». */
+  .acts-in-rail .tabbar{padding-bottom:18px}
+  .tabs-rest .top-acts{position:static; width:auto; margin:auto 0 0;
+    padding:10px 4px 10px; background:none; border:0}
+  .tabs-rest .top-acts + .tabs-sep{margin-top:0}
+  /* Кнопка профиля в меню — отдельной строкой во всю ширину, над языком и
+     темой. В одном ряду с ними ей доставалось 120 пикселей, и даже
+     «Константин» обрезался до «Констан…». */
+  .tabs-rest .top-acts{flex-wrap:wrap; row-gap:8px}
+  .tabs-rest .top-acts .whoami{order:-1; flex:1 1 100%; margin-left:0; max-width:none; min-width:0; padding:3px 10px 3px 3px; gap:7px}
+  .tabs-rest .top-acts .whoami .avatar{width:30px; height:30px; font-size:12px}
+  .tabs-rest .top-acts .whoami .nm{font-size:13.5px}
 
   /* ---- строка ввода и подсказка — по центру рабочей области ---- */
   .composer,
@@ -180,3 +204,39 @@
   main:has(> .goalcard) > :not(.goalcard),
   main:has(> .goalcard) > .goalcard.open{grid-column:1 / -1}
 }
+
+/* ---- меню, свёрнутое до значков ----
+
+   Кнопка-шеврон на краю меню сворачивает его до колонки значков и обратно
+   (web/layout.js, выбор помнится в этом браузере). В свёрнутом меню
+   названия разделов не пропадают совсем: наведи на значок — рядом всплывёт
+   подпись (.rail-tip). Рабочая область забирает освободившееся место сама:
+   всё, что стоит от края меню, считается от --rail. */
+.rail-toggle, .rail-tip{display:none}
+@media (min-width:1040px){
+  html.rail-mini{ --rail:72px }
+
+  .rail-toggle{display:grid; place-items:center; position:fixed; z-index:60;
+    top:28px; left:calc(var(--rail) - 13px); width:26px; height:26px; border-radius:999px;
+    background:var(--card); border:1px solid var(--line); color:var(--fg-2); box-shadow:var(--shadow)}
+  .rail-toggle:hover{background:var(--soft); color:var(--fg)}
+  .rail-toggle svg{width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2.2;
+    stroke-linecap:round; stroke-linejoin:round; transition:transform .2s}
+  html.rail-mini .rail-toggle svg{transform:rotate(180deg)}
+
+  html.rail-mini .tabbar{padding-left:10px; padding-right:10px}
+  html.rail-mini .tabbar::before{left:18px}
+  html.rail-mini .tabbar::after{display:none}
+  html.rail-mini .tab{grid-template-columns:1fr; justify-items:center; padding:10px 0; gap:0}
+  html.rail-mini .tab .tx{display:none}
+  html.rail-mini .tabs-rest .top-acts{flex-direction:column; align-items:center; padding:10px 0}
+  html.rail-mini .tabs-rest .top-acts .whoami{flex:none; padding:3px; margin:0}
+  html.rail-mini .tabs-rest .top-acts .whoami .nm{display:none}
+
+  html.rail-mini .rail-tip{display:block; position:fixed; z-index:70; pointer-events:none;
+    padding:6px 10px; border-radius:9px; background:var(--fg); color:var(--bg);
+    font-size:13px; font-weight:600; white-space:nowrap; box-shadow:var(--shadow-lift);
+    transform:translateY(-50%); opacity:0; transition:opacity .12s}
+  html.rail-mini .rail-tip.on{opacity:1}
+}
+@media (prefers-reduced-motion: reduce){ .rail-toggle svg, .rail-tip{transition:none} }

@@ -85,13 +85,34 @@ body{background:var(--bg)}
    атрибутов и перекрашивает их в новую систему. Какой выполненный узел —
    задача, какой — этап или цель, размечает theme.js (mm-task / mm-goal). */
 .mmwrap{background:var(--card)}
-.mmwrap svg rect:not(.mm-node){fill:var(--card)}
+/* Новые карточки и дерево (web/goal-tree.js) красятся сами — общие правила
+   карты их не трогают, иначе полоска роли, прогресс и галочка теряли цвет. */
+.mmwrap svg rect:not(.mm-node):not(.mm-card *):not(.gt *){fill:var(--card)}
 .mmwrap svg rect.mm-node{stroke:color-mix(in srgb, var(--fg-3) 45%, transparent)}
 .mmwrap svg rect.mm-node.mm-goal{fill:var(--accent-soft); stroke:var(--accent)}
 .mmwrap svg rect.mm-node.mm-task{fill:var(--ok-soft); stroke:var(--pos)}
 .mmwrap svg .mm-link{stroke:color-mix(in srgb, var(--fg-3) 50%, transparent)}
-.mmwrap svg circle{fill:var(--soft); stroke:var(--line)}
-.mmwrap svg g[fill]{fill:var(--accent)}
+.mmwrap svg circle:not(.mm-pulse):not(.mm-card *):not(.gt *){fill:var(--soft); stroke:var(--line)}
+.mmwrap svg g[fill]:not(.gt *){fill:var(--accent)}
 .mmlegend span:nth-child(1) i{background:var(--ok-soft) !important; border-color:var(--pos) !important}
 .mmlegend span:nth-child(2) i{background:var(--accent-soft) !important; border-color:var(--accent) !important}
 .mmlegend span:nth-child(3) i{background:var(--card) !important}
+
+/* ---- копирование реплик Syn (web/syn-tidy.js) ----
+   Кнопка у края пузыря: у ответа Syn — справа, у своей реплики — слева.
+   На компьютере проявляется под курсором, на сенсоре видна всегда — там
+   наводить нечем. */
+.syn-msg.has-copy{position:relative}
+.syn-copy{position:absolute; bottom:2px; width:26px; height:26px; border-radius:8px; display:grid; place-items:center;
+  color:var(--fg-3); background:var(--card); border:1px solid var(--line); opacity:0; transition:opacity .15s ease, color .15s ease}
+.syn-msg:not(.mine) .syn-copy{right:-32px}
+.syn-msg.mine .syn-copy{left:-32px}
+.syn-msg.has-copy:hover .syn-copy, .syn-copy:focus-visible{opacity:1}
+.syn-copy:hover{color:var(--accent-text, var(--accent)); border-color:color-mix(in srgb, var(--accent) 40%, var(--line))}
+.syn-copy svg{width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linejoin:round}
+.syn-copy.ok{opacity:1; color:var(--pos, #16a34a); border-color:color-mix(in srgb, var(--pos, #16a34a) 45%, var(--line))}
+@media (hover: none){ .syn-copy{opacity:.75} }
+@media (max-width: 700px){
+  .syn-msg.has-copy{padding-right:36px}
+  .syn-msg.has-copy .syn-copy{left:auto; right:5px; bottom:5px; background:transparent; border-color:transparent}
+}

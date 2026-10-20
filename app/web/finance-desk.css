@@ -23,6 +23,19 @@
     "env  pay  feed"
     "debt jars jars";
 }
+/* Пока остаток не назван — над итогами рассказ Syn (finStartHTML в app.js).
+   Отдельной раскладкой, а не пустым рядом: пустой ряд всё равно оставлял бы
+   лишний зазор над итогами. */
+.desk.fin.has-start{
+  grid-template-areas:
+    "head  head  head"
+    "start start start"
+    "kpi   kpi   kpi"
+    "ana   ana   feed"
+    "env   pay   feed"
+    "debt  jars  jars";
+}
+.z-start{grid-area:start}
 .z-ana{grid-area:ana}
 .z-feed{grid-area:feed}
 .z-env{grid-area:env}
@@ -39,6 +52,15 @@
       "ana  ana  ana  feed"
       "env  pay  debt feed"
       "jars jars jars feed";
+  }
+  .desk.fin.has-start{
+    grid-template-areas:
+      "head  head  head  head"
+      "start start start start"
+      "kpi   kpi   kpi   kpi"
+      "ana   ana   ana   feed"
+      "env   pay   debt  feed"
+      "jars  jars  jars  feed";
   }
 }
 
@@ -76,18 +98,6 @@
 .dz-pace b{color:var(--fg); font-variant-numeric:tabular-nums}
 
 /* ---- траты ---- */
-.desk-add{margin-bottom:10px}
-.desk-add .finswitch{margin-bottom:8px}
-/* Строка ввода в зоне — без тени и белого ореола: у плавающей они отделяли
-   её от ленты под ней, а здесь она и так стоит в карточке. */
-.desk-add .say{box-shadow:none; border-width:1px; padding:5px 5px 5px 14px}
-.desk-add .say input{font-size:14px}
-.desk-add .say .ai, .desk-add .say .send{width:32px; height:32px}
-/* Свой микрофон — контуром, а не заливкой: правило app.css для .say .ai
-   заливает всё, что внутри кнопки. */
-.desk-add .say .ai svg.dmic{width:18px; height:18px; fill:none; stroke:currentColor;
-  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
-.desk-add .finwhen{margin:8px 0 0}
 .dz-filter{display:flex; align-items:center; justify-content:space-between; gap:8px;
   font-size:12.5px; padding:6px 6px 6px 12px; margin-bottom:8px; border-radius:999px;
   background:var(--soft); color:var(--fg-2)}
@@ -177,9 +187,10 @@
 /* ---- курсы ----
 
    Тонкая полоса в шапке между названием и месяцем: справка, а не зона.
-   Значок валюты, цена и изменение мелко — стрелка и процент приглушены и не
-   красятся в «хорошо/плохо»: рост доллара для одного удача, для другого
-   нет, и раскрашивать это за человека не нам. */
+   Значок валюты, цена и изменение мелко. Стрелка с процентом — по
+   направлению, как на любой бирже: вверх зелёная, вниз красная. Это не
+   оценка «хорошо/плохо», а то, куда сдвинулся курс, — так его и читают с
+   первого взгляда. Так же и в айфоне. */
 .desk-rates{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0}
 .dr{display:inline-flex; align-items:baseline; gap:6px; padding:6px 11px; border-radius:999px;
   background:var(--card); border:1px solid var(--stroke); font-size:13px; white-space:nowrap;
@@ -187,5 +198,10 @@
 .dr i{font-style:normal; font-weight:700; color:var(--fg-3); font-size:12.5px}
 .dr b{font-weight:600}
 .dr em{font-style:normal; font-size:11px; color:var(--fg-3)}
-.dr em.up{color:var(--fg-2)}
+.dr em.up{color:var(--pos,var(--ok)); font-weight:600}
+.dr em.down{color:var(--neg,var(--crit)); font-weight:600}
 .dr-src, .dr-wait{font-size:11px; color:var(--fg-3); white-space:nowrap; padding:0 4px}
+
+/* Под дашбордом — место для полосы Syn: она плавает над нижним краем и
+   иначе закрывала бы нижние зоны. */
+.desk-wrap:has(.desk.fin){padding-bottom:110px}

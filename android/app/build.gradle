@@ -1,16 +1,44 @@
 plugins { id 'com.android.application' }
 
+/* Ключи аналитики — в файле вне репозитория, как и подпись.
+
+   ~/.synapse-ops/analytics.properties:
+     tracerAppToken=…     ключ приложения в Tracer (отчёты о падениях)
+     tracerPluginToken=…  ключ загрузки сборок в Tracer
+     mytrackerKey=…       SDK-ключ приложения в MyTracker
+
+   Нет файла или ключа — сборка всё равно собирается, просто без этой части:
+   отладочные сборки и чужие компьютеры ничего никуда не шлют. */
+def аналитика = new Properties()
+def файлАналитики = new File(System.getProperty('user.home'), '.synapse-ops/analytics.properties')
+if (файлАналитики.exists()) файлАналитики.withReader('UTF-8') { аналитика.load(it) }
+def tracerВключён = аналитика['tracerAppToken'] && аналитика['tracerPluginToken']
+if (tracerВключён) {
+    apply plugin: 'ru.ok.tracer'
+    tracer {
+        defaultConfig {
+            pluginToken = аналитика['tracerPluginToken']
+            appToken = аналитика['tracerAppToken']
+            // Код не сжимается (minifyEnabled false) — загружать нечего.
+            uploadMapping = false
+        }
+    }
+}
+
 android {
     namespace 'ru.synapseapp.app'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId 'ru.synapseapp.app'
         minSdk 24            // Android 7: ниже WebView слишком стар для нашего JS
         targetSdk 34
-        versionCode 8
-        versionName '1.7'
+        versionCode 11
+        versionName '2.1'
+        buildConfigField 'String', 'MYTRACKER_KEY', '"' + (аналитика['mytrackerKey'] ?: '') + '"'
     }
+
+    buildFeatures { buildConfig true }
 
     /* Файлы веб-версии не лежат в репозитории дважды.
 
@@ -33,11 +61,16 @@ android {
             def файл = new File(System.getProperty('user.home'), '.synapse-ops/android-signing.properties')
             if (файл.exists()) {
                 def свойства = new Properties()
-                файл.withInputStream { свойства.load(it) }
+                // Читаем как UTF-8: Properties.load из потока понимает только
+                // Latin-1, и путь к ключу с русскими буквами («ОЧЕНЬ ВАЖНО»)
+                // превращался в кракозябры — сборка не находила файл.
+                файл.withReader('UTF-8') { свойства.load(it) }
                 storeFile file(свойства['storeFile'])
                 storePassword свойства['storePassword']
                 keyAlias свойства['keyAlias']
-                keyPassword свойства['keyPassword']
+                // Пароль ключа почти всегда тот же, что у хранилища, — тогда
+                // его можно не дублировать в файле.
+                keyPassword свойства['keyPassword'] ?: свойства['storePassword']
             }
         }
     }
@@ -79,6 +112,17 @@ dependencies {
     // Custom Tabs: оплата открывается вкладкой поверх приложения — с адресом и
     // замком в строке, но без выхода из Synapse. См. MainActivity.открытьСнаружи.
     implementation 'androidx.browser:browser:1.8.0'
+    /* RuStore: оценка внутри приложения и обновление без похода в магазин.
+       Редакция RuStore смотрит, встроены ли они, когда отбирает приложения в
+       подборки, а оценка в один тап собирает отзывы, по которым считаются топы. */
+    implementation 'ru.rustore.sdk:review:6.0.0'
+    implementation 'ru.rustore.sdk:appupdate:7.0.0'
+    // Tracer — только вместе с ключами: без них библиотека не находит
+    // настроек, которые генерирует плагин, и падала бы на старте.
+    if (tracerВключён) implementation 'ru.ok.tracer:tracer-crash-report:1.5.1'
+    // MyTracker: откуда приходят люди и возвращаются ли. Только события
+    // по названию («закрыл задачу»), без текста задач, целей и сумм.
+    implementation 'com.my.tracker:mytracker-sdk:3.6.0'
 }
 
 /* Забираем веб-версию перед сборкой.
@@ -90,6 +134,13 @@ tasks.register('копияВебВерсии', Copy) {
     from rootProject.file('../app')
     into layout.buildDirectory.dir('webapp/app')
     exclude 'sw.js'
+    /* web/ едет в апк целиком. Раньше его исключали как «только веб», но
+       index.html грузит оттуда и в приложении: цветовую систему (theme.js и
+       theme.css), оформление заметок (notes-edit) и живое дерево карты целей
+       (goal-tree). Без них темы и заметки в апк тихо ломались — файлы
+       отвечали 404. Остальное из web/ index.html внутри обёртки не
+       подключает, а вес у него небольшой. */
+    exclude '_android_test.html'
 }
 
 tasks.register('копияШрифтов', Copy) {

@@ -8,8 +8,15 @@ var SynSyncCrypto = (function () {
   var te = new TextEncoder();
   var PAIR_SALT = te.encode('synapse-sync-pair-v1');
 
+  // Кириллица, похожая на латиницу: код набирают с русской раскладкой, и «А»
+  // или «С» с неё раньше молча выбрасывались — код выходил «неполным». Только
+  // буквы, которые есть в алфавите кода (О в нём нет — её не подменяем).
+  var LOOKALIKE = { 'А': 'A', 'В': 'B', 'Е': 'E', 'К': 'K', 'М': 'M', 'Н': 'H',
+                    'Р': 'P', 'С': 'C', 'Т': 'T', 'Х': 'X', 'У': 'Y' };
   function normalize(code) {
-    return String(code || '').toUpperCase().split('').filter(function (c) {
+    return String(code || '').toUpperCase().split('').map(function (c) {
+      return LOOKALIKE[c] || c;
+    }).filter(function (c) {
       return ALPHABET.indexOf(c) >= 0;
     }).join('');
   }

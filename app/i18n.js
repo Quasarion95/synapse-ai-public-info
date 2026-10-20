@@ -377,6 +377,42 @@
     'Задачи без этапа': 'Tasks without a stage',
     'Задачи цели — те же самые объекты, что на экране «Задачи». Отметил здесь — отмечено и там.': 'A goal\'s tasks are the very same ones on the "Tasks" screen. Tick one here and it is ticked there too.',
     'Требуют внимания': 'Need attention',
+    'Цели без задач': 'Goals without tasks',
+    'Им нужен первый шаг — иначе они стоят на месте.': 'They need a first step — otherwise they stand still.',
+    '+ Шаг': '+ Step',
+    'Добавить первый шаг': 'Add a first step',
+    'Syn уточняет…': 'Syn is refining…',
+    'Syn составляет цель…': 'Syn is drafting the goal…',
+    'Запросы к Syn на сегодня закончились — цель записана с одним названием.': 'Your Syn requests for today are used up — the goal is saved with its title only.',
+    'Syn не ответил — цель записана с одним названием.': 'Syn did not answer — the goal is saved with its title only.',
+    'Syn ищет в интернете…': 'Syn is searching the web…',
+    'Запросы к Syn на сегодня закончились — задачи разбираются без ИИ.': 'Your Syn requests for today are used up — tasks are parsed without AI.',
+    'Syn: помочь с текстом': 'Syn: help with the text',
+    'Syn поправит выделенное': 'Syn will edit the selection',
+    'Syn поправит весь текст': 'Syn will edit the whole text',
+    'Один запрос из дневной нормы': 'Uses one request from your daily allowance',
+    'Исправить ошибки': 'Fix mistakes',
+    'Короче': 'Shorter',
+    'Подробнее': 'More detail',
+    'Деловой стиль': 'Formal',
+    'Дружелюбнее': 'Friendlier',
+    'По пунктам': 'As bullet points',
+    'Перевести на английский': 'Translate to English',
+    'Перевести на русский': 'Translate to Russian',
+    'Syn переписывает текст…': 'Syn is rewriting the text…',
+    'Свой запрос: например, «добавь вывод в конце»': 'Your own request, e.g. "add a conclusion"',
+    'Свой запрос к Syn': 'Your own request to Syn',
+    'Выполнить': 'Run',
+    'Syn поправил текст.': 'Syn edited the text.',
+    'Вернуть как было': 'Undo',
+    'Сначала напиши текст — Syn поправит его.': 'Write some text first — Syn will edit it.',
+    'Текст слишком длинный для Syn. Выдели часть и попробуй ещё раз.': 'The text is too long for Syn. Select a part and try again.',
+    'Напиши, что сделать с текстом.': 'Write what to do with the text.',
+    'Syn не смог переписать текст. Попробуй ещё раз.': 'Syn could not rewrite the text. Try again.',
+    'Нет соединения. Проверь интернет и попробуй ещё раз.': 'No connection. Check the internet and try again.',
+    'Запросы к Syn на сегодня закончились. Завтра снова будут.': 'Your Syn requests for today are used up. More tomorrow.',
+    'Эта функция заработает после обновления сервера Syn. Попробуй позже.': 'This will work after the Syn server is updated. Try later.',
+    'Этапов нет': 'No stages',
     'без задач': 'no tasks',
     'Горизонт': 'Horizon',
     '14 дней вперёд: столбик — сколько задач, точка — задача со временем': '14 days ahead: the bar is how many tasks, the dot is a task with a time',
@@ -403,6 +439,19 @@
     'Задач на сегодня не было. Наметить что-то на завтра?': 'There were no tasks today. Plan something for tomorrow?',
 
     // — финансы: пояснения и пустые экраны —
+    'Расскажите Syn, что у вас с деньгами': 'Tell Syn about your money',
+    'Свернуть меню': 'Collapse the menu', 'Развернуть меню': 'Expand the menu',
+    'Всё сразу, своими словами: «На карте 80 тысяч. Должен Пете 15 тысяч до первого. Яндекс Плюс 399 пятого числа, аренда 30 тысяч десятого. Зарплата 120 тысяч». Syn сам заведёт остаток, долги, подписки и доход, а перед записью покажет, что получилось.': 'All at once, in your own words: "80,000 on my card. I owe Pete 15,000 by the 1st. Spotify 399 on the 5th, rent 30,000 on the 10th. Salary 120,000." Syn will set up your balance, debts, subscriptions and income, and show you what it got before saving.',
+    'Рассказать голосом': 'Tell by voice', 'Написать': 'Type it',
+    'Скажите Syn: «кофе 350»': 'Tell Syn: "coffee 350"',
+    'Говорите — нажмите микрофон, когда закончите': 'Speak — tap the mic when you are done',
+    'Слушаю. Нажмите микрофон ещё раз — и Syn всё запишет.': 'Listening. Tap the mic again and Syn will save it all.',
+    'Что записать': 'What to save', 'Сказать голосом': 'Say it', 'Отправить Syn': 'Send to Syn',
+    'Скрыть ответ': 'Hide the answer', 'Записано без Syn': 'Saved without Syn',
+    'Скажите или напишите, что записать: «кофе 350»': 'Say or type what to save: "coffee 350"',
+    'Скажите Syn в строке внизу: «кофе 350», «вчера такси 450 и обед 600». Через месяц раздел покажет, куда уходят деньги.': 'Tell Syn in the bar below: "coffee 350", "taxi 450 and lunch 600 yesterday". In a month this section will show you where the money goes.',
+    'В этом месяце ещё ничего не записано. Скажите Syn в строке внизу, на что потратили.': 'Nothing recorded this month yet. Tell Syn in the bar below what you spent on.',
+    'Записано.': 'Saved.', 'Не записано.': 'Not saved.',
     'Одна строка на трату — этого достаточно. Через месяц раздел покажет, куда уходят деньги.': 'One line per expense is enough. In a month this section will show you where the money goes.',
     'Впишите, сколько сейчас на карте и в кошельке, — одним числом. Без него «Свободно» показывает не деньги, а разницу доходов и трат с первой записи.': 'Enter how much is on your card and in your wallet right now, as a single number. Without it "Available" shows not money but the difference between income and expenses since your first entry.',
     'Сумму можно писать прямо в строке — «такси 1.5к», «продукты 2 400». Категория подставится сама. Кнопка AI рядом понимает несколько трат за раз и вчерашние даты.': 'You can put the amount right in the line — "taxi 1.5k", "groceries 2 400". The category fills itself in. The AI button next to it handles several expenses at once, and past dates too.',
@@ -641,6 +690,9 @@
     // — ассистент Syn —
     'Что сделать': 'What to do',
     'Слушаю. Замолчите — и Syn выполнит сказанное.': 'Listening. Stop speaking and Syn will do what you asked.',
+    'Слушаю. Нажмите микрофон ещё раз — и Syn выполнит сказанное.': 'Listening. Tap the microphone again and Syn will do what you said.',
+    'Отправить сказанное': 'Send what I said',
+    'Записать сказанное': 'Save what I said',
     'Ничего не изменилось.': 'Nothing changed.',
     'Syn ответил словами, но не прислал ни одного действия.': 'Syn replied in words but did not send a single action.',
     'Создать задачу из фразы': 'Create a task from the phrase',
@@ -649,8 +701,10 @@
     'Syn думает…': 'Syn is thinking…',
     'Syn на сегодня закончился': 'Syn is out for today',
     'Скажи словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель», «включи дождь на 15 минут».': 'Just say it: "move the call to Friday", "sort out my day", "turn this into a goal", "play rain for 15 minutes".',
-    'Скажи словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель», «включи дождь на 15 минут». Или продиктуй голосом — Syn выполнит сказанное.': 'Just say it: "move the call to Friday", "sort out my day", "turn this into a goal", "play rain for 15 minutes". Or dictate it out loud — Syn will do what you asked.',
-    'Или продиктуй голосом — Syn выполнит сказанное.': 'Or dictate it out loud — Syn will do what you asked.',
+    'Скажи словами: «перенеси созвон на пятницу», «разбери мой день», «сделай из этого цель», «включи дождь на 15 минут». Или зажми микрофон, скажи и отпусти — Syn выполнит сказанное.': 'Just say it: "move the call to Friday", "sort out my day", "turn this into a goal", "play rain for 15 minutes". Or hold the mic, speak and let go — Syn will do what you asked.',
+    'Или зажми микрофон, скажи и отпусти — Syn выполнит сказанное.': 'Or hold the mic, speak and let go — Syn will do what you asked.',
+    'Удерживайте микрофон, пока говорите, — отпустите, чтобы отправить': 'Hold the mic while you speak — let go to send',
+    'Сообщение для Syn': 'Message to Syn',
     'Распознавание не сработало.': 'Speech recognition did not work.',
     'Браузер не дал доступ к микрофону.': 'The browser did not grant access to the microphone.',
     'Ничего не услышал.': 'I did not hear anything.',
@@ -974,13 +1028,81 @@
 
     // — корзина: срок хранения —
     'Удалённые задачи, цели, списки и заметки лежат здесь 30 дней, и всё это время их можно вернуть.': 'Deleted tasks, goals, lists and notes stay here for 30 days, and you can bring them back the whole time.',
-    'Хранится 30 дней, потом уходит само': 'Kept for 30 days, then it goes by itself'
+    'Хранится 30 дней, потом уходит само': 'Kept for 30 days, then it goes by itself',
+
+    // — окна-вопросы перед необратимым (данные, корзина, подписка) —
+    'Заменить всё примерами?': 'Replace everything with examples?',
+    'Задачи, цели, списки, заметки и финансы в этом браузере заменятся примерами. Копия прежних данных останется на этом устройстве.': 'Tasks, goals, lists, notes and finances in this browser will be replaced with examples. A copy of the previous data stays on this device.',
+    'Заменить примерами': 'Replace with examples',
+    'Стереть всё в этом браузере?': 'Erase everything in this browser?',
+    'Задачи, цели, списки, заметки и финансы в этом браузере удалятся. Копия прежних данных останется на этом устройстве, подписка останется на месте.': 'Tasks, goals, lists, notes and finances in this browser will be deleted. A copy of the previous data stays on this device, and your subscription stays in place.',
+    'Стереть всё': 'Erase everything',
+    'Синхронизация ничего не сотрёт на других устройствах: при следующей сверке их данные вернутся и сюда.': 'Sync will not erase anything on your other devices: on the next sync their data will come back here too.',
+    'Запись сотрётся без возможности вернуть:': 'This item will be erased for good:',
+    'Отвязать код?': 'Unlink the code?',
+    'Pro в этом браузере выключится. Чтобы вернуть его, понадобится ввести код заново — сохраните его, если ещё не сохранили.': 'Pro will turn off in this browser. To bring it back you will need to enter the code again — save it if you have not yet.',
+
+    // — куски фраз вокруг названий, данных человеком (те стоят в translate="no") —
+    'Относится к цели «': 'Belongs to the goal "',
+    '», просто без этапа.': '", just without a stage.',
+    '»': '"',
+
+    // — уведомления на телефоне —
+    'Загляните в план на сегодня: с чего начнём?': 'Take a look at today\'s plan: where do we start?',
+    'Как прошёл день? Отметьте сделанное и наметьте завтра.': 'How did the day go? Tick off what is done and plan tomorrow.'
   };
 
 
   /* Фразы с числами внутри. Множественное число в английском проще русского:
      хватает «s» после единицы, поэтому правил немного. */
+  /* Название блока внутри кавычек («Сегодня») переводим, если оно в словаре;
+     что-то иное (название, данное человеком) — оставляем как есть. */
+  function known(word) { return EN[word] || word; }
+  // «запись» в корзине — не заметка, а любая удалённая вещь.
+  function items(n) { return n + (n === '1' ? ' item' : ' items'); }
+
   var PATTERNS = [
+    // — сообщения внизу экрана (тосты), собранные в app.js сложением —
+    [/^Задача в блоке «(.+)»$/, function (m) { return 'Task added to "' + known(m[1]) + '"'; }],
+    [/^Перенесено в «(.+)»$/, function (m) { return 'Moved to "' + known(m[1]) + '"'; }],
+    [/^Из корзины убрано: (\d+)$/, function (m) { return 'Cleared from trash: ' + m[1]; }],
+    [/^Перенесено на сегодня: (\d+)(?: · в архив: (\d+))?$/, function (m) {
+      return 'Moved to today: ' + m[1] + (m[2] ? ' · archived: ' + m[2] : '');
+    }],
+    [/^в архив: (\d+)$/, function (m) { return 'Archived: ' + m[1]; }],
+    [/^Корзина пуста: стёрто (\d+)$/, function (m) { return 'Trash emptied: ' + items(m[1]) + ' erased'; }],
+    [/^Вернули (\d+) (?:запись|записи|записей)$/, function (m) { return 'Restored ' + items(m[1]); }],
+    // Название вернувшейся вещи — текст человека, его не трогаем.
+    [/^Вернули «([\s\S]+)»$/, function (m) { return 'Restored "' + m[1] + '"'; }],
+    [/^Открывается: (.+?)( \(последний экран выключен\))?$/, function (m) {
+      return 'Opens with: ' + known(m[1]) + (m[2] ? ' (last screen turned off)' : '');
+    }],
+    [/^Суммы теперь с «(.+)»$/, function (m) { return 'Amounts now shown with "' + m[1] + '"'; }],
+    [/^Длина фокуса — (\d+) мин$/, function (m) { return 'Focus length — ' + m[1] + ' min'; }],
+    [/^(\d+) (?:запись|записи|записей) будет стёрто без возможности вернуть\.$/, function (m) {
+      return items(m[1]) + ' will be erased for good.';
+    }],
+    [/^(.+)\. Копию сохранить не удалось: нет места$/, function (m) {
+      return known(m[1]) + '. Could not keep a copy: not enough space';
+    }],
+    [/^Задачи этапа никуда не денутся: (\d+) (?:задача|задачи|задач) останутся у цели «$/, function (m) {
+      return 'The stage\'s tasks stay: ' + m[1] + (m[1] === '1' ? ' task' : ' tasks') + ' will remain with the goal "';
+    }],
+
+    // — уведомления на телефоне (собратьНапоминания в app.js) —
+    // Название цели внутри — текст человека, переносим как есть.
+    [/^(?:Цель: ([\s\S]+) · )?(?:через (\d+) мин, в |на )(\d{1,2}:\d{2})$/, function (m) {
+      return (m[1] ? 'Goal: ' + m[1] + ' · ' : '') + (m[2] ? 'in ' + m[2] + ' min, at ' : 'at ') + m[3];
+    }],
+    [/^([\s\S]+) — пройдено (\d+)%$/, function (m) { return m[1] + ' — ' + m[2] + '% done'; }],
+    [/^На сегодня (\d+) (?:задача|задачи|задач)(?:, и (\d+) ждут с прошлых дней)?\. С чего начнём\?$/, function (m) {
+      return (m[1] === '1' ? '1 task' : m[1] + ' tasks') + ' for today' +
+        (m[2] ? ', and ' + m[2] + ' waiting from earlier days' : '') + '. Where do we start?';
+    }],
+    [/^Закрыто (\d+) из (\d+)(?:\. Осталось (\d+) — перенести на завтра\?|(\. Всё сделано\.))$/, function (m) {
+      return 'Done ' + m[1] + ' of ' + m[2] + (m[3] ? '. ' + m[3] + ' left — move to tomorrow?' : '. All done.');
+    }],
+
     [/^Пройдено (\d+) из (\d+)$/, function (m) { return m[1] + ' of ' + m[2] + ' done'; }],
     [/^(\d+) из (\d+)$/, function (m) { return m[1] + ' of ' + m[2]; }],
     [/^просрочено на (\d+) (?:день|дня|дней)$/, function (m) {
@@ -997,6 +1119,12 @@
       return m[1] + (m[1] === '1' ? ' time' : ' times');
     }],
     [/^Осталось (\d+)$/, function (m) { return m[1] + ' left'; }],
+    [/^Ещё (\d+)$/, function (m) { return m[1] + ' more'; }],
+    [/^Профиль: (.+)$/, function (m) { return 'Profile: ' + m[1]; }],
+    [/^Syn разобрал фразу: задач — (\d+)$/, function (m) { return 'Syn split the phrase into ' + m[1] + ' tasks'; }],
+    [/^Syn составил цель «(.+)»: (\d+) (?:этап|этапа|этапов)$/, function (m) { return 'Syn drafted the goal “' + m[1] + '”: ' + m[2] + (m[2] === '1' ? ' stage' : ' stages'); }],
+    [/^Syn составил цель «(.+)»$/, function (m) { return 'Syn drafted the goal “' + m[1] + '”'; }],
+    [/^(\d+) (?:этап|этапа|этапов)$/, function (m) { return m[1] + (m[1] === '1' ? ' stage' : ' stages'); }],
     // «Август 2026» — месяц склеен с годом, целиком в словарь не занести.
     [/^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|Сентябрь|Октябрь|Ноябрь|Декабрь)\s+(\d{4})$/,
       function (m) { return (EN[m[1]] || m[1]) + ' ' + m[2]; }],
@@ -1010,6 +1138,22 @@
         return (months[m[2]] || m[2]) + ' ' + m[1];
       }]
   ];
+
+  /* Английская форма по числу: 1 — единственное, остальное — множественное.
+     Трогаем только простое слово из строчных букв (task, goal, stage):
+     сокращения вроде «min» и фразы оставляем как в словаре. */
+  var NO_PLURAL = { min: 1, sec: 1, h: 1, km: 1, kg: 1, empty: 1 };
+  function byNumber(n, word) {
+    if (!/^[a-z]+$/.test(word) || NO_PLURAL[word]) return word;
+    if (n === '1') {
+      // «1 задачи» не бывает, но словарь мог дать множественное — не ломаем.
+      return word;
+    }
+    if (/s$/.test(word)) return word;
+    if (/[^aeiou]y$/.test(word)) return word.slice(0, -1) + 'ies';
+    if (/(x|ch|sh)$/.test(word)) return word + 'es';
+    return word + 's';
+  }
 
   /* Переводим фразу ЦЕЛИКОМ или не трогаем вовсе.
 
@@ -1026,8 +1170,10 @@
     if (EN[core]) return lead + EN[core] + tail;
 
     // «3 задачи» → «3 tasks»: число впереди, знакомое слово следом.
+    // Число по-английски решает само: «21 задача» в русском — единственное,
+    // а по-английски «21 tasks». Поэтому форму берём по числу, а не по слову.
     var counted = /^(\d+)\s+(\S+)$/.exec(core);
-    if (counted && EN[counted[2]]) return lead + counted[1] + ' ' + EN[counted[2]] + tail;
+    if (counted && EN[counted[2]]) return lead + counted[1] + ' ' + byNumber(counted[1], EN[counted[2]]) + tail;
 
     // Фразы, где число внутри: их не занести в словарь целиком.
     for (var i = 0; i < PATTERNS.length; i++) {
@@ -1039,14 +1185,55 @@
   }
 
   /* Перевод собранной разметки. Тронуты только видимый текст и читаемые
-     атрибуты — ни имена классов, ни data-атрибуты, ни обработчики. */
+     атрибуты — ни имена классов, ни data-атрибуты, ни обработчики.
+
+     И не то, что написал человек. Перевод по словарю не отличал подпись
+     интерфейса от записи: заметка «Работа» показывалась как «Focus», цель
+     «Дом» — как «Home», и первая же буква в поле сохраняла уже переведённый
+     текст поверх настоящего. Поэтому не трогаем содержимое <textarea> — там
+     всегда текст человека — и всё внутри элемента с translate="no" (так
+     помечены названия задач, целей, списков и заметок), включая его
+     собственные атрибуты: так же это слово понимает и браузер.
+
+     Атрибут ищем только после пробела: иначе data-title="…" принимался за
+     title и переводился. */
+  var VOID_TAGS = /^(area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)$/;
+
+  function trAttrs(tag) {
+    return tag.replace(/(\s)(placeholder|title|aria-label|alt)="([^"]*)"/g, function (m, sp, attr, value) {
+      return sp + attr + '="' + phrase(value) + '"';
+    });
+  }
+
   function tr(html) {
     if (lang !== 'en' || typeof html !== 'string' || !html) return html;
     if (html.indexOf('<') === -1) return phrase(html);
-    html = html.replace(/(placeholder|title|aria-label|alt)="([^"]*)"/g, function (m, attr, value) {
-      return attr + '="' + phrase(value) + '"';
-    });
-    return html.replace(/>([^<]+)</g, function (m, text) { return '>' + phrase(text) + '<'; });
+    // Чётные куски — текст между тегами, нечётные — сами теги.
+    var parts = html.split(/(<[^>]*>)/);
+    var skipTag = '', skipDepth = 0;
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i];
+      if (i % 2 === 0) {
+        // Текст до первого тега и после последнего не трогали и раньше.
+        if (!skipDepth && part && i > 0 && i < parts.length - 1) parts[i] = phrase(part);
+        continue;
+      }
+      var m = /^<(\/?)([a-zA-Z][\w-]*)/.exec(part);
+      if (!m) continue;   // комментарий, <!doctype> и прочее
+      var name = m[2].toLowerCase();
+      var closing = m[1] === '/';
+      var single = VOID_TAGS.test(name) || /\/>$/.test(part);
+      if (skipDepth) {
+        // Внутри «не переводить» считаем только вложенные теги того же имени.
+        if (name === skipTag && !single) skipDepth += closing ? -1 : 1;
+        continue;
+      }
+      if (closing) continue;
+      var keep = /\stranslate="no"/.test(part);
+      if (!keep) parts[i] = trAttrs(part);
+      if ((keep || name === 'textarea') && !single) { skipTag = name; skipDepth = 1; }
+    }
+    return parts.join('');
   }
 
   /* Заголовок вкладки и описание страницы. Браузер читает их из разметки ещё
