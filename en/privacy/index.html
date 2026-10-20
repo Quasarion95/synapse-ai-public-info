@@ -169,6 +169,18 @@
             unlocked or reflashed phone this protection is weaker.
           </p>
           <p>
+            <b>Statistics and crash reports on Android.</b> To understand where
+            people come from and where the app breaks, it uses two VK services:
+            MyTracker and Tracer. MyTracker receives anonymous install and launch
+            data (phone model, Android and app version, country) and the names of
+            a few actions — "task added", "task completed", "question to the
+            assistant". The text of your tasks, goals, notes and amounts is never
+            sent. The advertising ID and location are not collected. Tracer
+            receives a technical report if the app crashes: where in the code the
+            error happened, the phone model and the system version. Your records
+            are not in the report.
+          </p>
+          <p>
             <b>Device sync.</b> Optionally — and only with a subscription — you
             can link devices with a short code so that tasks, goals, lists, notes
             and finances carry over between them: for example, between iPhone,
@@ -293,10 +305,13 @@
             written.
           </p>
           <p>
-            The iPhone and Android apps have no Yandex Metrica or any other
-            third-party counter, just as they have no advertising SDKs and no
-            advertising identifier: they don't track you across other apps. The
-            apps send technical events only to our own server (see section 4).
+            The iPhone and Android apps have no Yandex Metrica. The iPhone app
+            has no other third-party counter either; the Android app uses
+            MyTracker and Tracer — section 3 describes exactly what they receive.
+            Neither app has advertising SDKs or an advertising identifier: they
+            don't track you across other apps. The
+            apps send all other technical events only to our own server (see
+            section 4).
             From those events the server counts how many installations use the
             app and whether they come back. For that it keeps the installation
             identifier as an irreversible hash, the dates of the first and last
@@ -336,7 +351,9 @@
             responses are produced by third-party AI providers through the
             OpenRouter service; their servers are located outside Russia. They
             receive the text of your request and the workspace slice described
-            above, and — when you listen to the briefing — its text.
+            above, and — when you listen to the briefing — its text. Statistics
+            and crash reports of the Android app are processed by VK services —
+            MyTracker and Tracer (VK LLC).
           </p>
           <p>
             Full details are on the
