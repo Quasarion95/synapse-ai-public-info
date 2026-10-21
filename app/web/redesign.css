@@ -160,13 +160,29 @@ h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height
 .tasklist > .item{
   background: transparent; border: 0; border-radius: 0; box-shadow: none;
 }
-.tasklist > .item + .item{ border-top: 1px solid var(--line) }
+/* Черта между задачами — от начала текста, как на айфоне (там отступ
+   под чекбокс 44 pt): чекбоксы стоят столбиком на чистом поле, черта
+   режет только строки. Рисуется поверх лица строки — у того свой фон. */
+.tasklist > .item + .item::before{
+  content: ''; position: absolute; top: 0; left: var(--row-inset, 44px); right: 0; height: 1px;
+  background: var(--line); z-index: 2; pointer-events: none;
+}
+/* Без свайпа (мышь) строка шире по полю — текст начинается дальше. */
+.tasklist > .item:not(.swipe){ --row-inset: 55px }
+.tasklist > .item.dragging + .item::before, .tasklist > .item + .item.dragging::before{ display: none }
+/* Внутри общей карточки строке нужно своё поле: на телефоне лицо строки
+   стояло почти вплотную к краю (2 px) — так было, пока задачи лежали на
+   фоне без карточки. */
+#app .tasklist > .item > .item-main{ padding-left: 14px; padding-right: 12px }
 .tasklist > .item:first-child{ border-radius: 22px 22px 0 0 }
 .tasklist > .item:last-child{ border-radius: 0 0 22px 22px }
 .tasklist > .item:only-child{ border-radius: 22px }
 /* Лицо строки — того же цвета, что карточка: на телефоне под ним при
    свайпе лежат кнопки, прозрачное лицо показало бы их сразу. */
-.tasklist > .item > .swipe-face{ background: var(--card); border-radius: inherit }
+/* #app — чтобы перебить правило приложения «.in-app .item.swipe >
+   .swipe-face» (фон поля и поле 2 px): иначе на телефоне строки внутри
+   белой карточки красились в серый. */
+#app .tasklist > .item > .swipe-face{ background: var(--card); border-radius: inherit }
 .item.dragging.lifted{
   border-radius: 16px !important; background: var(--card) !important; border-top: 0 !important;
   box-shadow: var(--shadow-lift) !important;
