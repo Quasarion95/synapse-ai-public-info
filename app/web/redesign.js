@@ -1,5 +1,6 @@
-/* Новый вид веб-версии (21.10.2026) — заголовки страниц. Только веб, только
-   широкое окно (пара к web/redesign.css).
+/* Новый вид веб-версии (21.10.2026) — заголовки страниц и низ меню. Только
+   веб (пара к web/redesign.css): заголовки — на любом экране, на телефоне у
+   главных разделов; низ меню — на широком окне.
 
    На айфоне у каждого раздела сверху крупное название, а над ним мелкой
    капителью цветом темы — что сейчас важно: дата, сколько целей, сколько
@@ -73,6 +74,8 @@
     HEADS[id] = function(){ return HEADS.settings(); };
   });
 
+  var NARROW = { focus: 1, tasks: 1, goals: 1, lists: 1, notes: 1 };
+
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   var busy = false;
@@ -82,7 +85,10 @@
     if (!app) return;
     var head = app.querySelector(':scope > .ph');
     var make = HEADS[S.view];
-    var want = wide() && make && !(global.appLook && global.appLook()) && !app.querySelector(':scope > h1.page, :scope > .desk-wrap');
+    // На телефоне — только у главных разделов: у страниц настроек своё
+    // название, а у цели, карты, таймеров — свой верх.
+    if (!wide() && !NARROW[S.view]) make = null;
+    var want = make && !app.querySelector(':scope > h1.page, :scope > .desk-wrap');
     if (!want){ if (head) head.remove(); return; }
     if (head && head.getAttribute('data-view') === S.view) return;
     var h = make();

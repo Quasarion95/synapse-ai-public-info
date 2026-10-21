@@ -131,83 +131,81 @@
 .say .send{ background: var(--accent); color: var(--on-accent); border: 0; border-radius: 14px }
 .say .ai{ border-radius: 14px }
 
-@media (min-width:1040px){
-
-  /* ---------- заголовок страницы ----------
-     Мелкая капитель цветом темы (дата, сколько целей) и крупное название —
-     как на айфоне. Ставит web/redesign.js. */
-  .ph{ margin: 0 0 22px }
-  .ph-eye{
-    font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
-    color: var(--accent-text, var(--accent)); margin-bottom: 4px;
-  }
-  h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height: 1.1 }
-  .ph h1.page{ margin: 0 }
-
-  /* ---------- задачи: одна карточка на группу ----------
-     Каждая задача отдельной карточкой с тенью — это десять теней подряд, и
-     список рябил. На айфоне группа — одна белая карточка, задачи в ней
-     разделены тонкой чертой (гештальт: общая область = одна группа).
-     Поднятая при перетаскивании задача по-прежнему отдельная карточка. */
-  .group-h h3{ color: var(--accent-text, var(--accent)) }
-  .group-h .n{ color: var(--accent-text, var(--accent)); font-weight: 600 }
-  .group-h .car{ color: var(--accent-text, var(--accent)) }
-  .group.empty .group-h h3, .group.empty .group-h .car, .group.empty .group-h .n{ color: var(--fg-3) }
-
-  .tasklist{
-    gap: 0; background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
-    padding: 4px 0;
-  }
-  .group.empty .tasklist, .tasklist:empty{ background: transparent; box-shadow: none; padding: 0 }
-  .tasklist > .item{
-    background: transparent; border: 0; border-radius: 0; box-shadow: none;
-  }
-  .tasklist > .item + .item{ border-top: 1px solid var(--line) }
-  .tasklist > .item:first-child{ border-radius: 22px 22px 0 0 }
-  .tasklist > .item:last-child{ border-radius: 0 0 22px 22px }
-  .tasklist > .item:only-child{ border-radius: 22px }
-  .tasklist > .item > .swipe-face{ background: transparent }
-  .item.dragging.lifted{
-    border-radius: 16px !important; background: var(--card) !important; border-top: 0 !important;
-    box-shadow: var(--shadow-lift) !important;
-  }
-  .item.dragging.lifted > .swipe-face{ background: var(--card) }
-  .dragging-now .tasklist{ border-radius: 22px }
+/* ---------- заголовок страницы ----------
+   Мелкая капитель цветом темы (дата, сколько целей) и крупное название —
+   как на айфоне. Ставит web/redesign.js. */
+.ph{ margin: 0 0 22px }
+.ph-eye{
+  font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--accent-text, var(--accent)); margin-bottom: 4px;
 }
+h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height: 1.1 }
+.ph h1.page{ margin: 0 }
 
-@media (min-width:1040px){
+/* ---------- задачи: одна карточка на группу ----------
+   Каждая задача отдельной карточкой с тенью — это десять теней подряд, и
+   список рябил. На айфоне группа — одна белая карточка, задачи в ней
+   разделены тонкой чертой (гештальт: общая область = одна группа).
+   Поднятая при перетаскивании задача по-прежнему отдельная карточка. */
+.group-h h3{ color: var(--accent-text, var(--accent)) }
+.group-h .n{ color: var(--accent-text, var(--accent)); font-weight: 600 }
+.group-h .car{ color: var(--accent-text, var(--accent)) }
+.group.empty .group-h h3, .group.empty .group-h .car, .group.empty .group-h .n{ color: var(--fg-3) }
 
-  /* ---------- мой фокус ----------
-     Верх — разметка приложения (vFocusApp): главное дело с процентом слева,
-     день и горизонт справа. Карточки — без рамки, на тени. */
-  .fx-desk{ display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 20px }
-  .fx-desk .fx-card{ margin: 0; border: 0; border-radius: 24px; padding: 26px 28px }
-  .fx-desk .fx-strips{ padding: 24px }
-  .fx-desk .fx-kicker{ font-size: 12px; font-weight: 700; letter-spacing: .09em }
-  .fx-desk .fx-title{ font-size: 30px; font-weight: 800; letter-spacing: -.03em; margin-top: 4px }
-  .fx-desk .fx-sub{ font-size: 13px; margin-top: 4px }
-  .fx-desk .fx-pct b{ font-size: 64px; font-weight: 800; letter-spacing: -.04em }
-  .fx-desk .fx-pct small{ font-size: 30px }
-  .fx-desk .fx-pct span{ font-size: 13px; font-weight: 500 }
-  .fx-desk .fx-secs{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; margin-top: 20px }
-  .fx-desk .fx-sec b{ font-size: 11.5px; font-weight: 700; letter-spacing: .09em }
-  .fx-desk .fx-sec p{ font-size: 15px; line-height: 1.55 }
-  .fx-desk .fx-more{ width: auto; display: inline-flex; padding: 0 20px; background: var(--accent-tint) }
-  .fx-desk .fx-listen{ width: auto; display: inline-flex; padding: 0 22px; height: 46px; margin-right: 10px;
-    background: var(--accent); color: var(--on-accent); border: 0; box-shadow: var(--glow) }
-  .fx-desk .fx-h > b{ font-size: 19px; font-weight: 800 }
-  .fx-desk .fx-chip{ border-radius: 16px; padding: 12px 6px }
-  .fx-desk .fx-chip b{ font-size: 24px; font-weight: 800 }
-  .fx-desk .fx-track{ width: 100%; max-width: 26px; border-radius: 8px; height: 70px }
-  .fx-desk .fx-track i{ border-radius: 8px }
-
-  /* Счётчики дня — плитками на тени, цифра крупно. */
-  .counts .cnt{ border: 0; box-shadow: var(--shadow); border-radius: 20px }
-  .counts .cnt .v{ font-size: 30px }
-
-  /* Карточки вообще — на тени, без обводки. */
-  .card{ border-color: transparent; border-radius: 24px }
+.tasklist{
+  gap: 0; background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
+  padding: 4px 0;
 }
+.group.empty .tasklist, .tasklist:empty{ background: transparent; box-shadow: none; padding: 0 }
+.tasklist > .item{
+  background: transparent; border: 0; border-radius: 0; box-shadow: none;
+}
+.tasklist > .item + .item{ border-top: 1px solid var(--line) }
+.tasklist > .item:first-child{ border-radius: 22px 22px 0 0 }
+.tasklist > .item:last-child{ border-radius: 0 0 22px 22px }
+.tasklist > .item:only-child{ border-radius: 22px }
+/* Лицо строки — того же цвета, что карточка: на телефоне под ним при
+   свайпе лежат кнопки, прозрачное лицо показало бы их сразу. */
+.tasklist > .item > .swipe-face{ background: var(--card); border-radius: inherit }
+.item.dragging.lifted{
+  border-radius: 16px !important; background: var(--card) !important; border-top: 0 !important;
+  box-shadow: var(--shadow-lift) !important;
+}
+.item.dragging.lifted > .swipe-face{ background: var(--card) }
+.dragging-now .tasklist{ border-radius: 22px }
+
+
+/* ---------- мой фокус ----------
+   Верх — разметка приложения (vFocusApp): главное дело с процентом слева,
+   день и горизонт справа. Карточки — без рамки, на тени. */
+.fx-desk{ display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 20px }
+.fx-desk .fx-card{ margin: 0; border: 0; border-radius: 24px; padding: 26px 28px }
+.fx-desk .fx-strips{ padding: 24px }
+.fx-desk .fx-kicker{ font-size: 12px; font-weight: 700; letter-spacing: .09em }
+.fx-desk .fx-title{ font-size: 30px; font-weight: 800; letter-spacing: -.03em; margin-top: 4px }
+.fx-desk .fx-sub{ font-size: 13px; margin-top: 4px }
+.fx-desk .fx-pct b{ font-size: 64px; font-weight: 800; letter-spacing: -.04em }
+.fx-desk .fx-pct small{ font-size: 30px }
+.fx-desk .fx-pct span{ font-size: 13px; font-weight: 500 }
+.fx-desk .fx-secs{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; margin-top: 20px }
+.fx-desk .fx-sec b{ font-size: 11.5px; font-weight: 700; letter-spacing: .09em }
+.fx-desk .fx-sec p{ font-size: 15px; line-height: 1.55 }
+.fx-desk .fx-more{ width: auto; display: inline-flex; padding: 0 20px; background: var(--accent-tint) }
+.fx-desk .fx-listen{ width: auto; display: inline-flex; padding: 0 22px; height: 46px; margin-right: 10px;
+  background: var(--accent); color: var(--on-accent); border: 0; box-shadow: var(--glow) }
+.fx-desk .fx-h > b{ font-size: 19px; font-weight: 800 }
+.fx-desk .fx-chip{ border-radius: 16px; padding: 12px 6px }
+.fx-desk .fx-chip b{ font-size: 24px; font-weight: 800 }
+.fx-desk .fx-track{ width: 100%; max-width: 26px; border-radius: 8px; height: 70px }
+.fx-desk .fx-track i{ border-radius: 8px }
+
+/* Счётчики дня — плитками на тени, цифра крупно. */
+.counts .cnt{ border: 0; box-shadow: var(--shadow); border-radius: 20px }
+.counts .cnt .v{ font-size: 30px }
+
+/* Карточки вообще — на тени, без обводки. */
+.card{ border-color: transparent; border-radius: 24px }
+
 
 /* ---------- карта целей и живое дерево ----------
    Дерево остаётся живым и зелёным, импульсы по-прежнему бегут от листьев к
@@ -235,49 +233,50 @@
 }
 .radio, .lv-btn{ border-radius: 12px }
 
-@media (min-width:1040px){
-
-  /* ---------- мои финансы ----------
-     «Свободно» — главная цифра раздела, как на айфоне: своя карточка цветом
-     темы, вдвое шире соседей. Остальные пять — белые плитки на тени.
-     Нажатие на «Свободно» по-прежнему правит сумму. */
-  .desk-zone{ border: 0; border-radius: 24px }
-  .desk-zone.z-kpi{ background: transparent; box-shadow: none; overflow: visible }
-  .desk-kpi{ gap: 14px; background: transparent }
-  .dk{ background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 16px 18px }
-  .dk-c{ font-size: 11.5px; font-weight: 700; letter-spacing: .07em; color: var(--fg-3) }
-  .dk-v{ font-size: 24px; font-weight: 800; letter-spacing: -.025em }
-  .desk-kpi > .dk:first-child{
-    background: var(--accent); color: var(--on-accent); box-shadow: var(--glow);
-  }
-  .desk-kpi > .dk:first-child .dk-c,
-  .desk-kpi > .dk:first-child .dk-n{ color: var(--on-accent); opacity: .85 }
-  .desk-kpi > .dk:first-child .dk-v{ color: var(--on-accent); font-size: 34px; letter-spacing: -.035em }
-  .desk-kpi > button.dk:first-child:hover{ background: var(--accent); filter: brightness(1.05) }
-  .dz-head h3{ font-size: 19px; font-weight: 800; letter-spacing: -.02em }
-
-  /* ---------- цели ---------- */
-  .goalcard{ border: 0; border-radius: 22px; padding: 18px 22px }
-  .goalcard-h .gt{ font-size: 17px }
-  .goalcard-h .gp{ font-size: 20px; font-weight: 800; color: var(--accent-text, var(--accent)) }
-  .goalcard .bar{ height: 8px; border-radius: 6px }
-  .goalcard .bar i{ border-radius: 6px }
-
-  /* ---------- списки и заметки ---------- */
-  .listcol, .row-card{ border: 0; border-radius: 22px }
-  .listcol-h h3{ font-size: 16px; font-weight: 800 }
-  .listseg{ background: var(--card); box-shadow: var(--shadow); border-radius: 15px; padding: 5px }
-  .lv-btn.on{ background: var(--accent); color: var(--on-accent); box-shadow: var(--glow) }
-
-  /* ---------- настройки ----------
-     Подписи групп — капителью цветом темы, а не заголовками в рост:
-     крупное название у страницы уже есть. */
-  .setgroup-t{
-    font-size: 12px; line-height: 1.2; transform: none; letter-spacing: .09em; font-weight: 700;
-    color: var(--accent-text, var(--accent)); margin: 26px 0 10px 4px;
-  }
-  .setcard, .setblock{ border: 0; border-radius: 22px }
+/* ---------- мои финансы ----------
+   «Свободно» — главная цифра раздела, как на айфоне: своя карточка цветом
+   темы, вдвое шире соседей. Остальные пять — белые плитки на тени.
+   Нажатие на «Свободно» по-прежнему правит сумму. */
+.desk-zone{ border: 0; border-radius: 24px }
+.desk-zone.z-kpi{ background: transparent; box-shadow: none; overflow: visible }
+.desk-kpi{ gap: 14px; background: transparent }
+.dk{ background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 16px 18px }
+.dk-c{ font-size: 11.5px; font-weight: 700; letter-spacing: .07em; color: var(--fg-3) }
+.dk-v{ font-size: 24px; font-weight: 800; letter-spacing: -.025em }
+.desk-kpi > .dk:first-child{
+  background: var(--accent); color: var(--on-accent); box-shadow: var(--glow);
 }
+.desk-kpi > .dk:first-child .dk-c,
+.desk-kpi > .dk:first-child .dk-n{ color: var(--on-accent); opacity: .85 }
+.desk-kpi > .dk:first-child .dk-v{ color: var(--on-accent); font-size: 34px; letter-spacing: -.035em }
+.desk-kpi > button.dk:first-child:hover{ background: var(--accent); filter: brightness(1.05) }
+.dz-head h3{ font-size: 19px; font-weight: 800; letter-spacing: -.02em }
+
+/* ---------- цели ---------- */
+.goalcard{ border: 0; border-radius: 22px; padding: 18px 22px }
+/* У карточки со свайпом поле — на лице, обёртке своё не нужно. */
+.goalcard.swipe{ padding: 0 }
+.goalcard.swipe > .gc-face{ padding: 16px 18px }
+.goalcard-h .gt{ font-size: 17px }
+.goalcard-h .gp{ font-size: 20px; font-weight: 800; color: var(--accent-text, var(--accent)) }
+.goalcard .bar{ height: 8px; border-radius: 6px }
+.goalcard .bar i{ border-radius: 6px }
+
+/* ---------- списки и заметки ---------- */
+.listcol, .row-card{ border: 0; border-radius: 22px }
+.listcol-h h3{ font-size: 16px; font-weight: 800 }
+.listseg{ background: var(--card); box-shadow: var(--shadow); border-radius: 15px; padding: 5px }
+.lv-btn.on{ background: var(--accent); color: var(--on-accent); box-shadow: var(--glow) }
+
+/* ---------- настройки ----------
+   Подписи групп — капителью цветом темы, а не заголовками в рост:
+   крупное название у страницы уже есть. */
+.setgroup-t{
+  font-size: 12px; line-height: 1.2; transform: none; letter-spacing: .09em; font-weight: 700;
+  color: var(--accent-text, var(--accent)); margin: 26px 0 10px 4px;
+}
+.setcard, .setblock{ border: 0; border-radius: 22px }
+
 
 /* «Свободно» — шире соседей, чтобы крупная сумма не обрезалась. */
 @container desk (min-width:1000px){
@@ -512,108 +511,154 @@
 }
 
 /* ---------- «Оформление» по макету (телоВидаСтолом в app.js) ---------- */
-@media (min-width:1040px){
-  .vd{ display: flex; flex-direction: column; gap: 26px }
-  .vd-sec{ display: flex; flex-direction: column; gap: 12px }
-  .vd-l{ margin: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--accent-text, var(--accent)) }
-  .vd-l-sm{ margin-top: 6px }
-  .vd-lh{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px }
-  .vd-note, .vd-sub{ font-size: 13px; color: var(--fg-2) }
-  .vd-sub{ display: block; margin-top: 2px }
+.vd{ display: flex; flex-direction: column; gap: 26px }
+.vd-sec{ display: flex; flex-direction: column; gap: 12px }
+.vd-l{ margin: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--accent-text, var(--accent)) }
+.vd-l-sm{ margin-top: 6px }
+.vd-lh{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px }
+.vd-note, .vd-sub{ font-size: 13px; color: var(--fg-2) }
+.vd-sub{ display: block; margin-top: 2px }
 
-  /* Переключатель — сегментами на тихой подложке; выбранный — белый
-     сегмент с тенью, как на айфоне. */
-  .vd-seg{ display: inline-flex; align-self: flex-start; gap: 4px; padding: 4px; border-radius: 15px; background: var(--bg) }
-  .vd-card .vd-seg{ display: flex; align-self: stretch; margin-top: 12px }
-  .vd-card .vd-seg .radio{ flex: 1 }
-  .vd-seg .radio{
-    height: 38px; padding: 0 18px; border-radius: 11px; background: transparent !important; box-shadow: none !important;
-    color: var(--fg-2); font-size: 14px; font-weight: 600;
-  }
-  .vd-seg .radio[aria-pressed="true"]{ background: var(--card) !important; color: var(--fg); box-shadow: var(--shadow) !important }
-
-  /* Темы — крупные кружки, у выбранной белая галочка и кольцо. */
-  .vd-pals{ display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px 10px }
-  .vd .radio.pal{
-    display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 0;
-    background: transparent !important; box-shadow: none !important; border-radius: 0; min-width: 0;
-  }
-  .vd .radio.pal .sw{
-    width: 54px !important; height: 54px !important; border-radius: 50% !important; flex: none;
-    display: grid !important; place-items: center; transition: transform .12s ease;
-  }
-  .vd .radio.pal:hover .sw{ transform: scale(1.05) }
-  .vd .radio.pal[aria-pressed="true"] .sw{ box-shadow: 0 0 0 3px var(--card), 0 0 0 5.5px var(--accent) }
-  .vd-ok{ width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
-    filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)) }
-  .vd .radio.pal .rl{ font-size: 12.5px; text-align: center; line-height: 1.25; color: var(--fg); max-width: 100%;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-  .vd .radio.pal[aria-pressed="true"] .rl{ font-weight: 700 }
-  .vd .radio.pal.locked::before{ top: -6px; right: calc(50% - 34px) }
-
-  .vd-row{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px }
-  .vd-card{ background: var(--bg); border-radius: 20px; padding: 18px 20px }
-  .vd-card > b, .vd-mark-h b{ display: block; font-size: 15px; font-weight: 700; color: var(--fg) }
-
-  .vd-mark{ display: flex; flex-direction: column; gap: 12px }
-  .vd-mark-h{ display: flex; justify-content: space-between; align-items: center; gap: 16px }
-  .vd-sample{ display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: var(--card); box-shadow: var(--shadow);
-    font-size: 14px; font-weight: 600; color: var(--fg-3); text-decoration: line-through }
-  .vd-forms{ display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px }
-  .vd .radio.boxpick{
-    display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 4px 10px; border-radius: 16px;
-    background: var(--card) !important; box-shadow: none !important; color: var(--fg-2); font-size: 12.5px;
-  }
-  .vd .radio.boxpick[aria-pressed="true"]{ box-shadow: 0 0 0 2px var(--accent) !important; color: var(--fg); font-weight: 700 }
-  .vd-colors{ display: flex; flex-wrap: wrap; gap: 10px }
-  .vd .radio.markpick{ padding: 0; width: 34px; height: 34px; border-radius: 50%; background: transparent !important; box-shadow: none !important; display: grid; place-items: center }
-  .vd .radio.markpick .rl{ display: none }
-  .vd .radio.markpick .msw{ width: 28px; height: 28px; border-radius: 50%; display: block }
-  .vd .radio.markpick[aria-pressed="true"]{ box-shadow: 0 0 0 2.5px var(--accent) !important }
-  .vd .radio.markpick.locked::before{ top: -8px; right: -10px }
+/* Переключатель — сегментами на тихой подложке; выбранный — белый
+   сегмент с тенью, как на айфоне. */
+.vd-seg{ display: inline-flex; align-self: flex-start; gap: 4px; padding: 4px; border-radius: 15px; background: var(--bg) }
+.vd-card .vd-seg{ display: flex; align-self: stretch; margin-top: 12px }
+.vd-card .vd-seg .radio{ flex: 1 }
+.vd-seg .radio{
+  height: 38px; padding: 0 18px; border-radius: 11px; background: transparent !important; box-shadow: none !important;
+  color: var(--fg-2); font-size: 14px; font-weight: 600;
 }
-@media (min-width:1040px){
-  .vd-card .vd-seg .radio{ padding: 0 8px; min-width: 0; white-space: nowrap }
+.vd-seg .radio[aria-pressed="true"]{ background: var(--card) !important; color: var(--fg); box-shadow: var(--shadow) !important }
+
+/* Темы — крупные кружки, у выбранной белая галочка и кольцо. */
+.vd-pals{ display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px 10px }
+.vd .radio.pal{
+  display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 0;
+  background: transparent !important; box-shadow: none !important; border-radius: 0; min-width: 0;
 }
-@media (min-width:1040px){
-  .vd .radio.markpick.locked::before{ display: none }
-  .vd .radio.markpick.locked .msw{ opacity: .55 }
-  .vd-pro{ color: var(--fg-3); letter-spacing: .04em; text-transform: none; font-weight: 600 }
+.vd .radio.pal .sw{
+  width: 54px !important; height: 54px !important; border-radius: 50% !important; flex: none;
+  display: grid !important; place-items: center; transition: transform .12s ease;
 }
+.vd .radio.pal:hover .sw{ transform: scale(1.05) }
+.vd .radio.pal[aria-pressed="true"] .sw{ box-shadow: 0 0 0 3px var(--card), 0 0 0 5.5px var(--accent) }
+.vd-ok{ width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)) }
+.vd .radio.pal .rl{ font-size: 12.5px; text-align: center; line-height: 1.25; color: var(--fg); max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.vd .radio.pal[aria-pressed="true"] .rl{ font-weight: 700 }
+.vd .radio.pal.locked::before{ top: -6px; right: calc(50% - 34px) }
+
+.vd-row{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px }
+.vd-card{ background: var(--bg); border-radius: 20px; padding: 18px 20px }
+.vd-card > b, .vd-mark-h b{ display: block; font-size: 15px; font-weight: 700; color: var(--fg) }
+
+.vd-mark{ display: flex; flex-direction: column; gap: 12px }
+.vd-mark-h{ display: flex; justify-content: space-between; align-items: center; gap: 16px }
+.vd-sample{ display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: var(--card); box-shadow: var(--shadow);
+  font-size: 14px; font-weight: 600; color: var(--fg-3); text-decoration: line-through }
+.vd-forms{ display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px }
+.vd .radio.boxpick{
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 4px 10px; border-radius: 16px;
+  background: var(--card) !important; box-shadow: none !important; color: var(--fg-2); font-size: 12.5px;
+}
+.vd .radio.boxpick[aria-pressed="true"]{ box-shadow: 0 0 0 2px var(--accent) !important; color: var(--fg); font-weight: 700 }
+.vd-colors{ display: flex; flex-wrap: wrap; gap: 10px }
+.vd .radio.markpick{ padding: 0; width: 34px; height: 34px; border-radius: 50%; background: transparent !important; box-shadow: none !important; display: grid; place-items: center }
+.vd .radio.markpick .rl{ display: none }
+.vd .radio.markpick .msw{ width: 28px; height: 28px; border-radius: 50%; display: block }
+.vd .radio.markpick[aria-pressed="true"]{ box-shadow: 0 0 0 2.5px var(--accent) !important }
+.vd .radio.markpick.locked::before{ top: -8px; right: -10px }
+
+.vd-card .vd-seg .radio{ padding: 0 8px; min-width: 0; white-space: nowrap }
+
+.vd .radio.markpick.locked::before{ display: none }
+.vd .radio.markpick.locked .msw{ opacity: .55 }
+.vd-pro{ color: var(--fg-3); letter-spacing: .04em; text-transform: none; font-weight: 600 }
+
 
 /* ---------- темы плитками, как на макете (компактнее) ----------
    Плитка — светлая и тёмная половины темы: полоса цвета темы и карточка с
    двумя строками. Выбранная — в кольце цвета темы. */
-@media (min-width:1040px){
-  .vd-pals{ grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px }
-  .vd .radio.pal.vd-tile{
-    display: flex; flex-direction: column; align-items: stretch; gap: 7px; padding: 6px 6px 8px;
-    background: var(--card) !important; border-radius: 16px; box-shadow: var(--shadow) !important; text-align: left;
-    transition: box-shadow .15s ease, transform .12s ease;
-  }
-  .vd .radio.pal.vd-tile:hover{ transform: translateY(-1px) }
-  .vd .radio.pal.vd-tile[aria-pressed="true"]{ box-shadow: 0 0 0 2.5px var(--accent), var(--shadow) !important }
-  .vt-sw{ display: grid; grid-template-columns: 1fr 1fr; height: 58px; border-radius: 11px; overflow: hidden }
-  .vt-half{ display: flex; flex-direction: column; gap: 4px; padding: 6px }
-  .vt-acc{ display: block; height: 17px; border-radius: 6px }
-  .vt-card{ flex: 1; border-radius: 6px; padding: 5px; display: flex; flex-direction: column; gap: 3px }
-  .vt-card em{ display: block; height: 3px; border-radius: 2px; width: 70% }
-  .vt-card em + em{ width: 45% }
-  .vt-name{ display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 3px; min-width: 0 }
-  .vd .radio.pal.vd-tile .rl{ font-size: 12.5px; font-weight: 600; text-align: left; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-  .vd .radio.pal.vd-tile[aria-pressed="true"] .rl{ font-weight: 800 }
-  .vt-ios{ flex: none; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--accent-tint); color: var(--accent-text, var(--accent)); white-space: nowrap }
-  .vd .radio.pal.vd-tile.locked::before{ top: -6px; right: 6px }
+.vd-pals{ grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px }
+.vd .radio.pal.vd-tile{
+  display: flex; flex-direction: column; align-items: stretch; gap: 7px; padding: 6px 6px 8px;
+  background: var(--card) !important; border-radius: 16px; box-shadow: var(--shadow) !important; text-align: left;
+  transition: box-shadow .15s ease, transform .12s ease;
 }
-@media (min-width:1040px){
-  .vd-pals{ grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px }
-  .vt-sw{ height: 48px }
-  .vt-half{ padding: 5px; gap: 3px }
-  .vt-acc{ height: 13px; border-radius: 5px }
-  .vt-card{ padding: 4px; border-radius: 5px }
-}
+.vd .radio.pal.vd-tile:hover{ transform: translateY(-1px) }
+.vd .radio.pal.vd-tile[aria-pressed="true"]{ box-shadow: 0 0 0 2.5px var(--accent), var(--shadow) !important }
+.vt-sw{ display: grid; grid-template-columns: 1fr 1fr; height: 58px; border-radius: 11px; overflow: hidden }
+.vt-half{ display: flex; flex-direction: column; gap: 4px; padding: 6px }
+.vt-acc{ display: block; height: 17px; border-radius: 6px }
+.vt-card{ flex: 1; border-radius: 6px; padding: 5px; display: flex; flex-direction: column; gap: 3px }
+.vt-card em{ display: block; height: 3px; border-radius: 2px; width: 70% }
+.vt-card em + em{ width: 45% }
+.vt-name{ display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 3px; min-width: 0 }
+.vd .radio.pal.vd-tile .rl{ font-size: 12.5px; font-weight: 600; text-align: left; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.vd .radio.pal.vd-tile[aria-pressed="true"] .rl{ font-weight: 800 }
+.vt-ios{ flex: none; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--accent-tint); color: var(--accent-text, var(--accent)); white-space: nowrap }
+.vd .radio.pal.vd-tile.locked::before{ top: -6px; right: 6px }
+
+.vd-pals{ grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px }
+.vt-sw{ height: 48px }
+.vt-half{ padding: 5px; gap: 3px }
+.vt-acc{ height: 13px; border-radius: 5px }
+.vt-card{ padding: 4px; border-radius: 5px }
+
 @media (min-width:1500px){ .vd-pals{ grid-template-columns: repeat(6, minmax(0, 1fr)) } }
-@media (min-width:1040px){
-  .vt-name{ flex-direction: column; align-items: flex-start; gap: 3px }
-  .vt-ios{ font-size: 9px; padding: 1px 6px }
+.vt-name{ flex-direction: column; align-items: flex-start; gap: 3px }
+.vt-ios{ font-size: 9px; padding: 1px 6px }
+
+
+/* ---------- телефон и планшет: тот же новый вид ----------
+   Раньше всё выше включалось только на широком окне, и с телефона сайт
+   открывался в прежнем виде. Теперь общие правила — карточка на группу
+   задач, карточки на тени, подписи капителью, «Оформление» плитками —
+   действуют везде, а здесь только то, что на узком экране иначе: мельче
+   заголовок, темы в три колонки, шрифт и размер друг под другом. */
+@media (max-width:1039px){
+  .ph{ margin: 2px 2px 16px }
+  .ph-eye{ font-size: 11.5px }
+  h1.page{ font-size: 30px }
+
+  /* Первая подпись на странице раздела настроек — её название: крупно,
+     как заголовок страницы, а не капителью. */
+  #app > .setgroup-t:first-child, .setpage > .setgroup-t:first-child{
+    font-size: 30px; line-height: 1.1; font-weight: 800; letter-spacing: -.035em; text-transform: none;
+    transform: none; color: var(--fg); margin: 2px 2px 16px;
+  }
+
+  .goalcard{ border-radius: 20px }
+  .goalcard:not(.swipe){ padding: 14px 16px }
+  .goalcard-h .gp{ font-size: 18px }
+
+  .tasklist{ border-radius: 20px }
+  .tasklist > .item:first-child{ border-radius: 20px 20px 0 0 }
+  .tasklist > .item:last-child{ border-radius: 0 0 20px 20px }
+  .tasklist > .item:only-child{ border-radius: 20px }
+
+  .vd{ gap: 22px }
+  .vd-lh{ flex-direction: column; align-items: flex-start; gap: 2px }
+  .vd-sec > .vd-seg{ display: flex; align-self: stretch }
+  .vd-seg .radio{ flex: 1; padding: 0 8px; min-width: 0; white-space: nowrap }
+  .vd-pals{ grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px }
+  .vd-row{ grid-template-columns: minmax(0, 1fr) }
+  /* Здесь раздел лежит прямо на поле, а не на белой панели, как на
+     широком окне: карточки — белые на тени, подложки внутри — цвета поля. */
+  .vd-card{ padding: 16px; background: var(--card); box-shadow: var(--shadow) }
+  .vd-card .vd-seg{ background: var(--bg) }
+  .vd .vd-card .radio.boxpick{ background: var(--bg) !important }
+  .vd-sec > .vd-seg{ background: var(--card); box-shadow: var(--shadow) }
+  .vd-sec > .vd-seg .radio[aria-pressed="true"]{
+    background: var(--accent) !important; color: var(--on-accent); box-shadow: var(--glow) !important;
+  }
+  .vd-mark-h{ flex-direction: column; align-items: stretch; gap: 10px }
+  .vd-sample{ align-self: flex-start }
+  .vd-forms{ grid-template-columns: repeat(3, minmax(0, 1fr)) }
+}
+@media (min-width:600px) and (max-width:1039px){
+  .vd-pals{ grid-template-columns: repeat(5, minmax(0, 1fr)) !important }
+  .vd-row{ grid-template-columns: repeat(2, minmax(0, 1fr)) }
+  .vd-forms{ grid-template-columns: repeat(6, minmax(0, 1fr)) }
 }
