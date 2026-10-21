@@ -531,7 +531,7 @@ h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height
 .vd-seg .radio[aria-pressed="true"]{ background: var(--card) !important; color: var(--fg); box-shadow: var(--shadow) !important }
 
 /* Темы — крупные кружки, у выбранной белая галочка и кольцо. */
-.vd-pals{ display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px 10px }
+.vd-pals{ --cols: 6; --gap: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--gap) }
 .vd .radio.pal{
   display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 0;
   background: transparent !important; box-shadow: none !important; border-radius: 0; min-width: 0;
@@ -580,7 +580,6 @@ h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height
 /* ---------- темы плитками, как на макете (компактнее) ----------
    Плитка — светлая и тёмная половины темы: полоса цвета темы и карточка с
    двумя строками. Выбранная — в кольце цвета темы. */
-.vd-pals{ grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px }
 .vd .radio.pal.vd-tile{
   display: flex; flex-direction: column; align-items: stretch; gap: 7px; padding: 6px 6px 8px;
   background: var(--card) !important; border-radius: 16px; box-shadow: var(--shadow) !important; text-align: left;
@@ -600,13 +599,13 @@ h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height
 .vt-ios{ flex: none; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--accent-tint); color: var(--accent-text, var(--accent)); white-space: nowrap }
 .vd .radio.pal.vd-tile.locked::before{ top: -6px; right: 6px }
 
-.vd-pals{ grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px }
+.vd-pals{ --cols: 5; --gap: 9px }
 .vt-sw{ height: 48px }
 .vt-half{ padding: 5px; gap: 3px }
 .vt-acc{ height: 13px; border-radius: 5px }
 .vt-card{ padding: 4px; border-radius: 5px }
 
-@media (min-width:1500px){ .vd-pals{ grid-template-columns: repeat(6, minmax(0, 1fr)) } }
+@media (min-width:1500px){ .vd-pals{ --cols: 6 } }
 .vt-name{ flex-direction: column; align-items: flex-start; gap: 3px }
 .vt-ios{ font-size: 9px; padding: 1px 6px }
 
@@ -642,7 +641,10 @@ h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height
   .vd-lh{ flex-direction: column; align-items: flex-start; gap: 2px }
   .vd-sec > .vd-seg{ display: flex; align-self: stretch }
   .vd-seg .radio{ flex: 1; padding: 0 8px; min-width: 0; white-space: nowrap }
-  .vd-pals{ grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px }
+  .vd-pals{ --cols: 3; --gap: 8px }
+  /* В три колонки длинное имя («Слоновая кость») не влезает в строку —
+     переносим, а не обрезаем. */
+  .vd .radio.pal.vd-tile .rl{ white-space: normal; overflow-wrap: anywhere; line-height: 1.2 }
   .vd-row{ grid-template-columns: minmax(0, 1fr) }
   /* Здесь раздел лежит прямо на поле, а не на белой панели, как на
      широком окне: карточки — белые на тени, подложки внутри — цвета поля. */
@@ -658,7 +660,19 @@ h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height
   .vd-forms{ grid-template-columns: repeat(3, minmax(0, 1fr)) }
 }
 @media (min-width:600px) and (max-width:1039px){
-  .vd-pals{ grid-template-columns: repeat(5, minmax(0, 1fr)) !important }
+  .vd-pals{ --cols: 5 }
   .vd-row{ grid-template-columns: repeat(2, minmax(0, 1fr)) }
   .vd-forms{ grid-template-columns: repeat(6, minmax(0, 1fr)) }
 }
+
+/* ---------- ровно по центру ----------
+   Темы — рядами по --cols: неполный последний ряд встаёт по центру, а не
+   жмётся влево (сеткой этого не сделать, поэтому flex с шириной плитки
+   из числа колонок). Кружок цвета отметки — точно в середине своей
+   кнопки, иначе кольцо выбора вокруг него выходило кривым. Значки форм
+   отметки — в строке одной высоты: треугольник, звезда и сердце выше
+   квадрата на два пикселя и сдвигали подписи. */
+.vd-pals > .vd-tile{ flex: 0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols)); min-width: 0 }
+.vd .radio.markpick{ position: relative; flex: none }
+.vd .radio.markpick .msw{ position: absolute; left: 50%; top: 50%; margin: 0; transform: translate(-50%, -50%) }
+.vd .radio.boxpick{ display: grid !important; grid-template-rows: 24px auto; justify-items: center; align-items: center; row-gap: 8px }
