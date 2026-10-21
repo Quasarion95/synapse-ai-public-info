@@ -176,6 +176,9 @@
     'Регулярная операция': 'Recurring entry', 'Регулярные операции': 'Recurring entries',
     'В месяц': 'Per month', 'в месяц': 'per month', 'В год': 'Per year', 'в год': 'per year',
     'Бюджет': 'Budget', 'Квартплата': 'Utilities', 'Жильё и ЖКХ': 'Housing and utilities',
+    'Сфокусируйся на задаче': 'Focus on this task', 'Сфокусируйся на цели': 'Focus on this goal',
+    'Показать полностью': 'Show all', 'Цветёт!': 'Blooming!', 'Растёт': 'Growing',
+    'Грустит — ему не хватает дел': 'Sad — it needs more tasks', 'Засохло — полей его делами': 'Dry — water it with tasks', 'Свернуть': 'Show less', 'Накоплено': 'Saved', 'В день': 'Per day',
     'Аренда жилья': 'Rent', 'Транспорт': 'Transport', 'Здоровье': 'Health',
     'Развлечения': 'Entertainment', 'Дети и учёба': 'Kids and education',
     'Детский сад': 'Kindergarten', 'Прочее': 'Other', 'Мобильная связь': 'Mobile',
@@ -1062,6 +1065,26 @@
   function items(n) { return n + (n === '1' ? ' item' : ' items'); }
 
   var PATTERNS = [
+    // — «Мой фокус», цели: фразы с числами внутри (21.10.2026, снимки для
+    //   английской страницы сайта показали их русскими) —
+    [/^Сегодня в фокусе (\d+) (?:задача|задачи|задач)$/, function (m) {
+      return 'In focus today: ' + m[1] + (m[1] === '1' ? ' task' : ' tasks');
+    }],
+    [/^(\d+) из (\d+) (?:закрыта|закрыты|закрыто)\. Осталось (\d+) (?:задача|задачи|задач)\.$/, function (m) {
+      return m[1] + ' of ' + m[2] + ' done. ' + m[3] + (m[3] === '1' ? ' task' : ' tasks') + ' left.';
+    }],
+    [/^из (\d+)$/, function (m) { return 'of ' + m[1]; }],
+    [/^(\d+) \/ (\d+) (этап|этапа|этапов|задача|задачи|задач)$/, function (m) {
+      return m[1] + ' / ' + m[2] + (/^этап/.test(m[3]) ? ' stages' : ' tasks');
+    }],
+    [/^(\d+)% задач целей сделано$/, function (m) { return m[1] + '% of goal tasks done'; }],
+    [/^(Бесплатно|В подписке) (\d+) запросов к Syn в день\.$/, function (m) {
+      return (m[1] === 'Бесплатно' ? 'Free: ' : 'With Pro: ') + m[2] + ' Syn requests a day.';
+    }],
+    [/^(\d+) из (\d+) (этапов|этапа|этап|задачи|задача|задач) · (\d+) (?:этапов|этапа|этап)(.*)$/, function (m) {
+      var unit = /^этап/.test(m[3]) ? 'stages' : 'tasks';
+      return m[1] + ' of ' + m[2] + ' ' + unit + ' · ' + m[4] + (m[4] === '1' ? ' stage' : ' stages') + m[5];
+    }],
     // — сообщения внизу экрана (тосты), собранные в app.js сложением —
     [/^Задача в блоке «(.+)»$/, function (m) { return 'Task added to "' + known(m[1]) + '"'; }],
     [/^Перенесено в «(.+)»$/, function (m) { return 'Moved to "' + known(m[1]) + '"'; }],

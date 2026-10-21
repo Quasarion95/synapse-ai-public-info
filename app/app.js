@@ -4479,7 +4479,7 @@ function finBadge(cat, income, size){
   size = size || 38;
   var цвет = income ? 'var(--ok)' : finColor(cat);
   return '<span class="fa-badge" style="--c:' + цвет + ';width:' + size + 'px;height:' + size + 'px;font-size:' +
-    Math.round(size * 0.42) + 'px">' + (income ? ICON_FIN.down : esc(String(finCat(cat).title).charAt(0).toUpperCase())) + '</span>';
+    Math.round(size * 0.42) + 'px">' + (income ? ICON_FIN.down : esc(буКатегории(finCat(cat).title))) + '</span>';
 }
 
 var ICON_FIN = {
@@ -8065,6 +8065,15 @@ function goalProgress(goal){
    страницы цели: переход «открыть цель» откуда угодно открывает её справа. */
 function целиСтолом(){
   return !appLook() && !!(window.matchMedia && window.matchMedia('(min-width: 1040px)').matches);
+}
+
+/* Буква в кружке траты — первая буква названия категории так, как его
+   видит человек: в английском интерфейсе «Здоровье» показано как «Health», и
+   буква «З» рядом читалась как опечатка. */
+function буКатегории(title){
+  var t = String(title || '');
+  if (window.SynI18n && typeof SynI18n.tr === 'function') t = SynI18n.tr(t);
+  return t.trim().charAt(0).toUpperCase() || '?';
 }
 
 function целиМета(g, p){
