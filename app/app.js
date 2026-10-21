@@ -9623,7 +9623,49 @@ function avatarHTML(size){
 
    Разграничитель — заголовок группы снаружи, содержимое внутри карточки:
    границу видно формой, а не линией. */
+/* Настройки на широком окне — две колонки (новый вид, 21.10.2026).
+
+   Полотно из всех разделов подряд на компьютере тянулось на пять экранов, и
+   до «Данных» листали мимо двадцати двух тем. Теперь как в настройках
+   любого приложения на компьютере: слева карточка профиля и список
+   разделов, справа открытый раздел. Разделы и их начинка — те же, что в
+   оглавлении приложения (РАЗДЕЛЫ_НАСТРОЕК, телоВида и соседи), каждый —
+   своим адресом settings-*, поэтому «назад» в браузере ходит по разделам. */
+function настройкиСтолом(){
+  return !appLook() && !!(window.matchMedia && window.matchMedia('(min-width: 1040px)').matches);
+}
+
+function vSettingsDesk(active){
+  var разделы = РАЗДЕЛЫ_НАСТРОЕК.filter(function(р){ return !р.есть || р.есть(); });
+  var открыт = разделы.filter(function(р){ return р.view === active; })[0] || разделы[0];
+  var тело =
+    открыт.view === 'settings-view'   ? телоВида() :
+    открыт.view === 'settings-notify' ? '<div class="setgroup">' + телоНапоминаний() + '</div>' :
+    открыт.view === 'settings-start'  ? '<section class="setcard">' + телоСтарта() + '</section>' :
+    открыт.view === 'settings-data'   ? телоДанных() :
+    телоОПриложении();
+  var про = isPro();
+  return '<div class="setdesk">' +
+    '<aside class="setdesk-side">' +
+      '<section class="setdesk-me">' +
+        avatarHTML() +
+        '<b' + (S.profile.name ? ' translate="no"' : '') + '>' + esc(S.profile.name || 'Ваш профиль') + '</b>' +
+        '<button class="setdesk-plan" data-act="go" data-view="subscription">' + (про ? 'Synapse Pro' : 'Бесплатный доступ') + '</button>' +
+        '<button class="btn sm soft" data-act="go" data-view="profile">' + (S.profile.name ? 'Изменить профиль' : 'Добавить имя и фото') + '</button>' +
+      '</section>' +
+      '<nav class="setdesk-cats" aria-label="Разделы настроек">' + разделы.map(function(р){
+        var on = р.view === открыт.view;
+        return '<button class="setdesk-cat' + (on ? ' on' : '') + '" data-act="go" data-view="' + р.view + '"' + (on ? ' aria-current="page"' : '') + '>' +
+          '<span class="setcat-ic">' + navIcon(р.icon) + '</span>' +
+          '<span class="sl-text"><b>' + esc(р.title) + '</b><i>' + esc(р.sub) + '</i></span></button>';
+      }).join('') + '</nav>' +
+    '</aside>' +
+    '<section class="setdesk-main"><h2 class="setdesk-t">' + esc(открыт.title) + '</h2>' + тело + '</section>' +
+  '</div>';
+}
+
 function vSettings(){
+  if (настройкиСтолом()) return vSettingsDesk('settings-view');
   /* Шапки «Приложение · Настройки» здесь нет намеренно.
 
      Человек нажал «Настройки» в меню и попал в настройки — сообщать ему об
@@ -9721,12 +9763,15 @@ function страницаНастроек(тело){
 }
 
 function vSettingsNotify(){
+  if (настройкиСтолом()) return vSettingsDesk('settings-notify');
   return страницаНастроек(группаНастроек('Напоминания', телоНапоминаний(), true));
 }
 function vSettingsStart(){
+  if (настройкиСтолом()) return vSettingsDesk('settings-start');
   return страницаНастроек(группаНастроек('Старт и список', телоСтарта()));
 }
 function vSettingsAbout(){
+  if (настройкиСтолом()) return vSettingsDesk('settings-about');
   return страницаНастроек(телоОПриложении());
 }
 
@@ -9872,6 +9917,7 @@ function строкаПереключателя(название, действи
 }
 
 function vSettingsView(){
+  if (настройкиСтолом()) return vSettingsDesk('settings-view');
   // В приложении страница открывается из оглавления — ей нужен свой заголовок.
   return head('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Оформление</p>' : '') + телоВида();
 }
@@ -10017,6 +10063,7 @@ function телоВида(){
 /* ---- данные ---- */
 
 function vSettingsData(){
+  if (настройкиСтолом()) return vSettingsDesk('settings-data');
   return head('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Данные</p>' : '') + телоДанных();
 }
 

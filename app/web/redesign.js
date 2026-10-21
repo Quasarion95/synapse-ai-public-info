@@ -62,8 +62,13 @@
     },
     pomodoro:   function(){ return { t: 'Метод Помодоро', e: '' }; },
     meditation: function(){ return { t: 'Медитация', e: '' }; },
-    settings:   function(){ return { t: 'Настройки', e: '' }; }
+    settings:   function(){ return { t: 'Настройки', e: lang() === 'en' ? 'Profile and app' : 'Профиль и приложение' }; }
   };
+
+  // Разделы настроек на широком окне — одна страница в две колонки, шапка общая.
+  ['settings-view', 'settings-notify', 'settings-start', 'settings-data', 'settings-about'].forEach(function(id){
+    HEADS[id] = function(){ return HEADS.settings(); };
+  });
 
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
