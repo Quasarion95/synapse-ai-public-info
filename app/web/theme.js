@@ -331,5 +331,25 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
   else install();
 
-  global.SynTheme = { apply: apply, brands: BRANDS };
+  /* Цвета для образца темы в настройках — тем же расчётом, что apply():
+     поле, карточка, цвет темы и текст, светлой и тёмной половиной. Образец
+     обязан совпадать с тем, что человек увидит, нажав. */
+  function preview(id){
+    var out = {};
+    [false, true].forEach(function(dark){
+      var mode = dark ? 'dark' : 'light', base = BASE[mode];
+      var brand = brandPair(id, dark)[0];
+      var card = dark ? mix(base.card, brand, 0.05) : base.card;
+      out[mode] = {
+        bg: rgb(mix(base.bg, brand, dark ? 0.035 : 0.045)),
+        card: rgb(card),
+        accent: rgb(brand),
+        fg: rgb(dark ? base.fg : mix(base.fg, brand, 0.06)),
+        soft: rgb(mix(card, brand, dark ? 0.18 : 0.1))
+      };
+    });
+    return out;
+  }
+
+  global.SynTheme = { apply: apply, brands: BRANDS, preview: preview };
 })(window);

@@ -580,3 +580,40 @@
   .vd .radio.markpick.locked .msw{ opacity: .55 }
   .vd-pro{ color: var(--fg-3); letter-spacing: .04em; text-transform: none; font-weight: 600 }
 }
+
+/* ---------- темы плитками, как на макете (компактнее) ----------
+   Плитка — светлая и тёмная половины темы: полоса цвета темы и карточка с
+   двумя строками. Выбранная — в кольце цвета темы. */
+@media (min-width:1040px){
+  .vd-pals{ grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px }
+  .vd .radio.pal.vd-tile{
+    display: flex; flex-direction: column; align-items: stretch; gap: 7px; padding: 6px 6px 8px;
+    background: var(--card) !important; border-radius: 16px; box-shadow: var(--shadow) !important; text-align: left;
+    transition: box-shadow .15s ease, transform .12s ease;
+  }
+  .vd .radio.pal.vd-tile:hover{ transform: translateY(-1px) }
+  .vd .radio.pal.vd-tile[aria-pressed="true"]{ box-shadow: 0 0 0 2.5px var(--accent), var(--shadow) !important }
+  .vt-sw{ display: grid; grid-template-columns: 1fr 1fr; height: 58px; border-radius: 11px; overflow: hidden }
+  .vt-half{ display: flex; flex-direction: column; gap: 4px; padding: 6px }
+  .vt-acc{ display: block; height: 17px; border-radius: 6px }
+  .vt-card{ flex: 1; border-radius: 6px; padding: 5px; display: flex; flex-direction: column; gap: 3px }
+  .vt-card em{ display: block; height: 3px; border-radius: 2px; width: 70% }
+  .vt-card em + em{ width: 45% }
+  .vt-name{ display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 3px; min-width: 0 }
+  .vd .radio.pal.vd-tile .rl{ font-size: 12.5px; font-weight: 600; text-align: left; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+  .vd .radio.pal.vd-tile[aria-pressed="true"] .rl{ font-weight: 800 }
+  .vt-ios{ flex: none; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--accent-tint); color: var(--accent-text, var(--accent)); white-space: nowrap }
+  .vd .radio.pal.vd-tile.locked::before{ top: -6px; right: 6px }
+}
+@media (min-width:1040px){
+  .vd-pals{ grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px }
+  .vt-sw{ height: 48px }
+  .vt-half{ padding: 5px; gap: 3px }
+  .vt-acc{ height: 13px; border-radius: 5px }
+  .vt-card{ padding: 4px; border-radius: 5px }
+}
+@media (min-width:1500px){ .vd-pals{ grid-template-columns: repeat(6, minmax(0, 1fr)) } }
+@media (min-width:1040px){
+  .vt-name{ flex-direction: column; align-items: flex-start; gap: 3px }
+  .vt-ios{ font-size: 9px; padding: 1px 6px }
+}

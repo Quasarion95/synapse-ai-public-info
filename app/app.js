@@ -9796,7 +9796,6 @@ function телоВидаСтолом(){
   var сег = function(items){ return '<div class="vd-seg">' + items.join('') + '</div>'; };
   var markNow = markColorOf(S.markColor).css;
   var markStyle = markNow ? ' style="background:' + markNow + '; border-color:' + markNow + '"' : '';
-  var галка = '<svg class="vd-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
 
   return '<div class="vd">' +
     '<div class="vd-sec"><p class="vd-l">Режим</p>' +
@@ -9808,11 +9807,24 @@ function телоВидаСтолом(){
     '<div class="vd-sec">' +
       '<div class="vd-lh"><p class="vd-l">Тема · ' + esc(paletteOf(S.palette).title) + '</p>' +
         '<span class="vd-note">Цвет кнопок, выбранного и главных цифр</span></div>' +
+      /* Образец темы — как на макете: светлая и тёмная половины, в каждой
+         полоса цвета темы и белая (тёмная) карточка. Цвета считает
+         SynTheme.preview тем же расчётом, что красит приложение. */
       '<div class="vd-pals">' + PALETTES.map(function(p){
         var открыта = lookOpen('palettes', PALETTES.indexOf(p));
         var on = S.palette === p.id;
-        return '<button class="radio pal' + (открыта ? '' : ' locked') + '" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + on + '">' +
-          '<span class="sw">' + (on ? галка : '') + '</span><span class="rl">' + esc(p.title) + '</span></button>';
+        var pv = window.SynTheme && SynTheme.preview ? SynTheme.preview(p.id) : null;
+        var половина = function(c){
+          return c ? '<span class="vt-half" style="background:' + c.bg + '">' +
+              '<i class="vt-acc" style="background:' + c.accent + '"></i>' +
+              '<span class="vt-card" style="background:' + c.card + '"><em style="background:' + c.fg + '"></em><em style="background:' + c.soft + '"></em></span>' +
+            '</span>' : '<span class="vt-half"></span>';
+        };
+        var свой = p.id === 'sunset' || p.id === 'coral';
+        return '<button class="radio pal vd-tile' + (открыта ? '' : ' locked') + '" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + on + '">' +
+          '<span class="vt-sw" aria-hidden="true">' + половина(pv && pv.light) + половина(pv && pv.dark) + '</span>' +
+          '<span class="vt-name"><span class="rl">' + esc(p.title) + '</span>' +
+            (свой ? '<span class="vt-ios">как в айфоне</span>' : '') + '</span></button>';
       }).join('') + '</div>' +
     '</div>' +
 
