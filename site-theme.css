@@ -450,3 +450,80 @@ body { background: var(--bg); }
 .footer-links { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 .footer-links a { color: var(--muted); text-decoration: none; }
 .footer-links a:hover { color: var(--b-text); }
+
+/* ======== Главная: порядок блоков по маркетингу и психологии ========
+   Первый экран — что это и одна кнопка; сразу под ним — полоса доверия;
+   дальше отличие, экраны, возможности, данные, цены, вопросы; манифест
+   «Создавай причины» — в конце, перед последней кнопкой (эффект края:
+   запоминаются начало и конец). Разметка — index.html. */
+
+/* Первый экран: одна главная кнопка, под ней — «бесплатно», ниже магазины. */
+.hero-cta { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.hero-cta .btn-web { min-height: 56px; padding: 0 30px; font-size: 17px; }
+.hero-note { margin: 0; font-size: 15px; color: var(--muted); }
+.stores { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.stores a { display: inline-flex; align-items: center; height: 45px; text-decoration: none; }
+.stores img { display: block; height: 45px; width: auto; }
+.store-ru { gap: 9px; padding: 0 14px 0 10px; border-radius: 9px; background: #000; color: #fff; box-sizing: border-box; border: 1px solid #a6a6a6; }
+.store-ru img { width: 26px !important; height: 26px !important; }
+.store-ru small { display: block; font-size: 9.5px; line-height: 1.1; opacity: .85; }
+.store-ru b { display: block; font-size: 17px; line-height: 1.1; font-weight: 600; letter-spacing: -.01em; }
+.only-dark { display: none !important; }
+:root[data-theme="dark"] .only-light { display: none !important; }
+:root[data-theme="dark"] .only-dark { display: block !important; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .only-light { display: none !important; }
+  :root:not([data-theme="light"]) .only-dark { display: block !important; }
+}
+@media (max-width: 760px) { .hero-cta { align-items: stretch; } .stores { justify-content: center; } .hero-note { text-align: center; } }
+
+/* Полоса доверия. */
+.trust {
+  width: min(var(--col), calc(100% - 48px)); margin: 8px auto 72px; box-sizing: border-box;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 8px;
+}
+.trust-item { display: flex; gap: 14px; align-items: center; padding: 14px 16px; }
+.trust-item b { display: block; font-size: 15.5px; color: var(--text); }
+.trust-item i { display: block; font-style: normal; font-size: 14px; color: var(--muted); }
+.trust-ic, .f-ic {
+  width: 44px; height: 44px; flex: none; border-radius: 14px; display: grid; place-items: center;
+  background: var(--b-soft); color: var(--b-text);
+}
+.trust-ic svg, .f-ic svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+/* «Что входит»: значок вместо короткой черты — глаз сканирует сетку по нему. */
+.feature.has-ic::before { display: none; }
+.feature .f-ic { margin-bottom: 14px; }
+
+/* Цены: отмена в один клик видна до решения, а не мелко после. */
+.plans-assure { text-align: center; margin: -8px auto 26px; font-size: 16px; color: var(--muted); }
+.plans-assure b { color: var(--text); }
+
+/* Частые вопросы. */
+.faq { max-width: 820px; margin: 0 auto; background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 4px 26px; }
+.faq details { padding: 18px 0; border-top: 1px solid var(--divider); }
+.faq details:first-child { border-top: 0; }
+.faq summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; font-weight: 600; font-size: 17px; color: var(--text); }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; color: var(--b-text); font-weight: 700; }
+.faq details[open] summary::after { content: '−'; }
+.faq p { margin: 10px 0 0; color: var(--muted); font-size: 16px; line-height: 1.6; }
+
+/* Манифест в конце — вплотную к последней кнопке. */
+.creed-end { margin-top: 24px; margin-bottom: 0; }
+
+/* Кнопка в шапке и внизу телефона — только когда главная ушла из виду. */
+.nav-cta { display: none; }
+.cta-away .nav-cta { display: inline-flex; }
+.sticky-cta { display: none; }
+@media (max-width: 760px) {
+  .nav-cta, .cta-away .nav-cta { display: none; }
+  .sticky-cta {
+    position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 30;
+    padding: 8px; border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-lift);
+    transform: translateY(140%); transition: transform .25s ease;
+  }
+  .cta-away .sticky-cta { display: block; transform: none; }
+  .sticky-cta .btn { width: 100%; min-height: 50px; }
+}

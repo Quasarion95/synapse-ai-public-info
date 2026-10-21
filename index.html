@@ -77,11 +77,11 @@
         <span>Synapse</span>
       </a>
       <nav class="nav-links">
-        <a href="#idea">Идея</a>
         <a href="#different">Отличия</a>
         <a href="#features">Возможности</a>
         <a href="#privacy">Данные</a>
         <a href="#pricing">Тарифы</a>
+        <a href="#faq">Вопросы</a>
           <a href="./account/">Подписка</a>
       </nav>
       <!-- В шапке — тема и Telegram.
@@ -97,6 +97,7 @@
         <a href="./en/" lang="en" hreflang="en" data-set-lang="en" title="English version">EN</a>
       </nav>
       <button class="theme-toggle" data-theme-toggle type="button" aria-label="Сменить тему" title="Сменить тему">☾</button>
+      <a class="btn btn-small btn-web nav-cta" href="./app/">Открыть Synapse</a>
       <a class="btn btn-small btn-tg" href="https://t.me/synapseapp"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>Telegram</a>
     </header>
 
@@ -108,9 +109,9 @@
             <span class="h1-line">действуй <em>локально</em>.</span>
           </h1>
           <p class="lead">
-            Не список дел, а система: большая цель разбирается на этапы, этапы —
-            на задачи на сегодня, а ассистент ведёт день и перестраивает план по
-            одной фразе. Один шаг за раз, но в ту сторону.
+            Планер задач и целей с ИИ‑ассистентом. Большая цель разбирается на
+            этапы, этапы — на задачи на сегодня, а Syn ведёт день и перестраивает
+            план по одной фразе.
           </p>
           <!-- Здесь только магазины и Telegram.
 
@@ -133,10 +134,17 @@
                svg не наследует цвет текста, и на тёмной кнопке яблоко осталось
                бы чёрным. Сам значок целиком в ряд не встал бы — он своей
                ширины и перекраске не подлежит. -->
-          <div class="cta">
+          <!-- Одна главная кнопка вместо трёх равных (закон Хика: чем меньше
+               равных вариантов, тем быстрее выбор). Под ней — что бесплатно и
+               без регистрации: страх «сейчас попросят карту» снят до клика.
+               Магазины — официальными значками, поменьше и в ряд. -->
+          <div class="cta hero-cta">
             <a class="btn btn-web" href="./app/">Открыть Synapse в браузере</a>
-            <a class="btn btn-ios" href="https://apps.apple.com/ru/app/synapse-ai/id6796978134"><svg class="ico" viewBox="9.67 8.42 18.32 22.38" aria-hidden="true"><path fill="currentColor" d="M24.76888,20.30068a4.94881,4.94881,0,0,1,2.35656-4.15206,5.06566,5.06566,0,0,0-3.99116-2.15768c-1.67924-.17626-3.30719,1.00483-4.1629,1.00483-.87227,0-2.18977-.98733-3.6085-.95814a5.31529,5.31529,0,0,0-4.47292,2.72787c-1.934,3.34842-.49141,8.26947,1.3612,10.97608.9269,1.32535,2.01018,2.8058,3.42763,2.7533,1.38706-.05753,1.9051-.88448,3.5794-.88448,1.65876,0,2.14479.88448,3.591.8511,1.48838-.02416,2.42613-1.33124,3.32051-2.66914a10.962,10.962,0,0,0,1.51842-3.09251A4.78205,4.78205,0,0,1,24.76888,20.30068Z"/><path fill="currentColor" d="M22.03725,12.21089a4.87248,4.87248,0,0,0,1.11452-3.49062,4.95746,4.95746,0,0,0-3.20758,1.65961,4.63634,4.63634,0,0,0-1.14371,3.36139A4.09905,4.09905,0,0,0,22.03725,12.21089Z"/></svg>Для iPhone</a>
-            <a class="btn btn-android" href="https://www.rustore.ru/catalog/app/ru.synapseapp.app"><img class="ico" src="img/rustore-mark.svg?v=0d81fbda" alt="" width="19" height="19" loading="lazy" aria-hidden="true">Для Android</a>
+            <p class="hero-note">Бесплатно, без регистрации и карты</p>
+            <div class="stores">
+              <a class="store-apple" href="https://apps.apple.com/ru/app/synapse-ai/id6796978134" aria-label="Загрузите в App Store"><img class="only-light" src="img/app-store-badge-ru.svg" alt="Загрузите в App Store" width="135" height="45"><img class="only-dark" src="img/app-store-badge-ru-white.svg" alt="" width="135" height="45"></a>
+              <a class="store-ru" href="https://www.rustore.ru/catalog/app/ru.synapseapp.app" aria-label="Доступно в RuStore"><img src="img/rustore-mark.svg" alt="" width="26" height="26"><span><small>Доступно в</small><b>RuStore</b></span></a>
+            </div>
           </div>
         </div>
         <!-- Ноутбук и телефон вместе, в самом верху.
@@ -205,14 +213,13 @@
       </section>
 
 
-      <section class="creed" id="idea">
-        <p class="creed-kicker">Смысл, ради которого всё это</p>
-        <p class="creed-line">Создавай<br>причины</p>
-        <p class="creed-text">
-          Результат никогда не в наших руках целиком. В наших руках — усилие.
-          Ты создаёшь причины: делаешь шаг, потом ещё один, и ещё. Synapse нужен
-          для того, чтобы эти шаги не терялись и складывались в путь.
-        </p>
+<!-- Полоса доверия: главный страх перед ИИ-сервисом — «где мои
+           записи» — снимается раньше, чем возник. Только правда, без цифр. -->
+      <section class="trust" aria-label="Коротко о главном">
+        <div class="trust-item"><span class="trust-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="3"/><path d="M8 21h8M12 17v4"/></svg></span><span><b>Браузер, iPhone, Android</b><i>Один план везде</i></span></div>
+        <div class="trust-item"><span class="trust-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg></span><span><b>Без регистрации</b><i>Открыли — работает</i></span></div>
+        <div class="trust-item"><span class="trust-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span><b>Записи у вас</b><i>Синхронизация зашифрована</i></span></div>
+        <div class="trust-item"><span class="trust-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></span><span><b>Без рекламы</b><i>Данные не продаём</i></span></div>
       </section>
 
       <section class="section" id="different">
@@ -293,35 +300,43 @@
       <section class="section" id="features">
         <h2 class="section-title">Что входит в систему</h2>
         <div class="grid">
-          <div class="feature">
+          <div class="feature has-ic">
+            <span class="f-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></span>
             <h3>Дни, а не бесконечный список</h3>
             <p>Сегодня, Завтра, Послезавтра, На неделе и Потом. Весь горизонт сразу.</p>
           </div>
-          <div class="feature">
+          <div class="feature has-ic">
+            <span class="f-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></span>
             <h3>Сроки, которые не врут</h3>
             <p>Мягкая дата, жёсткий срок «до 18:00» или окно «с 10:00 до 11:30».</p>
           </div>
-          <div class="feature">
+          <div class="feature has-ic">
+            <span class="f-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/></svg></span>
             <h3>Цели с этапами</h3>
             <p>Большая цель разбирается на этапы, этапы — на задачи. Прогресс считается сам.</p>
           </div>
-          <div class="feature">
+          <div class="feature has-ic">
+            <span class="f-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h12a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H10l-4 3v-3H6a2 2 0 0 1-2-2z"/></svg></span>
             <h3>Ассистент Syn</h3>
             <p>Скажи словами: «перенеси созвон на пятницу», «разбери мой день».</p>
           </div>
-          <div class="feature">
+          <div class="feature has-ic">
+            <span class="f-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h2M3 9.5h13a2 2 0 0 0 2-2V6"/></svg></span>
             <h3>Мои финансы</h3>
             <p>Траты строкой «кофе 350», конверты, копилки, долги и обязательные платежи.</p>
           </div>
-          <div class="feature">
+          <div class="feature has-ic">
+            <span class="f-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
             <h3>Голосом</h3>
             <p>Продиктуй задачу или разбор дня — знаки препинания расставятся сами.</p>
           </div>
-          <div class="feature">
+          <div class="feature has-ic">
+            <span class="f-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6z"/><path d="M9 11h6M9 15h6"/></svg></span>
             <h3>Заметки и списки</h3>
             <p>Покупки, книги, мысли — рядом с планом, а не в другом приложении.</p>
           </div>
-          <div class="feature">
+          <div class="feature has-ic">
+            <span class="f-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 10v3l2 2M10 3h4"/></svg></span>
             <h3>Помодоро и медитация</h3>
             <p>Таймер фокуса и двенадцать звуков — от дождя до камина. Работают офлайн.</p>
           </div>
@@ -360,6 +375,7 @@
 
       <section class="section band" id="pricing">
         <h2 class="section-title">Система бесплатная.<br>Платно — больше ассистента и без потолков</h2>
+        <p class="plans-assure"><b>Отмена в один клик</b> — сами, на странице «Подписка». Доступ остаётся до конца оплаченного срока.</p>
 
         <div class="plans">
           <article class="plan">
@@ -434,15 +450,39 @@
         </p>
       </section>
 
+      <!-- Возражения — прямо перед последней кнопкой. Ответы — со страницы
+           поддержки, теми же словами. -->
+      <section class="section" id="faq">
+        <h2 class="section-title">Частые вопросы</h2>
+        <div class="faq">
+          <details open><summary>Нужно ли регистрироваться?</summary><p>Нет. Веб-версия открывается сразу, без почты и карты. Записи хранятся в вашем браузере.</p></details>
+          <details><summary>Где хранятся мои записи?</summary><p>На вашем устройстве — в браузере или на телефоне. В Pro их переносит между устройствами синхронизация: на сервер они уходят зашифрованными, ключ только у вас.</p></details>
+          <details><summary>Как перенести записи между телефоном и браузером?</summary><p>В Pro — синхронизация: свяжите устройства коротким кодом. Без подписки — файлом: «Настройки → Данные → Сохранить копию».</p></details>
+          <details><summary>Как отменить подписку?</summary><p>Сами, без писем: страница «Подписка», вход по коду. Там же видно, когда следующее списание.</p></details>
+          <details><summary>Можно оплатить картой не российского банка?</summary><p>Да — в долларах или евро, ссылка есть на странице оплаты.</p></details>
+        </div>
+      </section>
+
+      <section class="creed creed-end" id="idea">
+        <p class="creed-kicker">Смысл, ради которого всё это</p>
+        <p class="creed-line">Создавай<br>причины</p>
+        <p class="creed-text">
+          Результат никогда не в наших руках целиком. В наших руках — усилие.
+          Ты создаёшь причины: делаешь шаг, потом ещё один, и ещё. Synapse нужен
+          для того, чтобы эти шаги не терялись и складывались в путь.
+        </p>
+      </section>
+
       <section class="section closing">
         <h2>Первый шаг занимает минуту</h2>
         <p class="lead">Веб-версия открывается сразу, без регистрации и без карты. Первые шаги подскажут, с чего начать.</p>
         <div class="cta cta-center">
-          <a class="btn btn-primary" href="./app/">Открыть в браузере</a>
+          <a class="btn btn-primary" href="./app/">Открыть Synapse в браузере</a>
           <a class="cta-link" href="https://t.me/synapseapp">Написать нам</a>
         </div>
       </section>
     </main>
+    <div class="sticky-cta" aria-hidden="true"><a class="btn btn-web" href="./app/" tabindex="-1">Открыть Synapse</a></div>
 
     <footer class="footer">
       <div class="footer-inner">
@@ -483,5 +523,17 @@
         </nav>
       </div>
     </footer>
+    <script>
+      /* Кнопка в шапке и внизу экрана появляется, когда главная кнопка первого
+         экрана ушла из виду: две одинаковые кнопки рядом — шум, ни одной на
+         длинной странице — потеря. */
+      (function(){
+        var b = document.querySelector('.hero-cta .btn-web');
+        if (!b || !('IntersectionObserver' in window)) return;
+        new IntersectionObserver(function(e){
+          document.documentElement.classList.toggle('cta-away', !e[0].isIntersecting);
+        }).observe(b);
+      })();
+    </script>
   </body>
 </html>
