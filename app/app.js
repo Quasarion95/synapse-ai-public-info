@@ -9958,11 +9958,16 @@ function телоВида(){
     'Цвет фона и акцента. В кружке — фон, точкой внутри — акцент.',
     settingsRow('', PALETTES.map(function(p){
       var dark = isDarkNow();
-      var bg = paletteColor(p, dark ? 'darkBackground' : 'lightBackground');
-      var ac = paletteColor(p, dark ? 'accentDark' : 'accent');
+      /* Цвета образца — из SynTheme.preview, тем же расчётом, что красит
+         приложение (web/theme.js). Числа палитры из AppTheme.swift остались
+         запасом: темы перекрашены, и образец по ним не совпал бы с тем, что
+         человек увидит, нажав. */
+      var pv = window.SynTheme && SynTheme.preview ? SynTheme.preview(p.id)[dark ? 'dark' : 'light'] : null;
+      var bg = pv ? pv.bg : rgb(paletteColor(p, dark ? 'darkBackground' : 'lightBackground'));
+      var ac = pv ? pv.accent : rgb(paletteColor(p, dark ? 'accentDark' : 'accent'));
       var открыта = lookOpen('palettes', PALETTES.indexOf(p));
       return '<button class="radio pal' + (открыта ? '' : ' locked') + '" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
-        '<span class="sw" style="background:' + rgb(bg) + '"><i style="background:' + rgb(ac) + '"></i></span>' +
+        '<span class="sw" style="background:' + bg + '"><i style="background:' + ac + '"></i></span>' +
         '<span class="rl">' + esc(p.title) + '</span></button>';
     }).join(''), 2));
 
