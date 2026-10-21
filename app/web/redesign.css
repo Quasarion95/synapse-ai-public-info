@@ -81,11 +81,12 @@
   .tab .ic{ background: transparent !important; color: currentColor !important; width: 22px; height: 22px }
   .tab .nav-ic{ width: 20px; height: 20px; stroke-width: 1.9 }
   .tab:hover{ background: var(--soft); color: var(--fg) }
-  .tab[aria-current="page"],
-  :root[data-dark="1"] .tab[aria-current="page"]{
+  #tabbar .tab[aria-current="page"],
+  #tabbar .tab[aria-current="page"]:hover,
+  :root[data-dark="1"] #tabbar .tab[aria-current="page"]{
     background: var(--accent); color: var(--on-accent); box-shadow: var(--glow);
   }
-  .tab[aria-current="page"] .ic{ color: var(--on-accent) !important }
+  #tabbar .tab[aria-current="page"] .ic{ color: var(--on-accent) !important }
   .tabs-label{
     padding: 18px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: .09em;
     text-transform: uppercase; color: var(--fg-3);
@@ -169,3 +170,55 @@
   .item.dragging.lifted > .swipe-face{ background: var(--card) }
   .dragging-now .tasklist{ border-radius: 22px }
 }
+
+@media (min-width:1040px){
+
+  /* ---------- мой фокус ----------
+     Верх — разметка приложения (vFocusApp): главное дело с процентом слева,
+     день и горизонт справа. Карточки — без рамки, на тени. */
+  .fx-desk{ display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 20px }
+  .fx-desk .fx-card{ margin: 0; border: 0; border-radius: 24px; padding: 26px 28px }
+  .fx-desk .fx-strips{ padding: 24px }
+  .fx-desk .fx-kicker{ font-size: 12px; font-weight: 700; letter-spacing: .09em }
+  .fx-desk .fx-title{ font-size: 30px; font-weight: 800; letter-spacing: -.03em; margin-top: 4px }
+  .fx-desk .fx-sub{ font-size: 13px; margin-top: 4px }
+  .fx-desk .fx-pct b{ font-size: 64px; font-weight: 800; letter-spacing: -.04em }
+  .fx-desk .fx-pct small{ font-size: 30px }
+  .fx-desk .fx-pct span{ font-size: 13px; font-weight: 500 }
+  .fx-desk .fx-secs{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; margin-top: 20px }
+  .fx-desk .fx-sec b{ font-size: 11.5px; font-weight: 700; letter-spacing: .09em }
+  .fx-desk .fx-sec p{ font-size: 15px; line-height: 1.55 }
+  .fx-desk .fx-more{ width: auto; display: inline-flex; padding: 0 20px; background: var(--accent-tint) }
+  .fx-desk .fx-listen{ width: auto; display: inline-flex; padding: 0 22px; height: 46px; margin-right: 10px;
+    background: var(--accent); color: var(--on-accent); border: 0; box-shadow: var(--glow) }
+  .fx-desk .fx-h > b{ font-size: 19px; font-weight: 800 }
+  .fx-desk .fx-chip{ border-radius: 16px; padding: 12px 6px }
+  .fx-desk .fx-chip b{ font-size: 24px; font-weight: 800 }
+  .fx-desk .fx-track{ width: 100%; max-width: 26px; border-radius: 8px; height: 70px }
+  .fx-desk .fx-track i{ border-radius: 8px }
+
+  /* Счётчики дня — плитками на тени, цифра крупно. */
+  .counts .cnt{ border: 0; box-shadow: var(--shadow); border-radius: 20px }
+  .counts .cnt .v{ font-size: 30px }
+
+  /* Карточки вообще — на тени, без обводки. */
+  .card{ border-color: transparent; border-radius: 24px }
+}
+
+/* ---------- карта целей и живое дерево ----------
+   Дерево остаётся живым и зелёным, импульсы по-прежнему бегут от листьев к
+   нему (web/goal-tree.js). Карточки вокруг — белые, как все карточки нового
+   вида: цель обведена цветом темы, этап — его бледной версией, задача —
+   тонкой чертой. Закрытое залито тихим цветом; сделанная задача — зелёная,
+   того же цвета, что листья, которые она поит. Цвета в разметке карты
+   вписаны атрибутами из старой палитры, стили их перекрывают. */
+.mmwrap .mm-card .mm-card-bg{ fill: var(--card); stroke: var(--line); stroke-width: 1.2 }
+.mmwrap .mm-card.mm-goal .mm-card-bg{ stroke: var(--accent); stroke-width: 1.6 }
+.mmwrap .mm-card.mm-stage .mm-card-bg{ stroke: color-mix(in srgb, var(--accent) 38%, transparent) }
+.mmwrap .mm-card.done .mm-card-bg{ fill: var(--accent-tint) }
+.mmwrap .mm-card.mm-task.done .mm-card-bg{ fill: var(--ok-soft); stroke: color-mix(in srgb, var(--pos) 45%, transparent) }
+.mmwrap .mm-card.done > circle{ fill: var(--accent) }
+.mmwrap .mm-card.mm-task.done > circle{ fill: var(--pos) }
+.mmwrap .mm-card .mm-label{ fill: var(--text) }
+.mmwrap .mm-card .mm-label.sec{ fill: var(--text-2) }
+.mmbox .mmwrap{ border: 0; border-radius: 24px; box-shadow: var(--shadow) }

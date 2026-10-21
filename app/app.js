@@ -7057,18 +7057,26 @@ function vFocus(){
   var withTime = today.filter(function(t){ return t.time && !t.done; })
     .sort(function(a, b){ return a.time < b.time ? -1 : 1; });
 
-  // Заголовка нет: раздел назван в меню, а первая карточка сама говорит,
-  // что это фокус дня.
+  /* Верх — как на айфоне (новый вид веба, 21.10.2026): главное дело,
+     процент дня, свёрнутый брифинг, день и горизонт — vFocusApp, та же
+     разметка, что в приложении. Ниже остаётся то, чего там нет: счётчики
+     дня и цели без задач. Широкое окно раскладывает это сеткой
+     (web/redesign.css). Прежние vFocusCard и полосы дня остаются в коде
+     для узкого окна без вида приложения. */
   var html = '';
 
-  html += vFocusCard(today, todayDone, overdue, withTime);
-  // День и горизонт — одна мысль: что сегодня и что дальше. Двумя карточками
-  // они читались как два несвязанных виджета.
-  html += '<section class="card strips">' +
-      vDayStrip(today, todayDone, overdue) +
-      '<div class="strip-split"></div>' +
-      vHorizonStrip() +
-    '</section>';
+  if (window.matchMedia && window.matchMedia('(min-width: 1040px)').matches){
+    html += '<div class="fx-desk">' + vFocusApp() + '</div>';
+  } else {
+    html += vFocusCard(today, todayDone, overdue, withTime);
+    // День и горизонт — одна мысль: что сегодня и что дальше. Двумя
+    // карточками они читались как два несвязанных виджета.
+    html += '<section class="card strips">' +
+        vDayStrip(today, todayDone, overdue) +
+        '<div class="strip-split"></div>' +
+        vHorizonStrip() +
+      '</section>';
+  }
 
   html += '<div class="counts">' +
     cnt(String(today.length), 'намечено на день') +
