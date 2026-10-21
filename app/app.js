@@ -9761,7 +9761,7 @@ function vSettingsDesk(active){
   var разделы = РАЗДЕЛЫ_НАСТРОЕК.filter(function(р){ return !р.есть || р.есть(); });
   var открыт = разделы.filter(function(р){ return р.view === active; })[0] || разделы[0];
   var тело =
-    открыт.view === 'settings-view'   ? телоВида() :
+    открыт.view === 'settings-view'   ? телоВидаСтолом() :
     открыт.view === 'settings-notify' ? '<div class="setgroup">' + телоНапоминаний() + '</div>' :
     открыт.view === 'settings-start'  ? '<section class="setcard">' + телоСтарта() + '</section>' :
     открыт.view === 'settings-data'   ? телоДанных() :
@@ -9783,6 +9783,72 @@ function vSettingsDesk(active){
       }).join('') + '</nav>' +
     '</aside>' +
     '<section class="setdesk-main"><h2 class="setdesk-t">' + esc(открыт.title) + '</h2>' + тело + '</section>' +
+  '</div>';
+}
+
+/* «Оформление» на широком окне — по макету нового вида: одна колонка без
+   карточек в карточке. Сверху режим, под ним темы крупными кружками, ниже
+   рядом шрифт и размер текста, и отдельно отметка задач — с живым образцом,
+   который раньше стоял «превью» над всем разделом. Кнопки и их действия те
+   же, что в телоВида (set-theme, set-palette, set-font, set-fontsize,
+   set-box, set-mark-color), и закрытые подпиской помечены так же. */
+function телоВидаСтолом(){
+  var сег = function(items){ return '<div class="vd-seg">' + items.join('') + '</div>'; };
+  var markNow = markColorOf(S.markColor).css;
+  var markStyle = markNow ? ' style="background:' + markNow + '; border-color:' + markNow + '"' : '';
+  var галка = '<svg class="vd-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+  return '<div class="vd">' +
+    '<div class="vd-sec"><p class="vd-l">Режим</p>' +
+      сег([['light', 'Светлый'], ['dark', 'Тёмный']].map(function(p){
+        return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
+      })) +
+    '</div>' +
+
+    '<div class="vd-sec">' +
+      '<div class="vd-lh"><p class="vd-l">Тема · ' + esc(paletteOf(S.palette).title) + '</p>' +
+        '<span class="vd-note">Цвет кнопок, выбранного и главных цифр</span></div>' +
+      '<div class="vd-pals">' + PALETTES.map(function(p){
+        var открыта = lookOpen('palettes', PALETTES.indexOf(p));
+        var on = S.palette === p.id;
+        return '<button class="radio pal' + (открыта ? '' : ' locked') + '" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + on + '">' +
+          '<span class="sw">' + (on ? галка : '') + '</span><span class="rl">' + esc(p.title) + '</span></button>';
+      }).join('') + '</div>' +
+    '</div>' +
+
+    '<div class="vd-row">' +
+      '<div class="vd-card"><b>Шрифт</b><span class="vd-sub">Начертание во всём сервисе</span>' +
+        сег(FONTS.map(function(f){
+          return '<button class="radio" data-act="set-font" data-font="' + f.id + '" aria-pressed="' + (S.font === f.id) + '" ' +
+            'style="font-family:' + f.css + '">' + f.title + '</button>';
+        })) + '</div>' +
+      '<div class="vd-card"><b>Размер текста</b><span class="vd-sub">Мельче или крупнее — сразу везде</span>' +
+        сег(FONT_SIZES.map(function(z){
+          return '<button class="radio" data-act="set-fontsize" data-size="' + z.id + '" aria-pressed="' + (S.fontSize === z.id) + '">' + z.title + '</button>';
+        })) + '</div>' +
+    '</div>' +
+
+    '<div class="vd-card vd-mark">' +
+      '<div class="vd-mark-h"><div><b>Отметка задач</b><span class="vd-sub">Форма и цвет галочки у закрытой задачи</span></div>' +
+        '<div class="vd-sample" aria-hidden="true"><span class="box on" data-shape="' + (S.box || 'square') + '"' + markStyle + '>' + ICON.check + '</span>' +
+          '<span>Собрать материалы</span></div></div>' +
+      '<div class="vd-forms">' + BOXES.map(function(b){
+        var открыта = lookOpen('boxes', BOXES.indexOf(b));
+        return '<button class="radio boxpick' + (открыта ? '' : ' locked') + '" data-act="set-box" data-box="' + b.id + '" aria-pressed="' + (S.box === b.id) + '" ' +
+          'title="' + esc(b.title) + '" aria-label="' + esc(b.title) + '">' +
+          '<span class="box on" data-shape="' + b.id + '"' + markStyle + '>' + ICON.check + '</span>' +
+          '<span class="rl">' + esc(b.title) + '</span></button>';
+      }).join('') + '</div>' +
+      // Ярлык «Pro» на каждом из двенадцати кружков налезал на соседей —
+      // здесь он один, у подписи; закрытые цвета по-прежнему ведут к подписке.
+      '<p class="vd-l vd-l-sm">Цвет' + (isPro() ? '' : ' <span class="vd-pro">· остальные — в Pro</span>') + '</p>' +
+      '<div class="vd-colors">' + MARK_COLORS.map(function(c){
+        var открыт = isPro() || c.id === 'default';
+        return '<button class="radio markpick' + (открыт ? '' : ' locked') + '" data-act="set-mark-color" data-color="' + c.id + '" ' +
+          'aria-pressed="' + ((S.markColor || 'default') === c.id) + '" title="' + esc(c.title) + '" aria-label="Цвет отметки: ' + esc(c.title) + '">' +
+          '<span class="msw" style="background:' + (c.css || 'var(--ok)') + '"></span><span class="rl">' + esc(c.title) + '</span></button>';
+      }).join('') + '</div>' +
+    '</div>' +
   '</div>';
 }
 
