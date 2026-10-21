@@ -1,12 +1,9 @@
 /* Новый вид веб-версии (21.10.2026) — заголовки страниц и низ меню. Только
-   веб (пара к web/redesign.css): заголовки — на любом экране, на телефоне у
-   главных разделов; низ меню — на широком окне.
+   веб (пара к web/redesign.css): заголовки и низ меню — на широком окне.
 
-   На айфоне у каждого раздела сверху крупное название, а над ним мелкой
-   капителью цветом темы — что сейчас важно: дата, сколько целей, сколько
-   записей. В вебе у части разделов заголовка не было вовсе: экран задач
-   начинался сразу со «Сегодня», целей — с первой карточки. Глаз не понимал,
-   где он, пока не находил подсвеченный пункт меню.
+   Крупное название с мелкой капителью над ним — у карты целей, таймеров и
+   настроек. У разделов на каждый день (фокус, задачи, цели, списки,
+   заметки) его нет: там место под содержимое дороже (см. HEADS).
 
    Разметку разделов app.js собирает целиком при каждой отрисовке, поэтому
    заголовок ставится после неё — так же, как layout.js переносит кнопки в
@@ -30,51 +27,28 @@
     return many;
   }
 
-  function today(){
-    try {
-      return new Date().toLocaleDateString(lang() === 'en' ? 'en-US' : 'ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
-    } catch (e){ return ''; }
-  }
-
   function count(arr){ return Array.isArray(arr) ? arr.length : 0; }
 
   /* Что показать над названием. Только то, что видно и так, — без новых
      подсчётов, которые могли бы разойтись с цифрами на самом экране. */
+  /* Только у разделов, где сверху иначе пусто. У «Моего фокуса», задач,
+     целей, списков и заметок заголовка нет намеренно: владелец сказал, что
+     он «тупо место сжирает» — раздел и так узнаётся по выбранному пункту
+     меню и по первой же карточке, а место под задачи дороже. */
   var HEADS = {
-    focus:      function(){ return { t: 'Мой фокус', e: today() }; },
-    tasks:      function(){ return { t: 'Задачи', e: today() }; },
-    goals:      function(){
-      var all = (S.goals || []), done = all.filter(function(g){ return g && g.done; }).length, act = all.length - done;
-      if (lang() === 'en') return { t: 'Цели', e: act + ' active' + (done ? ' · ' + done + ' achieved' : '') };
-      return { t: 'Цели', e: act + ' ' + plural(act, 'активная', 'активные', 'активных') +
-        (done ? ' · ' + done + ' ' + plural(done, 'достигнута', 'достигнуты', 'достигнуто') : '') };
-    },
     analytics:  function(){
       var n = count(S.goals);
       return { t: 'Карта целей', e: lang() === 'en' ? n + ' goals' : n + ' ' + plural(n, 'цель', 'цели', 'целей') };
-    },
-    lists:      function(){
-      var n = count(S.lists);
-      return { t: 'Списки', e: lang() === 'en' ? n + ' lists' : n + ' ' + plural(n, 'список', 'списка', 'списков') };
-    },
-    notes:      function(){
-      var n = count(S.notes);
-      return { t: 'Заметки', e: lang() === 'en' ? n + ' notes' : n + ' ' + plural(n, 'запись', 'записи', 'записей') };
     },
     pomodoro:   function(){ return { t: 'Метод Помодоро', e: '' }; },
     meditation: function(){ return { t: 'Медитация', e: '' }; },
     settings:   function(){ return { t: 'Настройки', e: lang() === 'en' ? 'Profile and app' : 'Профиль и приложение' }; }
   };
 
-  // Страница одной цели на широком окне — та же раскладка, что у целей.
-  HEADS.goal = function(){ return HEADS.goals(); };
-
   // Разделы настроек на широком окне — одна страница в две колонки, шапка общая.
   ['settings-view', 'settings-notify', 'settings-start', 'settings-data', 'settings-about'].forEach(function(id){
     HEADS[id] = function(){ return HEADS.settings(); };
   });
-
-  var NARROW = { focus: 1, tasks: 1, goals: 1, lists: 1, notes: 1 };
 
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
@@ -85,10 +59,9 @@
     if (!app) return;
     var head = app.querySelector(':scope > .ph');
     var make = HEADS[S.view];
-    // На телефоне — только у главных разделов: у страниц настроек своё
-    // название, а у цели, карты, таймеров — свой верх.
-    if (!wide() && !NARROW[S.view]) make = null;
-    var want = make && !app.querySelector(':scope > h1.page, :scope > .desk-wrap');
+    // На телефоне заголовков нет: у страниц настроек своё название, у
+    // карты и таймеров — свой верх.
+    var want = wide() && make && !app.querySelector(':scope > h1.page, :scope > .desk-wrap');
     if (!want){ if (head) head.remove(); return; }
     if (head && head.getAttribute('data-view') === S.view) return;
     var h = make();
