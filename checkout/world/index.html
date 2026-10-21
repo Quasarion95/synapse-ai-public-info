@@ -10,6 +10,19 @@
     <link rel="stylesheet" href="/landing.css">
     <link rel="stylesheet" href="/checkout.css">
     <link rel="stylesheet" href="/site-theme.css">
+    <style>
+      /* Поле почты — как остальные поля оформления: без класса браузер рисовал
+         голую серую рамку, первым же полем на странице оплаты. */
+      .mail-field {
+        width: 100%; box-sizing: border-box; padding: 13px 15px;
+        border: 1.5px solid var(--stroke); border-radius: 14px;
+        background: var(--surface); color: var(--text);
+        font: inherit; font-size: 16px; outline: none;
+        transition: border-color .16s ease, box-shadow .16s ease;
+      }
+      .mail-field:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+      .mail-field::placeholder { color: color-mix(in srgb, var(--muted) 55%, transparent); }
+    </style>
     <script src="/theme.js"></script>
   </head>
   <body>
@@ -60,7 +73,7 @@
             </p>
             <div class="fld">
               <label class="fld-label" for="email">Email</label>
-              <input id="email" type="email" autocomplete="email" placeholder="you@example.com" style="width:100%">
+              <input class="mail-field" id="email" type="email" autocomplete="email" placeholder="you@example.com">
             </div>
 
             <p id="error" class="alert" hidden></p>
