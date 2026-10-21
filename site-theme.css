@@ -17,31 +17,40 @@
   экрана, цвет — на кнопках, акцентах и одной тёмной секции.
 
   Фирменный цвет — изумруд («дорогой зелёный»): из четырёх примеренных
-  вариантов (изумруд, индиго, сапфир, графит) выбран он, 17 октября 2026. */
+  вариантов (изумруд, индиго, сапфир, графит) выбран он, 17 октября 2026.
+
+  21 октября 2026 веб-версия переехала на вид айфона: тёплое поле с каплей
+  цвета темы, белые карточки на тени без обводки, один цвет — «Закат». Сайт
+  идёт следом, чтобы снимки на нём и страница вокруг были одного продукта:
+  та же пара цветов, то же поле и те же тени, что в app/web/theme.js.
+  Разметка и тексты сайта прежние — меняется только этот слой. */
 
 :root {
   /* ---- фирменная пара: светлая тема ---- */
-  --b1: #0f6e55;            /* emerald: глубокий изумруд */
-  --b2: #2a9d78;
-  --b-deep: #0a3d30;        /* тёмная секция */
-  --b-soft: #e3f1ec;
+  --b1: #e05f3b;            /* «Закат» — как в приложении для айфона */
+  --b2: #e68f33;
+  --b-deep: #231814;        /* тёмная секция — тёплый графит, не чёрный */
+  --b-soft: #fcefeb;
+  --b-text: #b8461f;        /* цвет темы буквами: держит 4,5 к белому */
 
-  /* ---- нейтральная основа: «Чистый светлый» ---- */
-  --bg: #f4f6f5;
+  /* ---- нейтральная основа: поле с каплей цвета темы ---- */
+  --bg: #f3edeb;
   --surface: #ffffff;
-  --surface-2: #eceff0;
+  --surface-2: #f6f1ef;
   --surface-elevated: #ffffff;
-  --bg-band: #eceff0;
-  --text: #0e1424;
-  --muted: #4b5466;
-  --muted-strong: #424b5c;
-  --disabled: #9aa2b1;
-  --stroke: #e1e5ea;
-  --stroke-strong: #cfd5dd;
-  --divider: #e7eaef;
-  --track: #e3e7ec;
+  --bg-band: #efe7e4;
+  --text: #1c1512;
+  --muted: #544a46;
+  --muted-strong: #4a403c;
+  --disabled: #a39894;
+  --stroke: #ece4e1;
+  --stroke-strong: #ddd2ce;
+  --divider: #ece4e1;
+  --track: #eee7e5;
 
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 12px 32px -12px rgba(16, 24, 40, 0.12);
+  --shadow: 0 1px 2px rgba(30, 20, 10, 0.04), 0 12px 32px -14px rgba(30, 20, 10, 0.16);
+  --shadow-lift: 0 2px 6px rgba(30, 20, 10, 0.06), 0 22px 48px -16px rgba(30, 20, 10, 0.26);
+  --glow: 0 10px 24px -10px rgba(224, 95, 59, 0.7);
 }
 
 
@@ -49,48 +58,54 @@
    Глубокий графит, но не чёрный: на чистом #0b0e10 владелец сказал «слишком
    чёрный фон». Фон поднят до #151a1e, карточки — на ступень светлее. */
 :root[data-theme="dark"] {
-  --b1: #4cc39b;
-  --b2: #2fb0a0;
-  --b-deep: #0d2a22;
-  --b-soft: rgba(76, 195, 155, 0.14);
+  --b1: #fa9e7a;
+  --b2: #fabb71;
+  --b-deep: #1f1714;
+  --b-soft: rgba(250, 158, 122, 0.16);
+  --b-text: #fa9e7a;
 
-  --bg: #151a1e;
-  --surface: #1c2227;
-  --surface-2: #232a30;
-  --surface-elevated: #283037;
-  --bg-band: #181e22;
-  --text: #f2f4f8;
-  --muted: #a6aec0;
-  --muted-strong: #b4bbcb;
-  --disabled: #6b7385;
-  --stroke: #2d353d;
-  --stroke-strong: #3a434c;
-  --divider: #272e35;
-  --track: #2b333a;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 16px 40px -18px rgba(0, 0, 0, 0.7);
+  --bg: #161314;
+  --surface: #252122;
+  --surface-2: #2c2728;
+  --surface-elevated: #312b2c;
+  --bg-band: #1b1718;
+  --text: #f4f0ee;
+  --muted: #b5aeab;
+  --muted-strong: #c2bbb8;
+  --disabled: #7a7270;
+  --stroke: #342e2f;
+  --stroke-strong: #423a3b;
+  --divider: #2f292a;
+  --track: #2e2829;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px -14px rgba(0, 0, 0, 0.7);
+  --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.4), 0 22px 48px -14px rgba(0, 0, 0, 0.8);
+  --glow: 0 10px 24px -10px rgba(250, 158, 122, 0.6);
 }
 /* То же для системной тёмной темы, пока выбор не сделан явно. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --b1: #4cc39b;
-    --b2: #2fb0a0;
-    --b-deep: #0d2a22;
-    --b-soft: rgba(76, 195, 155, 0.14);
-  
-    --bg: #151a1e;
-    --surface: #1c2227;
-    --surface-2: #232a30;
-    --surface-elevated: #283037;
-    --bg-band: #181e22;
-    --text: #f2f4f8;
-    --muted: #a6aec0;
-    --muted-strong: #b4bbcb;
-    --disabled: #6b7385;
-    --stroke: #2d353d;
-    --stroke-strong: #3a434c;
-    --divider: #272e35;
-    --track: #2b333a;
-    --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 16px 40px -18px rgba(0, 0, 0, 0.7);
+    --b1: #fa9e7a;
+    --b2: #fabb71;
+    --b-deep: #1f1714;
+    --b-soft: rgba(250, 158, 122, 0.16);
+    --b-text: #fa9e7a;
+
+    --bg: #161314;
+    --surface: #252122;
+    --surface-2: #2c2728;
+    --surface-elevated: #312b2c;
+    --bg-band: #1b1718;
+    --text: #f4f0ee;
+    --muted: #b5aeab;
+    --muted-strong: #c2bbb8;
+    --disabled: #7a7270;
+    --stroke: #342e2f;
+    --stroke-strong: #423a3b;
+    --divider: #2f292a;
+    --track: #2e2829;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px -14px rgba(0, 0, 0, 0.7);
+    --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.4), 0 22px 48px -14px rgba(0, 0, 0, 0.8);
+    --glow: 0 10px 24px -10px rgba(250, 158, 122, 0.6);
   }
 }
 
@@ -109,7 +124,7 @@
   --accent-soft: var(--b-soft);
   --bg-dark: var(--b-deep);
   --text-on-dark: #ffffff;
-  --muted-on-dark: rgba(255, 255, 255, 0.78);
+  --muted-on-dark: rgba(255, 255, 255, 0.82);
   --ink-on-forest: #ffffff;
   --ink-on-forest-soft: rgba(255, 255, 255, 0.86);
   --brass-on-forest: #ffffff;
@@ -129,10 +144,10 @@
   --forest-deep: color-mix(in srgb, var(--b1) 88%, #fff);
   --forest-active: color-mix(in srgb, var(--b1) 76%, #fff);
   --text-on-dark: #ffffff;
-  --ink-on-forest: #10161a;
-  --ink-on-forest-soft: rgba(11, 14, 16, 0.82);
-  --brass-on-forest: #0b0e10;
-  --tick-on-forest: rgba(11, 14, 16, 0.2);
+  --ink-on-forest: #1c1512;
+  --ink-on-forest-soft: rgba(28, 21, 18, 0.82);
+  --brass-on-forest: #1c1512;
+  --tick-on-forest: rgba(28, 21, 18, 0.2);
 }
 
 body { background: var(--bg); }
@@ -365,26 +380,73 @@ body { background: var(--bg); }
   background: #10161a; color: #ffffff; box-shadow: 0 14px 30px -14px rgba(0, 0, 0, 0.6);
 }
 
-/* ---- главные кнопки — глубокий изумруд ----
-   Градиент от --b1 к --b2 уходил в светло-зелёный: белый текст на светлом
-   конце терял контраст, и кнопка «Открыть Synapse в браузере» выглядела
-   выцветшей — владелец попросил поправить. Теперь основа — глубокий
-   фирменный цвет, как у годовой карточки, и лишь лёгкий перелив сверху. */
+/* ---- главные кнопки — цветом темы ----
+   Было: глубокий изумруд с переливом — тёмный, чтобы белый текст не терял
+   контраст на светлом конце градиента. С «Закатом» кнопка — ровная заливка
+   цветом темы с мягкой цветной тенью, как главная кнопка в приложении. */
 .btn-primary, .btn-app, .btn-web,
 .hero .btn-web {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0) 55%),
-    linear-gradient(135deg, var(--b1), color-mix(in srgb, var(--b1) 82%, #000));
+  background: var(--b1);
   color: #fff;
   font-weight: 700;
-  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 12px 26px -14px var(--b1);
+  border-color: transparent;
+  box-shadow: var(--glow);
 }
-.btn-primary:hover, .btn-app:hover, .btn-web:hover { filter: brightness(1.08); }
-/* В тёмной теме фирменный цвет светлый — кнопка мятная с тёмным текстом. */
+.btn-primary:hover, .btn-app:hover, .btn-web:hover { filter: brightness(1.05); }
 :root[data-theme="dark"] .btn-primary, :root[data-theme="dark"] .btn-app, :root[data-theme="dark"] .btn-web {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 55%),
-    var(--b1);
-  color: #0b1512;
-  box-shadow: 0 12px 26px -14px var(--b1);
+  background: var(--b1);
+  color: #1c1512;
+  box-shadow: var(--glow);
 }
+
+/* ---- новый вид, 21.10.2026: глубина вместо обводок ----
+   Карточки, тарифы и вторичные кнопки — белые на тени, без рамки, как в
+   приложении (Refactoring UI: тень отделяет слой лучше линии и не рябит).
+   Скругления крупнее — 24 у карточек, 16 у кнопок. */
+.card, .feature, .plan, .plan-soft {
+  border-color: transparent;
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+.card:hover, .feature:hover { border-color: transparent; box-shadow: var(--shadow-lift); }
+.plan-soft { border: 0; box-shadow: 0 0 0 2px color-mix(in srgb, var(--b1) 30%, transparent), var(--shadow); }
+.plan-hero {
+  background:
+    radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--b2) 55%, transparent), transparent 70%),
+    var(--b1);
+  box-shadow: var(--glow);
+}
+.plan-hero .btn-plan-primary, .plan-hero .btn-plan-primary:hover { color: var(--b-text); }
+.plan-hero .btn-plan-primary:hover { background: #fff7f4; }
+.plan .btn-plan.btn-ghost:not(.btn-disabled),
+.plan .btn-plan.btn-disabled { color: var(--b-text); }
+.plan .btn-plan.btn-ghost:not(.btn-disabled):hover { color: var(--b-text); }
+.btn, .btn-plan { border-radius: 16px; }
+.btn-ghost, .hero .btn-ios, .hero .btn-android {
+  background: var(--surface); color: var(--text); border-color: transparent; box-shadow: var(--shadow);
+}
+.btn-ghost:hover { border-color: transparent; color: var(--b-text); box-shadow: var(--shadow-lift); }
+
+/* Мелкий текст цветом темы — притемнённым: «Закат» на белом даёт 3,4 из
+   нужных 4,5, для кнопки хватает, для подписи нет. */
+.eyebrow { background: var(--b-soft); color: var(--b-text); }
+.card-num, .card:hover .card-num { color: var(--b-text); }
+.hint a, .fineprint a, .footer a:hover { color: var(--b-text); }
+
+/* Корпус ноутбука был зеленоватым графитом под прежний лес — теперь
+   нейтральный тёплый графит, как рамка телефона. */
+.laptop-screen { background: linear-gradient(158deg, #2f2b2a 0%, #45403e 26%, #262221 62%, #3a3533 100%); }
+.laptop-base { background: linear-gradient(180deg, #45403e 0%, #221e1d 100%); }
+.gallery-card img { box-shadow: 0 24px 48px -24px rgba(60, 30, 15, 0.45); }
+.gallery-nav { border-color: transparent; }
+.gallery-nav:hover { border-color: transparent; color: var(--b-text); }
+
+/* Главная кнопка внутренних страниц (site.css) светилась сиреневым —
+   остаток самого первого макета. Тень — цветом темы, как везде. */
+.button:not(.secondary):not(.ghost) { box-shadow: var(--glow); }
+
+/* Подвал оформления: ссылки шли сплошной подчёркнутой строкой цветом
+   темы и спорили с кнопкой оплаты. Теперь тихие, как в подвале главной. */
+.footer-links { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.footer-links a { color: var(--muted); text-decoration: none; }
+.footer-links a:hover { color: var(--b-text); }
