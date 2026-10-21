@@ -3114,15 +3114,25 @@ html.tour-hold:not(.hv-on) .say .ai{animation:ai-hint 1.6s ease-in-out infinite}
 :is(.touch, .in-app) :is(.listcol-h, .acc-h, .item:not(.swipe), .row-card:not(.swipe)) .side button:first-child::before{left:-8px}
 :is(.touch, .in-app) :is(.listcol-h, .acc-h, .item:not(.swipe), .row-card:not(.swipe)) .side button:last-child::before{right:-8px}
 
-/* Таблица платежей на самом узком телефоне: сумма — под названием.
+/* Таблица платежей на телефоне: сумма — под названием.
 
    На 320–380 px три колонки (название, 84 на сумму, 104 на кнопки) оставляли
    названию 20–60 px, и длинное название резалось до трёх-четырёх букв.
    Теперь название идёт во всю ширину строки, а под ним — сумма слева и
    кнопки справа. Шапка повторяет ту же раскладку: «Название» сверху,
    «В месяц» под ним — подпись стоит над тем, что подписывает. Сумма сдвинута
-   на ширину логотипа (20 + 10), чтобы стоять ровно под текстом названия. */
-@media (max-width:380px){
+   на ширину логотипа (20 + 10), чтобы стоять ровно под текстом названия.
+
+   Порог был 380, но с мышью кнопок в строке четыре и колонка под них 180 px:
+   в окне шириной 430 названию оставалось около сотни пикселей, и
+   «Онлайн-кинотеатр» переносился по слогам, а строка вырастала втрое. Потому
+   раскладка карточкой — до 520 px при любом указателе, а срок («до 12 ноября»)
+   поднят в строку названия, справа: карточка остаётся в две строки. */
+@media (max-width:520px){
+  .pr-main .pr-t{flex:1; flex-direction:row; align-items:baseline;
+    justify-content:space-between; gap:8px}
+  .pr-t > :first-child{min-width:0}
+  .pr-t .pr-n{flex:none; white-space:nowrap}
   .payhead, .payrow,
   .payrow.swipe > .swipe-face{
     grid-template-columns:minmax(0,1fr) var(--pay-act);

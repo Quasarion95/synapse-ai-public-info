@@ -5524,6 +5524,10 @@ function finPayTable(rows, key, title, lead){
               (sub.off ? ICON.undo : ICON.power) + '</button>' +
             (touchUI() ? '' : '<button class="fr-x" data-act="fin-sub-kill" data-sub="' + sub.id + '" aria-label="Удалить">' + ICON.kill + '</button>') +
           '</span>' +
+          // Лицо свайпа закрывается своим </div>. Без него каждая следующая
+          // строка вкладывалась в предыдущую, и «оплачено» одной подписки
+          // красило зелёным суммы всех строк под ней.
+          (touchUI() ? '</div>' : '') +
         '</div>';
       }).join('') +
     '</div>' +
