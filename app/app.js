@@ -8871,16 +8871,27 @@ function listProgress(l){
 }
 
 var LIST_VIEWS = [
+  /* «Две колонки» — только на широком окне (новый вид, 21.10.2026): слева
+     все списки, справа открытый, как на макете. Там он и вид по умолчанию,
+     пока человек не выбрал другой; на узком экране его в переключателе нет,
+     и выбранный раньше он читается как «Доска». */
+  { id: 'split', title: 'Две колонки', desk: true },
   { id: 'board', title: 'Доска' },
   { id: 'grid',  title: 'Плитки' },
   { id: 'acc',   title: 'Гармошка' },
   { id: 'stack', title: 'Столбик' }
 ];
-function listView(){ return S.listView || 'board'; }
+function спискиСтолом(){
+  return !appLook() && !!(window.matchMedia && window.matchMedia('(min-width: 1040px)').matches);
+}
+function listView(){
+  var v = S.listView || (спискиСтолом() ? 'split' : 'board');
+  return v === 'split' && !спискиСтолом() ? 'board' : v;
+}
 
 function listViewBar(){
   return '<div class="listbar">' +
-    '<div class="listseg">' + LIST_VIEWS.map(function(v){
+    '<div class="listseg">' + LIST_VIEWS.filter(function(v){ return !v.desk || спискиСтолом(); }).map(function(v){
       return '<button class="lv-btn' + (listView() === v.id ? ' on' : '') + '" data-act="set-listview" data-lview="' + v.id + '">' + v.title + '</button>';
     }).join('') + '</div>' +
     '<button class="btn sm" data-act="new-list">+ Новый список</button>' +
@@ -8895,6 +8906,38 @@ function vLists(){
   }
   var view = listView();
   var html = listViewBar();
+
+  // Две колонки — слева все списки, справа открытый: его пункты, правка,
+  // добавление. Пункты и строка добавления — те же, что у доски.
+  if (view === 'split'){
+    var открыт = findList(S.activeList) || S.lists[0];
+    var po = listProgress(открыт);
+    html += '<div class="lsplit">' +
+      '<nav class="lsplit-nav" aria-label="Все списки">' + S.lists.map(function(l){
+        var p = listProgress(l), on = l.id === открыт.id;
+        return '<button class="ls-item' + (on ? ' on' : '') + '" data-act="desk-list" data-list="' + l.id + '" aria-pressed="' + on + '">' +
+          '<span class="ls-ini" aria-hidden="true">' + esc((l.title || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+          '<span class="ls-tx"><b translate="no">' + esc(l.title) + '</b><i>' + (p.total ? 'Готово ' + p.done + ' из ' + p.total : 'Пока пусто') + '</i></span>' +
+          '<span class="ls-n">' + p.total + '</span></button>';
+      }).join('') + '</nav>' +
+      '<section class="lsplit-main" data-list="' + открыт.id + '">' +
+        '<div class="ls-head">' +
+          '<span class="ls-ini big" aria-hidden="true">' + esc((открыт.title || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+          '<div class="ls-h-tx"><h2 translate="no">' + esc(открыт.title) + '</h2>' +
+            '<span class="sub' + (po.full ? ' sub--done' : '') + '">' + (po.total ? 'Готово ' + po.done + ' из ' + po.total : 'В списке пока пусто') + '</span></div>' +
+          '<div class="side">' +
+            '<button data-act="rename-list" data-list="' + открыт.id + '" aria-label="Переименовать список" title="Переименовать">' + ICON.edit + '</button>' +
+            '<button class="kill" data-act="kill-list" data-list="' + открыт.id + '" aria-label="Удалить список">' + ICON.kill + '</button>' +
+          '</div>' +
+        '</div>' +
+        (открыт.note ? '<p class="sub" translate="no">' + esc(открыт.note) + '</p>' : '') +
+        '<div class="bar slim"><i style="width:' + pct(po.done, po.total) + '%"></i></div>' +
+        '<div class="listcol-body">' + listItemsHtml(открыт) + '</div>' +
+        listAddRow(открыт) +
+      '</section>' +
+    '</div>';
+    return html;
+  }
 
   // Столбик — прежний вид: крупные карточки одна под другой, клик уводит внутрь.
   if (view === 'stack'){
@@ -15407,6 +15450,8 @@ var ACTS = {
   },
   'open-list': function(d){ S.activeList = d.list; go('list'); },
   'set-listview': function(d){ S.listView = d.lview || 'board'; save(); render(); },
+  // Выбор списка в левой колонке вида «Две колонки».
+  'desk-list': function(d){ S.activeList = d.list; render(); },
   'list-acc': function(d){
     S.listsExpanded = S.listsExpanded || [];
     var i = S.listsExpanded.indexOf(d.list);

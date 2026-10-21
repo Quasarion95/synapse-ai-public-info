@@ -445,3 +445,40 @@
   .gdesk-main .goalbody-wrap{ height: auto !important; opacity: 1 !important; overflow: visible }
   .gdesk-main .goalbody{ padding-top: 14px }
 }
+
+/* ---------- списки: вид «Две колонки» ---------- */
+@media (min-width:1040px){
+  .lsplit{ display: grid; grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.5fr); gap: 20px; align-items: start; margin-top: 16px }
+  .lsplit-nav{ background: var(--card); border-radius: 24px; box-shadow: var(--shadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 24px }
+  .ls-item{ display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border-radius: 16px; text-align: left; color: var(--fg) }
+  .ls-item:hover{ background: var(--soft) }
+  .ls-item.on{ background: var(--bg) }
+  .ls-ini{
+    width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center;
+    background: var(--accent-tint); color: var(--accent-text, var(--accent)); font-family: var(--display); font-weight: 800; font-size: 16px;
+  }
+  .ls-item.on .ls-ini{ background: var(--accent); color: var(--on-accent) }
+  .ls-ini.big{ width: 48px; height: 48px; font-size: 19px; background: var(--accent); color: var(--on-accent) }
+  .ls-tx{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px }
+  .ls-tx b{ font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+  .ls-tx i{ font-style: normal; font-size: 12.5px; color: var(--fg-2) }
+  .ls-n{ font-size: 13px; font-weight: 700; color: var(--fg-3); flex: none }
+
+  .lsplit-main{ background: var(--card); border-radius: 26px; box-shadow: var(--shadow); padding: 26px 28px; display: flex; flex-direction: column; gap: 14px; min-width: 0 }
+  .ls-head{ display: flex; align-items: center; gap: 14px }
+  .ls-h-tx{ flex: 1; min-width: 0 }
+  .ls-h-tx h2{ margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.03em }
+  .ls-head .side{ display: flex; gap: 2px }
+  .ls-head .side button{ width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--fg-3) }
+  .ls-head .side button:hover{ background: var(--soft); color: var(--fg) }
+  .ls-head .side button svg{ width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round }
+  .lsplit-main > .bar{ height: 8px; border-radius: 6px }
+  .lsplit-main .listcol-body{ background: var(--bg); border-radius: 18px; padding: 6px 16px }
+  .lsplit-main .line{ padding: 11px 0; font-size: 15px }
+  .lsplit-main .line + .line{ border-top: 1px solid var(--line) }
+}
+@media (min-width:1040px){
+  /* Пять видов — одной строкой, по ширине кнопок, а не сеткой на четыре. */
+  .listbar .listseg{ display: inline-flex !important; flex: none !important; gap: 4px }
+  .listbar .listseg .lv-btn{ padding: 8px 16px }
+}

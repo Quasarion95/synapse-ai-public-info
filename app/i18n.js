@@ -41,7 +41,7 @@
     'Мои траты': 'My expenses', 'Общее': 'Overview', 'Период': 'Period',
     'Все': 'All', 'все': 'all', 'Все разделы': 'All sections',
     'Название': 'Title',
-    'Задачи': 'Tasks', 'Цели': 'Goals', 'Цель': 'Goal', 'Аналитика': 'Analytics', 'Мой фокус': 'My focus', 'Инструменты': 'Tools', 'Настройки и другое': 'Settings and more', 'пройдено': 'done', 'Только что поставлена': 'Just set', 'Бесплатно': 'Free', 'Профиль и приложение': 'Profile and app', 'Изменить профиль': 'Edit profile', 'Добавить имя и фото': 'Add name and photo', 'Ваш профиль': 'Your profile', 'Разделы настроек': 'Settings sections',
+    'Задачи': 'Tasks', 'Цели': 'Goals', 'Цель': 'Goal', 'Аналитика': 'Analytics', 'Мой фокус': 'My focus', 'Инструменты': 'Tools', 'Настройки и другое': 'Settings and more', 'Две колонки': 'Two columns', 'Все списки': 'All lists', 'Пока пусто': 'Empty for now', 'В списке пока пусто': 'The list is empty for now', 'пройдено': 'done', 'Только что поставлена': 'Just set', 'Бесплатно': 'Free', 'Профиль и приложение': 'Profile and app', 'Изменить профиль': 'Edit profile', 'Добавить имя и фото': 'Add name and photo', 'Ваш профиль': 'Your profile', 'Разделы настроек': 'Settings sections',
     'Карта целей': 'Goal map', 'Карта': 'Map', 'Списки': 'Lists', 'Список': 'List',
     'Заметки': 'Notes', 'Заметка': 'Note', 'Метод Помодоро': 'Pomodoro',
     'Медитация': 'Meditation', 'Мои финансы': 'My finances', 'Корзина': 'Trash',
