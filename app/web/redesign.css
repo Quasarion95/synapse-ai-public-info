@@ -282,3 +282,12 @@
 @container desk (max-width:999px){
   .desk-kpi > .dk:first-child{ grid-column: span 2 }
 }
+
+/* ---------- нижняя панель телефона и планшета ----------
+   Выбранная вкладка — залитая капсула цветом темы, как на айфоне. */
+@media (max-width:1039px){
+  #tabbar .tabs-main .tab[aria-current="page"]{
+    background: var(--accent); color: var(--on-accent); border-radius: 18px; box-shadow: var(--glow);
+  }
+  #tabbar .tabs-main .tab[aria-current="page"] .ic{ color: var(--on-accent) !important }
+}
