@@ -42,6 +42,9 @@
          без разбора знаков андроид показывал бы звёздочки как есть. -->
     <link rel="stylesheet" href="web/notes-edit.css">
     <link rel="stylesheet" href="web/goal-tree.css">
+    <!-- Новый вид веб-версии (21.10.2026) — последним, поверх всех стилей.
+         Только в браузере: у андроид-обёртки свой вид, как на айфоне. -->
+    <script>if (!window.AndroidVoice) document.write('<link rel="stylesheet" href="web/redesign.css">');</script>
 
     <!-- Ставится ярлыком на домашний экран и открывается без сети: записи и
          так лежат в браузере, из сети приходила только оболочка. -->
@@ -141,7 +144,8 @@
         '<script src="web/desk.js"><\/script>' +
         '<script src="web/finance-desk.js"><\/script>' +
         '<script src="web/goal-map.js"><\/script>' +
-        '<script src="web/layout.js"><\/script>');
+        '<script src="web/layout.js"><\/script>' +
+        '<script src="web/redesign.js"><\/script>');
     </script>
     <!-- Заметки с оформлением — везде, см. ссылку на стили выше. -->
     <script src="web/notes-edit.js"></script>

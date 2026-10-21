@@ -1,0 +1,171 @@
+/* ============ НОВЫЙ ВИД ВЕБ-ВЕРСИИ (21.10.2026) — только веб ============
+
+   Язык айфона, перенесённый на широкий экран. Макет — артефакт
+   «Synapse Web — новый вид»; правила те же, что в приложении:
+
+     * поле — тёплый серый с каплей цвета темы, карточки белые и отделяются
+       от него тенью, а не рамкой (Refactoring UI: «глубина вместо обводок»);
+     * на экране один цвет — цвет темы (правило 60-30-10): им залито
+       выбранное, главная кнопка и главная цифра; всё остальное нейтральное;
+     * подписи разделов — капителью цветом темы, цифры — крупно и
+       пропорциональным шрифтом, а не моноширинным;
+     * меню — плавающая белая карточка: сверху четыре раздела на каждый день,
+       под подписью «Инструменты» — остальное; выбранный пункт залит цветом.
+
+   Цвета считает web/theme.js. Этот файл подключается последним и только в
+   браузере (в андроид-обёртке у приложения свой вид). Логика и разметка не
+   меняются — только оформление. */
+
+/* ---------- шрифт подписей и цифр ----------
+   Моноширинный был у меток и чисел; на айфоне они набраны тем же шрифтом,
+   что и текст, — так спокойнее, а табличные цифры держат колонки ровно. */
+:root{ --mono: var(--display) }
+.mono, .cnt .v, .barline b, .pct, .focus-p b, .lg b, .med-face b, .clock, .paywall-price b, .lc-count{
+  font-variant-numeric: tabular-nums;
+}
+.lbl, .field label, .status, .mmfull-bar .ttl, .fll, .hd span{
+  font-weight: 700; letter-spacing: .09em;
+}
+.lbl{ font-size: 11.5px; color: var(--accent-text, var(--accent)) }
+.fll{ font-size: 10.5px; color: var(--accent-text, var(--accent)) }
+.fll.fll--warn{ color: var(--accent-text, var(--accent)) }
+.fll.fll--neg{ color: var(--danger) }
+.cnt .v{ font-weight: 800; letter-spacing: -.03em }
+.focus-p b{ font-weight: 800; letter-spacing: -.04em }
+
+/* ---------- кнопки ----------
+   Главная — цветом темы с мягкой цветной тенью; второстепенная — тихой
+   заливкой того же цвета, без рамки. */
+.btn{ border-radius: 14px }
+.btn:not(.soft):not(.danger):not(.ghost){ box-shadow: var(--glow) }
+.btn.soft{ background: var(--accent-tint); color: var(--accent-text, var(--accent)); border-color: transparent }
+.btn.soft:hover{ background: var(--accent-tint); filter: brightness(.97) }
+:root[data-dark="1"] .btn.soft:hover{ filter: brightness(1.12) }
+
+@media (min-width:1040px){
+
+  /* ---------- меню: плавающая карточка ---------- */
+  :root{ --rail: 268px }
+  @media (min-width:1240px){ :root{ --rail: 284px } }
+  html.rail-mini{ --rail: 96px }
+
+  .tabbar{
+    left: 16px; top: 16px; bottom: 16px;
+    width: calc(var(--rail) - 32px);
+    border: 0; border-radius: 24px;
+    background: var(--card); box-shadow: var(--shadow);
+    padding: 76px 12px 14px;
+  }
+  /* Знак: плитка цветом темы, на ней узлы Synapse — цветом подписи по
+     заливке. Плитка — ::before, узлы — маской на ::before у первой группы:
+     у одного псевдоэлемента не бывает двух цветов. */
+  .tabbar::before{
+    top: 20px; left: 22px; width: 36px; height: 36px; border-radius: 11px;
+    background: var(--accent); box-shadow: var(--glow); filter: none !important;
+  }
+  .tabs-main::before{
+    content: ''; position: absolute; top: 26px; left: 28px; width: 24px; height: 24px;
+    background: var(--on-accent, #fff);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128' fill='none' stroke='black' stroke-width='10' stroke-linecap='round'%3E%3Cpath d='M22 78 56 46 98 36 80 96Z'/%3E%3Ccircle cx='22' cy='78' r='13' fill='black'/%3E%3Ccircle cx='56' cy='46' r='13' fill='black'/%3E%3Ccircle cx='98' cy='36' r='13' fill='black'/%3E%3Ccircle cx='80' cy='96' r='13' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128' fill='none' stroke='black' stroke-width='10' stroke-linecap='round'%3E%3Cpath d='M22 78 56 46 98 36 80 96Z'/%3E%3Ccircle cx='22' cy='78' r='13' fill='black'/%3E%3Ccircle cx='56' cy='46' r='13' fill='black'/%3E%3Ccircle cx='98' cy='36' r='13' fill='black'/%3E%3Ccircle cx='80' cy='96' r='13' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .tabbar::after{ top: 23px; left: 68px; font-size: 20px; letter-spacing: -.03em; content: 'Synapse' }
+
+  .tabs-main, .tabs-rest{ gap: 2px }
+  .tab{
+    min-height: 44px; padding: 0 12px; border-radius: 14px;
+    font-size: 15px; font-weight: 600; color: var(--fg-2);
+  }
+  .tabs-rest .tab{ min-height: 0; height: 38px; padding-top: 0; padding-bottom: 0; font-size: 14.5px; font-weight: 500 }
+  .tabs-rest .tabs-sep ~ .tab{ height: 36px; font-size: 14px }
+  .tab .ic{ background: transparent !important; color: currentColor !important; width: 22px; height: 22px }
+  .tab .nav-ic{ width: 20px; height: 20px; stroke-width: 1.9 }
+  .tab:hover{ background: var(--soft); color: var(--fg) }
+  .tab[aria-current="page"],
+  :root[data-dark="1"] .tab[aria-current="page"]{
+    background: var(--accent); color: var(--on-accent); box-shadow: var(--glow);
+  }
+  .tab[aria-current="page"] .ic{ color: var(--on-accent) !important }
+  .tabs-label{
+    padding: 18px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--fg-3);
+  }
+  html.rail-mini .tabs-label{ font-size: 0; padding: 10px 0 4px; border-top: 1px solid var(--line); margin: 8px 10px 0 }
+  html.rail-mini .tabbar::before{ left: 22px }
+  html.rail-mini .tabs-main::before{ left: 28px }
+  .tabs-sep{ background: var(--line) }
+
+  /* Профиль, язык и тема — внизу меню, тихой плашкой. */
+  .tabs-rest .top-acts .whoami{ background: var(--accent-tint); border-color: transparent }
+  .tabs-rest .top-acts .iconbtn{ background: var(--soft); border-color: transparent; box-shadow: none }
+
+  .rail-toggle{ top: 30px; left: calc(var(--rail) - 29px) }
+
+  /* ---------- рабочая область ---------- */
+  .composer, .kbd .composer{ left: var(--rail) }
+  .toast{ left: calc(var(--rail) + (100vw / var(--scale, 1) - var(--rail)) / 2) }
+  body:has(main .composer)::after{ left: var(--rail) }
+}
+
+/* Подписи пунктов: на широком экране — полностью («Мой фокус»), в нижней
+   панели планшета и телефона — коротко («Фокус»). */
+.tab .tx-l{ display: none }
+@media (min-width:1040px){
+  .tab .tx-l{ display: inline }
+  .tab .tx-s{ display: none }
+}
+
+/* ---------- полоса Syn ----------
+   Белая капсула над содержимым, как на айфоне: без рамки, с тенью; голос —
+   тихая кнопка цветом темы, отправка — залитая. */
+.say{
+  border: 0 !important; border-radius: 22px; background: var(--card);
+  box-shadow: var(--shadow-lift);
+}
+.say:focus-within{ box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-lift) }
+.say .send{ background: var(--accent); color: var(--on-accent); border: 0; border-radius: 14px }
+.say .ai{ border-radius: 14px }
+
+@media (min-width:1040px){
+
+  /* ---------- заголовок страницы ----------
+     Мелкая капитель цветом темы (дата, сколько целей) и крупное название —
+     как на айфоне. Ставит web/redesign.js. */
+  .ph{ margin: 0 0 22px }
+  .ph-eye{
+    font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--accent-text, var(--accent)); margin-bottom: 4px;
+  }
+  h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height: 1.1 }
+  .ph h1.page{ margin: 0 }
+
+  /* ---------- задачи: одна карточка на группу ----------
+     Каждая задача отдельной карточкой с тенью — это десять теней подряд, и
+     список рябил. На айфоне группа — одна белая карточка, задачи в ней
+     разделены тонкой чертой (гештальт: общая область = одна группа).
+     Поднятая при перетаскивании задача по-прежнему отдельная карточка. */
+  .group-h h3{ color: var(--accent-text, var(--accent)) }
+  .group-h .n{ color: var(--accent-text, var(--accent)); font-weight: 600 }
+  .group-h .car{ color: var(--accent-text, var(--accent)) }
+  .group.empty .group-h h3, .group.empty .group-h .car, .group.empty .group-h .n{ color: var(--fg-3) }
+
+  .tasklist{
+    gap: 0; background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
+    padding: 4px 0;
+  }
+  .group.empty .tasklist, .tasklist:empty{ background: transparent; box-shadow: none; padding: 0 }
+  .tasklist > .item{
+    background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  }
+  .tasklist > .item + .item{ border-top: 1px solid var(--line) }
+  .tasklist > .item:first-child{ border-radius: 22px 22px 0 0 }
+  .tasklist > .item:last-child{ border-radius: 0 0 22px 22px }
+  .tasklist > .item:only-child{ border-radius: 22px }
+  .tasklist > .item > .swipe-face{ background: transparent }
+  .item.dragging.lifted{
+    border-radius: 16px !important; background: var(--card) !important; border-top: 0 !important;
+    box-shadow: var(--shadow-lift) !important;
+  }
+  .item.dragging.lifted > .swipe-face{ background: var(--card) }
+  .dragging-now .tasklist{ border-radius: 22px }
+}

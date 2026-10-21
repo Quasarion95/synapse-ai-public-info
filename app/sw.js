@@ -67,6 +67,8 @@ var SHELL = [
   'web/notes-edit.css',
   'web/goal-tree.js',
   'web/goal-tree.css',
+  'web/redesign.css',
+  'web/redesign.js',
   'web/syn-tidy.js',
   'web/mobile-app.js',
   'manifest.webmanifest',
