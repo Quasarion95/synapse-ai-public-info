@@ -9067,6 +9067,36 @@ function vList(){
 
 /* ---- заметки ---- */
 
+/* Заметки на широком окне — две колонки (новый вид, 21.10.2026): слева все
+   записи с началом текста, справа открытая — тот же редактор, что на
+   отдельной странице (VIEWS.note, с оформлением и кнопками Syn из
+   web/notes-edit.js). Порядок в левой колонке меняется перетаскиванием,
+   как и на сетке. */
+function заметкиСтолом(){
+  return !appLook() && !!(window.matchMedia && window.matchMedia('(min-width: 1040px)').matches);
+}
+
+function vNotesDesk(){
+  var открыта = findNote(S.activeNote) || S.notes[0];
+  S.activeNote = открыта.id;
+  var текст = function(n){
+    var t = window.SynNotes && SynNotes.plain ? SynNotes.plain(n.body || '') : (n.body || '');
+    t = String(t).replace(/\s+/g, ' ').trim();
+    return t ? esc(t.slice(0, 110)) : 'Пустая запись';
+  };
+  return '<div class="nsplit">' +
+    '<nav class="ln-notes ns-nav" aria-label="Все заметки">' + S.notes.map(function(n){
+      var on = n.id === открыта.id;
+      return '<article class="row-card ns-item' + (on ? ' on' : '') + '" data-note="' + n.id + '">' +
+        '<button class="main" data-act="desk-note" data-note="' + n.id + '" aria-pressed="' + on + '">' +
+          '<b translate="no">' + esc(n.title || 'Без названия') + '</b>' +
+          '<span translate="no">' + текст(n) + '</span>' +
+        '</button></article>';
+    }).join('') + '</nav>' +
+    '<section class="nsplit-main">' + VIEWS.note.render() + '</section>' +
+  '</div>';
+}
+
 function vNotes(){
   var html = '';
   if (!S.notes.length){
@@ -9074,6 +9104,7 @@ function vNotes(){
       'Сюда складывают то, что не задача: итоги встречи, мысль, список вопросов.',
       'new-note', 'Новая запись');
   }
+  if (заметкиСтолом()) return vNotesDesk();
   html += '<div class="acts" style="margin:0 0 16px"><button class="btn" data-act="new-note">+ Новая запись</button></div>';
   for (var i = 0; i < S.notes.length; i++){
     var n = S.notes[i];
@@ -15538,7 +15569,13 @@ var ACTS = {
     closeModal();
     commit();
   },
-  'open-note': function(d){ S.activeNote = d.note; go('note'); },
+  'open-note': function(d){
+    S.activeNote = d.note;
+    // На широком окне заметка открывается справа, не уходя со страницы.
+    if (заметкиСтолом() && S.view === 'notes'){ render(); return; }
+    go('note');
+  },
+  'desk-note': function(d){ S.activeNote = d.note; render(); },
   'rename-note': function(d){
     var note = findNote(d.note);
     if (!note) return;

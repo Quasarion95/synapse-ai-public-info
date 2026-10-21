@@ -737,7 +737,9 @@
   var HOLD = 320, MOVE_MOUSE = 6, MOVE_TOUCH = 9;
   var drag = null, raf = 0;
 
-  function grid(){ return document.querySelector('.ln-notes'); }
+  // Сетка — родитель несомой карточки: на широком окне заметки стоят ещё и
+  // левой колонкой внутри страницы (vNotesDesk), а не только сеткой.
+  function grid(){ return drag && drag.card && drag.card.parentElement ? drag.card.parentElement : document.querySelector('.ln-notes'); }
   function cardsOf(g){
     return Array.prototype.filter.call(g.children, function(c){ return c.classList.contains('row-card') && c.hasAttribute('data-note'); });
   }

@@ -482,3 +482,31 @@
   .listbar .listseg{ display: inline-flex !important; flex: none !important; gap: 4px }
   .listbar .listseg .lv-btn{ padding: 8px 16px }
 }
+
+/* ---------- заметки на широком окне: перечень и открытая заметка ----------
+   Разметка — vNotesDesk в app.js; справа тот же редактор, что на странице
+   заметки. Левая колонка — тоже «сетка» заметок (класс ln-notes), поэтому
+   порядок меняется перетаскиванием, как раньше. */
+@media (min-width:1040px){
+  .ln-page.ln-notes:has(> .nsplit){ display: block }
+  .nsplit{ display: grid; grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.6fr); gap: 20px; align-items: start }
+  .ln-notes.ns-nav{
+    display: flex !important; flex-direction: column; gap: 2px; grid-template-columns: none;
+    background: var(--card); border-radius: 24px; box-shadow: var(--shadow); padding: 8px; position: sticky; top: 24px;
+  }
+  .ns-nav > .row-card.ns-item{
+    min-height: 0 !important; padding: 0 !important; margin: 0; background: transparent; box-shadow: none; border: 0; border-radius: 16px;
+  }
+  .ns-nav > .row-card.ns-item:hover{ background: var(--soft) }
+  .ns-nav > .row-card.ns-item.on{ background: var(--accent-tint) }
+  .ns-nav > .row-card.ne-lifted{ background: var(--card) !important; box-shadow: var(--shadow-lift) !important }
+  .ns-item .main{ display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 14px; color: var(--fg) }
+  .ns-item .main b{ font-size: 15px; font-weight: 700 }
+  .ns-item .main span{ font-size: 13px; line-height: 1.45; color: var(--fg-2);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+
+  .nsplit-main{ min-width: 0 }
+  .nsplit-main > .chip:first-child{ display: none }
+  .nsplit-main .ne.card{ margin: 0; border: 0; border-radius: 26px; box-shadow: var(--shadow); padding: 22px 30px 28px }
+  .nsplit-main .ne-title{ font-family: var(--display); font-size: 30px; font-weight: 800; letter-spacing: -.03em }
+}
