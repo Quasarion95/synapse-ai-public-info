@@ -3,7 +3,11 @@ pluginManagement {
 }
 dependencyResolutionManagement {
     repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
-    repositories { google(); mavenCentral() }
+    repositories {
+        google(); mavenCentral()
+        // Библиотеки RuStore: запрос оценки и обновление из магазина.
+        maven { url "https://nexus-external.rustore.ru/repository/maven-rustore-exposed" }
+    }
 }
 rootProject.name = "Synapse"
 include ":app"

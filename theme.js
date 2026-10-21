@@ -30,14 +30,21 @@
     return systemPrefersDark() ? 'dark' : 'light';
   }
 
+  // Подписи кнопки — на языке страницы: на английской политике русская
+  // подсказка «Включить тёмную тему» была бы непонятна.
+  var EN = /^en/i.test(document.documentElement.lang || '');
+  var LABELS = EN
+    ? { toLight: 'Switch to light theme', toDark: 'Switch to dark theme', light: 'Light theme', dark: 'Dark theme' }
+    : { toLight: 'Включить светлую тему', toDark: 'Включить тёмную тему', light: 'Светлая тема', dark: 'Тёмная тема' };
+
   function apply(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', theme === 'dark' ? '#1d2420' : '#f5f1e8');
     var buttons = document.querySelectorAll('[data-theme-toggle]');
     for (var i = 0; i < buttons.length; i++) {
-      buttons[i].setAttribute('aria-label', theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему');
-      buttons[i].setAttribute('title', theme === 'dark' ? 'Светлая тема' : 'Тёмная тема');
+      buttons[i].setAttribute('aria-label', theme === 'dark' ? LABELS.toLight : LABELS.toDark);
+      buttons[i].setAttribute('title', theme === 'dark' ? LABELS.light : LABELS.dark);
       buttons[i].textContent = theme === 'dark' ? '☀' : '☾';
     }
   }

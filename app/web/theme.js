@@ -13,7 +13,7 @@
        светлее, яркий фирменный цвет с градиентом.
 
    Палитра больше не красит бумагу, а задаёт фирменную пару цветов для
-   градиента: «Индиго» — основная тема, «Лес» —
+   градиента: «Закат» — основная тема (как на айфоне), «Лес» —
    изумруд, «Бордо» — малиновый, «Море» — бирюза, «Уголь» — строгий
    монохром… Пары подобраны руками для каждой палитры и для каждой темы:
    формулой «добавить насыщенности» половина выходила грязной.
@@ -32,6 +32,10 @@
   /* Фирменная пара на палитру: [светлая тема], [тёмная тема]. Первый цвет —
      основной (кнопки, выбранное), второй — конец градиента. */
   var BRANDS = {
+    /* «Закат» и «Коралл» — из приложения для айфона: акцент и тёплый акцент
+       оттуда же, светлая и тёмная пара. */
+    sunset:      [['#E05F3B', '#E68F33'], ['#FA9E7A', '#FABB71']],
+    coral:       [['#E04E63', '#EF7852'], ['#F88E8D', '#FBA77F']],
     graphite:    [['#3E6AE1', '#56A0F5'], ['#6A8CFF', '#45B4FF']],
     forest:      [['#0E9F6E', '#2BC48A'], ['#34D399', '#22C1A6']],
     brass:       [['#C98A0B', '#E8AE36'], ['#F5B83D', '#FFD36B']],
@@ -150,9 +154,19 @@
     return fromHsl(hsl[0], hsl[1] * SOFT_S, Math.min(band[1], Math.max(band[0], hsl[2])));
   }
 
+  /* Тёплые палитры айфона берут и его фон — кремовый, а не холодный
+     светло-серый: без него «Закат» выглядел оранжевыми кнопками на чужом
+     экране. Карточки остаются белыми, как на айфоне. И цвет не смягчаем —
+     он и так подобран под белую подпись. */
+  var WARM = {
+    sunset: { light: [254,244,239], dark: [34,25,22] },
+    coral:  { light: [254,242,240], dark: [34,23,25] }
+  };
+
   function brandPair(id, dark){
     var b = BRANDS[id] || BRANDS[FALLBACK];
     var pair = b[dark ? 1 : 0];
+    if (WARM[id]) return [hex(pair[0]), mix(hex(pair[0]), hex(pair[1]), 0.7)];
     var one = soften(hex(pair[0]), dark);
     // Концы градиента ближе друг к другу: остаётся перелив, а не переход
     // между двумя разными цветами.
@@ -167,7 +181,8 @@
     var base = BASE[mode], st = STATUS[mode], sec = SECTIONS[mode];
     var pair = brandPair(S.palette, dark), brand = pair[0], brand2 = pair[1];
 
-    var bg = mix(base.bg, brand, dark ? 0.05 : 0.025);
+    var warm = WARM[S.palette];
+    var bg = warm ? warm[mode] : mix(base.bg, brand, dark ? 0.05 : 0.025);
     var card = dark ? mix(base.card, brand, 0.035) : base.card;
     var soft = mix(base.soft, brand, dark ? 0.05 : 0.03);
     var line = mix(base.line, brand, dark ? 0.06 : 0.04);
@@ -250,21 +265,28 @@
      запасной для неизвестного id (paletteOf отдаёт PALETTES[0]). Её место
      занимает «Индиго» — ближайшая по цвету к прежней индиго-фиолетовой
      паре «Бумаги», так что новый человек видит то же, что раньше.
-     Бесплатные теперь «Индиго» и «Графит». */
+     Бесплатные теперь «Закат», «Коралл», «Индиго» и «Графит»; основная —
+     «Закат», как в приложении для айфона. */
   var REMOVED = ['paper', 'camel', 'editorial', 'neon', 'tobacco'];
-  var FALLBACK = 'indigo';
+  // Основная тема — «Закат», как на айфоне; «Коралл» сразу за ней.
+  var FALLBACK = 'sunset';
+  // Порядок в списке: две тёплые, затем прежние бесплатные «Индиго» и
+  // «Графит» — четыре бесплатных подряд (FREE_LOOKS.palettes в app.js).
+  var FIRST = ['sunset', 'coral', 'indigo', 'graphite'];
 
   function prunePalettes(){
     if (typeof PALETTES === 'undefined') return;
     for (var i = PALETTES.length - 1; i >= 0; i--){
       if (REMOVED.indexOf(PALETTES[i].id) !== -1) PALETTES.splice(i, 1);
     }
-    for (var j = 0; j < PALETTES.length; j++){
-      if (PALETTES[j].id === FALLBACK){ PALETTES.unshift(PALETTES.splice(j, 1)[0]); break; }
+    for (var k = FIRST.length - 1; k >= 0; k--){
+      for (var j = 0; j < PALETTES.length; j++){
+        if (PALETTES[j].id === FIRST[k]){ PALETTES.unshift(PALETTES.splice(j, 1)[0]); break; }
+      }
     }
   }
 
-  /* Кто сидел на убранной теме — переезжает на «Индиго». Проверяем при
+  /* Кто сидел на убранной теме — переезжает на основную («Закат»). Проверяем при
      каждой перекраске, а не один раз: тема может вернуться из резервной
      копии или с телефона. Сохранится со следующим изменением настроек. */
   function migratePalette(){

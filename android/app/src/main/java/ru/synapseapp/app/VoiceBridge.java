@@ -49,8 +49,26 @@ public class VoiceBridge {
         return SpeechRecognizer.isRecognitionAvailable(activity);
     }
 
+    /** Обычная диктовка: фраза заканчивается на паузе в две секунды. */
+    private volatile boolean держат = false;
+
     @JavascriptInterface
     public void start() {
+        держат = false;
+        activity.runOnUiThread(this::начать);
+    }
+
+    /**
+     * Запись, пока человек держит кнопку.
+     *
+     * Конец фразы здесь решает палец, а не тишина: человек может подумать
+     * секунду-другую посреди фразы. Просим движок ждать паузу дольше —
+     * это пожелание, и Google вправе его не исполнить, но там, где
+     * слушают, запись не обрывается на каждой запинке.
+     */
+    @JavascriptInterface
+    public void startHold() {
+        держат = true;
         activity.runOnUiThread(this::начать);
     }
 
@@ -58,6 +76,21 @@ public class VoiceBridge {
     public void stop() {
         activity.runOnUiThread(() -> {
             if (recognizer != null) recognizer.stopListening();
+        });
+    }
+
+    /**
+     * Отменить слушание без итога.
+     *
+     * stop() просит движок закончить фразу, и он присылает её событием final —
+     * страница принимала это за сказанное и отправляла Syn, хотя человек нажал
+     * «стоп» или закрыл окно именно затем, чтобы не отправлять. cancel()
+     * обрывает распознавание, и результатов после него движок не шлёт.
+     */
+    @JavascriptInterface
+    public void cancel() {
+        activity.runOnUiThread(() -> {
+            if (recognizer != null) recognizer.cancel();
         });
     }
 
@@ -81,7 +114,16 @@ public class VoiceBridge {
         recognizer.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) { событие("start", ""); }
             @Override public void onBeginningOfSpeech() { }
-            @Override public void onRmsChanged(float rms) { }
+            /* Громкость голоса — для волны при записи с зажатой кнопкой.
+               Движок присылает её десятки раз в секунду; странице хватает
+               пятнадцати, остальное только грело бы WebView. */
+            private long прошлаяГромкость = 0;
+            @Override public void onRmsChanged(float rms) {
+                long сейчас = System.currentTimeMillis();
+                if (сейчас - прошлаяГромкость < 66) return;
+                прошлаяГромкость = сейчас;
+                событие("rms", String.valueOf(rms));
+            }
             @Override public void onBufferReceived(byte[] buffer) { }
             @Override public void onEndOfSpeech() { }
             @Override public void onEvent(int type, Bundle params) { }
@@ -132,8 +174,9 @@ public class VoiceBridge {
            Оговорка: это подсказки, а не приказ. Движок Google волен их
            игнорировать, и на части прошивок так и происходит. Вреда от них
            нет, а там, где слушают, поведение становится человечнее. */
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L);
+        long тишина = держат ? 8000L : 2000L;
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, тишина);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, тишина);
         intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L);
         recognizer.startListening(intent);
     }

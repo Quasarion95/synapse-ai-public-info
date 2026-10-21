@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView web;
     private VoiceBridge голос;
+    private StoreBridge магазин;
     private NotifyBridge напоминания;
 
     /* Выбор файла в WebView.
@@ -192,6 +193,9 @@ public class MainActivity extends AppCompatActivity {
                 // Код из ссылки ждал загрузки страницы: раньше её функций
                 // просто не существовало.
                 отдатьКодСтранице();
+                // Новая версия в RuStore — спрашиваем, когда страница уже
+                // умеет показать плашку «Обновить».
+                if (магазин != null) магазин.проверить();
                 view.evaluateJavascript(
                         "getComputedStyle(document.body).backgroundColor",
                         value -> покрасить(разобратьЦвет(value)));
@@ -294,7 +298,63 @@ public class MainActivity extends AppCompatActivity {
                 Integer цвет = разобратьЦвет(css);
                 runOnUiThread(() -> покрасить(цвет));
             }
+
+            /* Левый край — меню, а не «назад» (только экран финансов).
+               Система уступает не больше 200 dp высоты на край, поэтому
+               полоса — посередине экрана, шириной 32 dp. */
+            @android.webkit.JavascriptInterface
+            public void edge(boolean вкл) {
+                if (android.os.Build.VERSION.SDK_INT < 29) return;
+                runOnUiThread(() -> {
+                    java.util.List<android.graphics.Rect> полосы = new java.util.ArrayList<>();
+                    if (вкл) {
+                        float dp = getResources().getDisplayMetrics().density;
+                        int h = web.getHeight();
+                        int высота = Math.round(200 * dp);
+                        int верх = Math.max(0, (h - высота) / 2);
+                        полосы.add(new android.graphics.Rect(0, верх, Math.round(32 * dp), верх + высота));
+                    }
+                    web.setSystemGestureExclusionRects(полосы);
+                });
+            }
         }, "AndroidBars");
+
+        /* Тактильный отклик — системный, а не navigator.vibrate.
+
+           Вибромотор из веба умеет только «жужжать заданное число
+           миллисекунд», и даже 10 мс ощущаются грубо. performHapticFeedback
+           даёт те же короткие щелчки, что у системной клавиатуры и
+           переключателей, и сам слушается настройки «Вибрация при касании»:
+           кто её выключил, не получит отклика и от нас. Это и есть поведение
+           айфона. Виды названы по смыслу, константы подбираем по версии
+           системы: CONFIRM и REJECT появились только в Android 11. */
+        web.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public void tap(String вид) {
+                runOnUiThread(() -> web.performHapticFeedback(видОтклика(вид)));
+            }
+        }, "AndroidHaptic");
+
+        // Оценка и обновление через RuStore (StoreBridge).
+        магазин = new StoreBridge(this, web);
+        web.addJavascriptInterface(магазин, "AndroidStore");
+
+        /* События для MyTracker. Страница шлёт только названия действий;
+           здесь пропускаем лишь знакомые, чтобы в аналитику по ошибке не
+           ушло ничего, кроме них. Без ключа MyTracker не запущен — молчим. */
+        if (!BuildConfig.MYTRACKER_KEY.isEmpty()) {
+            final java.util.Set<String> известные = new java.util.HashSet<>(java.util.Arrays.asList(
+                    "task_added", "task_done", "goal_created", "fin_op_added",
+                    "syn_request", "voice_hold", "pro_activated"));
+            web.addJavascriptInterface(new Object() {
+                @android.webkit.JavascriptInterface
+                public void event(String имя) {
+                    if (имя != null && известные.contains(имя)) {
+                        try { com.my.tracker.MyTracker.trackEvent(имя); } catch (Throwable ignored) { }
+                    }
+                }
+            }, "AndroidAnalytics");
+        }
 
         setContentView(web);
 
@@ -307,6 +367,17 @@ public class MainActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                /* Сначала спрашиваем страницу: открытое меню она закрывает
+                   сама и отвечает true. Только если закрывать нечего — шаг
+                   по истории или выход. */
+                web.evaluateJavascript(
+                        "(window.synapseBack && window.synapseBack()) ? 'y' : 'n'",
+                        ответ -> {
+                            if (!"\"y\"".equals(ответ)) назад();
+                        });
+            }
+
+            private void назад() {
                 if (web.canGoBack()) {
                     web.goBack();
                 } else {
@@ -498,6 +569,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         if (голос != null) голос.освободить();
+        if (магазин != null) магазин.освободить();
         super.onDestroy();
     }
 
@@ -525,5 +597,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         web.saveState(outState);
+    }
+
+    /** Смысловой вид отклика → системная константа. */
+    private static int видОтклика(String вид) {
+        boolean r = android.os.Build.VERSION.SDK_INT >= 30;
+        switch (вид == null ? "" : вид) {
+            case "confirm": return r ? android.view.HapticFeedbackConstants.CONFIRM
+                                     : android.view.HapticFeedbackConstants.VIRTUAL_KEY;
+            case "reject":  return r ? android.view.HapticFeedbackConstants.REJECT
+                                     : android.view.HapticFeedbackConstants.LONG_PRESS;
+            case "long":    return android.view.HapticFeedbackConstants.LONG_PRESS;
+            case "tap":     return android.view.HapticFeedbackConstants.KEYBOARD_TAP;
+            default:        return android.view.HapticFeedbackConstants.CLOCK_TICK;
+        }
     }
 }
