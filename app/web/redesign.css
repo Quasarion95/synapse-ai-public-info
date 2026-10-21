@@ -406,3 +406,42 @@
   .setdesk-main .radio.pal .rl{ font-size: 12.5px; text-align: center; line-height: 1.25; color: var(--fg) }
   .setdesk-main .radio.pal[aria-pressed="true"] .rl{ font-weight: 700 }
 }
+
+/* ---------- цели на широком окне: список и открытая цель ----------
+   Разметка — vGoalsDesk в app.js; тело цели — прежнее goalBody. */
+@media (min-width:1040px){
+  .gdesk{ display: grid; grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.4fr); gap: 20px; align-items: start; padding-bottom: 120px }
+  .gdesk-list{ display: flex; flex-direction: column; gap: 12px; position: sticky; top: 24px }
+  .gd-item{
+    display: flex; flex-direction: column; gap: 12px; width: 100%; text-align: left;
+    background: var(--card); border-radius: 22px; box-shadow: var(--shadow); padding: 16px 18px; color: var(--fg);
+    transition: box-shadow .15s ease;
+  }
+  .gd-item:hover{ box-shadow: var(--shadow-lift) }
+  .gd-item.on{ box-shadow: 0 0 0 2.5px var(--accent), var(--shadow) }
+  .gd-row{ display: flex; align-items: center; gap: 12px }
+  .gd-ini{
+    width: 40px; height: 40px; flex: none; border-radius: 13px; display: grid; place-items: center;
+    background: var(--accent-tint); color: var(--accent-text, var(--accent)); font-family: var(--display); font-weight: 800; font-size: 16px;
+  }
+  .gd-item.on .gd-ini{ background: var(--accent); color: var(--on-accent) }
+  .gd-tx{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px }
+  .gd-tx b{ font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere }
+  .gd-tx i{ font-style: normal; font-size: 12.5px; color: var(--fg-2) }
+  .gd-p{ font-family: var(--display); font-size: 19px; font-weight: 800; color: var(--fg); flex: none }
+  .gd-p.done{ color: var(--pos) }
+  .gd-item .bar{ height: 7px; border-radius: 6px; margin: 0 }
+
+  .gdesk-main.goalcard{ margin: 0; padding: 28px; border-radius: 26px; border: 0; box-shadow: var(--shadow) }
+  .gd-head{ display: flex; justify-content: space-between; gap: 20px; align-items: flex-start }
+  .gd-eye{ display: block; font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--accent-text, var(--accent)) }
+  .gd-head h2{ margin: 8px 0 6px; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -.03em }
+  .gd-pct{ text-align: right; flex: none; color: var(--accent-text, var(--accent)) }
+  .gd-pct.done{ color: var(--pos) }
+  .gd-pct b{ display: block; font-family: var(--display); font-size: 56px; line-height: .95; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums }
+  .gd-pct small{ font-size: 26px }
+  .gd-pct span{ display: block; font-size: 13px; color: var(--fg-2); margin-top: 6px }
+  .gdesk-main > .bar{ height: 9px; border-radius: 6px; margin: 18px 0 6px }
+  .gdesk-main .goalbody-wrap{ height: auto !important; opacity: 1 !important; overflow: visible }
+  .gdesk-main .goalbody{ padding-top: 14px }
+}

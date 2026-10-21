@@ -65,6 +65,9 @@
     settings:   function(){ return { t: 'Настройки', e: lang() === 'en' ? 'Profile and app' : 'Профиль и приложение' }; }
   };
 
+  // Страница одной цели на широком окне — та же раскладка, что у целей.
+  HEADS.goal = function(){ return HEADS.goals(); };
+
   // Разделы настроек на широком окне — одна страница в две колонки, шапка общая.
   ['settings-view', 'settings-notify', 'settings-start', 'settings-data', 'settings-about'].forEach(function(id){
     HEADS[id] = function(){ return HEADS.settings(); };
@@ -140,6 +143,14 @@
     var me = document.createElement('div');
     me.className = 'rail-me';
     if (who){
+      // Без имени в кнопке один аватар — подпись «Профиль», как на макете.
+      if (!who.querySelector('.nm')){
+        var nm = document.createElement('span');
+        nm.className = 'nm';
+        nm.textContent = global.SynI18n && SynI18n.tr ? SynI18n.tr('Профиль') : 'Профиль';
+        var av = who.querySelector('.avatar');
+        if (av && av.nextSibling) who.insertBefore(nm, av.nextSibling); else who.appendChild(nm);
+      }
       if (!who.querySelector('.rail-plan')){
         var p = document.createElement('span');
         p.className = 'rail-plan';

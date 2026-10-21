@@ -8057,8 +8057,55 @@ function goalProgress(goal){
    Цель раскрывается на месте, а не уводит на отдельную страницу. Раньше, чтобы
    посмотреть этапы одной цели и вернуться к другой, приходилось ходить туда и
    обратно; теперь обе видно рядом. */
+/* Цели на широком окне — две колонки (новый вид, 21.10.2026): слева все
+   цели с процентом и полосой, справа открытая цель целиком — этапы, их
+   задачи, задачи без этапа и кнопки. Тело цели — то же goalBody, что
+   раскрывается на сетке и в приложении, поэтому всё, что умеет цель,
+   умеет и здесь. Выбранная цель — S.activeGoal, тот же, что у отдельной
+   страницы цели: переход «открыть цель» откуда угодно открывает её справа. */
+function целиСтолом(){
+  return !appLook() && !!(window.matchMedia && window.matchMedia('(min-width: 1040px)').matches);
+}
+
+function целиМета(g, p){
+  if (g.aiPending) return '<span class="chip ai-pending">Syn составляет цель…</span>';
+  return p.total || g.stages.length
+    ? p.done + ' из ' + p.total + ' ' + p.unit + ' · ' + g.stages.length + ' ' + plural(g.stages.length, 'этап', 'этапа', 'этапов') +
+      (g.horizon ? ' · ' + esc(g.horizon) : '')
+    : (g.horizon ? esc(g.horizon) : 'Только что поставлена');
+}
+
+function vGoalsDesk(){
+  var выбрана = findGoal(S.activeGoal) || S.goals[0];
+  var p0 = goalProgress(выбрана);
+  var проц = pct(p0.done, p0.total);
+  return '<div class="gdesk">' +
+    '<div class="gdesk-list">' + S.goals.map(function(g){
+      var p = goalProgress(g), on = g.id === выбрана.id, n = pct(p.done, p.total);
+      return '<button class="gd-item' + (on ? ' on' : '') + '" data-act="desk-goal" data-goal="' + g.id + '" aria-pressed="' + on + '">' +
+        '<span class="gd-row"><span class="gd-ini" aria-hidden="true">' + esc((g.title || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+          '<span class="gd-tx"><b translate="no">' + esc(g.title) + '</b><i>' + целиМета(g, p) + '</i></span>' +
+          '<span class="gd-p' + (p.total && p.done >= p.total ? ' done' : '') + '">' + n + '%</span></span>' +
+        '<span class="bar slim"><i style="width:' + n + '%"></i></span>' +
+      '</button>';
+    }).join('') + '</div>' +
+    '<section class="gdesk-main goalcard open" data-goal="' + выбрана.id + '">' +
+      '<div class="gd-head"><div class="gd-h-tx">' +
+          '<span class="gd-eye">Цель' + (выбрана.horizon ? ' · ' + esc(выбрана.horizon) : '') + '</span>' +
+          '<h2 translate="no">' + esc(выбрана.title) + '</h2>' +
+          '<div class="gmeta">' + целиМета(выбрана, p0) + '</div>' +
+        '</div>' +
+        '<div class="gd-pct' + (p0.total && p0.done >= p0.total ? ' done' : '') + '"><b>' + проц + '<small>%</small></b><span>пройдено</span></div>' +
+      '</div>' +
+      '<div class="bar"><i style="width:' + проц + '%"></i></div>' +
+      '<div class="goalbody-wrap">' + goalBody(выбрана) + '</div>' +
+    '</section>' +
+  '</div>' + vGoalComposer();
+}
+
 function vGoals(){
   var html = '';
+  if (S.goals.length && целиСтолом()) return vGoalsDesk();
 
   if (!S.goals.length){
     return blank(NAV_ICONS.goals, 'Целей пока нет',
@@ -8216,6 +8263,7 @@ function vGoalComposer(){
 }
 
 function vGoal(){
+  if (целиСтолом() && findGoal(S.activeGoal)) return vGoalsDesk();
   var g = findGoal(S.activeGoal);
   if (!g) return head('Цель', 'Цель не найдена', 'goals') +
     blank(NAV_ICONS.goals, 'Похоже, она уже была удалена', 'Вернись к списку целей.', 'go', 'Все цели', ' data-view="goals"');
@@ -15061,6 +15109,8 @@ var ACTS = {
     commit('Цель сохранена');
   },
   'open-goal': function(d){ S.activeGoal = d.goal; go('goal'); },
+  // Выбор цели в левой колонке широкого окна (vGoalsDesk).
+  'desk-goal': function(d){ S.activeGoal = d.goal; render(); },
   /* «+ Шаг» у цели без задач. Этапы есть — открываем цель с курсором в поле
      задачи первого незакрытого этапа: шаг пишется сразу. Этапов нет — сначала
      этап: задача в цели живёт внутри этапа. */
