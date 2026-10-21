@@ -41,7 +41,7 @@
     'Мои траты': 'My expenses', 'Общее': 'Overview', 'Период': 'Period',
     'Все': 'All', 'все': 'all', 'Все разделы': 'All sections',
     'Название': 'Title',
-    'Задачи': 'Tasks', 'Цели': 'Goals', 'Цель': 'Goal', 'Аналитика': 'Analytics', 'Мой фокус': 'My focus', 'Инструменты': 'Tools',
+    'Задачи': 'Tasks', 'Цели': 'Goals', 'Цель': 'Goal', 'Аналитика': 'Analytics', 'Мой фокус': 'My focus', 'Инструменты': 'Tools', 'Настройки и другое': 'Settings and more', 'Бесплатно': 'Free',
     'Карта целей': 'Goal map', 'Карта': 'Map', 'Списки': 'Lists', 'Список': 'List',
     'Заметки': 'Notes', 'Заметка': 'Note', 'Метод Помодоро': 'Pomodoro',
     'Медитация': 'Meditation', 'Мои финансы': 'My finances', 'Корзина': 'Trash',
