@@ -527,3 +527,66 @@ body { background: var(--bg); }
   .cta-away .sticky-cta { display: block; transform: none; }
   .sticky-cta .btn { width: 100%; min-height: 50px; }
 }
+
+/* ---- тарифы: сравнение и сроки ----
+   Разница видна сразу: в таблице выделены только строки, где Pro что-то
+   добавляет, одинаковые приглушены. Ниже — три срока одного Pro; цена
+   месяца полосой: длиннее полоса — дороже месяц. */
+.pc { max-width: 900px; margin: 0 auto; background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 10px 0; overflow: hidden; }
+.pc-head, .pc-row, .pc-foot { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+.pc-head > span, .pc-row > span, .pc-foot > span { padding: 13px 22px; }
+.pc-pro { background: var(--b-soft); }
+.pc-head b { display: block; font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--text); }
+.pc-head i { display: block; font-style: normal; font-size: 14px; color: var(--muted); }
+.pc-head .pc-pro b { color: var(--b-text); }
+.pc-row { border-top: 1px solid var(--divider); font-size: 15.5px; }
+.pc-row .pc-name { color: var(--text); }
+.pc-row .pc-free { color: var(--muted); }
+.pc-row .pc-pro { color: var(--muted); }
+.pc-row:not(.pc-diff) > span { color: var(--muted); opacity: .8; }
+.pc-diff .pc-name { font-weight: 600; }
+.pc-diff .pc-pro { color: var(--b-text); font-weight: 700; }
+.pc-foot { border-top: 1px solid var(--divider); }
+.pc-foot .btn { width: 100%; }
+.terms-title { text-align: center; font-family: var(--font-display); font-size: 26px; font-weight: 800; margin: 44px 0 6px; }
+.terms-sub { text-align: center; color: var(--muted); margin: 0 auto 22px; max-width: 620px; }
+.terms { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; max-width: 900px; margin: 0 auto; }
+.term {
+  position: relative; display: flex; flex-direction: column; gap: 6px; padding: 24px 22px 22px;
+  background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); color: var(--text); text-decoration: none;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.term:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.term-name { font-weight: 700; font-size: 16px; }
+.term-price { font-family: var(--font-display); font-size: 36px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+.term-month { font-size: 15px; color: var(--muted); }
+.term-bar { height: 8px; border-radius: 6px; background: var(--track); margin: 6px 0 4px; overflow: hidden; }
+.term-bar i { display: block; height: 100%; border-radius: 6px; background: color-mix(in srgb, var(--b1) 45%, var(--track)); }
+.term-note { font-size: 14.5px; color: var(--muted); flex: 1; }
+.term .btn { margin-top: 12px; width: 100%; }
+.term-best { background: var(--b1); color: #fff; box-shadow: var(--glow); }
+.term-best .term-month, .term-best .term-note { color: rgba(255,255,255,.9); }
+.term-best .term-bar { background: rgba(255,255,255,.28); }
+.term-best .term-bar i { background: #fff; }
+.term-badge { position: absolute; top: -12px; left: 22px; padding: 5px 12px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 12.5px; font-weight: 700; }
+:root[data-theme="dark"] .term-best { color: #1c1512; }
+:root[data-theme="dark"] .term-best .term-month, :root[data-theme="dark"] .term-best .term-note { color: rgba(28,21,18,.82); }
+@media (max-width: 760px) {
+  .terms { grid-template-columns: minmax(0, 1fr); }
+  .pc-head > span, .pc-row > span, .pc-foot > span { padding: 11px 12px; }
+  .pc-row { font-size: 14px; }
+  .pc-head b { font-size: 17px; }
+  .pc-head i { font-size: 12.5px; }
+}
+.band > .terms-title, .band > .terms-sub { max-width: 900px; margin-left: auto; margin-right: auto; text-align: center; }
+.term-best .btn-plan-primary, .term-best .btn-plan-primary:hover { background: #fff; color: var(--b-text); box-shadow: 0 12px 26px -14px rgba(0,0,0,.4); filter: none; }
+:root[data-theme="dark"] .term-best .btn-plan-primary { background: #1c1512; color: #fff; }
+/* На телефоне три колонки не помещались: название строки — сверху на всю
+   ширину, под ним два значения рядом. */
+@media (max-width: 760px) {
+  .pc-head, .pc-row, .pc-foot { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .pc-head > span:first-child, .pc-foot > span:first-child { display: none; }
+  .pc-row .pc-name { grid-column: 1 / -1; padding-bottom: 0; }
+  .pc-row > span { overflow-wrap: anywhere; }
+  .pc-row .pc-free, .pc-row .pc-pro { padding-top: 6px; }
+}
