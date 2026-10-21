@@ -41,6 +41,19 @@
   /* Цвет режима. Томат у фокуса — сам знак помодоро; перерывы — спокойнее. */
   var HUES = { focus: [6, 72, 56], shortBreak: [145, 42, 46], longBreak: [205, 55, 52] };
 
+  function toHsl(c){
+    var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, h = 0, sat = 0;
+    if (max !== min){
+      var d = max - min;
+      sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h /= 6;
+    }
+    // Светлоту держим в коридоре прежнего томата: вода должна просвечивать.
+    return [Math.round(h * 360), Math.round(Math.max(28, sat * 100)), Math.round(Math.min(62, Math.max(44, l * 100)))];
+  }
+
   function hsla(c, a){ return 'hsla(' + c[0] + ',' + c[1] + '%,' + c[2] + '%,' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
   function rgba(c, a){ return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
 
@@ -52,6 +65,16 @@
     if (c.charAt(0) === '#') fg = [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
     else { var m = c.match(/[\d.]+/g) || [40, 40, 40]; fg = [Number(m[0]), Number(m[1]), Number(m[2])]; }
     dark = document.documentElement.getAttribute('data-dark') === '1';
+    /* Фокус — в цвете темы, как на айфоне: в «Закате» он оранжевый, в
+       «Лесе» зелёный. Томат был знаком помодоро, но на экране, где всё
+       остальное в цвете темы, он читался чужим. Перерывы остаются своими —
+       зелёный и синий, — чтобы отдых не путался с работой. */
+    probe.fillStyle = '#000';
+    probe.fillStyle = (getComputedStyle(document.documentElement).getPropertyValue('--accent') || '').trim() || '#d9603b';
+    var ac = probe.fillStyle, rgb;
+    if (ac.charAt(0) === '#') rgb = [parseInt(ac.slice(1, 3), 16), parseInt(ac.slice(3, 5), 16), parseInt(ac.slice(5, 7), 16)];
+    else { var am = ac.match(/[\d.]+/g) || [217, 96, 59]; rgb = [Number(am[0]), Number(am[1]), Number(am[2])]; }
+    HUES.focus = toHsl(rgb);
     colorsAt = Date.now();
   }
 

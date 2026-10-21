@@ -320,7 +320,7 @@
     };
     base();
     apply();
-    if (typeof S !== 'undefined' && S.view === 'settings' && typeof global.render === 'function') global.render();
+    if (typeof S !== 'undefined' && String(S.view).indexOf('settings') === 0 && typeof global.render === 'function') global.render();
     var app = document.getElementById('app');
     if (app && global.MutationObserver){
       new MutationObserver(markMap).observe(app, { childList: true });

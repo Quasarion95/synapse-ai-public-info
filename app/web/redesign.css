@@ -222,3 +222,63 @@
 .mmwrap .mm-card .mm-label{ fill: var(--text) }
 .mmwrap .mm-card .mm-label.sec{ fill: var(--text-2) }
 .mmbox .mmwrap{ border: 0; border-radius: 24px; box-shadow: var(--shadow) }
+
+/* ---------- выбор из нескольких ----------
+   Выбранное — тихой заливкой цветом темы, без обводки: обводка и заливка
+   вместе спорили с карточкой, на которой лежат. */
+.radio[aria-pressed="true"], .mode[aria-pressed="true"]{
+  background: var(--accent-tint); box-shadow: none;
+}
+.radio, .lv-btn{ border-radius: 12px }
+
+@media (min-width:1040px){
+
+  /* ---------- мои финансы ----------
+     «Свободно» — главная цифра раздела, как на айфоне: своя карточка цветом
+     темы, вдвое шире соседей. Остальные пять — белые плитки на тени.
+     Нажатие на «Свободно» по-прежнему правит сумму. */
+  .desk-zone{ border: 0; border-radius: 24px }
+  .desk-zone.z-kpi{ background: transparent; box-shadow: none; overflow: visible }
+  .desk-kpi{ gap: 14px; background: transparent }
+  .dk{ background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 16px 18px }
+  .dk-c{ font-size: 11.5px; font-weight: 700; letter-spacing: .07em; color: var(--fg-3) }
+  .dk-v{ font-size: 24px; font-weight: 800; letter-spacing: -.025em }
+  .desk-kpi > .dk:first-child{
+    background: var(--accent); color: var(--on-accent); box-shadow: var(--glow);
+  }
+  .desk-kpi > .dk:first-child .dk-c,
+  .desk-kpi > .dk:first-child .dk-n{ color: var(--on-accent); opacity: .85 }
+  .desk-kpi > .dk:first-child .dk-v{ color: var(--on-accent); font-size: 34px; letter-spacing: -.035em }
+  .desk-kpi > button.dk:first-child:hover{ background: var(--accent); filter: brightness(1.05) }
+  .dz-head h3{ font-size: 19px; font-weight: 800; letter-spacing: -.02em }
+
+  /* ---------- цели ---------- */
+  .goalcard{ border: 0; border-radius: 22px; padding: 18px 22px }
+  .goalcard-h .gt{ font-size: 17px }
+  .goalcard-h .gp{ font-size: 20px; font-weight: 800; color: var(--accent-text, var(--accent)) }
+  .goalcard .bar{ height: 8px; border-radius: 6px }
+  .goalcard .bar i{ border-radius: 6px }
+
+  /* ---------- списки и заметки ---------- */
+  .listcol, .row-card{ border: 0; border-radius: 22px }
+  .listcol-h h3{ font-size: 16px; font-weight: 800 }
+  .listseg{ background: var(--card); box-shadow: var(--shadow); border-radius: 15px; padding: 5px }
+  .lv-btn.on{ background: var(--accent); color: var(--on-accent); box-shadow: var(--glow) }
+
+  /* ---------- настройки ----------
+     Подписи групп — капителью цветом темы, а не заголовками в рост:
+     крупное название у страницы уже есть. */
+  .setgroup-t{
+    font-size: 12px; line-height: 1.2; transform: none; letter-spacing: .09em; font-weight: 700;
+    color: var(--accent-text, var(--accent)); margin: 26px 0 10px 4px;
+  }
+  .setcard, .setblock{ border: 0; border-radius: 22px }
+}
+
+/* «Свободно» — шире соседей, чтобы крупная сумма не обрезалась. */
+@container desk (min-width:1000px){
+  .desk-kpi{ grid-template-columns: minmax(0, 1.8fr) repeat(5, minmax(0, 1fr)) }
+}
+@container desk (max-width:999px){
+  .desk-kpi > .dk:first-child{ grid-column: span 2 }
+}
