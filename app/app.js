@@ -17464,7 +17464,7 @@ function syncResolveConflict(){
 }
 
 function syncTurnOn(){ return syncDo(function(){ return syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); return syncPullApply(); }).then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизация включена.'; }); }); }
-function syncTurnOff(){ if (typeof syncWatchStop === 'function') syncWatchStop(); syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); syncStoreSet('pairCode', null); syncStoreSet('pairUntil', null); syncForgetSynced(); SYNC.code = ''; SYNC.devices = null; SYNC.devicesAt = 0; SYNC.status = 'Синхронизация в этом браузере выключена. Записи остались.'; render(); }
+function syncTurnOff(){ if (typeof syncWatchStop === 'function') syncWatchStop(); syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); syncStoreSet('pairCode', null); syncStoreSet('pairUntil', null); syncForgetSynced(); SYNC.code = ''; SYNC.devices = null; SYNC.devicesAt = 0; SYNC.status = inApp() ? 'Синхронизация на этом телефоне выключена. Записи остались.' : 'Синхронизация в этом браузере выключена. Записи остались.'; render(); }
 /* «Добавить устройство»: код на 10 минут. Пока он жив (с запасом в минуту),
    повторное нажатие показывает ТОТ ЖЕ код — раньше каждое нажатие выдавало
    новый, и код, который уже набирали на другом устройстве, переставал
@@ -17513,7 +17513,7 @@ function syncОтвязано(){
   ['enabled', 'token', 'dataKey', 'lastServerUpdatedAt', 'pairCode', 'pairUntil', 'lastOkAt'].forEach(function(k){ syncStoreSet(k, null); });
   syncForgetSynced();
   SYNC.devices = null; SYNC.devicesAt = 0; SYNC.joinOpen = false;
-  SYNC.status = 'Этот браузер отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.';
+  SYNC.status = (inApp() ? 'Этот телефон' : 'Этот браузер') + ' отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.';
   render();
 }
 
@@ -17649,7 +17649,8 @@ function разделСинхро(){
       '<button class="btn sm soft" data-act="sync-now">Синхронизировать сейчас</button>' +
       '</div>';
     h += '<div class="acts sync-quiet">' +
-      '<button class="btn sm soft" data-act="sync-off">Выключить в этом браузере</button>' +
+      // В приложении на андроиде браузера человек не видит — «на этом телефоне».
+      '<button class="btn sm soft" data-act="sync-off">' + (inApp() ? 'Выключить на этом телефоне' : 'Выключить в этом браузере') + '</button>' +
       '<button class="btn sm soft" data-act="sync-delete">Удалить копию с сервера</button>' +
       '</div>';
   }
