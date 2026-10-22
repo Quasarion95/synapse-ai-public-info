@@ -1117,9 +1117,9 @@
     [/^Сверялось (?:только что|(\d+) (мин|ч|дн) назад)$/, function (m) {
       return m[1] ? 'Synced ' + m[1] + (m[2] === 'мин' ? ' min' : m[2] === 'ч' ? ' h' : ' d') + ' ago' : 'Synced just now';
     }],
-    [/^(Айфон|Айпад|Андроид|Веб|Устройство)(?: · (.+))?$/, function (m) {
+    [/^(Айфон|Айпад|Андроид|Веб|Устройство)(?:[ \u00a0]· (.+))?$/, function (m) {
       var вид = { 'Айфон': 'iPhone', 'Айпад': 'iPad', 'Андроид': 'Android', 'Веб': 'Web', 'Устройство': 'Device' }[m[1]];
-      return m[2] ? вид + ' · ' + m[2].replace('Яндекс Браузер', 'Yandex Browser').replace(' на ', ' on ').replace(/^Браузер/, 'Browser') : вид;
+      return m[2] ? вид + '\u00a0· ' + m[2].replace('Яндекс Браузер', 'Yandex Browser').replace(' на ', ' on ').replace(/^Браузер/, 'Browser') : вид;
     }],
     [/^Сверялось (сегодня|вчера) в (\d+:\d\d)$/, function (m) { return 'Synced ' + (m[1] === 'сегодня' ? 'today' : 'yesterday') + ' at ' + m[2]; }],
     [/^Код действует ещё (\d+:\d\d)$/, function (m) { return 'Code valid for ' + m[1]; }],

@@ -17286,7 +17286,8 @@ function syncИмяУстройства(d){
   var вид = { ios: 'Айфон', android: 'Андроид', web: 'Веб' }[d.platform] || 'Устройство';
   // Айфонное приложение шлёт родовое имя модели: «iPhone» или «iPad».
   if (d.platform === 'ios') return d.name === 'iPad' ? 'Айпад' : 'Айфон';
-  return d.name && d.name !== вид ? вид + ' · ' + d.name : вид;
+  // Неразрывный пробел перед точкой: на узком экране «·» не повисает строкой.
+  return d.name && d.name !== вид ? вид + '\u00a0· ' + d.name : вид;
 }
 function syncЗнакУстройства(d){ return { ios: 'iP', android: 'A', web: 'W' }[d.platform] || '•'; }
 function syncКогдаУстройство(d){
