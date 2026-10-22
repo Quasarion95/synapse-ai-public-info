@@ -17061,7 +17061,22 @@ function syncSerial(вид, fn){
 function syncReady(){ return !!(syncToken() && syncDataKeyRaw()); }
 function syncLocalDirty(){ return syncLastHash === null || syncContentHash() !== syncLastHash; }
 
-function syncPullApply(){ return syncSerial('pull', syncPullInner); }
+/* Отметка удачной сверки — для строки состояния в «Данных» и для
+   предупреждения. Синхронизация шла в фоне молча: ошибка — «таймер
+   повторит», нет пропуска или ключа — тихо ничего. Владелец так и сказал:
+   «синхра включена, но не происходила», а экран показывал только кнопку
+   «Отключить», как будто всё в порядке. Теперь видно, когда была последняя
+   удачная сверка, и если давно — об этом говорится. */
+function syncОтметить(обещание){
+  return обещание.then(function(v){
+    if (syncReady()){ syncStoreSet('lastOkAt', String(Date.now())); syncStoreSet('lastErrAt', null); }
+    return v;
+  }, function(e){
+    syncStoreSet('lastErrAt', String(Date.now()));
+    throw e;
+  });
+}
+function syncPullApply(){ return syncОтметить(syncSerial('pull', syncPullInner)); }
 function syncPullInner(){
   if (!syncReady()) return Promise.resolve();
   // «Сначала принять» (после «Стереть всё»/«Примеры», см. заменитьВсеДанные):
@@ -17098,7 +17113,7 @@ function syncPullInner(){
   });
 }
 
-function syncPushCurrent(){ return syncSerial('push', function(){ return syncPushInner(true); }); }
+function syncPushCurrent(){ return syncОтметить(syncSerial('push', function(){ return syncPushInner(true); })); }
 function syncPushInner(можноСлить){
   if (!syncReady()) return Promise.resolve();
   // Приём после замены всех данных ещё не прошёл (сеть, расшифровка) — молчим,
@@ -17169,6 +17184,44 @@ function syncPullOnLoad(){
   else if (синхроЖдёт()) перекатПосле(null);
 }
 
+/* Состояние синхронизации человеческими словами. */
+var SYNC_ДАВНО_МС = 6 * 60 * 60 * 1000;
+function syncКогда(ts){
+  var мин = Math.floor((Date.now() - ts) / 60000);
+  if (мин < 1) return 'только что';
+  if (мин < 60) return мин + ' мин назад';
+  var ч = Math.floor(мин / 60);
+  if (ч < 24) return ч + ' ч назад';
+  return Math.floor(ч / 24) + ' дн назад';
+}
+function syncЗдоровье(){
+  if (!syncEnabled()) return { k: 'off', t: '' };
+  if (!syncToken()) return { k: 'token', t: 'Синхронизация включена, но это устройство потеряло доступ к ней. Нажмите «Переподключить».' };
+  if (!syncDataKeyRaw()) return { k: 'key', t: 'Синхронизация включена, но на этом устройстве нет ключа. Введите код с другого устройства.' };
+  var ok = +syncStore('lastOkAt') || 0;
+  if (!ok) return { k: 'wait', t: 'Первая сверка ещё не прошла.' };
+  if (Date.now() - ok > SYNC_ДАВНО_МС)
+    return { k: 'stale', t: 'Последняя удачная сверка — ' + syncКогда(ok) + '. Нажмите «Синхронизировать сейчас».' };
+  return { k: 'ok', t: 'Синхронизировано · ' + syncКогда(ok) };
+}
+/* Раз в день, если синхронизация включена, а сверки давно нет или
+   устройство потеряло доступ, — короткое напоминание. Первая проверка —
+   через полторы минуты после открытия: фоновая сверка успевает пройти. */
+function syncПроверитьЗдоровье(){
+  if (document.hidden || !isPro()) return;
+  var з = syncЗдоровье();
+  if (з.k !== 'token' && з.k !== 'key' && з.k !== 'stale') return;
+  var день = isoOf(todayDate());
+  if (syncStore('warnDay') === день) return;
+  syncStoreSet('warnDay', день);
+  toast('Синхронизация не проходит — загляните в Настройки → Данные.');
+}
+if (typeof window !== 'undefined' && !window.__syncHealthTimer){
+  window.__syncHealthTimer = true;
+  setTimeout(function(){ try { syncПроверитьЗдоровье(); } catch (e) {} }, 90000);
+  setInterval(function(){ try { syncПроверитьЗдоровье(); } catch (e) {} }, 10 * 60000);
+}
+
 /* ---- экран в разделе «Данные» ---- */
 function разделСинхро(){
   if (!SYNC) SYNC = { code: '', status: '', busy: false, joinOpen: false };
@@ -17184,6 +17237,9 @@ function разделСинхро(){
         : '<button class="btn sm" data-act="sync-on">Включить</button>') +
     '</div>';
   if (on){
+    var здоровье = syncЗдоровье();
+    h += '<p class="sync-health sync-h-' + здоровье.k + '"><i aria-hidden="true"></i><span>' + esc(здоровье.t) + '</span></p>';
+    if (здоровье.k === 'token') h += '<div class="acts"><button class="btn sm" data-act="sync-on">Переподключить</button></div>';
     h += '<div class="acts">' +
       '<button class="btn sm" data-act="sync-code">Связать новое устройство</button>' +
       '<button class="btn sm soft" data-act="sync-join-open">Ввести код</button>' +
@@ -17192,7 +17248,7 @@ function разделСинхро(){
     if (SYNC.code) h += '<p class="hint">Код для связки (введите его на другом устройстве):</p>' +
       '<p style="font-size:28px;font-weight:800;letter-spacing:3px;font-family:monospace">' + esc(SYNC.code) + '</p>';
     if (SYNC.joinOpen) h += '<div class="acts" style="gap:8px">' +
-      '<input id="sync-code-input" placeholder="ABCD-EFGH" autocapitalize="characters" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line,#ccc);flex:1">' +
+      '<input id="sync-code-input" placeholder="8 букв и цифр" maxlength="9" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line,#ccc);flex:1">' +
       '<button class="btn sm" data-act="sync-join-do">Связать</button></div>';
     h += '<div class="acts"><button class="btn sm soft" data-act="sync-delete">Удалить копию с сервера</button></div>';
   }
@@ -17321,6 +17377,8 @@ function syncWatchStart(){
     }).then(function(d){
       if (gen !== syncWatch.gen) return;
       d = d || {};
+      // Сервер ответил на ожидание — связь с группой есть.
+      syncStoreSet('lastOkAt', String(Date.now())); syncStoreSet('lastErrAt', null);
       syncWatch.known = d.updatedAt || '';
       if (d.changed){
         // Пауза в четверть секунды: наш же снимок мог прийти раньше ответа на
@@ -17360,6 +17418,32 @@ ACTS['sync-on'] = function(){ syncTurnOn(); };
 ACTS['sync-off'] = function(){ syncTurnOff(); };
 ACTS['sync-code'] = function(){ syncShowCode(); };
 ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; render(); };
+/* Код связки набирается как есть: «abcdefgh», «ABCD EFGH», с русской
+   раскладкой — поле само приводит к виду ABCD-EFGH (заглавные, дефис после
+   четвёртого знака), а набрав все восемь, само связывает устройство.
+   Владелец: «бесит, что тире вставлять нужно всюду — лучше бы оно само
+   ставилось». Сравнивается код без дефиса (SynSyncCrypto.normalize), так
+   что дефис нигде и не был нужен — его требовала только подсказка. */
+var syncКодОтправлен = '';
+document.addEventListener('input', function(e){
+  var el = e.target;
+  if (!el || el.id !== 'sync-code-input' || !window.SynSyncCrypto) return;
+  var чисто = SynSyncCrypto.normalize(el.value).slice(0, 8);
+  var вид = чисто.length > 4 ? чисто.slice(0, 4) + '-' + чисто.slice(4) : чисто;
+  if (el.value !== вид){
+    el.value = вид;
+    try { el.setSelectionRange(вид.length, вид.length); } catch (er) {}
+  }
+  if (чисто.length === 8 && syncКодОтправлен !== чисто && !(SYNC && SYNC.busy)){
+    syncКодОтправлен = чисто;
+    syncJoin(вид);
+  } else if (чисто.length < 8) {
+    syncКодОтправлен = '';
+  }
+});
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Enter' && e.target && e.target.id === 'sync-code-input') ACTS['sync-join-do']();
+});
 ACTS['sync-join-do'] = function(){ var el = document.getElementById('sync-code-input'); syncJoin(el ? el.value : ''); };
 ACTS['sync-now'] = function(){ syncNow(); };
 /* Удаление копии с сервера необратимо и касается всех связанных устройств —

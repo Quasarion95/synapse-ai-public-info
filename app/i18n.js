@@ -183,6 +183,10 @@
     'Нет интернета — Syn ответит, как только связь появится.': 'No internet — Syn will answer as soon as you are back online.',
     'Syn задумался слишком долго. Попробуй ещё раз.': 'Syn took too long to think. Please try again.',
     'ИИ временно недоступен — цель записана с одним названием.': 'AI is temporarily unavailable — the goal is saved with just its title.',
+    'Синхронизировано · только что': 'Synced · just now', 'Первая сверка ещё не прошла.': 'The first sync hasn’t happened yet.',
+    'Синхронизация включена, но это устройство потеряло доступ к ней. Нажмите «Переподключить».': 'Sync is on, but this device has lost access to it. Press “Reconnect”.',
+    'Синхронизация включена, но на этом устройстве нет ключа. Введите код с другого устройства.': 'Sync is on, but this device has no key. Enter a code from another device.',
+    'Переподключить': 'Reconnect', '8 букв и цифр': '8 letters and digits', 'Синхронизировать сейчас': 'Sync now', 'Синхронизация не проходит — загляните в Настройки → Данные.': 'Sync isn’t going through — check Settings → Data.',
     'Сфокусируйся на задаче': 'Focus on this task', 'Сфокусируйся на цели': 'Focus on this goal',
     'Показать полностью': 'Show all', 'Цветёт!': 'Blooming!', 'Растёт': 'Growing',
     'Грустит — ему не хватает дел': 'Sad — it needs more tasks', 'Засохло — полей его делами': 'Dry — water it with tasks', 'Свернуть': 'Show less', 'Накоплено': 'Saved', 'В день': 'Per day',
@@ -1072,6 +1076,32 @@
   function items(n) { return n + (n === '1' ? ' item' : ' items'); }
 
   var PATTERNS = [
+    // — «Мой фокус», цели: фразы с числами внутри (21.10.2026, снимки для
+    //   английской страницы сайта показали их русскими) —
+    [/^Сегодня в фокусе (\d+) (?:задача|задачи|задач)$/, function (m) {
+      return 'In focus today: ' + m[1] + (m[1] === '1' ? ' task' : ' tasks');
+    }],
+    [/^(\d+) из (\d+) (?:закрыта|закрыты|закрыто)\. Осталось (\d+) (?:задача|задачи|задач)\.$/, function (m) {
+      return m[1] + ' of ' + m[2] + ' done. ' + m[3] + (m[3] === '1' ? ' task' : ' tasks') + ' left.';
+    }],
+    [/^из (\d+)$/, function (m) { return 'of ' + m[1]; }],
+    [/^Синхронизировано · (\d+) (мин|ч|дн) назад$/, function (m) {
+      return 'Synced · ' + m[1] + (m[2] === 'мин' ? ' min' : m[2] === 'ч' ? ' h' : ' d') + ' ago';
+    }],
+    [/^Последняя удачная сверка — (\d+) (мин|ч|дн) назад\. Нажмите «Синхронизировать сейчас»\.$/, function (m) {
+      return 'Last successful sync — ' + m[1] + (m[2] === 'мин' ? ' min' : m[2] === 'ч' ? ' h' : ' d') + ' ago. Press “Sync now”.';
+    }],
+    [/^(\d+) \/ (\d+) (этап|этапа|этапов|задача|задачи|задач)$/, function (m) {
+      return m[1] + ' / ' + m[2] + (/^этап/.test(m[3]) ? ' stages' : ' tasks');
+    }],
+    [/^(\d+)% задач целей сделано$/, function (m) { return m[1] + '% of goal tasks done'; }],
+    [/^(Бесплатно|В подписке) (\d+) запросов к Syn в день\.$/, function (m) {
+      return (m[1] === 'Бесплатно' ? 'Free: ' : 'With Pro: ') + m[2] + ' Syn requests a day.';
+    }],
+    [/^(\d+) из (\d+) (этапов|этапа|этап|задачи|задача|задач) · (\d+) (?:этапов|этапа|этап)(.*)$/, function (m) {
+      var unit = /^этап/.test(m[3]) ? 'stages' : 'tasks';
+      return m[1] + ' of ' + m[2] + ' ' + unit + ' · ' + m[4] + (m[4] === '1' ? ' stage' : ' stages') + m[5];
+    }],
     // — сообщения внизу экрана (тосты), собранные в app.js сложением —
     [/^Задача в блоке «(.+)»$/, function (m) { return 'Task added to "' + known(m[1]) + '"'; }],
     [/^Перенесено в «(.+)»$/, function (m) { return 'Moved to "' + known(m[1]) + '"'; }],
