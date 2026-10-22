@@ -2255,6 +2255,9 @@ var TAB_OF_VIEW = {
   'settings-notify': 'settings',
   'settings-start': 'settings',
   'settings-about': 'settings',
+  'settings-theme': 'settings',
+  'settings-look': 'settings',
+  'settings-sync': 'settings',
   about: 'settings'
 };
 
@@ -2271,6 +2274,9 @@ var VIEWS = {
   'settings-notify': { title: 'Напоминания', render: vSettingsNotify },
   'settings-start': { title: 'Старт и список', render: vSettingsStart },
   'settings-about': { title: 'О приложении', render: vSettingsAbout },
+  'settings-theme': { title: 'Тема', render: vSettingsTheme },
+  'settings-look': { title: 'Вид', render: vSettingsLook },
+  'settings-sync': { title: 'Синхронизация', render: vSettingsSync },
   about:      { title: 'О сервисе',  render: vAbout },
   profile:    { title: 'Профиль',    render: vProfile },
   lists:      { title: 'Списки',     render: vLists },
@@ -3181,7 +3187,7 @@ var ЦВЕТ_ПУНКТА = { lists:'lists', notes:'notes', pomodoro:'pomo', med
 function пунктМеню(id){
   var t = tabByID(id);
   if (!t) return '';
-  var inside = '<span class="dr-ic" style="--c:var(--c-' + (ЦВЕТ_ПУНКТА[id] || 'set') + ')">' +
+  var inside = '<span class="dr-ic" data-k="' + id + '" style="--c:var(--c-' + (ЦВЕТ_ПУНКТА[id] || 'set') + ')">' +
       (NAV_ICONS[id] || '') + '</span>' +
     '<span class="dr-tx">' + esc(t.title) + '</span>' +
     '<span class="dr-ch">' + NAV_ICONS.chevron + '</span>';
@@ -3209,6 +3215,19 @@ function рисоватьМеню(){
         '<button class="dr-x" data-act="drawer-close" aria-label="Закрыть меню">' + NAV_ICONS.close + '</button>' +
       '</div>' +
       '<div class="dr-group">' + ['lists', 'notes', 'pomodoro', 'meditation'].map(пунктМеню).join('') + '</div>' +
+      /* Тема и язык — над подпиской, как просил владелец: это быстрые
+         переключатели, а не переходы, поэтому своей карточкой, без шеврона. */
+      '<div class="dr-group dr-quick">' +
+        '<button class="dr-row" data-act="theme" role="switch" aria-checked="' + isDarkNow() + '">' +
+          '<span class="dr-ic" data-k="dark">' + NAV_ICONS.moon + '</span>' +
+          '<span class="dr-tx">Тёмная тема</span>' +
+          '<span class="dr-sw' + (isDarkNow() ? ' on' : '') + '" aria-hidden="true"><i></i></span></button>' +
+        '<button class="dr-row" data-act="lang" aria-label="' + (SynI18n.isEnglish() ? 'Переключить на русский' : 'Переключить на английский') + '">' +
+          '<span class="dr-ic" data-k="lang">' + navIcon('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5S9.7 5.9 12 3.5z"/>') + '</span>' +
+          '<span class="dr-tx">Язык</span>' +
+          '<span class="dr-val" translate="no">' + (SynI18n.isEnglish() ? 'English' : 'Русский') + '</span>' +
+          '<span class="dr-ch">' + navIcon('<path d="M7 8l-3 3 3 3M4 11h11M17 10l3 3-3 3M20 13H9"/>') + '</span></button>' +
+      '</div>' +
       '<div class="dr-group dr-bottom">' + ['subscription', 'settings', 'trash', 'support'].map(пунктМеню).join('') + '</div>' +
       /* Документы — под меню, мелко, но всегда в одном касании. Модерация
          RuStore просит, чтобы политика конфиденциальности была видна внутри
@@ -9629,6 +9648,7 @@ function vSettings(){
      профиль и список разделов, каждый открывается своей страницей, а
      системная «назад» возвращает к списку. В вебе экран широкий и всё видно
      сразу — там разделы остаются раскрытыми, как были. */
+  if (inApp()) return html + '<p class="setgroup-t">Настройки</p>' + настройкиГруппами() + '</div>';
   if (appLook()){
     html += '<p class="setgroup-t">Настройки</p>' +
       '<button class="setprofile" data-act="go" data-view="profile">' + avatarHTML() +
@@ -9703,6 +9723,115 @@ var РАЗДЕЛЫ_НАСТРОЕК = [
   { view: 'settings-about', title: 'О приложении', sub: 'Обучение заново и что умеет Synapse',
     icon: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/>' }
 ];
+
+/* Настройки в приложении — группами, как на айфоне.
+
+   Было шесть крупных карточек с пояснениями в две строки и профиль сверху —
+   на первый экран влезало четыре раздела, и общей картины не было. На айфоне
+   разделы собраны под подписями групп («Оформление», «Работа», «Аккаунт и
+   данные», «Помощь»): глаз сначала находит группу, потом строку (близость и
+   общая область по гештальту), и в каждой группе две-три строки, а не шесть
+   подряд. У каждой строки — значок в плашке своего цвета: раздел узнают по
+   цвету раньше, чем прочтут. Профиль отсюда убран по просьбе владельца — он
+   открывается аватаркой в шапке. «Оформление» разделено на «Тему» и «Вид»,
+   как на айфоне, а синхронизация вынесена из «Данных» своей строкой: это
+   то, что ищут чаще остального в данных. */
+var ГРУППЫ_НАСТРОЕК = [
+  { t: 'Оформление', rows: [
+    { view: 'settings-theme', k: 'theme', title: 'Тема', sub: 'Светлая или тёмная, цвет темы',
+      value: function(){ return paletteOf(S.palette).title; },
+      icon: '<circle cx="12" cy="12" r="8.5"/><circle cx="8.6" cy="10" r="1.2"/><circle cx="12" cy="7.6" r="1.2"/><circle cx="15.4" cy="10" r="1.2"/><path d="M12 20.5c-1.6 0-2.2-1.4-1.3-2.6.9-1.3.2-2.9-1.6-2.9"/>' },
+    { view: 'settings-look', k: 'look', title: 'Вид', en: 'Look', sub: 'Шрифт, размер текста и отметка задач',
+      icon: '<path d="M4 19l5.5-14L15 19M6.2 14h6.6M16.5 19l2.5-6.5L21.5 19"/>' }
+  ]},
+  { t: 'Работа', en: 'Work', rows: [
+    { view: 'settings-start', k: 'start', title: 'Старт и задачи', sub: 'С чего начинать и компактный вид',
+      icon: '<path d="M4 7h10M4 12h16M4 17h7"/><circle cx="17" cy="7" r="2"/><circle cx="14" cy="17" r="2"/>' },
+    { view: 'settings-notify', k: 'notify', title: 'Напоминания', sub: 'Задачи, утренний план и вечерний итог',
+      есть: function(){ return уведомленияДоступны(); },
+      icon: '<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>' }
+  ]},
+  { t: 'Аккаунт и данные', rows: [
+    { view: 'settings-sync', k: 'sync', title: 'Синхронизация', sub: 'Айфон, андроид и веб',
+      value: function(){ return !isPro() ? 'Pro' : syncEnabled() ? 'Включена' : 'Выключена'; },
+      on: function(){ return isPro() && syncEnabled(); },
+      icon: '<path d="M19.5 12a7.5 7.5 0 0 1-13.2 4.9M4.5 12a7.5 7.5 0 0 1 13.2-4.9"/><path d="M18 3.5v4h-4M6 20.5v-4h4"/>' },
+    { view: 'settings-data', k: 'data', title: 'Данные', sub: 'Резервная копия и очистка',
+      icon: '<ellipse cx="12" cy="6.5" rx="7" ry="2.8"/><path d="M5 6.5v11c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-11"/><path d="M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8"/>' }
+  ]},
+  { t: 'Помощь', rows: [
+    { act: 'reset-tour', k: 'tour', title: 'Обучение', sub: 'Показать знакомство заново',
+      icon: '<path d="M5 19L15 9M14 4v3M19 9h-3M17.5 5.5l-2 2M9.5 4.5l.6 1.4M19.5 14.5l-1.4-.6"/>' },
+    { view: 'settings-about', k: 'about', title: 'О приложении', sub: 'Что умеет приложение и документы',
+      icon: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/>' }
+  ]}
+];
+
+function настройкиГруппами(){
+  return ГРУППЫ_НАСТРОЕК.map(function(г){
+    var rows = г.rows.filter(function(р){ return !р.есть || р.есть(); });
+    if (!rows.length) return '';
+    // «Вид» и «Работа» в общем словаре уже значат другое («Appearance» и
+    // «Focus»), поэтому здесь английское название задано у самой строки.
+    var en = SynI18n.isEnglish();
+    return '<p class="stg-t">' + esc(en && г.en ? г.en : г.t) + '</p><div class="stg">' + rows.map(function(р){
+      var значение = р.value ? р.value() : '';
+      var куда = р.act ? 'data-act="' + р.act + '"' : 'data-act="go" data-view="' + р.view + '"';
+      return '<button class="stg-row" ' + куда + '>' +
+        '<span class="stg-ic" data-k="' + р.k + '">' + navIcon(р.icon) + '</span>' +
+        '<span class="stg-tx"><b>' + esc(en && р.en ? р.en : р.title) + '</b><i>' + esc(р.sub) + '</i></span>' +
+        (значение ? '<span class="stg-val' + (р.on && р.on() ? ' on' : '') + '">' + esc(значение) + '</span>' : '') +
+        '<span class="stg-ch">' + NAV_ICONS.chevron + '</span></button>';
+    }).join('') + '</div>';
+  }).join('');
+}
+
+/* «Тема» в приложении — как на айфоне: блок «Режим» с примером и выбором
+   светлой или тёмной, под ним «Цвет темы» плитками в две колонки. Образец
+   на плитке считает SynTheme.preview — тем же расчётом, что красит
+   приложение, поэтому плитка совпадает с тем, что человек увидит, нажав. */
+function блокТемы(заголовок, пояснение, значок, тело){
+  return '<div class="stb-h"><span class="stb-ic">' + navIcon(значок) + '</span><b>' + esc(заголовок) + '</b></div>' +
+    '<p class="stb-sub">' + esc(пояснение) + '</p>' + тело;
+}
+function vSettingsTheme(){
+  var dark = isDarkNow(), mode = dark ? 'dark' : 'light';
+  var режим = '<section class="stb-card">' +
+    '<div class="stb-demo">' +
+      '<div class="stb-task"><span class="stb-box"></span><span><b>Задача в этой теме</b><i>Сегодня · 12:00</i></span></div>' +
+      '<div class="stb-demo-foot"><span class="stb-btn">Кнопка</span><span class="stb-note">Так будут выглядеть задачи</span></div>' +
+    '</div>' +
+    '<div class="stb-seg" role="radiogroup" aria-label="Режим">' + [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
+      return '<button role="radio" aria-checked="' + (S.theme === p[0]) + '" data-act="set-theme" data-theme="' + p[0] + '">' + p[1] + '</button>';
+    }).join('') + '</div>' +
+  '</section>';
+  var плитки = '<div class="stb-pals">' + PALETTES.map(function(p, i){
+    var pv = window.SynTheme && SynTheme.preview ? SynTheme.preview(p.id)[mode] : null;
+    var ac = pv ? pv.accent : rgb(paletteColor(p, dark ? 'accentDark' : 'accent'));
+    var фон = pv ? pv.bg : rgb(paletteColor(p, dark ? 'darkBackground' : 'lightBackground'));
+    var мягкий = pv ? pv.soft : фон;
+    var открыта = lookOpen('palettes', i);
+    var on = S.palette === p.id;
+    return '<button class="stb-pal' + (открыта ? '' : ' locked') + '" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + on + '" style="--pa:' + ac + '">' +
+      '<span class="stb-sw" style="background:' + фон + '"><i></i><span><em style="background:' + ac + '"></em><em style="background:' + мягкий + '"></em></span><u style="background:' + ac + '"></u></span>' +
+      '<span class="stb-name"><b>' + esc(p.title) + '</b>' +
+        (on ? '<span class="stb-check">' + ICON.check + '</span>' : открыта ? '' : '<span class="stb-pro">Pro</span>') + '</span>' +
+    '</button>';
+  }).join('') + '</div>';
+  return страницаНастроек('<p class="setgroup-t">Тема</p>' +
+    блокТемы('Режим', 'Светлая или тёмная. Цвет темы от этого не меняется.',
+      '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>', режим) +
+    блокТемы('Цвет темы', 'Кнопки, выбранное и главные цифры. Первые четыре — бесплатно.',
+      '<circle cx="12" cy="12" r="8.5"/><circle cx="8.6" cy="10" r="1.2"/><circle cx="12" cy="7.6" r="1.2"/><circle cx="15.4" cy="10" r="1.2"/>', плитки));
+}
+/* «Вид» — то, что осталось от «Оформления» без темы: пример, шрифт, размер
+   и отметка выполнения. */
+function vSettingsLook(){
+  return страницаНастроек('<p class="setgroup-t">' + (SynI18n.isEnglish() ? 'Look' : 'Вид') + '</p>' + телоВида({ безТемы: true }));
+}
+function vSettingsSync(){
+  return страницаНастроек('<p class="setgroup-t">Синхронизация</p>' + разделСинхро());
+}
 
 /// Страница одного раздела в приложении: крупный заголовок и тело раздела.
 function страницаНастроек(тело){
@@ -9946,7 +10075,8 @@ function телоНапоминаний(){
    Оно нужно в двух местах: на своём экране и на общей странице настроек. Копия
    разошлась бы с оригиналом на первой же правке — в этом файле такое уже
    стоило дня. */
-function телоВида(){
+function телоВида(опц){
+  опц = опц || {};
   var html = '';
 
   /* Превью стоит первым, а не последним.
@@ -9972,7 +10102,7 @@ function телоВида(){
   html += '<div class="setgrid">';
 
 
-  html += settingsBlock('Тема', isDarkNow() ? 'Сейчас тёмная.' : 'Сейчас светлая.',
+  if (!опц.безТемы) html += settingsBlock('Тема', isDarkNow() ? 'Сейчас тёмная.' : 'Сейчас светлая.',
     settingsRow('', [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
       return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
     }).join(''), 2));
@@ -9990,7 +10120,7 @@ function телоВида(){
   // Те же десять палитр, что в приложении, — из AppTheme.swift. Кружок — фон
   // палитры, точка внутри — её акцент, оба в текущей теме: без этого «Бордо»
   // от «Индиго» отличить можно было только применив.
-  html += settingsBlock('Палитра · ' + paletteOf(S.palette).title,
+  if (!опц.безТемы) html += settingsBlock('Палитра · ' + paletteOf(S.palette).title,
     'Цвет фона и акцента. В кружке — фон, точкой внутри — акцент.',
     settingsRow('', PALETTES.map(function(p){
       var dark = isDarkNow();
@@ -10048,7 +10178,8 @@ function vSettingsData(){
 function телоДанных(){
   var html = '';
 
-  html += разделСинхро();
+  // В приложении у синхронизации своя страница — здесь её не повторяем.
+  if (!inApp()) html += разделСинхро();
 
   html += '<section class="card">' +
     '<h3>Резервная копия</h3>' +
@@ -17219,7 +17350,7 @@ function syncКодИзАдреса(){
   try { чисто = SynSyncCrypto.normalize(decodeURIComponent(m[1])).slice(0, 8); } catch (e) {}
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
   if (чисто.length !== 8) return;
-  S.view = 'settings-data';
+  S.view = inApp() ? 'settings-sync' : 'settings-data';
   if (syncEnabled() && syncDataKeyRaw()){
     SYNC.status = 'Синхронизация здесь уже включена. Чтобы подключить это устройство к другой группе, сначала выключите её.';
   } else {

@@ -3701,3 +3701,110 @@ html.in-app[data-dense="1"] .tasklist > .item.swipe{padding-top:0; padding-botto
 html.in-app[data-dense="1"] .tasklist > .item.swipe > .swipe-face{padding-top:5px; padding-bottom:5px}
 html.in-app[data-dense="1"] .tasklist > .item:not(.swipe){padding-top:5px; padding-bottom:5px}
 html.in-app[data-dense="1"] .tasklist > .item.swipe.open > .detail-wrap{padding-bottom:5px}
+
+/* ============ ПРИЛОЖЕНИЕ КАК НА АЙФОНЕ: ПАНЕЛЬ, МЕНЮ, НАСТРОЙКИ ============
+   Макет одобрен владельцем (22.10.2026). Размеры — с айфона
+   (WorkspaceChromeView.swift, SettingsView.swift). */
+
+/* Нижняя панель. Открытый раздел — сплошная плашка цвета темы с белым
+   значком и подписью (эффект изоляции: выделенное узнаётся с первого
+   взгляда), остальные — тёмные контуры, а не бледно-серые: по ним тоже
+   попадают пальцем, и читаться они должны. */
+.in-app .tabbar{background:var(--card); border:0; border-radius:26px; padding:5px; box-shadow:0 1px 2px rgba(0,0,0,.05), 0 14px 34px -14px rgba(30,20,10,.28)}
+.in-app .tab{color:var(--fg-2); border-radius:16px; padding:6px 2px 5px; font-weight:500}
+.in-app .tab[aria-current="page"]{background:var(--accent); color:var(--on-accent, #fff); font-weight:700;
+  box-shadow:0 8px 18px -10px var(--accent)}
+.in-app .tab[aria-current="page"] .nav-ic{stroke-width:2.2}
+/* Кнопка ассистента — скруглённым квадратом, как «Syn» на айфоне (правка
+   владельца на макете). */
+.in-app .say .ai{border-radius:16px}
+
+/* Меню: две белые карточки на фоне панели, у пункта — плашка своего цвета,
+   как в настройках айфона. Цвет у каждого пункта постоянный: по нему раздел
+   находят раньше, чем прочтут, и он не должен меняться с темой. */
+.in-app .dr-group{background:var(--card); border:0; border-radius:18px; padding:0; box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.in-app .dr-row{padding:10px 11px; gap:10px; font-size:14px; font-weight:500}
+.in-app .dr-row + .dr-row::before{left:54px; right:12px}
+.in-app .dr-row:active{background:var(--soft); border-radius:0}
+.in-app .dr-ic .nav-ic{width:15px; height:15px; stroke-width:2.3}
+.in-app .dr-ch .nav-ic{width:11px; height:11px; stroke-width:3}
+.in-app .dr-x{background:var(--card); box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.in-app .dr-ic[data-k="lists"]{background:linear-gradient(160deg, #3BB0FF, #1677F2)}
+.in-app .dr-ic[data-k="notes"]{background:linear-gradient(160deg, #9585FF, #5B4BE6)}
+.in-app .dr-ic[data-k="pomodoro"]{background:linear-gradient(160deg, #FFB054, #FF7A1A)}
+.in-app .dr-ic[data-k="meditation"]{background:linear-gradient(160deg, #5DDB86, #22B45A)}
+.in-app .dr-ic[data-k="subscription"]{background:linear-gradient(160deg, #FFCF57, #EFA30E)}
+.in-app .dr-ic[data-k="settings"]{background:linear-gradient(160deg, #B2B2B9, #7F7F88)}
+.in-app .dr-ic[data-k="trash"]{background:linear-gradient(160deg, #FF7070, #E5393A)}
+.in-app .dr-ic[data-k="support"]{background:linear-gradient(160deg, #48D6D9, #18A3B6)}
+.in-app .dr-ic[data-k="dark"]{background:linear-gradient(160deg, #6E6AF0, #3F3AB8)}
+.in-app .dr-ic[data-k="lang"]{background:linear-gradient(160deg, #3FD0E0, #129AB8)}
+/* Тема и язык — над подпиской: прижаты к низу вместе с ней, промежуток
+   между двумя нижними карточками меньше, чем до верхней группы. */
+.in-app .dr-panel .dr-quick{margin-top:auto}
+.in-app .dr-panel .dr-quick + .dr-bottom{margin-top:-8px}
+.in-app .dr-val{font-size:13.5px; color:var(--fg-2)}
+.in-app .dr-sw{width:44px; height:26px; border-radius:13px; background:var(--stroke); position:relative; flex:none; transition:background .2s}
+.in-app .dr-sw i{position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:left .2s}
+.in-app .dr-sw.on{background:var(--accent)}
+.in-app .dr-sw.on i{left:21px}
+
+/* Настройки группами: подпись группы прописными, под ней одна карточка. */
+.stg-t{margin:18px 16px 7px; font-size:12px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--fg-2)}
+.stg{background:var(--card); border-radius:20px; box-shadow:0 3px 10px rgba(0,0,0,.06); overflow:hidden}
+.stg-row{display:flex; align-items:center; gap:12px; width:100%; padding:9px 14px; text-align:left; position:relative;
+  background:none; border:0; font:inherit; color:var(--fg); cursor:pointer}
+.stg-row + .stg-row::before{content:''; position:absolute; top:0; left:64px; right:14px; height:1px; background:var(--line)}
+.stg-row:active{background:var(--soft)}
+.stg-ic{width:34px; height:34px; border-radius:10px; display:grid; place-items:center; flex:none; color:#fff}
+.stg-ic .nav-ic{width:18px; height:18px; stroke-width:2.2}
+.stg-tx{flex:1; min-width:0; display:flex; flex-direction:column; gap:4px}
+.stg-tx b{font-size:16px; font-weight:600; line-height:1.2}
+.stg-tx i{font-style:normal; font-size:11.5px; font-weight:500; line-height:1.3; color:var(--fg-2)}
+.stg-val{font-size:13.5px; font-weight:500; color:var(--fg-2); flex:none}
+.stg-val.on{color:var(--ok)}
+.stg-ch{color:var(--fg-3); display:grid; flex:none}
+.stg-ch .nav-ic{width:12px; height:12px; stroke-width:3}
+.stg-ic[data-k="theme"]{background:linear-gradient(160deg, #E27BF0, #A63FD8)}
+.stg-ic[data-k="look"]{background:linear-gradient(160deg, #FF7A8A, #E0384F)}
+.stg-ic[data-k="start"]{background:linear-gradient(160deg, #3BB0FF, #1677F2)}
+.stg-ic[data-k="notify"]{background:linear-gradient(160deg, #FFB054, #FF7A1A)}
+.stg-ic[data-k="sync"]{background:linear-gradient(160deg, #5DDB86, #22B45A)}
+.stg-ic[data-k="data"]{background:linear-gradient(160deg, #8E9BFF, #5560E6)}
+.stg-ic[data-k="tour"]{background:linear-gradient(160deg, #48D6D9, #18A3B6)}
+.stg-ic[data-k="about"]{background:linear-gradient(160deg, #B2B2B9, #7F7F88)}
+
+/* «Тема»: у каждого блока свой заголовок со значком в плашке цвета темы. */
+.stb-h{display:flex; align-items:center; gap:10px; margin:16px 2px 4px}
+.stb-ic{width:31px; height:31px; border-radius:11px; display:grid; place-items:center; flex:none;
+  background:color-mix(in srgb, var(--accent) 12%, transparent); color:var(--accent-text, var(--accent))}
+.stb-ic .nav-ic{width:16px; height:16px; stroke-width:2.2}
+.stb-h b{font-size:17px; font-weight:700}
+.stb-sub{margin:0 2px 10px; font-size:12px; line-height:1.4; color:var(--fg-2)}
+.stb-card{background:var(--card); border-radius:20px; padding:14px; display:flex; flex-direction:column; gap:12px; box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.stb-demo{background:var(--bg); border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:10px}
+.stb-task{display:flex; align-items:center; gap:11px; background:var(--card); border-radius:12px; padding:10px 12px}
+.stb-box{width:20px; height:20px; border-radius:6px; box-shadow:inset 0 0 0 1.6px var(--accent); flex:none}
+.stb-task b{display:block; font-size:14.5px; font-weight:600}
+.stb-task i{display:block; font-style:normal; font-size:12.5px; font-weight:500; color:var(--accent-text, var(--accent))}
+.stb-demo-foot{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.stb-btn{font-size:12.5px; font-weight:600; color:var(--on-accent, #fff); background:var(--accent); border-radius:999px; padding:5px 12px}
+.stb-note{font-size:12.5px; color:var(--fg-2)}
+.stb-seg{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:3px; background:var(--soft); border-radius:12px; padding:3px}
+.stb-seg button{display:grid; place-items:center; height:36px; border-radius:10px; border:0; background:none; font:inherit; font-size:14px; color:var(--fg-2); cursor:pointer; text-align:center}
+.stb-seg button[aria-checked="true"]{background:var(--card); color:var(--fg); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.stb-pals{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px}
+.stb-pal{background:var(--card); border:0; border-radius:16px; padding:10px; display:flex; flex-direction:column; gap:8px; text-align:left;
+  font:inherit; color:var(--fg); cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.stb-pal[aria-pressed="true"]{box-shadow:0 0 0 2px var(--pa), 0 10px 24px -14px var(--pa)}
+.stb-sw{position:relative; display:flex; flex-direction:column; gap:6px; padding:10px; border-radius:11px}
+.stb-sw i{height:6px; width:70%; border-radius:3px; background:rgba(127,127,127,.2)}
+.stb-sw span{display:flex; gap:6px}
+.stb-sw em{height:8px; border-radius:4px; width:42%}
+.stb-sw em + em{width:32%}
+.stb-sw u{position:absolute; right:8px; top:8px; width:12px; height:12px; border-radius:50%}
+.stb-name{display:flex; align-items:center; justify-content:space-between; gap:6px; padding:0 2px; min-height:20px}
+.stb-name b{font-size:14.5px; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.stb-pro{font-size:10.5px; font-weight:700; color:var(--card); background:var(--fg); border-radius:6px; padding:2px 6px; flex:none}
+.stb-check{color:var(--pa); display:grid; flex:none}
+.stb-check svg{width:18px; height:18px}
