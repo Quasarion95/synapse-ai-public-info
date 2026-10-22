@@ -218,6 +218,46 @@
     'Как в системе': 'System',
     'Режим и цвет темы': 'Mode and theme colour',
     'Светлая, тёмная или как в системе. Цвет темы от этого не меняется.': 'Light, dark or as on your phone. The theme colour stays the same.',
+    // — остальные экраны приложения по-английски (22.10.2026) —
+    'Старт и список': 'Start and list',
+    'Открывать при запуске': 'Open at launch',
+    'С какого раздела начинается сервис': 'Which section the app opens with',
+    'Открывать последний экран': 'Open the last screen',
+    'Тот раздел, где вы были в прошлый раз, вместо выбранного выше.': 'The section you were in last time, instead of the one chosen above.',
+    'Один файл со всем: задачи, цели, списки, заметки, настройки. Им же переносят данные в другой браузер.': 'One file with everything: tasks, goals, lists, notes, settings. Use it to move your data to another browser.',
+    'Автосохранение копии': 'Automatic backup',
+    'Выберите файл — дальше он обновляется сам после каждой правки': 'Choose a file — after that it updates itself after every change',
+    'Выбрать файл': 'Choose a file',
+    'Стереть всё в приложении': 'Erase everything in the app',
+    'Только на этом телефоне. Пока синхронизация устройств выключена, копии на сервере нет: если удалить приложение или стереть его данные, задачи, цели и заметки пропадут безвозвратно.': 'Only on this phone. While device sync is off, there is no copy on a server: if you delete the app or clear its data, tasks, goals and notes are gone for good.',
+    'Только на этом телефоне. Пока синхронизация устройств выключена, копии на сервере нет: если удалить приложение или стереть его данные, они пропадут безвозвратно. Копию можно сохранить файлом в разделе «Данные».': 'Only on this phone. While device sync is off, there is no copy on a server: if you delete the app or clear its data, they are gone for good. You can save a copy as a file in the "Data" section.',
+    'Показать обучение заново': 'Show the tutorial again',
+    'Подсказки и первый сценарий начнутся сначала.': 'Tips and the first walkthrough will start over.',
+    'Возможности и чем отличается от приложения на айфоне': 'Features and how it differs from the iPhone app',
+    'Не список дел, а система: большая цель разбирается на этапы, этапы — на задачи на сегодня, ассистент ведёт день и перестраивает план по одной фразе. Цели, задачи, деньги, списки, заметки и фокус — в одном контуре, без установки.': 'Not a to-do list but a system: a big goal is broken into stages, stages into tasks for today, and the assistant runs your day and rebuilds the plan from a single sentence. Goals, tasks, money, lists, notes and focus — all in one place, nothing to install.',
+    'голосом и текстом, 20 запросов в день бесплатно': 'by voice and text, 20 requests a day for free',
+    'Имя и фото никуда не отправляются: они лежат на этом телефоне рядом с задачами.': 'Your name and photo go nowhere: they stay on this phone, right next to your tasks.',
+    'Только на этом телефоне': 'Only on this phone',
+    '20 запросов в день': '20 requests a day',
+    '180 в день, на годовом 500': '180 a day, 500 on the yearly plan',
+    '4 темы, одна форма отметки': '4 themes, one check mark style',
+    'Вернуть': 'Restore',
+    'Доска': 'Board',
+    'Плитки': 'Tiles',
+    'Гармошка': 'Accordion',
+    'Столбик': 'Column',
+    'Добавить пункт': 'Add item',
+    'Нажмите, чтобы изменить': 'Tap to edit',
+    'Итог месяца': 'Month total',
+    'Траты': 'Spending',
+    'Валюта': 'Currency',
+    'ИТОГ': 'SUMMARY',
+    'ИЗМЕНЕНИЯ': 'CHANGES',
+    'СЕЙЧАС': 'NOW',
+    'ПЛАН': 'PLAN',
+    'ДЕНЬГИ': 'MONEY',
+    'Прослушать отчёт': 'Listen to the report',
+    'Собрать брифинг заново': 'Rebuild the briefing',
     // названия цветов тем
     'Закат': 'Sunset',
     'Коралл': 'Coral',
@@ -1152,6 +1192,12 @@
   function items(n) { return n + (n === '1' ? ' item' : ' items'); }
 
   var PATTERNS = [
+    // — приложение: корзина, брифинг, дерево целей (22.10.2026) —
+    [/^Задача · (\d+) (?:день|дня|дней)$/, function (m) { return 'Task · ' + m[1] + (m[1] === '1' ? ' day' : ' days'); }],
+    [/^Syn собрал (\d{1,2}:\d{2})$/, function (m) { return 'Syn put it together at ' + m[1]; }],
+    [/^Дерево целей: (.+)\. Его поливают сделанные задачи, закрытые этапы и цели; без дел оно сохнет\.$/, function (m) {
+      return 'Goal tree: ' + known(m[1]) + '. Completed tasks, stages and goals water it; without tasks it dries up.';
+    }],
     // — «Мой фокус», цели: фразы с числами внутри (21.10.2026, снимки для
     //   английской страницы сайта показали их русскими) —
     [/^Сегодня в фокусе (\d+) (?:задача|задачи|задач)$/, function (m) {
