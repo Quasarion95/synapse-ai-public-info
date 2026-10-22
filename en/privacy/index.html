@@ -48,7 +48,7 @@
         <h1>What happens to your data.</h1>
         <p class="lead">
           The web version and the phone apps work differently, so they are
-          described separately below. Version of 21 October 2026.
+          described separately below. Version of 22 October 2026.
         </p>
         <div class="actions">
           <a class="button secondary" href="../../">Home</a>
@@ -203,7 +203,8 @@
           </p>
           <ul>
             <li>the text of the request (on iPhone, voice is first turned into
-              text on the device itself);</li>
+              text on the device itself; if that is unavailable, the voice
+              recording — see below);</li>
             <li>the slice of your workspace needed to answer: titles of tasks,
               goals and stages with due dates and completion marks, lists and
               their items, note titles (and, for a request about a note, its
@@ -217,7 +218,10 @@
           <ul>
             <li>Claude by Anthropic (Anthropic PBC, USA) — Syn's answers;</li>
             <li>Gemini by Google (Google LLC, USA) — punctuation for dictated
-              text;</li>
+              text and voice transcription: if on-device speech recognition is
+              unavailable, the voice recording is sent for transcription to the
+              Gemini model (Google) via OpenRouter; the recording is not stored:
+              Synapse does not keep it, and only the text comes back;</li>
             <li>a model by OpenAI (OpenAI, L.L.C., USA) — reading an answer
               aloud, if you turn it on.</li>
           </ul>
@@ -260,10 +264,12 @@
           </p>
           <p>
             <strong>On iPhone</strong> you can reach Syn not only in the app but
-            also by voice — from the Home Screen widget. Your voice is turned
-            into text by Apple's system speech recognition; the app does not
-            store the audio and does not send it to our server — only the
-            resulting text is sent, just like a regular request.
+            also by voice — from the Home Screen widget. Usually your voice is
+            turned into text by Apple's system speech recognition, and only the
+            resulting text is sent to our server, just like a regular request.
+            If on-device recognition is unavailable, the voice recording is sent
+            for transcription to the Gemini model (Google) via OpenRouter, as
+            described above; the recording is not stored.
           </p>
           <p>
             If detailed context is on — and it is on by default — a request from
