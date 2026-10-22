@@ -692,3 +692,11 @@ h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height
 .vd .radio.markpick{ position: relative; flex: none }
 .vd .radio.markpick .msw{ position: absolute; left: 50%; top: 50%; margin: 0; transform: translate(-50%, -50%) }
 .vd .radio.boxpick{ display: grid !important; grid-template-rows: 24px auto; justify-items: center; align-items: center; row-gap: 8px }
+
+/* Оформление: подписи по центру. «Rounded / Clean / Serif», «маленький /
+   средний / большой» стояли у левого края сегмента, а значок и подпись
+   «Квадрат / Круг…» — у левого края плитки: общие правила .radio
+   (text-align:left, justify-content:flex-start) перебивали сетку. */
+.vd-card .vd-seg .radio{ display: flex; align-items: center; justify-content: center; text-align: center }
+.vd .radio.boxpick{ justify-content: stretch !important; grid-template-columns: minmax(0, 1fr); text-align: center; padding-left: 4px; padding-right: 4px }
+.vd .radio.boxpick .rl{ width: 100%; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
