@@ -186,6 +186,24 @@
     'Синхронизировано · только что': 'Synced · just now', 'Первая сверка ещё не прошла.': 'The first sync hasn’t happened yet.',
     'Синхронизация включена, но это устройство потеряло доступ к ней. Нажмите «Переподключить».': 'Sync is on, but this device has lost access to it. Press “Reconnect”.',
     'Синхронизация включена, но на этом устройстве нет ключа. Введите код с другого устройства.': 'Sync is on, but this device has no key. Enter a code from another device.',
+    'Задачи, цели, списки и заметки — на айфоне, в вебе и на андроиде. Зашифровано: прочитать записи можете только вы.': 'Tasks, goals, lists and notes — on iPhone, on the web and on Android. Encrypted: only you can read your entries.',
+    'Это моё первое устройство': 'This is my first device', 'Начать синхронизацию здесь. Остальные устройства подключите кодом.': 'Start sync here. Connect your other devices with a code.',
+    'Синхронизация уже есть на другом устройстве': 'Sync is already on another device', 'Введите код, который покажет айфон, андроид или другой браузер.': 'Enter the code shown on your iPhone, Android or another browser.',
+    'Мои устройства': 'My devices', 'Загружаем список…': 'Loading the list…', 'Добавить устройство': 'Add a device', 'Выключить в этом браузере': 'Turn off in this browser',
+    'Отвязать': 'Unlink', 'Подключить': 'Connect', 'Код с другого устройства': 'Code from another device', 'Это устройство · сейчас': 'This device · now', 'Ещё не сверялось': 'Not synced yet',
+    'Дефис ставится сам, регистр и раскладка не важны. Набрали восемь знаков — подключится само.': 'The dash is added for you; case and keyboard layout don’t matter. Type all eight characters and it connects by itself.',
+    'Код — в «Синхронизация → Добавить устройство» на айфоне, андроиде или в другом браузере. Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.': 'The code is in “Sync → Add a device” on your iPhone, Android or another browser. Entries already here are merged with the shared ones — nothing is lost.',
+    'На новом устройстве откройте синхронизацию и выберите «Синхронизация уже есть на другом устройстве» — там введите этот код.': 'On the new device, open sync and choose “Sync is already on another device”, then enter this code.',
+    'Одним кодом можно подключить и айфон, и андроид, и другой браузер. Закроете окно и откроете снова — будет этот же код.': 'One code connects your iPhone, Android and another browser. Close this window and open it again — you’ll see the same code.',
+    'Код истёк. Нажмите «Добавить устройство» ещё раз — появится новый.': 'The code has expired. Press “Add a device” again to get a new one.',
+    'Это устройство перестанет получать и отправлять записи. Всё, что на нём уже есть, останется на месте.': 'That device will stop receiving and sending entries. Everything already on it stays.',
+    'Подключить его снова можно кодом из «Добавить устройство».': 'You can connect it again with a code from “Add a device”.',
+    'Устройство отвязано.': 'Device unlinked.', 'Устройство подключено. Записи объединены.': 'Device connected. Entries merged.',
+    'Синхронизация в этом браузере выключена. Записи остались.': 'Sync is off in this browser. Your entries are still here.',
+    'Этот браузер отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.': 'This browser was unlinked from sync on another device. Your entries are still here. You can connect again with a code.',
+    'Это устройство выключают в его собственных настройках.': 'Turn this device off in its own settings.', 'Такого устройства в синхронизации уже нет.': 'That device is no longer in sync.',
+    'Код связки': 'Pairing code',
+    'Синхронизация устройств': 'Device sync', 'Удалить копию с сервера': 'Delete the server copy',
     'Переподключить': 'Reconnect', '8 букв и цифр': '8 letters and digits', 'Синхронизировать сейчас': 'Sync now', 'Синхронизация не проходит — загляните в Настройки → Данные.': 'Sync isn’t going through — check Settings → Data.',
     'Сфокусируйся на задаче': 'Focus on this task', 'Сфокусируйся на цели': 'Focus on this goal',
     'Показать полностью': 'Show all', 'Цветёт!': 'Blooming!', 'Растёт': 'Growing',
@@ -1085,6 +1103,16 @@
       return m[1] + ' of ' + m[2] + ' done. ' + m[3] + (m[3] === '1' ? ' task' : ' tasks') + ' left.';
     }],
     [/^из (\d+)$/, function (m) { return 'of ' + m[1]; }],
+    [/^Сверялось (?:только что|(\d+) (мин|ч|дн) назад)$/, function (m) {
+      return m[1] ? 'Synced ' + m[1] + (m[2] === 'мин' ? ' min' : m[2] === 'ч' ? ' h' : ' d') + ' ago' : 'Synced just now';
+    }],
+    [/^(Айфон|Андроид|Веб|Устройство)(?: · (.+))?$/, function (m) {
+      var вид = { 'Айфон': 'iPhone', 'Андроид': 'Android', 'Веб': 'Web', 'Устройство': 'Device' }[m[1]];
+      return m[2] ? вид + ' · ' + m[2].replace('Яндекс Браузер', 'Yandex Browser').replace(' на ', ' on ').replace(/^Браузер/, 'Browser') : вид;
+    }],
+    [/^Сверялось (сегодня|вчера) в (\d+:\d\d)$/, function (m) { return 'Synced ' + (m[1] === 'сегодня' ? 'today' : 'yesterday') + ' at ' + m[2]; }],
+    [/^Код действует ещё (\d+:\d\d)$/, function (m) { return 'Code valid for ' + m[1]; }],
+    [/^Отвязать «(.+)»\?$/, function (m) { return 'Unlink “' + m[1] + '”?'; }],
     [/^Синхронизировано · (\d+) (мин|ч|дн) назад$/, function (m) {
       return 'Synced · ' + m[1] + (m[2] === 'мин' ? ' min' : m[2] === 'ч' ? ' h' : ' d') + ' ago';
     }],

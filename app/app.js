@@ -17089,7 +17089,7 @@ pomoСверить();
    где их в этой форме нет, стёр бы веб-финансы). Секреты — в localStorage
    отдельными ключами, НЕ в S. */
 
-var SYNC = { code: '', status: '', busy: false, joinOpen: false };
+var SYNC = { code: '', status: '', busy: false, joinOpen: false, devices: null, devicesAt: 0, devLoading: false };
 
 function syncStore(k){ return localStorage.getItem('synapse.sync.' + k); }
 // Хранилище может отказать (нет места, приватный режим) — не бросаем, а
@@ -17112,13 +17112,33 @@ function syncEnsureDataKey(){
 
 /* ---- сеть (переиспользуем synFetch/synSession) ---- */
 function syncApiEnable(){ return synSession().then(function(sess){ return synFetch('/v1/synapse/sync/enable', {}, sess); }).then(function(d){ syncStoreSet('token', d.token); syncStoreSet('syncID', d.syncID); return d; }); }
-function syncApiStorePair(lookup, wrapped){ return synFetch('/v1/synapse/sync/pair/issue', { pairLookup: lookup, wrappedKey: wrapped }, syncToken()); }
-function syncApiRedeem(lookup){ return synFetch('/v1/synapse/sync/pair/redeem', { pairLookup: lookup, installID: webInstallID() }); }
+function syncApiStorePair(lookup, wrapped){ return syncAuthed(function(){ return synFetch('/v1/synapse/sync/pair/issue', { pairLookup: lookup, wrappedKey: wrapped }, syncToken()); }); }
+function syncApiRedeem(lookup){ return synFetch('/v1/synapse/sync/pair/redeem', { pairLookup: lookup, installID: webInstallID(), device: syncЭтоУстройство() }); }
+function syncApiDevices(){ return syncAuthed(function(){ return synFetch('/v1/synapse/sync/devices', { device: syncЭтоУстройство() }, syncToken()); }); }
+function syncApiRemoveDevice(id){ return syncAuthed(function(){ return synFetch('/v1/synapse/sync/devices/remove', { id: id }, syncToken()); }); }
+
+/* Это устройство в «Моих устройствах»: платформа и понятное имя. Андроид —
+   то же приложение в обёртке, его узнаём по мосту уведомлений. */
+function syncЭтоУстройство(){
+  var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+  if (уведомленияДоступны()){
+    var m = ua.match(/Android [\d.]+;\s*([^;)]+?)(?:\s+Build\/|;|\))/);
+    var модель = m && m[1].trim().length > 2 ? m[1].trim() : '';
+    return { platform: 'android', name: модель };
+  }
+  var br = /YaBrowser/.test(ua) ? 'Яндекс Браузер' : /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera'
+    : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Браузер';
+  var os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
+    : /Mac OS X|Macintosh/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
+  return { platform: 'web', name: br + (os ? ' на ' + os : '') };
+}
 // Токен синхро отвергнут (протух/сброшен) — не молчим и не бросаем синхро.
 // Перевыпускаем токен через enable (сервер по членству вернёт ТУ ЖЕ группу, не
 // отдельную копию) и повторяем один раз. Так синхро не обрывается на протухании.
 function syncAuthed(run){
   return run().catch(function(e){
+    // Это устройство отвязали с другого — не переподключаемся молча.
+    if (e && e.status === 401 && e.data && e.data.removed){ syncОтвязано(); e.removed = true; throw e; }
     if (e && e.status === 401){
       return syncApiEnable().then(function(){ return run(); });
     }
@@ -17318,6 +17338,7 @@ function syncDo(promiseFn){
   SYNC.busy = true; renderKeepingInput();
   return Promise.resolve().then(promiseFn).catch(function(e){
     if (e && e.status === 402) SYNC.status = 'Синхронизация устройств доступна в Pro.';
+    else if (e && e.removed) {}
     else if (e && e.status === 401){ syncStoreSet('token', null); SYNC.status = 'Нужно включить синхронизацию заново.'; }
     else if (e && e.status === 404) SYNC.status = 'Код не подошёл. Проверьте, что он введён целиком.';
     else SYNC.status = (e && e.message) ? e.message : 'Не получилось. Попробуйте ещё раз.';
@@ -17443,8 +17464,88 @@ function syncResolveConflict(){
 }
 
 function syncTurnOn(){ return syncDo(function(){ return syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); return syncPullApply(); }).then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизация включена.'; }); }); }
-function syncTurnOff(){ if (typeof syncWatchStop === 'function') syncWatchStop(); syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Синхронизация отключена. Данные в этом браузере остались.'; render(); }
-function syncShowCode(){ return syncDo(function(){ var ready = syncToken() ? Promise.resolve() : syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); }); return ready.then(function(){ var code = SynSyncCrypto.newCode(); return SynSyncCrypto.wrap(syncDataKeyRaw(), code).then(function(wrapped){ return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiStorePair(lookup, wrapped); }).then(function(){ SYNC.code = code; SYNC.status = 'Введите этот код на другом устройстве — код живёт 10 минут.'; }); }); }); }); }
+function syncTurnOff(){ if (typeof syncWatchStop === 'function') syncWatchStop(); syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); syncStoreSet('pairCode', null); syncStoreSet('pairUntil', null); syncForgetSynced(); SYNC.code = ''; SYNC.devices = null; SYNC.devicesAt = 0; SYNC.status = 'Синхронизация в этом браузере выключена. Записи остались.'; render(); }
+/* «Добавить устройство»: код на 10 минут. Пока он жив (с запасом в минуту),
+   повторное нажатие показывает ТОТ ЖЕ код — раньше каждое нажатие выдавало
+   новый, и код, который уже набирали на другом устройстве, переставал
+   подходить. Одним кодом подключают несколько устройств. */
+var SYNC_КОД_МС = 10 * 60 * 1000;
+function syncЖивойКод(){
+  var c = syncStore('pairCode'), до = +syncStore('pairUntil') || 0;
+  return (c && до - Date.now() > 60000) ? { code: c, until: до } : null;
+}
+function syncShowCode(){
+  var живой = syncЖивойКод();
+  if (живой && syncToken()){ syncОкноКода(); return Promise.resolve(); }
+  return syncDo(function(){ var ready = syncToken() ? Promise.resolve() : syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); }); return ready.then(function(){ var code = SynSyncCrypto.newCode(); return SynSyncCrypto.wrap(syncDataKeyRaw(), code).then(function(wrapped){ return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiStorePair(lookup, wrapped); }).then(function(){ syncStoreSet('pairCode', code); syncStoreSet('pairUntil', String(Date.now() + SYNC_КОД_МС)); SYNC.status = ''; syncОкноКода(); }); }); }); }); }
+function syncОсталось(){
+  var мс = (+syncStore('pairUntil') || 0) - Date.now();
+  if (мс <= 0) return '';
+  var с = Math.ceil(мс / 1000);
+  return Math.floor(с / 60) + ':' + (с % 60 < 10 ? '0' : '') + (с % 60);
+}
+var syncТаймерКода = null;
+function syncОкноКода(){
+  var живой = syncЖивойКод() || { code: syncStore('pairCode') || '' };
+  openModal(
+    '<h3>Добавить устройство</h3>' +
+    '<p class="pair-code" aria-label="Код связки">' + esc(живой.code) + '</p>' +
+    '<p class="pair-left" id="pair-left"><i aria-hidden="true"></i><span>Код действует ещё ' + syncОсталось() + '</span></p>' +
+    '<p class="s">На новом устройстве откройте синхронизацию и выберите «Синхронизация уже есть на другом устройстве» — там введите этот код.</p>' +
+    '<p class="s">Одним кодом можно подключить и айфон, и андроид, и другой браузер. Закроете окно и откроете снова — будет этот же код.</p>' +
+    '<button class="btn full" data-act="close-modal">Готово</button>');
+  clearInterval(syncТаймерКода);
+  syncТаймерКода = setInterval(function(){
+    var el = document.getElementById('pair-left');
+    if (!el){ clearInterval(syncТаймерКода); return; }
+    var ост = syncОсталось();
+    el.lastChild.textContent = SynI18n.tr(ост ? 'Код действует ещё ' + ост : 'Код истёк. Нажмите «Добавить устройство» ещё раз — появится новый.');
+    if (!ост){ el.classList.add('off'); clearInterval(syncТаймерКода); }
+  }, 1000);
+  // Список устройств обновим, когда окно закроют: новое устройство уже в нём.
+  SYNC.devicesAt = 0;
+}
+
+/* Устройство отвязали с другого: синхронизация здесь выключается, ключ
+   группы забываем. Записи в браузере остаются на месте. */
+function syncОтвязано(){
+  if (typeof syncWatchStop === 'function') syncWatchStop();
+  ['enabled', 'token', 'dataKey', 'lastServerUpdatedAt', 'pairCode', 'pairUntil', 'lastOkAt'].forEach(function(k){ syncStoreSet(k, null); });
+  syncForgetSynced();
+  SYNC.devices = null; SYNC.devicesAt = 0; SYNC.joinOpen = false;
+  SYNC.status = 'Этот браузер отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.';
+  render();
+}
+
+/* «Мои устройства» подтягиваем, когда открыт раздел «Данные», не чаще раза в
+   полминуты: список меняется редко. */
+function syncЗагрузитьУстройства(){
+  if (SYNC.devLoading || !syncEnabled() || !syncToken()) return;
+  if (SYNC.devicesAt && Date.now() - SYNC.devicesAt < 30000) return;
+  SYNC.devLoading = true;
+  syncApiDevices().then(function(d){
+    SYNC.devices = (d && d.devices) || [];
+  }).catch(function(){}).then(function(){
+    SYNC.devLoading = false; SYNC.devicesAt = Date.now();
+    if (document.querySelector('.sync-devs')) renderKeepingInput();
+  });
+}
+function syncИмяУстройства(d){
+  var вид = { ios: 'Айфон', android: 'Андроид', web: 'Веб' }[d.platform] || 'Устройство';
+  return d.name && d.name !== вид ? вид + ' · ' + d.name : вид;
+}
+function syncЗнакУстройства(d){ return { ios: 'iP', android: 'A', web: 'W' }[d.platform] || '•'; }
+function syncКогдаУстройство(d){
+  if (d.current) return 'Это устройство · сейчас';
+  var t = d.lastSeenAt ? Date.parse(d.lastSeenAt) : 0;
+  if (!t) return 'Ещё не сверялось';
+  if (Date.now() - t < 60 * 60000) return 'Сверялось ' + syncКогда(t);
+  var когда = new Date(t), сегодня = todayDate(), вчера = new Date(сегодня); вчера.setDate(вчера.getDate() - 1);
+  var чч = когда.getHours() + ':' + (когда.getMinutes() < 10 ? '0' : '') + когда.getMinutes();
+  if (isoOf(когда) === isoOf(сегодня)) return 'Сверялось сегодня в ' + чч;
+  if (isoOf(когда) === isoOf(вчера)) return 'Сверялось вчера в ' + чч;
+  return 'Сверялось ' + syncКогда(t);
+}
 function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete(code)){ SYNC.status = 'Код неполный. Проверьте, что ввели его целиком.'; return; } return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiRedeem(lookup); }).then(function(res){ return SynSyncCrypto.unwrap(res.wrappedKey, code).then(function(key){ if (!key){ SYNC.status = 'Код не подошёл.'; return; }
   // Сначала ключ, потом «включено»: не влез ключ — не включаем вовсе, иначе
   // синхронизация считалась бы включённой без ключа.
@@ -17456,7 +17557,7 @@ function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete
   // с пришедшим, ничего не стирая.
   syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced();
   if (!syncStoreSet('enabled', '1')){ SYNC.status = 'Браузер не даёт сохранить настройки синхронизации: нет места.'; return; }
-  SYNC.joinOpen = false; return syncPullApply().then(function(){ SYNC.status = 'Устройство связано. Данные подтянуты.'; }); }); }); }); }
+  SYNC.joinOpen = false; SYNC.devicesAt = 0; return syncPullApply().then(function(){ SYNC.status = 'Устройство подключено. Записи объединены.'; }); }); }); }); }
 function syncNow(){ return syncDo(function(){ return syncPullApply().then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизировано.'; }); }); }
 function syncDeleteRemote(){ return syncDo(function(){ return syncSerial('delete', function(){ return syncApiDelete(); }).then(function(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('dataKey', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Копия с сервера удалена. Данные в браузере остались.'; }); }); }
 function syncPullOnLoad(){
@@ -17508,33 +17609,57 @@ if (typeof window !== 'undefined' && !window.__syncHealthTimer){
 
 /* ---- экран в разделе «Данные» ---- */
 function разделСинхро(){
-  if (!SYNC) SYNC = { code: '', status: '', busy: false, joinOpen: false };
+  if (!SYNC) SYNC = { code: '', status: '', busy: false, joinOpen: false, devices: null, devicesAt: 0, devLoading: false };
   if (!isPro()){
     return '<section class="card"><h3>Синхронизация устройств</h3>' +
       '<p class="sub">Доступно в Pro. Переносит задачи, цели, списки и заметки между айфоном, вебом и андроидом — данные уходят зашифрованными, мы их не читаем.</p></section>';
   }
   var on = syncEnabled();
-  var h = '<section class="card"><h3>Синхронизация устройств</h3>' +
-    '<p class="sub">Данные уходят зашифрованными, мы их не читаем. Переносятся задачи, цели, списки и заметки.</p>' +
-    '<div class="acts">' +
-    (on ? '<button class="btn sm soft" data-act="sync-off">Отключить</button>'
-        : '<button class="btn sm" data-act="sync-on">Включить</button>') +
-    '</div>';
-  if (on){
-    var здоровье = syncЗдоровье();
+  var здоровье = on ? syncЗдоровье() : { k: 'off' };
+  var h = '<section class="card sync-card"><h3>Синхронизация устройств</h3>';
+  if (!on){
+    /* Синхронизации здесь ещё нет: один выбор из двух. Ввод кода — только
+       здесь, на новом устройстве; на подключённом его нет вовсе, чтобы
+       случайно не уйти в чужую группу. */
+    h += '<p class="sub">Задачи, цели, списки и заметки — на айфоне, в вебе и на андроиде. Зашифровано: прочитать записи можете только вы.</p>';
+    h += '<div class="sync-opts">' +
+      '<button class="sync-opt" data-act="sync-on"><i class="sync-opt-ic main" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i>' +
+        '<span><b>Это моё первое устройство</b><span>Начать синхронизацию здесь. Остальные устройства подключите кодом.</span></span></button>' +
+      '<button class="sync-opt' + (SYNC.joinOpen ? ' on' : '') + '" data-act="sync-join-open" aria-expanded="' + !!SYNC.joinOpen + '"><i class="sync-opt-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></i>' +
+        '<span><b>Синхронизация уже есть на другом устройстве</b><span>Введите код, который покажет айфон, андроид или другой браузер.</span></span></button>' +
+      '</div>';
+  } else {
     h += '<p class="sync-health sync-h-' + здоровье.k + '"><i aria-hidden="true"></i><span>' + esc(здоровье.t) + '</span></p>';
     if (здоровье.k === 'token') h += '<div class="acts"><button class="btn sm" data-act="sync-on">Переподключить</button></div>';
+    if (здоровье.k === 'key') h += '<div class="acts"><button class="btn sm" data-act="sync-join-open">Ввести код</button></div>';
+    syncЗагрузитьУстройства();
+    var devs = SYNC.devices;
+    h += '<div class="sync-devs"><p class="sync-devs-t">Мои устройства</p>';
+    if (!devs) h += '<p class="hint">Загружаем список…</p>';
+    else devs.forEach(function(d){
+      h += '<div class="sync-dev"><i class="sync-dev-ic" aria-hidden="true">' + esc(syncЗнакУстройства(d)) + '</i>' +
+        '<span class="sync-dev-t"><b>' + esc(syncИмяУстройства(d)) + '</b><span>' + esc(syncКогдаУстройство(d)) + '</span></span>' +
+        (d.current ? '' : '<button class="btn sm soft" data-act="sync-dev-remove" data-id="' + esc(d.id) + '" data-name="' + esc(syncИмяУстройства(d)) + '">Отвязать</button>') +
+        '</div>';
+    });
+    h += '</div>';
     h += '<div class="acts">' +
-      '<button class="btn sm" data-act="sync-code">Связать новое устройство</button>' +
-      '<button class="btn sm soft" data-act="sync-join-open">Ввести код</button>' +
+      '<button class="btn sm" data-act="sync-code">Добавить устройство</button>' +
       '<button class="btn sm soft" data-act="sync-now">Синхронизировать сейчас</button>' +
       '</div>';
-    if (SYNC.code) h += '<p class="hint">Код для связки (введите его на другом устройстве):</p>' +
-      '<p style="font-size:28px;font-weight:800;letter-spacing:3px;font-family:monospace">' + esc(SYNC.code) + '</p>';
-    if (SYNC.joinOpen) h += '<div class="acts" style="gap:8px">' +
-      '<input id="sync-code-input" placeholder="8 букв и цифр" maxlength="9" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line,#ccc);flex:1">' +
-      '<button class="btn sm" data-act="sync-join-do">Связать</button></div>';
-    h += '<div class="acts"><button class="btn sm soft" data-act="sync-delete">Удалить копию с сервера</button></div>';
+    h += '<div class="acts sync-quiet">' +
+      '<button class="btn sm soft" data-act="sync-off">Выключить в этом браузере</button>' +
+      '<button class="btn sm soft" data-act="sync-delete">Удалить копию с сервера</button>' +
+      '</div>';
+  }
+  if (SYNC.joinOpen && (!on || здоровье.k === 'key')){
+    h += '<div class="sync-join">' +
+      '<label for="sync-code-input">Код с другого устройства</label>' +
+      '<input id="sync-code-input" class="sync-code-in" placeholder="ABCD-EFGH" maxlength="9" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" inputmode="text">' +
+      '<p class="hint">Дефис ставится сам, регистр и раскладка не важны. Набрали восемь знаков — подключится само.</p>' +
+      '<p class="hint">Код — в «Синхронизация → Добавить устройство» на айфоне, андроиде или в другом браузере. Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.</p>' +
+      '<div class="acts"><button class="btn sm" data-act="sync-join-do">Подключить</button></div>' +
+      '</div>';
   }
   if (SYNC.busy) h += '<p class="hint">Секунду…</p>';
   if (SYNC.status) h += '<p class="hint">' + esc(SYNC.status) + '</p>';
@@ -17701,7 +17826,7 @@ if (typeof window !== 'undefined' && !window.__syncPullTimer){
 ACTS['sync-on'] = function(){ syncTurnOn(); };
 ACTS['sync-off'] = function(){ syncTurnOff(); };
 ACTS['sync-code'] = function(){ syncShowCode(); };
-ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; render(); };
+ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; render(); if (SYNC.joinOpen) setTimeout(function(){ var el = document.getElementById('sync-code-input'); if (el) try { el.focus({ preventScroll: false }); } catch (e) { el.focus(); } }, 50); };
 /* Код связки набирается как есть: «abcdefgh», «ABCD EFGH», с русской
    раскладкой — поле само приводит к виду ABCD-EFGH (заглавные, дефис после
    четвёртого знака), а набрав все восемь, само связывает устройство.
@@ -17729,7 +17854,23 @@ document.addEventListener('keydown', function(e){
   if (e.key === 'Enter' && e.target && e.target.id === 'sync-code-input') ACTS['sync-join-do']();
 });
 ACTS['sync-join-do'] = function(){ var el = document.getElementById('sync-code-input'); syncJoin(el ? el.value : ''); };
-ACTS['sync-now'] = function(){ syncNow(); };
+ACTS['sync-now'] = function(){ SYNC.devicesAt = 0; syncNow(); };
+/* Отвязать другое устройство: оно сразу перестаёт получать и отправлять
+   записи. Данные на нём остаются; вернуть — новым кодом. */
+ACTS['sync-dev-remove'] = function(d){
+  SYNC.removeId = d.id;
+  openModal(
+    '<h3>Отвязать «' + esc(d.name || '') + '»?</h3>' +
+    '<p class="s">Это устройство перестанет получать и отправлять записи. Всё, что на нём уже есть, останется на месте.</p>' +
+    '<p class="s">Подключить его снова можно кодом из «Добавить устройство».</p>' +
+    '<button class="btn full danger" data-act="sync-dev-remove-confirm">Отвязать</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+};
+ACTS['sync-dev-remove-confirm'] = function(){
+  var id = SYNC.removeId; closeModal();
+  if (!id) return;
+  syncDo(function(){ return syncApiRemoveDevice(id).then(function(r){ SYNC.devices = (r && r.devices) || SYNC.devices; SYNC.devicesAt = Date.now(); SYNC.status = 'Устройство отвязано.'; }); });
+};
 /* Удаление копии с сервера необратимо и касается всех связанных устройств —
    поэтому своим окном, как «Стереть навсегда» в корзине. */
 ACTS['sync-delete'] = function(){
