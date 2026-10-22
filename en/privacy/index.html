@@ -48,7 +48,7 @@
         <h1>What happens to your data.</h1>
         <p class="lead">
           The web version and the phone apps work differently, so they are
-          described separately below. Version of 17 October 2026.
+          described separately below. Version of 21 October 2026.
         </p>
         <div class="actions">
           <a class="button secondary" href="../../">Home</a>
@@ -196,15 +196,47 @@
         </article>
 
         <article class="card">
-          <h2>4. The Syn assistant</h2>
+          <h2>4. The Syn assistant and artificial intelligence</h2>
           <p>
-            When you talk to Syn, the request goes to our server and from there
-            to the model provider. Along with the text of your request, a slice
-            of your workspace is sent: tasks with their dates, descriptions and
-            subtasks, goals with their stages, and in the web version also lists
-            with their items and the beginnings of notes. Without it the
-            assistant wouldn't know what to reschedule or what you're asking
-            about.
+            For Syn to understand and carry out a request, the app sends to the
+            Synapse server:
+          </p>
+          <ul>
+            <li>the text of the request (on iPhone, voice is first turned into
+              text on the device itself);</li>
+            <li>the slice of your workspace needed to answer: titles of tasks,
+              goals and stages with due dates and completion marks, lists and
+              their items, note titles (and, for a request about a note, its
+              text), a summary of your finances (balance, transactions, debts,
+              savings jars, subscriptions) and the current app settings.</li>
+          </ul>
+          <p>
+            From the Synapse server the request goes through the OpenRouter
+            service (OpenRouter, Inc., USA) to AI models:
+          </p>
+          <ul>
+            <li>Claude by Anthropic (Anthropic PBC, USA) — Syn's answers;</li>
+            <li>Gemini by Google (Google LLC, USA) — punctuation for dictated
+              text;</li>
+            <li>a model by OpenAI (OpenAI, L.L.C., USA) — reading an answer
+              aloud, if you turn it on.</li>
+          </ul>
+          <p>
+            The data is used only to produce the answer and carry out the
+            command. It is not used for advertising and is not sold. OpenRouter
+            and the model providers process it under their business terms, which
+            provide protection equal to or greater than that described in this
+            policy.
+          </p>
+          <p>
+            <strong>Consent.</strong> Before the first request the app shows a
+            screen with this information and asks for permission. Without
+            consent no requests are sent to AI, and the rest of the app keeps
+            working. Consent can be given or withdrawn in Settings → Security →
+            "Allow Syn to use AI".
+          </p>
+          <p>
+            More on what exactly goes into the slice in different cases:
           </p>
           <p>
             <strong>When you talk to Syn from the "My finances" section</strong>,
@@ -221,8 +253,8 @@
             amounts saved. These are the two cases in which finance records
             leave your browser, and both happen only on your action — the
             section itself sends nothing anywhere. If you listen to the
-            briefing, its text is sent to our server and from there to a
-            speech synthesis provider. If you don't want to share these figures
+            briefing, its text is sent to our server and from there — to be
+            read aloud — to the OpenAI model. If you don't want to share these figures
             with a third-party model provider, keep your finances without the
             assistant and the briefing: the whole section works without them.
           </p>
@@ -347,11 +379,11 @@
           <p>
             The operator is Arslan Temirkhanov, a self-employed individual in
             Russia (payer of the professional income tax), taxpayer ID (INN)
-            862001541373. The Synapse server is located in Russia. Model
-            responses are produced by third-party AI providers through the
-            OpenRouter service; their servers are located outside Russia. They
-            receive the text of your request and the workspace slice described
-            above, and — when you listen to the briefing — its text. Statistics
+            862001541373. The Synapse server is located in Russia. Requests
+            to the Syn assistant are processed by OpenRouter, Inc., Anthropic
+            PBC, Google LLC and OpenAI, L.L.C. (all in the USA); their servers
+            are located outside Russia. What they receive, why, and how it is
+            protected is described in section 4. Statistics
             and crash reports of the Android app are processed by VK services —
             MyTracker and Tracer (VK LLC).
           </p>
