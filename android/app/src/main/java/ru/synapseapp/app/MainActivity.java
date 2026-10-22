@@ -335,6 +335,20 @@ public class MainActivity extends AppCompatActivity {
             }
         }, "AndroidHaptic");
 
+        /* Имя телефона для «Моих устройств»: из строки браузера достаётся
+           только заводской код «SM-A515F». Берём системное имя телефона,
+           но без имени владельца — см. DeviceName. */
+        web.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public String name() {
+                String системное = null;
+                try {
+                    системное = android.provider.Settings.Global.getString(getContentResolver(), "device_name");
+                } catch (Throwable ignored) { }
+                return DeviceName.of(системное, android.os.Build.MANUFACTURER, android.os.Build.MODEL);
+            }
+        }, "AndroidDevice");
+
         // Оценка и обновление через RuStore (StoreBridge).
         магазин = new StoreBridge(this, web);
         web.addJavascriptInterface(магазин, "AndroidStore");
