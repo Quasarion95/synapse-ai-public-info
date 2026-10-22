@@ -17570,7 +17570,8 @@ function syncИмяУстройства(d){
   var вид = { ios: 'Айфон', android: 'Андроид', web: 'Веб' }[d.platform] || 'Устройство';
   // Айфонное приложение шлёт родовое имя модели: «iPhone» или «iPad».
   if (d.platform === 'ios') return d.name === 'iPad' ? 'Айпад' : 'Айфон';
-  return d.name && d.name !== вид ? вид + ' · ' + d.name : вид;
+  // Неразрывный пробел перед точкой: на узком экране «·» не повисает строкой.
+  return d.name && d.name !== вид ? вид + '\u00a0· ' + d.name : вид;
 }
 function syncЗнакУстройства(d){ return { ios: 'iP', android: 'A', web: 'W' }[d.platform] || '•'; }
 function syncКогдаУстройство(d){
@@ -17701,11 +17702,13 @@ function разделСинхро(){
       '</div>' +
       '<p class="hint">Дефис ставится сам · регистр и раскладка не важны</p>' +
       '<button class="sync-primary" data-act="sync-join-do">Подключить</button>' +
-      '</div>' +
       // Сканер есть только в приложении на андроиде (мост AndroidScanner).
+      // Внутри карточки, под «Подключить»: снаружи он слипался с подсказкой
+      // ниже — та же заливка, — и выходила кривая стопка плашек.
       (window.AndroidScanner ? '<button class="sync-scan" data-act="sync-scan">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg>' +
         'Сканировать QR</button>' : '') +
+      '</div>' +
       '<p class="pair-hint sync-merge">Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.</p>';
   }
   if (SYNC.busy) h += '<p class="hint">Секунду…</p>';

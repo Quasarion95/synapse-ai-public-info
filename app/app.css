@@ -2499,7 +2499,7 @@ html[data-dense="1"] .titleline{gap:6px}
 /* «Сканировать QR» — как на макете: вторая по весу кнопка, мягкая заливка
    цветом темы и значок рамки. Только в приложении на андроиде. */
 .sync-scan{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; height:54px; border:0; border-radius:16px;
-  cursor:pointer; font:inherit; font-size:17px; font-weight:600; margin-top:12px;
+  cursor:pointer; font:inherit; font-size:17px; font-weight:600;
   background:var(--accent-tint, var(--accent-soft)); color:var(--accent-text, var(--accent))}
 .sync-scan svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
 .sync-primary:active{transform:scale(.99)}
@@ -2527,6 +2527,22 @@ html[data-dense="1"] .titleline{gap:6px}
 @media (min-width:600px){ .sync-cell{height:54px; border-radius:12px; font-size:26px} .sync-cells{gap:6px} }
 .sync-join .sync-primary{margin-top:4px}
 .sync-merge{margin:12px 0 0}
+/* Клетки кода на узком телефоне. В приложении экран — 320 точек, и при
+   общих полях клетки выходили 24×44: высокие и тонкие («ячейки странные
+   узкие»). Здесь поля карточки и зазоры меньше, а клетка держит
+   пропорцию 4:5 — почти квадрат, как на макете. */
+.in-app .sync-join{padding:18px 10px}
+.in-app .sync-cells{gap:4px}
+.in-app .sync-dash{padding:0 1px}
+.in-app .sync-cell{height:auto; aspect-ratio:4/5; max-width:42px; border-radius:10px; font-size:21px}
+/* То же для узкого мобильного веба (телефоны 320–400 точек). */
+@media (max-width:400px){
+  .sync-card{padding-left:14px; padding-right:14px}
+  .sync-join{padding:16px 8px}
+  .sync-cells{gap:3px}
+  .sync-dash{padding:0}
+  .sync-cell{height:auto; aspect-ratio:4/5; max-width:42px; border-radius:10px; font-size:20px}
+}
 
 .pair-box{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px 22px; margin:8px 0 14px}
 .pair-qr{width:176px; height:176px; padding:6px; border-radius:16px; background:#fff; box-shadow:inset 0 0 0 1px var(--stroke)}
