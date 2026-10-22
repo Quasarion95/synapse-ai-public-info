@@ -3715,6 +3715,10 @@ html.in-app[data-dense="1"] .tasklist > .item.swipe.open > .detail-wrap{padding-
 .in-app .tab[aria-current="page"]{background:var(--accent); color:var(--on-accent, #fff); font-weight:700;
   box-shadow:0 8px 18px -10px var(--accent)}
 .in-app .tab[aria-current="page"] .nav-ic{stroke-width:2.2}
+/* Значок открытого раздела — того же цвета, что подпись. Общее правило
+   (web/theme.css) красит его цветом темы, а здесь плашка и есть цвет темы:
+   значок сливался с ней, особенно в тёмной теме, где цвет светлый. */
+.in-app .tab[aria-current="page"] .ic{color:inherit}
 /* Кнопка ассистента — скруглённым квадратом, как «Syn» на айфоне (правка
    владельца на макете). */
 .in-app .say .ai{border-radius:16px}
