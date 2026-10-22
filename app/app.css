@@ -2438,6 +2438,131 @@ html[data-dense="1"] .item{padding-top:7px; padding-bottom:7px}
 html[data-dense="1"] .item:not(.open) .note{display:none}
 html[data-dense="1"] .titleline{gap:6px}
 
+/* Строка состояния синхронизации: зелёная точка — всё в порядке, жёлтая —
+   давно не было сверки или первая ещё не прошла, красная — устройство
+   потеряло доступ или ключ. */
+.sync-health{display:flex; align-items:flex-start; gap:8px; margin:8px 0 10px; font-size:13.5px; line-height:1.45; color:var(--fg-2)}
+.sync-health i{width:9px; height:9px; border-radius:50%; flex:none; margin-top:5px; background:var(--fg-3)}
+.sync-h-ok i{background:var(--ok, #12b76a)}
+.sync-h-wait i, .sync-h-stale i{background:var(--warn, #e28008)}
+.sync-h-token i, .sync-h-key i{background:var(--danger, #e23b31)}
+.sync-h-token, .sync-h-key{color:var(--text)}
+
+/* Синхронизация по макету: выбор из двух, «Мои устройства», ввод кода,
+   окно «Добавить устройство» с QR. Свои классы, а не .btn: кнопки здесь
+   крупнее и тише обычных, как на макете. */
+.sync-opts{display:grid; gap:12px; margin:14px 0 4px}
+.sync-opt{display:flex; gap:14px; align-items:flex-start; text-align:left; padding:18px; border-radius:20px; border:0; cursor:pointer;
+  background:var(--card); color:var(--fg); font:inherit; box-shadow:0 1px 2px rgba(30,20,10,.04), 0 12px 32px -14px rgba(30,20,10,.18), inset 0 0 0 1px var(--stroke)}
+.sync-opt:active{transform:scale(.99)}
+.sync-opt.on{box-shadow:0 12px 32px -14px rgba(30,20,10,.18), inset 0 0 0 2px var(--accent)}
+.sync-opt > span{display:flex; flex-direction:column; gap:4px}
+.sync-opt b{font-size:16.5px; line-height:1.3}
+.sync-opt > span > span{font-size:14.5px; line-height:1.45; color:var(--fg-2)}
+.sync-opt-ic{width:46px; height:46px; border-radius:15px; flex:none; display:grid; place-items:center; font-style:normal;
+  background:var(--accent-soft); color:var(--accent-text, var(--accent))}
+.sync-opt-ic.main{background:var(--accent); color:var(--on-accent, #fff)}
+
+.sync-devs{margin:10px 0 14px; border-radius:20px; background:var(--card); overflow:hidden;
+  box-shadow:0 1px 2px rgba(30,20,10,.04), 0 12px 32px -14px rgba(30,20,10,.16), inset 0 0 0 1px var(--stroke)}
+.sync-devs-t{margin:0; padding:14px 16px 6px; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--fg-2)}
+.sync-devs .hint{padding:0 16px 14px}
+.sync-dev{display:flex; align-items:center; gap:12px; padding:13px 16px}
+.sync-dev + .sync-dev{border-top:1px solid var(--line, var(--stroke))}
+.sync-dev-ic{width:40px; height:40px; border-radius:13px; flex:none; display:grid; place-items:center; font-style:normal; font-size:13px; font-weight:700;
+  background:var(--accent-soft); color:var(--accent-text, var(--accent))}
+.sync-dev-t{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+.sync-dev-t b{font-size:16px; line-height:1.3; overflow-wrap:anywhere}
+.sync-dev-t span{font-size:14px; color:var(--fg-2)}
+
+.sync-primary{display:flex; align-items:center; justify-content:center; width:100%; height:54px; border:0; border-radius:16px; cursor:pointer;
+  background:var(--accent); color:var(--on-accent, #fff); font:inherit; font-size:17px; font-weight:600;
+  box-shadow:0 10px 24px -10px color-mix(in srgb, var(--accent) 70%, transparent)}
+/* «Сканировать QR» — как на макете: вторая по весу кнопка, мягкая заливка
+   цветом темы и значок рамки. Только в приложении на андроиде. */
+.sync-scan{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; height:54px; border:0; border-radius:16px;
+  cursor:pointer; font:inherit; font-size:17px; font-weight:600;
+  background:var(--accent-tint, var(--accent-soft)); color:var(--accent-text, var(--accent))}
+.sync-scan svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+.sync-primary:active{transform:scale(.99)}
+.sync-links{display:flex; flex-direction:column; align-items:center; gap:2px; margin-top:10px}
+.sync-link{border:0; background:none; cursor:pointer; font:inherit; font-size:15px; font-weight:600; padding:9px 10px; border-radius:10px;
+  color:var(--accent-text, var(--accent))}
+.sync-link:hover{background:var(--accent-soft)}
+.sync-link.quiet{color:var(--fg-2); font-weight:500; font-size:14px}
+.sync-dev .sync-link{font-size:14px; padding:8px}
+
+.sync-join{display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:14px; padding:20px 14px; border-radius:20px; background:var(--card);
+  box-shadow:0 1px 2px rgba(30,20,10,.04), 0 12px 32px -14px rgba(30,20,10,.16), inset 0 0 0 1px var(--stroke); text-align:center}
+.sync-join label{font-size:14px; font-weight:600; color:var(--fg-2)}
+.sync-join .hint{margin:0}
+.sync-join .acts{justify-content:center}
+.sync-cells{position:relative; display:flex; align-items:center; justify-content:center; gap:5px; width:100%; max-width:440px}
+.sync-cell{flex:1 1 0; min-width:0; max-width:44px; height:50px; border-radius:11px; display:grid; place-items:center; background:var(--bg-2, var(--bg));
+  font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:24px; font-weight:700; color:var(--fg);
+  box-shadow:inset 0 0 0 1px var(--stroke)}
+.sync-cell.on{box-shadow:0 0 0 2px var(--accent)}
+.sync-dash{color:var(--fg-3); padding:0 2px; font-weight:700}
+/* Настоящее поле — поверх клеток, прозрачное: нажатие, вставка и клавиатура
+   работают как у обычного поля. 16px — чтобы айфон не увеличивал страницу. */
+.sync-code-in{position:absolute; inset:0; width:100%; height:100%; opacity:0; font-size:16px; border:0; padding:0; cursor:text; caret-color:transparent}
+@media (min-width:600px){ .sync-cell{height:54px; border-radius:12px; font-size:26px} .sync-cells{gap:6px} }
+.sync-join .sync-primary{margin-top:4px}
+.sync-merge{margin:12px 0 0}
+/* Клетки кода на узком телефоне. В приложении экран — 320 точек, и при
+   общих полях клетки выходили 24×44: высокие и тонкие («ячейки странные
+   узкие»). Здесь поля карточки и зазоры меньше, а клетка держит
+   пропорцию 4:5 — почти квадрат, как на макете. */
+.in-app .sync-join{padding:18px 10px}
+.in-app .sync-cells{gap:4px}
+.in-app .sync-dash{padding:0 1px}
+.in-app .sync-cell{height:auto; aspect-ratio:4/5; max-width:42px; border-radius:10px; font-size:21px}
+/* То же для узкого мобильного веба (телефоны 320–400 точек). */
+@media (max-width:400px){
+  .sync-card{padding-left:14px; padding-right:14px}
+  .sync-join{padding:16px 8px}
+  .sync-cells{gap:3px}
+  .sync-dash{padding:0}
+  .sync-cell{height:auto; aspect-ratio:4/5; max-width:42px; border-radius:10px; font-size:20px}
+}
+
+.pair-box{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px 22px; margin:8px 0 14px}
+.pair-qr{width:176px; height:176px; padding:6px; border-radius:16px; background:#fff; box-shadow:inset 0 0 0 1px var(--stroke)}
+.pair-qr svg{display:block; width:100%; height:100%}
+.pair-side{display:flex; flex-direction:column; align-items:center; gap:8px; min-width:200px}
+.pair-code{margin:0; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:34px; font-weight:800; letter-spacing:4px; color:var(--fg)}
+.pair-left{display:flex; align-items:center; gap:7px; margin:0; font-size:14.5px; color:var(--fg-2)}
+.pair-left i{width:8px; height:8px; border-radius:50%; background:var(--accent)}
+.pair-left.off i{background:var(--fg-3)}
+.pair-how{margin:0; font-size:13.5px; line-height:1.45; color:var(--fg-2); text-align:center; max-width:240px}
+.pair-hint{margin:0 0 16px; padding:13px 15px; border-radius:16px; background:var(--accent-soft); font-size:14.5px; line-height:1.5; color:var(--fg); text-align:left}
+
+/* Технические работы у Syn — не тревога: обычный тихий текст, не красный.
+   Человек ничего не сломал и чинить ему нечего. */
+.err.calm{color:var(--fg-2)}
+.fx-err.calm{color:var(--fg-2)}
+
+/* Пример «обычный — компактный» под переключателем. */
+.dense-demo{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; padding:4px 0 14px}
+.dd-pane{display:flex; flex-direction:column; gap:8px; padding:10px; border-radius:16px; background:var(--panel-strong, var(--soft)); text-align:left; color:var(--text); border:0; cursor:pointer; min-width:0}
+.dd-pane[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
+.dd-cap{font-size:12.5px; font-weight:700; color:var(--fg-2)}
+.dd-pane[aria-pressed="true"] .dd-cap{color:var(--accent-text, var(--accent))}
+.dd-list{display:flex; flex-direction:column; background:var(--card); border-radius:12px; padding:2px 0}
+.dd-row{display:flex; align-items:flex-start; gap:8px; padding:8px 10px}
+.dd-row + .dd-row{border-top:1px solid var(--line, var(--stroke))}
+.dd-box{width:13px; height:13px; border-radius:4px; border:1.5px solid var(--fg-3); flex:none; margin-top:2px}
+.dd-tx{display:flex; flex-direction:column; gap:4px; min-width:0; flex:1}
+.dd-t{font-size:13px; font-weight:600; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dd-m{display:flex; flex-wrap:wrap; gap:4px}
+.dd-m em{font-style:normal; font-size:10.5px; padding:1px 6px; border-radius:999px; background:var(--soft); color:var(--fg-2)}
+.dd-compact .dd-row{padding:4px 10px; align-items:center}
+.dd-compact .dd-box{margin-top:0}
+.dd-compact .dd-t{font-size:12.5px}
+.dd-time{font-size:11px; color:var(--fg-2); flex:none}
+/* На узком экране две колонки обрезали названия — примеры друг под другом. */
+@media (max-width:560px){ .dense-demo{grid-template-columns:minmax(0, 1fr)} }
+
 /* Погашенный выбор стартового раздела: настройка перекрыта соседней.
    Не disabled — по нажатию она включается обратно, поэтому кнопки живые,
    просто приглушены. */
@@ -3532,3 +3657,143 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 .dr-legal{margin:-6px 6px 0; font-size:11.5px; color:var(--fg-3); line-height:1.5}
 .dr-legal a, .tour-legal a{color:var(--fg-2); text-decoration:underline; text-underline-offset:2px}
 .tour-legal{margin:10px 0 0; text-align:center; font-size:11.5px; color:var(--fg-3)}
+
+/* ---- Задачи дня в приложении — одной карточкой, как на айфоне ----
+
+   Владелец: «в веб версии они как одна карточка идут просто с делениями…
+   надо также сделать и в приложениях». Строки лежали прямо на фоне экрана,
+   и граница дня читалась только по заголовку. Теперь под каждым днём —
+   белая карточка, задачи в ней без зазоров, между ними тонкая черта от
+   начала названия (под чекбоксом не тянется). Скруглены только верх первой
+   строки и низ последней: лицо строки наследует скругление, и кнопки свайпа
+   под ним не просвечивают по углам. Поднятая при перетаскивании строка —
+   по-прежнему отдельная карточка целиком. */
+.in-app .tasklist{background:var(--card); border-radius:16px; padding:0}
+.in-app .group.empty .tasklist, .in-app .tasklist:empty{background:transparent}
+.in-app .tasklist > .item{position:relative}
+.in-app .tasklist > .item.swipe > .swipe-face{background:var(--card); padding:9px 12px; border-radius:inherit}
+.in-app .tasklist > .item:not(.swipe){padding:9px 12px}
+.in-app .tasklist > .item.swipe.open > .detail-wrap{padding:0 12px 9px}
+.in-app .tasklist > .item:not(.dragging):first-child{border-radius:16px 16px 0 0}
+.in-app .tasklist > .item:not(.dragging):last-child{border-radius:0 0 16px 16px}
+.in-app .tasklist > .item:not(.dragging):only-child{border-radius:16px}
+.in-app .tasklist > .item + .item::after{content:""; position:absolute; z-index:1; top:0; left:42px; right:0;
+  height:.75px; background:var(--stroke); pointer-events:none}
+.in-app .tasklist > .item.dragging::after, .in-app .tasklist > .item.dragging + .item::after{display:none}
+.in-app .tasklist > .item.dragging.lifted{border-radius:16px}
+.in-app .tasklist > .item.dragging.lifted > .swipe-face{border-radius:16px; padding-left:12px; padding-right:12px}
+
+/* Дата, время и повтор — серыми капсулами; «не выполнено» и «пропущено» —
+   капсулой с красной обводкой. */
+.in-app .item .chips .mi:not(.late):not(.exp){padding:2.5px 7px; border-radius:999px;
+  background:rgba(127,127,127,.1); background:color-mix(in srgb, var(--fg-2) 10%, transparent)}
+.in-app .item .chips .mi.late, .in-app .item .tsub .mi.late{border-radius:999px; padding:0 7px}
+.in-app .item .chips{gap:4px}
+
+/* Компактный вид в приложении — плотнее, а не выше.
+
+   Общее правило плотного режима (html[data-dense="1"] .item) даёт поля самой
+   строке. В приложении поля строки лежат на её лице (.swipe-face), и эти
+   семь пикселей прибавлялись к ним сверху и снизу: владелец включал
+   «компактно» — задачи становились выше, 46 пикселей вместо 33. Здесь
+   плотный режим убирает внешние поля и ужимает внутренние. */
+html.in-app[data-dense="1"] .tasklist > .item.swipe{padding-top:0; padding-bottom:0}
+html.in-app[data-dense="1"] .tasklist > .item.swipe > .swipe-face{padding-top:5px; padding-bottom:5px}
+html.in-app[data-dense="1"] .tasklist > .item:not(.swipe){padding-top:5px; padding-bottom:5px}
+html.in-app[data-dense="1"] .tasklist > .item.swipe.open > .detail-wrap{padding-bottom:5px}
+
+/* ============ ПРИЛОЖЕНИЕ КАК НА АЙФОНЕ: ПАНЕЛЬ, МЕНЮ, НАСТРОЙКИ ============
+   Макет одобрен владельцем (22.10.2026). Размеры — с айфона
+   (WorkspaceChromeView.swift, SettingsView.swift). */
+
+/* Нижняя панель. Открытый раздел — сплошная плашка цвета темы с белым
+   значком и подписью (эффект изоляции: выделенное узнаётся с первого
+   взгляда), остальные — тёмные контуры, а не бледно-серые: по ним тоже
+   попадают пальцем, и читаться они должны. */
+.in-app .tabbar{background:var(--card); border:0; border-radius:26px; padding:5px; box-shadow:0 1px 2px rgba(0,0,0,.05), 0 14px 34px -14px rgba(30,20,10,.28)}
+.in-app .tab{color:var(--fg-2); border-radius:16px; padding:6px 2px 5px; font-weight:500}
+.in-app .tab[aria-current="page"]{background:var(--accent); color:var(--on-accent, #fff); font-weight:700;
+  box-shadow:0 8px 18px -10px var(--accent)}
+.in-app .tab[aria-current="page"] .nav-ic{stroke-width:2.2}
+/* Кнопка ассистента — скруглённым квадратом, как «Syn» на айфоне (правка
+   владельца на макете). */
+.in-app .say .ai{border-radius:16px}
+
+/* Меню: две белые карточки на фоне панели, у пункта — плашка своего цвета,
+   как в настройках айфона. Цвет у каждого пункта постоянный: по нему раздел
+   находят раньше, чем прочтут, и он не должен меняться с темой. */
+.in-app .dr-group{background:var(--card); border:0; border-radius:18px; padding:0; box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.in-app .dr-row{padding:10px 11px; gap:10px; font-size:14px; font-weight:500}
+.in-app .dr-row + .dr-row::before{left:54px; right:12px}
+.in-app .dr-row:active{background:var(--soft); border-radius:0}
+.in-app .dr-ic .nav-ic{width:15px; height:15px; stroke-width:2.3}
+.in-app .dr-ch .nav-ic{width:11px; height:11px; stroke-width:3}
+.in-app .dr-x{background:var(--card); box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.in-app .dr-ic[data-k="lists"]{background:linear-gradient(160deg, #3BB0FF, #1677F2)}
+.in-app .dr-ic[data-k="notes"]{background:linear-gradient(160deg, #9585FF, #5B4BE6)}
+.in-app .dr-ic[data-k="pomodoro"]{background:linear-gradient(160deg, #FFB054, #FF7A1A)}
+.in-app .dr-ic[data-k="meditation"]{background:linear-gradient(160deg, #5DDB86, #22B45A)}
+.in-app .dr-ic[data-k="subscription"]{background:linear-gradient(160deg, #FFCF57, #EFA30E)}
+.in-app .dr-ic[data-k="settings"]{background:linear-gradient(160deg, #B2B2B9, #7F7F88)}
+.in-app .dr-ic[data-k="trash"]{background:linear-gradient(160deg, #FF7070, #E5393A)}
+.in-app .dr-ic[data-k="support"]{background:linear-gradient(160deg, #48D6D9, #18A3B6)}
+
+/* Настройки группами: подпись группы прописными, под ней одна карточка. */
+.stg-t{margin:18px 16px 7px; font-size:12px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--fg-2)}
+.stg{background:var(--card); border-radius:20px; box-shadow:0 3px 10px rgba(0,0,0,.06); overflow:hidden}
+.stg-row{display:flex; align-items:center; gap:12px; width:100%; padding:9px 14px; text-align:left; position:relative;
+  background:none; border:0; font:inherit; color:var(--fg); cursor:pointer}
+.stg-row + .stg-row::before{content:''; position:absolute; top:0; left:64px; right:14px; height:1px; background:var(--line)}
+.stg-row:active{background:var(--soft)}
+.stg-ic{width:34px; height:34px; border-radius:10px; display:grid; place-items:center; flex:none; color:#fff}
+.stg-ic .nav-ic{width:18px; height:18px; stroke-width:2.2}
+.stg-tx{flex:1; min-width:0; display:flex; flex-direction:column; gap:4px}
+.stg-tx b{font-size:16px; font-weight:600; line-height:1.2}
+.stg-tx i{font-style:normal; font-size:11.5px; font-weight:500; line-height:1.3; color:var(--fg-2)}
+.stg-val{font-size:13.5px; font-weight:500; color:var(--fg-2); flex:none}
+.stg-val.on{color:var(--ok)}
+.stg-ch{color:var(--fg-3); display:grid; flex:none}
+.stg-ch .nav-ic{width:12px; height:12px; stroke-width:3}
+.stg-ic[data-k="theme"]{background:linear-gradient(160deg, #E27BF0, #A63FD8)}
+.stg-ic[data-k="look"]{background:linear-gradient(160deg, #FF7A8A, #E0384F)}
+.stg-ic[data-k="start"]{background:linear-gradient(160deg, #3BB0FF, #1677F2)}
+.stg-ic[data-k="notify"]{background:linear-gradient(160deg, #FFB054, #FF7A1A)}
+.stg-ic[data-k="sync"]{background:linear-gradient(160deg, #5DDB86, #22B45A)}
+.stg-ic[data-k="data"]{background:linear-gradient(160deg, #8E9BFF, #5560E6)}
+.stg-ic[data-k="tour"]{background:linear-gradient(160deg, #48D6D9, #18A3B6)}
+.stg-ic[data-k="about"]{background:linear-gradient(160deg, #B2B2B9, #7F7F88)}
+
+/* «Тема»: у каждого блока свой заголовок со значком в плашке цвета темы. */
+.stb-h{display:flex; align-items:center; gap:10px; margin:16px 2px 4px}
+.stb-ic{width:31px; height:31px; border-radius:11px; display:grid; place-items:center; flex:none;
+  background:color-mix(in srgb, var(--accent) 12%, transparent); color:var(--accent-text, var(--accent))}
+.stb-ic .nav-ic{width:16px; height:16px; stroke-width:2.2}
+.stb-h b{font-size:17px; font-weight:700}
+.stb-sub{margin:0 2px 10px; font-size:12px; line-height:1.4; color:var(--fg-2)}
+.stb-card{background:var(--card); border-radius:20px; padding:14px; display:flex; flex-direction:column; gap:12px; box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.stb-demo{background:var(--bg); border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:10px}
+.stb-task{display:flex; align-items:center; gap:11px; background:var(--card); border-radius:12px; padding:10px 12px}
+.stb-box{width:20px; height:20px; border-radius:6px; box-shadow:inset 0 0 0 1.6px var(--accent); flex:none}
+.stb-task b{display:block; font-size:14.5px; font-weight:600}
+.stb-task i{display:block; font-style:normal; font-size:12.5px; font-weight:500; color:var(--accent-text, var(--accent))}
+.stb-demo-foot{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.stb-btn{font-size:12.5px; font-weight:600; color:var(--on-accent, #fff); background:var(--accent); border-radius:999px; padding:5px 12px}
+.stb-note{font-size:12.5px; color:var(--fg-2)}
+.stb-seg{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:3px; background:var(--soft); border-radius:12px; padding:3px}
+.stb-seg button{display:grid; place-items:center; height:36px; border-radius:10px; border:0; background:none; font:inherit; font-size:14px; color:var(--fg-2); cursor:pointer; text-align:center}
+.stb-seg button[aria-checked="true"]{background:var(--card); color:var(--fg); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.stb-pals{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px}
+.stb-pal{background:var(--card); border:0; border-radius:16px; padding:10px; display:flex; flex-direction:column; gap:8px; text-align:left;
+  font:inherit; color:var(--fg); cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.stb-pal[aria-pressed="true"]{box-shadow:0 0 0 2px var(--pa), 0 10px 24px -14px var(--pa)}
+.stb-sw{position:relative; display:flex; flex-direction:column; gap:6px; padding:10px; border-radius:11px}
+.stb-sw i{height:6px; width:70%; border-radius:3px; background:rgba(127,127,127,.2)}
+.stb-sw span{display:flex; gap:6px}
+.stb-sw em{height:8px; border-radius:4px; width:42%}
+.stb-sw em + em{width:32%}
+.stb-sw u{position:absolute; right:8px; top:8px; width:12px; height:12px; border-radius:50%}
+.stb-name{display:flex; align-items:center; justify-content:space-between; gap:6px; padding:0 2px; min-height:20px}
+.stb-name b{font-size:14.5px; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.stb-pro{font-size:10.5px; font-weight:700; color:var(--card); background:var(--fg); border-radius:6px; padding:2px 6px; flex:none}
+.stb-check{color:var(--pa); display:grid; flex:none}
+.stb-check svg{width:18px; height:18px}

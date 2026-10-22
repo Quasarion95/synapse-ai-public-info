@@ -77,6 +77,14 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:theme="@style/Theme.Synapse">
 
+        <!-- Окно сканера QR (ZXing). У библиотеки оно лежит боком, а всё
+             приложение — вертикальное: держать телефон набок ради кода было
+             бы странно. -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="portrait"
+            tools:replace="screenOrientation" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

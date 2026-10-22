@@ -639,7 +639,7 @@ function load(){
     }
     // «Как в системе» больше нет: тема теперь решение человека, а не среды.
     // Тем, у кого стояла системная, ставим ту, которую они и видели.
-    if (parsed.theme !== 'light' && parsed.theme !== 'dark') parsed.theme = systemPrefersDark() ? 'dark' : 'light';
+    if (parsed.theme !== 'light' && parsed.theme !== 'dark' && parsed.theme !== 'system') parsed.theme = systemPrefersDark() ? 'dark' : 'light';
     if (!parsed.mm) parsed.mm = { zoom: 1 };
     if (!parsed.notify) parsed.notify = { on: true, tasks: true, goals: true, brief: true, morning: '08:00', evening: '21:00', заранее: 0 };
     if (typeof parsed.notify.заранее !== 'number') parsed.notify.заранее = 0;
@@ -2255,6 +2255,9 @@ var TAB_OF_VIEW = {
   'settings-notify': 'settings',
   'settings-start': 'settings',
   'settings-about': 'settings',
+  'settings-theme': 'settings',
+  'settings-look': 'settings',
+  'settings-sync': 'settings',
   about: 'settings'
 };
 
@@ -2271,6 +2274,9 @@ var VIEWS = {
   'settings-notify': { title: 'Напоминания', render: vSettingsNotify },
   'settings-start': { title: 'Старт и список', render: vSettingsStart },
   'settings-about': { title: 'О приложении', render: vSettingsAbout },
+  'settings-theme': { title: 'Тема', render: vSettingsTheme },
+  'settings-look': { title: 'Вид', render: vSettingsLook },
+  'settings-sync': { title: 'Синхронизация', render: vSettingsSync },
   about:      { title: 'О сервисе',  render: vAbout },
   profile:    { title: 'Профиль',    render: vProfile },
   lists:      { title: 'Списки',     render: vLists },
@@ -2812,12 +2818,28 @@ function rgba(c, alpha){
    не знаешь, что получишь. Системная настройка используется ровно один раз, в
    самом начале, чтобы первое открытие не било по глазам. */
 function systemPrefersDark(){
+  // В приложении — ответ самой системы: WebView узнаёт о смене тёмного
+  // режима телефона не всегда (см. AndroidBars.systemDark).
+  try { if (window.AndroidBars && window.AndroidBars.systemDark) return !!window.AndroidBars.systemDark(); } catch (e) {}
   return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
 }
 
+/* Тема: светлая, тёмная или «Как в системе» (system) — как на айфоне.
+   Системная следует за тёмным режимом телефона и меняется вместе с ним. */
 function isDarkNow(){
-  return S.theme === 'dark';
+  return S.theme === 'system' ? systemPrefersDark() : S.theme === 'dark';
 }
+(function(){
+  function перекрасить(){
+    if (typeof S === 'undefined' || !S || S.theme !== 'system') return;
+    try { applyTheme(); render(); } catch (e) {}
+  }
+  window.addEventListener('android-uimode', перекрасить);
+  try {
+    var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq && mq.addEventListener) mq.addEventListener('change', перекрасить);
+  } catch (e) {}
+})();
 
 /// Цвета, которыми пользуется и CSS, и mind map. Считаются по тем же
 /// правилам, что AppTheme.panel / .panelStrong / .stroke.
@@ -3181,7 +3203,7 @@ var ЦВЕТ_ПУНКТА = { lists:'lists', notes:'notes', pomodoro:'pomo', med
 function пунктМеню(id){
   var t = tabByID(id);
   if (!t) return '';
-  var inside = '<span class="dr-ic" style="--c:var(--c-' + (ЦВЕТ_ПУНКТА[id] || 'set') + ')">' +
+  var inside = '<span class="dr-ic" data-k="' + id + '" style="--c:var(--c-' + (ЦВЕТ_ПУНКТА[id] || 'set') + ')">' +
       (NAV_ICONS[id] || '') + '</span>' +
     '<span class="dr-tx">' + esc(t.title) + '</span>' +
     '<span class="dr-ch">' + NAV_ICONS.chevron + '</span>';
@@ -6954,7 +6976,7 @@ function goalAiRefine(id, raw){
     if (error && error.data && error.data.quota) SYN.quota = error.data.quota;
     settle(error && error.status === 402
       ? 'Запросы к Syn на сегодня закончились — цель записана с одним названием.'
-      : 'Syn не ответил — цель записана с одним названием.');
+      : 'ИИ временно недоступен — цель записана с одним названием.');
   });
 }
 
@@ -7175,7 +7197,11 @@ function vFocusApp(){
     '</div>' +
     (длинный ? '<button class="fx-more" data-act="fx-more">' + (фокусРазвёрнут ? 'Свернуть' : 'Показать полностью') +
       '<span class="fx-chev' + (фокусРазвёрнут ? ' up' : '') + '">' + NAV_ICONS.caret + '</span></button>' : '') +
-    (отказ && !BRIEFING.busy ? '<p class="fx-err">Брифинг не собрался — ' + esc(отказ) + '</p>' : '') +
+    // Технические работы — без «не собрался» и не красным: человек ничего не
+    // сломал, и пугать его нечем.
+    (отказ && !BRIEFING.busy ? (отказ === SYN_ТЕХРАБОТЫ
+      ? '<p class="fx-err calm">' + esc(отказ) + '</p>'
+      : '<p class="fx-err">Брифинг не собрался — ' + esc(отказ) + '</p>') : '') +
     (brief && speechSupported()
       ? '<button class="fx-listen' + (speech.on ? ' on' : '') + '" data-act="briefing-say"' + (speech.busy ? ' disabled' : '') + '>' +
           '<span class="listen-ic">' + (speech.on ? (ICON.stop || '■') : '▶') + '</span>' +
@@ -7346,7 +7372,7 @@ function vFocusCard(today, todayDone, overdue, withTime){
       }).join('') +
     '</div>' +
     (brief && brief.main ? '<p class="focus-main"><span>Главное</span>' + esc(brief.main) + '</p>' : '') +
-    (отказ ? '<p class="err" style="margin-top:12px">' + esc(отказ) + '</p>' : '') +
+    (отказ ? '<p class="err' + (отказ === SYN_ТЕХРАБОТЫ ? ' calm' : '') + '" style="margin-top:12px">' + esc(отказ) + '</p>' : '') +
     /* Прослушать — отдельной широкой кнопкой под остальным.
 
        Голос — единственное, ради чего этот экран стоит открыть за рулём или
@@ -7863,7 +7889,8 @@ function briefingRun(){
     synQuotaSet(data.quota);
     var raw = String(data.note || '').trim();
     if (!raw){
-      S.briefing.error = 'Syn не собрал брифинг. Попробуй ещё раз.';
+      // Пустой ответ — сбой на нашей стороне или у поставщика ИИ.
+      S.briefing.error = SYN_ТЕХРАБОТЫ;
       // Без даты ошибка не показывалась вовсе: экран выводит отказ, только
       // если errorDate — сегодня. Человек жал «Собрать», кнопка оживала, и
       // ничего не происходило — ни брифинга, ни слова о том, почему.
@@ -9624,6 +9651,7 @@ function vSettings(){
      профиль и список разделов, каждый открывается своей страницей, а
      системная «назад» возвращает к списку. В вебе экран широкий и всё видно
      сразу — там разделы остаются раскрытыми, как были. */
+  if (inApp()) return html + '<p class="setgroup-t">Настройки</p>' + настройкиГруппами() + '</div>';
   if (appLook()){
     html += '<p class="setgroup-t">Настройки</p>' +
       '<button class="setprofile" data-act="go" data-view="profile">' + avatarHTML() +
@@ -9699,6 +9727,115 @@ var РАЗДЕЛЫ_НАСТРОЕК = [
     icon: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/>' }
 ];
 
+/* Настройки в приложении — группами, как на айфоне.
+
+   Было шесть крупных карточек с пояснениями в две строки и профиль сверху —
+   на первый экран влезало четыре раздела, и общей картины не было. На айфоне
+   разделы собраны под подписями групп («Оформление», «Работа», «Аккаунт и
+   данные», «Помощь»): глаз сначала находит группу, потом строку (близость и
+   общая область по гештальту), и в каждой группе две-три строки, а не шесть
+   подряд. У каждой строки — значок в плашке своего цвета: раздел узнают по
+   цвету раньше, чем прочтут. Профиль отсюда убран по просьбе владельца — он
+   открывается аватаркой в шапке. «Оформление» разделено на «Тему» и «Вид»,
+   как на айфоне, а синхронизация вынесена из «Данных» своей строкой: это
+   то, что ищут чаще остального в данных. */
+var ГРУППЫ_НАСТРОЕК = [
+  { t: 'Оформление', rows: [
+    { view: 'settings-theme', k: 'theme', title: 'Тема', sub: 'Режим и цвет темы',
+      value: function(){ return paletteOf(S.palette).title; },
+      icon: '<circle cx="12" cy="12" r="8.5"/><circle cx="8.6" cy="10" r="1.2"/><circle cx="12" cy="7.6" r="1.2"/><circle cx="15.4" cy="10" r="1.2"/><path d="M12 20.5c-1.6 0-2.2-1.4-1.3-2.6.9-1.3.2-2.9-1.6-2.9"/>' },
+    { view: 'settings-look', k: 'look', title: 'Вид', en: 'Look', sub: 'Шрифт, размер текста и отметка задач',
+      icon: '<path d="M4 19l5.5-14L15 19M6.2 14h6.6M16.5 19l2.5-6.5L21.5 19"/>' }
+  ]},
+  { t: 'Работа', en: 'Work', rows: [
+    { view: 'settings-start', k: 'start', title: 'Старт и задачи', sub: 'С чего начинать и компактный вид',
+      icon: '<path d="M4 7h10M4 12h16M4 17h7"/><circle cx="17" cy="7" r="2"/><circle cx="14" cy="17" r="2"/>' },
+    { view: 'settings-notify', k: 'notify', title: 'Напоминания', sub: 'Задачи, утренний план и вечерний итог',
+      есть: function(){ return уведомленияДоступны(); },
+      icon: '<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>' }
+  ]},
+  { t: 'Аккаунт и данные', rows: [
+    { view: 'settings-sync', k: 'sync', title: 'Синхронизация', sub: 'Айфон, андроид и веб',
+      value: function(){ return !isPro() ? 'Pro' : syncEnabled() ? 'Включена' : 'Выключена'; },
+      on: function(){ return isPro() && syncEnabled(); },
+      icon: '<path d="M19.5 12a7.5 7.5 0 0 1-13.2 4.9M4.5 12a7.5 7.5 0 0 1 13.2-4.9"/><path d="M18 3.5v4h-4M6 20.5v-4h4"/>' },
+    { view: 'settings-data', k: 'data', title: 'Данные', sub: 'Резервная копия и очистка',
+      icon: '<ellipse cx="12" cy="6.5" rx="7" ry="2.8"/><path d="M5 6.5v11c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-11"/><path d="M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8"/>' }
+  ]},
+  { t: 'Помощь', rows: [
+    { act: 'reset-tour', k: 'tour', title: 'Обучение', sub: 'Показать знакомство заново',
+      icon: '<path d="M5 19L15 9M14 4v3M19 9h-3M17.5 5.5l-2 2M9.5 4.5l.6 1.4M19.5 14.5l-1.4-.6"/>' },
+    { view: 'settings-about', k: 'about', title: 'О приложении', sub: 'Что умеет приложение и документы',
+      icon: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/>' }
+  ]}
+];
+
+function настройкиГруппами(){
+  return ГРУППЫ_НАСТРОЕК.map(function(г){
+    var rows = г.rows.filter(function(р){ return !р.есть || р.есть(); });
+    if (!rows.length) return '';
+    // «Вид» и «Работа» в общем словаре уже значат другое («Appearance» и
+    // «Focus»), поэтому здесь английское название задано у самой строки.
+    var en = SynI18n.isEnglish();
+    return '<p class="stg-t">' + esc(en && г.en ? г.en : г.t) + '</p><div class="stg">' + rows.map(function(р){
+      var значение = р.value ? р.value() : '';
+      var куда = р.act ? 'data-act="' + р.act + '"' : 'data-act="go" data-view="' + р.view + '"';
+      return '<button class="stg-row" ' + куда + '>' +
+        '<span class="stg-ic" data-k="' + р.k + '">' + navIcon(р.icon) + '</span>' +
+        '<span class="stg-tx"><b>' + esc(en && р.en ? р.en : р.title) + '</b><i>' + esc(р.sub) + '</i></span>' +
+        (значение ? '<span class="stg-val' + (р.on && р.on() ? ' on' : '') + '">' + esc(значение) + '</span>' : '') +
+        '<span class="stg-ch">' + NAV_ICONS.chevron + '</span></button>';
+    }).join('') + '</div>';
+  }).join('');
+}
+
+/* «Тема» в приложении — как на айфоне: блок «Режим» с примером и выбором
+   светлой или тёмной, под ним «Цвет темы» плитками в две колонки. Образец
+   на плитке считает SynTheme.preview — тем же расчётом, что красит
+   приложение, поэтому плитка совпадает с тем, что человек увидит, нажав. */
+function блокТемы(заголовок, пояснение, значок, тело){
+  return '<div class="stb-h"><span class="stb-ic">' + navIcon(значок) + '</span><b>' + esc(заголовок) + '</b></div>' +
+    '<p class="stb-sub">' + esc(пояснение) + '</p>' + тело;
+}
+function vSettingsTheme(){
+  var dark = isDarkNow(), mode = dark ? 'dark' : 'light';
+  var режим = '<section class="stb-card">' +
+    '<div class="stb-demo">' +
+      '<div class="stb-task"><span class="stb-box"></span><span><b>Задача в этой теме</b><i>Сегодня · 12:00</i></span></div>' +
+      '<div class="stb-demo-foot"><span class="stb-btn">Кнопка</span><span class="stb-note">Так будут выглядеть задачи</span></div>' +
+    '</div>' +
+    '<div class="stb-seg" role="radiogroup" aria-label="Режим">' + [['system', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
+      return '<button role="radio" aria-checked="' + (S.theme === p[0]) + '" data-act="set-theme" data-theme="' + p[0] + '">' + p[1] + '</button>';
+    }).join('') + '</div>' +
+  '</section>';
+  var плитки = '<div class="stb-pals">' + PALETTES.map(function(p, i){
+    var pv = window.SynTheme && SynTheme.preview ? SynTheme.preview(p.id)[mode] : null;
+    var ac = pv ? pv.accent : rgb(paletteColor(p, dark ? 'accentDark' : 'accent'));
+    var фон = pv ? pv.bg : rgb(paletteColor(p, dark ? 'darkBackground' : 'lightBackground'));
+    var мягкий = pv ? pv.soft : фон;
+    var открыта = lookOpen('palettes', i);
+    var on = S.palette === p.id;
+    return '<button class="stb-pal' + (открыта ? '' : ' locked') + '" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + on + '" style="--pa:' + ac + '">' +
+      '<span class="stb-sw" style="background:' + фон + '"><i></i><span><em style="background:' + ac + '"></em><em style="background:' + мягкий + '"></em></span><u style="background:' + ac + '"></u></span>' +
+      '<span class="stb-name"><b>' + esc(p.title) + '</b>' +
+        (on ? '<span class="stb-check">' + ICON.check + '</span>' : открыта ? '' : '<span class="stb-pro">Pro</span>') + '</span>' +
+    '</button>';
+  }).join('') + '</div>';
+  return страницаНастроек('<p class="setgroup-t">Тема</p>' +
+    блокТемы('Режим', 'Светлая, тёмная или как в системе. Цвет темы от этого не меняется.',
+      '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>', режим) +
+    блокТемы('Цвет темы', 'Кнопки, выбранное и главные цифры. Первые четыре — бесплатно.',
+      '<circle cx="12" cy="12" r="8.5"/><circle cx="8.6" cy="10" r="1.2"/><circle cx="12" cy="7.6" r="1.2"/><circle cx="15.4" cy="10" r="1.2"/>', плитки));
+}
+/* «Вид» — то, что осталось от «Оформления» без темы: пример, шрифт, размер
+   и отметка выполнения. */
+function vSettingsLook(){
+  return страницаНастроек('<p class="setgroup-t">' + (SynI18n.isEnglish() ? 'Look' : 'Вид') + '</p>' + телоВида({ безТемы: true }));
+}
+function vSettingsSync(){
+  return страницаНастроек('<p class="setgroup-t">Синхронизация</p>' + разделСинхро());
+}
+
 /// Страница одного раздела в приложении: крупный заголовок и тело раздела.
 function страницаНастроек(тело){
   return head('', '', 'settings') + '<div class="setpage">' + тело + '</div>';
@@ -9727,8 +9864,9 @@ function телоСтарта(){
     }).join('') + '</div>' +
     строкаПереключателя('Открывать последний экран', 'toggle-openlast', S.openLast,
       'Тот раздел, где вы были в прошлый раз, вместо выбранного выше.') +
-    строкаПереключателя('Плотный список задач', 'toggle-compact', S.compactTasks,
-      'Ниже строки и меньше пояснений — на экран помещается больше.'));
+    строкаПереключателя('Компактный вид задач', 'toggle-compact', S.compactTasks,
+      'Задача в одну строку — на экран помещается больше.') +
+    примерВидаЗадач());
 }
 
 function телоОПриложении(){
@@ -9847,6 +9985,36 @@ function settingsRow(label, body, cols){
 
 /// Строка «название — переключатель». Своего компонента для этого не было:
 /// в настройках до сих пор были только наборы кнопок-радио.
+/* Пример под переключателем «Компактный вид задач»: те же три задачи в
+   обычном и в компактном виде рядом. Название переключателя само по себе
+   ничего не объясняло — «плотный» чем? Здесь видно до нажатия. Нажатие на
+   пример включает этот вид. */
+function примерВидаЗадач(){
+  var задачи = [
+    { t: 'Урок английского', время: '19:00', цель: 'Английский до B2' },
+    { t: 'Оплатить квартплату', время: '', цель: '' },
+    { t: 'Позвонить маме', время: '21:00', цель: '' }
+  ];
+  var строка = function(з, компакт){
+    var мета = [з.время, з.цель].filter(Boolean);
+    return '<span class="dd-row"><span class="dd-box" aria-hidden="true"></span>' +
+      '<span class="dd-tx"><span class="dd-t">' + esc(з.t) + '</span>' +
+      (!компакт && мета.length ? '<span class="dd-m">' + мета.map(function(м){ return '<em>' + esc(м) + '</em>'; }).join('') + '</span>' : '') +
+      '</span>' +
+      (компакт && з.время ? '<span class="dd-time">' + esc(з.время) + '</span>' : '') +
+    '</span>';
+  };
+  var панель = function(компакт, подпись){
+    var on = !!S.compactTasks === компакт;
+    return '<button class="dd-pane' + (компакт ? ' dd-compact' : '') + '" data-act="set-compact" data-on="' + (компакт ? 1 : 0) + '" aria-pressed="' + on + '">' +
+      '<span class="dd-cap">' + подпись + '</span>' +
+      '<span class="dd-list">' + задачи.map(function(з){ return строка(з, компакт); }).join('') + '</span>' +
+    '</button>';
+  };
+  return '<div class="dense-demo" role="group" aria-label="Как выглядят задачи">' +
+    панель(false, 'Обычный') + панель(true, 'Компактный') + '</div>';
+}
+
 function строкаПереключателя(название, действие, включено, пояснение){
   return '<button class="switchrow" data-act="' + действие + '" aria-pressed="' + !!включено + '">' +
     '<span class="sw-text"><b>' + esc(название) + '</b>' +
@@ -9910,7 +10078,8 @@ function телоНапоминаний(){
    Оно нужно в двух местах: на своём экране и на общей странице настроек. Копия
    разошлась бы с оригиналом на первой же правке — в этом файле такое уже
    стоило дня. */
-function телоВида(){
+function телоВида(опц){
+  опц = опц || {};
   var html = '';
 
   /* Превью стоит первым, а не последним.
@@ -9936,7 +10105,7 @@ function телоВида(){
   html += '<div class="setgrid">';
 
 
-  html += settingsBlock('Тема', isDarkNow() ? 'Сейчас тёмная.' : 'Сейчас светлая.',
+  if (!опц.безТемы) html += settingsBlock('Тема', isDarkNow() ? 'Сейчас тёмная.' : 'Сейчас светлая.',
     settingsRow('', [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
       return '<button class="radio" data-act="set-theme" data-theme="' + p[0] + '" aria-pressed="' + (S.theme === p[0]) + '">' + p[1] + '</button>';
     }).join(''), 2));
@@ -9954,15 +10123,20 @@ function телоВида(){
   // Те же десять палитр, что в приложении, — из AppTheme.swift. Кружок — фон
   // палитры, точка внутри — её акцент, оба в текущей теме: без этого «Бордо»
   // от «Индиго» отличить можно было только применив.
-  html += settingsBlock('Палитра · ' + paletteOf(S.palette).title,
+  if (!опц.безТемы) html += settingsBlock('Палитра · ' + paletteOf(S.palette).title,
     'Цвет фона и акцента. В кружке — фон, точкой внутри — акцент.',
     settingsRow('', PALETTES.map(function(p){
       var dark = isDarkNow();
-      var bg = paletteColor(p, dark ? 'darkBackground' : 'lightBackground');
-      var ac = paletteColor(p, dark ? 'accentDark' : 'accent');
+      /* Цвета образца — из SynTheme.preview, тем же расчётом, что красит
+         приложение (web/theme.js). Числа палитры из AppTheme.swift остались
+         запасом: темы перекрашены, и образец по ним не совпал бы с тем, что
+         человек увидит, нажав. */
+      var pv = window.SynTheme && SynTheme.preview ? SynTheme.preview(p.id)[dark ? 'dark' : 'light'] : null;
+      var bg = pv ? pv.bg : rgb(paletteColor(p, dark ? 'darkBackground' : 'lightBackground'));
+      var ac = pv ? pv.accent : rgb(paletteColor(p, dark ? 'accentDark' : 'accent'));
       var открыта = lookOpen('palettes', PALETTES.indexOf(p));
       return '<button class="radio pal' + (открыта ? '' : ' locked') + '" data-act="set-palette" data-palette="' + p.id + '" aria-pressed="' + (S.palette === p.id) + '">' +
-        '<span class="sw" style="background:' + rgb(bg) + '"><i style="background:' + rgb(ac) + '"></i></span>' +
+        '<span class="sw" style="background:' + bg + '"><i style="background:' + ac + '"></i></span>' +
         '<span class="rl">' + esc(p.title) + '</span></button>';
     }).join(''), 2));
 
@@ -10007,7 +10181,8 @@ function vSettingsData(){
 function телоДанных(){
   var html = '';
 
-  html += разделСинхро();
+  // В приложении у синхронизации своя страница — здесь её не повторяем.
+  if (!inApp()) html += разделСинхро();
 
   html += '<section class="card">' +
     '<h3>Резервная копия</h3>' +
@@ -10792,7 +10967,7 @@ function modalSyn(draft, error){
       (S.synChat.length ? '<button class="btn sm soft" data-act="syn-clear">Очистить</button>' : '') +
     '</div>' +
     '<div class="syn-log" id="syn-log">' + synLogHTML() + '</div>' +
-    (error ? '<p class="err syn-error">' + esc(error) + '</p>' : '') +
+    (error ? '<p class="err syn-error' + (error === SYN_ТЕХРАБОТЫ ? ' calm' : '') + '">' + esc(error) + '</p>' : '') +
     /* Поле во всю ширину и одна кнопка, как в Telegram.
 
        Пока в поле пусто — кнопка микрофона: держишь — идёт запись,
@@ -11069,7 +11244,7 @@ function synSend(text, where){
 
     var result = synApplyActions(rest);
     SYN.busy = false;
-    synChatPush('assistant', data.reply || 'Готово.', result);
+    synChatPush('assistant', synСлужебныйОтвет(data.reply) ? SYN_ТЕХРАБОТЫ : (data.reply || 'Готово.'), result);
     // Разговор с Syn — четвёртый шаг обучения, и записать это надо здесь:
     // ответ ассистента идёт мимо commit().
     tourCheck();
@@ -11111,7 +11286,6 @@ function synSend(text, where){
        лечится. Показываем один раз за сутки — окно, которое выскакивает на
        каждую попытку, из предложения превращается в помеху. */
     if (error && error.status === 402) synOfferPro();
-    if (onDone) onDone({ ok: false, error: error, text: synErrorText(error) });
   });
 }
 
@@ -11164,19 +11338,46 @@ function planPrice(id){
   return '';
 }
 
+/* Что сказать человеку, если Syn не ответил.
+
+   Раньше сюда доходил текст сервера как есть: «error code: 502», «Backend
+   вернул код 500», «OpenRouter …» — по-английски и про внутренности.
+   Владелец: «нужно указывать не ошибку на английском какую-то непонятную
+   для человека, а что-то вроде „ведутся технические работы“ — это не так
+   пугает». То же сделано в приложении для iPhone, текст общий.
+
+   Правило одно: любой сбой ИИ (5xx, «Модель недоступна.», пустой ответ,
+   любой служебный текст) — одна спокойная фраза: ИИ временно недоступен,
+   идут технические работы. Ни Syn, ни сервис в ней не виноваты — владелец
+   просил не связывать сбой ни с нами, ни с ассистентом. Отдельно — только то, что человек исправит
+   сам: нет интернета, слишком долгий ответ, исчерпанный лимит. */
+var SYN_ТЕХРАБОТЫ = 'ИИ временно недоступен — ведутся технические работы, скоро он снова заработает. Задачи, цели и всё остальное работают как обычно.';
+var SYN_НЕТ_СЕТИ = 'Нет интернета — Syn ответит, как только связь появится.';
+var SYN_ДОЛГО = 'Syn задумался слишком долго. Попробуй ещё раз.';
+
 function synErrorText(error){
-  var message = error && error.message ? error.message : 'Не получилось';
-  if (!error) return message;
-  if (error.status === 503) return 'Syn для веба ещё не включён на сервере.';
-  if (error.status === 404) return 'Syn в браузере ещё не включён на сервере.';
-  if (error.status === 402){
+  if (error && error.timeout) return SYN_ДОЛГО;
+  if (error && error.status === 402){
     if (error.data && error.data.quota) synQuotaSet(error.data.quota);
     return error.data && error.data.error ? error.data.error : 'Запросы к Syn на сегодня закончились.';
   }
-  if (error.status === 403) return 'Сервер не принял запрос с этого адреса.';
-  if (error.status === 429) return 'Слишком часто. Подожди минуту и попробуй снова.';
-  if (error.status === undefined) return 'Сервер не ответил. Проверь соединение.';
-  return message;
+  if (error && error.status === 429) return 'Слишком часто. Подожди минуту и попробуй снова.';
+  // Запрос не дошёл вовсе. Без связи — так и говорим; со связью это сервер
+  // лежит так, что не отвечает даже ошибкой, — значит, технические работы.
+  if (!error || !error.status){
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return SYN_НЕТ_СЕТИ;
+    return SYN_ТЕХРАБОТЫ;
+  }
+  return SYN_ТЕХРАБОТЫ;
+}
+
+/* Ответ пришёл «успешно», но вместо слов Syn — служебная строка сервера.
+   Такое показываем как технические работы, а не как реплику ассистента. */
+function synСлужебныйОтвет(text){
+  var t = String(text || '').trim();
+  if (!t) return false;
+  return /^(error code|backend|openrouter|internal server error|bad gateway|service unavailable|gateway time-?out|upstream)/i.test(t) ||
+    /^модель недоступна/i.test(t);
 }
 
 /* ---- диктовка ---- */
@@ -12394,13 +12595,13 @@ synAct('start_meditation stop_meditation', function(a, done, skipped){
 
 synAct('set_theme_mode', function(a, done, skipped){
   var value = String(a.value || a.mode || '');
-  // «Как в системе» сервер прислать может — в приложении такой режим есть.
-  // В вебе его нет, поэтому системную превращаем в ту, что сейчас в системе:
-  // это ближе к просьбе, чем отказ.
-  if (value === 'system') value = systemPrefersDark() ? 'dark' : 'light';
-  if (value !== 'light' && value !== 'dark') return skipped.push('не понял тему');
+  // «Как в системе» есть в приложении на айфоне и на андроиде. В вебе её
+  // нет, поэтому там системную превращаем в ту, что сейчас в системе: это
+  // ближе к просьбе, чем отказ.
+  if (value === 'system' && !inApp()) value = systemPrefersDark() ? 'dark' : 'light';
+  if (value !== 'light' && value !== 'dark' && value !== 'system') return skipped.push('не понял тему');
   S.theme = value;
-  done.push('тема — ' + (value === 'dark' ? 'тёмная' : 'светлая'));
+  done.push('тема — ' + (value === 'system' ? 'как в системе' : value === 'dark' ? 'тёмная' : 'светлая'));
 });
 
 synAct('set_color_theme', function(a, done, skipped){
@@ -14103,7 +14304,14 @@ var ACTS = {
   'toggle-compact': function(){
     S.compactTasks = !S.compactTasks;
     применитьПлотность();
-    commit(S.compactTasks ? 'Список стал плотнее' : 'Обычный список');
+    commit(S.compactTasks ? 'Компактный вид задач' : 'Обычный вид задач');
+  },
+  'set-compact': function(d){
+    var включить = d.on === '1';
+    if (S.compactTasks === включить) return;
+    S.compactTasks = включить;
+    применитьПлотность();
+    commit(включить ? 'Компактный вид задач' : 'Обычный вид задач');
   },
   /* Обучение начинается заново.
 
@@ -16731,7 +16939,7 @@ pomoСверить();
    где их в этой форме нет, стёр бы веб-финансы). Секреты — в localStorage
    отдельными ключами, НЕ в S. */
 
-var SYNC = { code: '', status: '', busy: false, joinOpen: false };
+var SYNC = { code: '', status: '', busy: false, joinOpen: false, devices: null, devicesAt: 0, devLoading: false };
 
 function syncStore(k){ return localStorage.getItem('synapse.sync.' + k); }
 // Хранилище может отказать (нет места, приватный режим) — не бросаем, а
@@ -16754,13 +16962,39 @@ function syncEnsureDataKey(){
 
 /* ---- сеть (переиспользуем synFetch/synSession) ---- */
 function syncApiEnable(){ return synSession().then(function(sess){ return synFetch('/v1/synapse/sync/enable', {}, sess); }).then(function(d){ syncStoreSet('token', d.token); syncStoreSet('syncID', d.syncID); return d; }); }
-function syncApiStorePair(lookup, wrapped){ return synFetch('/v1/synapse/sync/pair/issue', { pairLookup: lookup, wrappedKey: wrapped }, syncToken()); }
-function syncApiRedeem(lookup){ return synFetch('/v1/synapse/sync/pair/redeem', { pairLookup: lookup, installID: webInstallID() }); }
+function syncApiStorePair(lookup, wrapped){ return syncAuthed(function(){ return synFetch('/v1/synapse/sync/pair/issue', { pairLookup: lookup, wrappedKey: wrapped }, syncToken()); }); }
+function syncApiRedeem(lookup){ return synFetch('/v1/synapse/sync/pair/redeem', { pairLookup: lookup, installID: webInstallID(), device: syncЭтоУстройство() }); }
+function syncApiDevices(){ return syncAuthed(function(){ return synFetch('/v1/synapse/sync/devices', { device: syncЭтоУстройство() }, syncToken()); }); }
+function syncApiRemoveDevice(id){ return syncAuthed(function(){ return synFetch('/v1/synapse/sync/devices/remove', { id: id }, syncToken()); }); }
+
+/* Это устройство в «Моих устройствах»: платформа и понятное имя. Андроид —
+   то же приложение в обёртке, его узнаём по мосту уведомлений. */
+function syncЭтоУстройство(){
+  var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+  if (уведомленияДоступны()){
+    /* Имя отдаёт мост AndroidDevice: системное имя телефона без имени
+       владельца («Samsung A51», а не «A51 пользователя …» — список
+       устройств лежит на сервере открытым текстом). В строке браузера
+       только заводской код («SM-A515F») — он запасом для сборок без моста. */
+    var своё = '';
+    try { своё = window.AndroidDevice && window.AndroidDevice.name ? String(window.AndroidDevice.name() || '').trim() : ''; } catch (e) {}
+    var m = ua.match(/Android [\d.]+;\s*([^;)]+?)(?:\s+Build\/|;|\))/);
+    var модель = своё || (m && m[1].trim().length > 2 ? m[1].trim() : '');
+    return { platform: 'android', name: модель };
+  }
+  var br = /YaBrowser/.test(ua) ? 'Яндекс Браузер' : /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera'
+    : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Браузер';
+  var os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
+    : /Mac OS X|Macintosh/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
+  return { platform: 'web', name: br + (os ? ' на ' + os : '') };
+}
 // Токен синхро отвергнут (протух/сброшен) — не молчим и не бросаем синхро.
 // Перевыпускаем токен через enable (сервер по членству вернёт ТУ ЖЕ группу, не
 // отдельную копию) и повторяем один раз. Так синхро не обрывается на протухании.
 function syncAuthed(run){
   return run().catch(function(e){
+    // Это устройство отвязали с другого — не переподключаемся молча.
+    if (e && e.status === 401 && e.data && e.data.removed){ syncОтвязано(); e.removed = true; throw e; }
     if (e && e.status === 401){
       return syncApiEnable().then(function(){ return run(); });
     }
@@ -16960,6 +17194,7 @@ function syncDo(promiseFn){
   SYNC.busy = true; renderKeepingInput();
   return Promise.resolve().then(promiseFn).catch(function(e){
     if (e && e.status === 402) SYNC.status = 'Синхронизация устройств доступна в Pro.';
+    else if (e && e.removed) {}
     else if (e && e.status === 401){ syncStoreSet('token', null); SYNC.status = 'Нужно включить синхронизацию заново.'; }
     else if (e && e.status === 404) SYNC.status = 'Код не подошёл. Проверьте, что он введён целиком.';
     else SYNC.status = (e && e.message) ? e.message : 'Не получилось. Попробуйте ещё раз.';
@@ -16987,7 +17222,22 @@ function syncSerial(вид, fn){
 function syncReady(){ return !!(syncToken() && syncDataKeyRaw()); }
 function syncLocalDirty(){ return syncLastHash === null || syncContentHash() !== syncLastHash; }
 
-function syncPullApply(){ return syncSerial('pull', syncPullInner); }
+/* Отметка удачной сверки — для строки состояния в «Данных» и для
+   предупреждения. Синхронизация шла в фоне молча: ошибка — «таймер
+   повторит», нет пропуска или ключа — тихо ничего. Владелец так и сказал:
+   «синхра включена, но не происходила», а экран показывал только кнопку
+   «Отключить», как будто всё в порядке. Теперь видно, когда была последняя
+   удачная сверка, и если давно — об этом говорится. */
+function syncОтметить(обещание){
+  return обещание.then(function(v){
+    if (syncReady()){ syncStoreSet('lastOkAt', String(Date.now())); syncStoreSet('lastErrAt', null); }
+    return v;
+  }, function(e){
+    syncStoreSet('lastErrAt', String(Date.now()));
+    throw e;
+  });
+}
+function syncPullApply(){ return syncОтметить(syncSerial('pull', syncPullInner)); }
 function syncPullInner(){
   if (!syncReady()) return Promise.resolve();
   // «Сначала принять» (после «Стереть всё»/«Примеры», см. заменитьВсеДанные):
@@ -17024,7 +17274,7 @@ function syncPullInner(){
   });
 }
 
-function syncPushCurrent(){ return syncSerial('push', function(){ return syncPushInner(true); }); }
+function syncPushCurrent(){ return syncОтметить(syncSerial('push', function(){ return syncPushInner(true); })); }
 function syncPushInner(можноСлить){
   if (!syncReady()) return Promise.resolve();
   // Приём после замены всех данных ещё не прошёл (сеть, расшифровка) — молчим,
@@ -17070,8 +17320,121 @@ function syncResolveConflict(){
 }
 
 function syncTurnOn(){ return syncDo(function(){ return syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); return syncPullApply(); }).then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизация включена.'; }); }); }
-function syncTurnOff(){ if (typeof syncWatchStop === 'function') syncWatchStop(); syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Синхронизация отключена. Данные в этом браузере остались.'; render(); }
-function syncShowCode(){ return syncDo(function(){ var ready = syncToken() ? Promise.resolve() : syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); }); return ready.then(function(){ var code = SynSyncCrypto.newCode(); return SynSyncCrypto.wrap(syncDataKeyRaw(), code).then(function(wrapped){ return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiStorePair(lookup, wrapped); }).then(function(){ SYNC.code = code; SYNC.status = 'Введите этот код на другом устройстве — код живёт 10 минут.'; }); }); }); }); }
+function syncTurnOff(){ if (typeof syncWatchStop === 'function') syncWatchStop(); syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('lastServerUpdatedAt', null); syncStoreSet('pairCode', null); syncStoreSet('pairUntil', null); syncForgetSynced(); SYNC.code = ''; SYNC.devices = null; SYNC.devicesAt = 0; SYNC.status = inApp() ? 'Синхронизация на этом телефоне выключена. Записи остались.' : 'Синхронизация в этом браузере выключена. Записи остались.'; render(); }
+/* «Добавить устройство»: код на 10 минут. Пока он жив (с запасом в минуту),
+   повторное нажатие показывает ТОТ ЖЕ код — раньше каждое нажатие выдавало
+   новый, и код, который уже набирали на другом устройстве, переставал
+   подходить. Одним кодом подключают несколько устройств. */
+var SYNC_КОД_МС = 10 * 60 * 1000;
+function syncЖивойКод(){
+  var c = syncStore('pairCode'), до = +syncStore('pairUntil') || 0;
+  return (c && до - Date.now() > 60000) ? { code: c, until: до } : null;
+}
+function syncShowCode(){
+  var живой = syncЖивойКод();
+  if (живой && syncToken()){ syncОкноКода(); return Promise.resolve(); }
+  return syncDo(function(){ var ready = syncToken() ? Promise.resolve() : syncApiEnable().then(function(){ syncEnsureDataKey(); if (!syncStoreSet('enabled', '1')) throw new Error('Браузер не даёт сохранить настройки синхронизации: нет места.'); }); return ready.then(function(){ var code = SynSyncCrypto.newCode(); return SynSyncCrypto.wrap(syncDataKeyRaw(), code).then(function(wrapped){ return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiStorePair(lookup, wrapped); }).then(function(){ syncStoreSet('pairCode', code); syncStoreSet('pairUntil', String(Date.now() + SYNC_КОД_МС)); SYNC.status = ''; syncОкноКода(); }); }); }); }); }
+function syncОсталось(){
+  var мс = (+syncStore('pairUntil') || 0) - Date.now();
+  if (мс <= 0) return '';
+  var с = Math.ceil(мс / 1000);
+  return Math.floor(с / 60) + ':' + (с % 60 < 10 ? '0' : '') + (с % 60);
+}
+/* Что зашито в QR. Обычная ссылка, а не своя схема: сканер в приложениях
+   вынимает из неё код (#pair=…), а системная камера телефона без нашего
+   приложения просто откроет веб с уже вписанным кодом. */
+function syncСсылкаКода(code){ return 'https://synapseapp.ru/app/#pair=' + encodeURIComponent(code); }
+/* Открыли по ссылке из QR: код вписываем в поле, но подключаем только по
+   нажатию — открыть ссылку ещё не значит согласиться на связку. */
+function syncКодИзАдреса(){
+  var m = /[#&]pair=([^&]+)/.exec(location.hash || '');
+  if (!m) return;
+  var чисто = '';
+  try { чисто = SynSyncCrypto.normalize(decodeURIComponent(m[1])).slice(0, 8); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  if (чисто.length !== 8) return;
+  S.view = inApp() ? 'settings-sync' : 'settings-data';
+  if (syncEnabled() && syncDataKeyRaw()){
+    SYNC.status = 'Синхронизация здесь уже включена. Чтобы подключить это устройство к другой группе, сначала выключите её.';
+  } else {
+    SYNC.joinOpen = true;
+    SYNC.prefill = чисто.slice(0, 4) + '-' + чисто.slice(4);
+    SYNC.status = 'Код из QR вписан. Нажмите «Подключить», чтобы связать это устройство.';
+  }
+  render();
+}
+var syncТаймерКода = null;
+function syncОкноКода(){
+  var живой = syncЖивойКод() || { code: syncStore('pairCode') || '' };
+  var qr = '';
+  try { if (window.SynapseQR) qr = SynapseQR.svg(syncСсылкаКода(живой.code), 176).replace('QR-код со ссылкой активации', 'QR-код для связки устройств'); } catch (e) {}
+  openModal(
+    '<h3>Добавить устройство</h3>' +
+    '<div class="pair-box">' +
+      (qr ? '<div class="pair-qr">' + qr + '</div>' : '') +
+      '<div class="pair-side">' +
+        '<p class="pair-code" aria-label="Код связки">' + esc(живой.code) + '</p>' +
+        '<p class="pair-left" id="pair-left"><i aria-hidden="true"></i><span>Код действует ещё ' + syncОсталось() + '</span></p>' +
+        '<p class="pair-how">Телефоном — наведите камеру в Synapse на QR. В браузере — введите код.</p>' +
+      '</div>' +
+    '</div>' +
+    '<p class="pair-hint">На новом устройстве: Настройки → Синхронизация → «Синхронизация уже есть на другом устройстве». Одним кодом можно подключить и айфон, и андроид, и другой браузер. Закроете окно и откроете снова — будет этот же код.</p>' +
+    '<button class="sync-primary" data-act="close-modal">Готово</button>');
+  clearInterval(syncТаймерКода);
+  syncТаймерКода = setInterval(function(){
+    var el = document.getElementById('pair-left');
+    if (!el){ clearInterval(syncТаймерКода); return; }
+    var ост = syncОсталось();
+    el.lastChild.textContent = SynI18n.tr(ост ? 'Код действует ещё ' + ост : 'Код истёк. Нажмите «Добавить устройство» ещё раз — появится новый.');
+    if (!ост){ el.classList.add('off'); clearInterval(syncТаймерКода); }
+  }, 1000);
+  // Список устройств обновим, когда окно закроют: новое устройство уже в нём.
+  SYNC.devicesAt = 0;
+}
+
+/* Устройство отвязали с другого: синхронизация здесь выключается, ключ
+   группы забываем. Записи в браузере остаются на месте. */
+function syncОтвязано(){
+  if (typeof syncWatchStop === 'function') syncWatchStop();
+  ['enabled', 'token', 'dataKey', 'lastServerUpdatedAt', 'pairCode', 'pairUntil', 'lastOkAt'].forEach(function(k){ syncStoreSet(k, null); });
+  syncForgetSynced();
+  SYNC.devices = null; SYNC.devicesAt = 0; SYNC.joinOpen = false;
+  SYNC.status = (inApp() ? 'Этот телефон' : 'Этот браузер') + ' отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.';
+  render();
+}
+
+/* «Мои устройства» подтягиваем, когда открыт раздел «Данные», не чаще раза в
+   полминуты: список меняется редко. */
+function syncЗагрузитьУстройства(){
+  if (SYNC.devLoading || !syncEnabled() || !syncToken()) return;
+  if (SYNC.devicesAt && Date.now() - SYNC.devicesAt < 30000) return;
+  SYNC.devLoading = true;
+  syncApiDevices().then(function(d){
+    SYNC.devices = (d && d.devices) || [];
+  }).catch(function(){ if (!SYNC.devices) SYNC.devices = []; }).then(function(){
+    SYNC.devLoading = false; SYNC.devicesAt = Date.now();
+    if (document.querySelector('.sync-devs')) renderKeepingInput();
+  });
+}
+function syncИмяУстройства(d){
+  var вид = { ios: 'Айфон', android: 'Андроид', web: 'Веб' }[d.platform] || 'Устройство';
+  // Айфонное приложение шлёт родовое имя модели: «iPhone» или «iPad».
+  if (d.platform === 'ios') return d.name === 'iPad' ? 'Айпад' : 'Айфон';
+  // Неразрывный пробел перед точкой: на узком экране «·» не повисает строкой.
+  return d.name && d.name !== вид ? вид + '\u00a0· ' + d.name : вид;
+}
+function syncЗнакУстройства(d){ return { ios: 'iP', android: 'A', web: 'W' }[d.platform] || '•'; }
+function syncКогдаУстройство(d){
+  if (d.current) return 'Это устройство · сейчас';
+  var t = d.lastSeenAt ? Date.parse(d.lastSeenAt) : 0;
+  if (!t) return 'Ещё не сверялось';
+  if (Date.now() - t < 60 * 60000) return 'Сверялось ' + syncКогда(t);
+  var когда = new Date(t), сегодня = todayDate(), вчера = new Date(сегодня); вчера.setDate(вчера.getDate() - 1);
+  var чч = когда.getHours() + ':' + (когда.getMinutes() < 10 ? '0' : '') + когда.getMinutes();
+  if (isoOf(когда) === isoOf(сегодня)) return 'Сверялось сегодня в ' + чч;
+  if (isoOf(когда) === isoOf(вчера)) return 'Сверялось вчера в ' + чч;
+  return 'Сверялось ' + syncКогда(t);
+}
 function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete(code)){ SYNC.status = 'Код неполный. Проверьте, что ввели его целиком.'; return; } return SynSyncCrypto.pairLookup(code).then(function(lookup){ return syncApiRedeem(lookup); }).then(function(res){ return SynSyncCrypto.unwrap(res.wrappedKey, code).then(function(key){ if (!key){ SYNC.status = 'Код не подошёл.'; return; }
   // Сначала ключ, потом «включено»: не влез ключ — не включаем вовсе, иначе
   // синхронизация считалась бы включённой без ключа.
@@ -17083,7 +17446,7 @@ function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete
   // с пришедшим, ничего не стирая.
   syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced();
   if (!syncStoreSet('enabled', '1')){ SYNC.status = 'Браузер не даёт сохранить настройки синхронизации: нет места.'; return; }
-  SYNC.joinOpen = false; return syncPullApply().then(function(){ SYNC.status = 'Устройство связано. Данные подтянуты.'; }); }); }); }); }
+  SYNC.joinOpen = false; SYNC.prefill = ''; SYNC.devicesAt = 0; return syncPullApply().then(function(){ SYNC.status = 'Устройство подключено. Записи объединены.'; }); }); }); }); }
 function syncNow(){ return syncDo(function(){ return syncPullApply().then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизировано.'; }); }); }
 function syncDeleteRemote(){ return syncDo(function(){ return syncSerial('delete', function(){ return syncApiDelete(); }).then(function(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('dataKey', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Копия с сервера удалена. Данные в браузере остались.'; }); }); }
 function syncPullOnLoad(){
@@ -17095,32 +17458,108 @@ function syncPullOnLoad(){
   else if (синхроЖдёт()) перекатПосле(null);
 }
 
+/* Состояние синхронизации человеческими словами. */
+var SYNC_ДАВНО_МС = 6 * 60 * 60 * 1000;
+function syncКогда(ts){
+  var мин = Math.floor((Date.now() - ts) / 60000);
+  if (мин < 1) return 'только что';
+  if (мин < 60) return мин + ' мин назад';
+  var ч = Math.floor(мин / 60);
+  if (ч < 24) return ч + ' ч назад';
+  return Math.floor(ч / 24) + ' дн назад';
+}
+function syncЗдоровье(){
+  if (!syncEnabled()) return { k: 'off', t: '' };
+  if (!syncToken()) return { k: 'token', t: 'Синхронизация включена, но это устройство потеряло доступ к ней. Нажмите «Переподключить».' };
+  if (!syncDataKeyRaw()) return { k: 'key', t: 'Синхронизация включена, но на этом устройстве нет ключа. Введите код с другого устройства.' };
+  var ok = +syncStore('lastOkAt') || 0;
+  if (!ok) return { k: 'wait', t: 'Первая сверка ещё не прошла.' };
+  if (Date.now() - ok > SYNC_ДАВНО_МС)
+    return { k: 'stale', t: 'Последняя удачная сверка — ' + syncКогда(ok) + '. Нажмите «Синхронизировать сейчас».' };
+  return { k: 'ok', t: 'Синхронизировано · ' + syncКогда(ok) };
+}
+/* Раз в день, если синхронизация включена, а сверки давно нет или
+   устройство потеряло доступ, — короткое напоминание. Первая проверка —
+   через полторы минуты после открытия: фоновая сверка успевает пройти. */
+function syncПроверитьЗдоровье(){
+  if (document.hidden || !isPro()) return;
+  var з = syncЗдоровье();
+  if (з.k !== 'token' && з.k !== 'key' && з.k !== 'stale') return;
+  var день = isoOf(todayDate());
+  if (syncStore('warnDay') === день) return;
+  syncStoreSet('warnDay', день);
+  toast('Синхронизация не проходит — загляните в Настройки → Данные.');
+}
+if (typeof window !== 'undefined' && !window.__syncHealthTimer){
+  window.__syncHealthTimer = true;
+  setTimeout(function(){ try { syncПроверитьЗдоровье(); } catch (e) {} }, 90000);
+  setInterval(function(){ try { syncПроверитьЗдоровье(); } catch (e) {} }, 10 * 60000);
+}
+
 /* ---- экран в разделе «Данные» ---- */
 function разделСинхро(){
-  if (!SYNC) SYNC = { code: '', status: '', busy: false, joinOpen: false };
+  if (!SYNC) SYNC = { code: '', status: '', busy: false, joinOpen: false, devices: null, devicesAt: 0, devLoading: false };
   if (!isPro()){
     return '<section class="card"><h3>Синхронизация устройств</h3>' +
       '<p class="sub">Доступно в Pro. Переносит задачи, цели, списки и заметки между айфоном, вебом и андроидом — данные уходят зашифрованными, мы их не читаем.</p></section>';
   }
   var on = syncEnabled();
-  var h = '<section class="card"><h3>Синхронизация устройств</h3>' +
-    '<p class="sub">Данные уходят зашифрованными, мы их не читаем. Переносятся задачи, цели, списки и заметки.</p>' +
-    '<div class="acts">' +
-    (on ? '<button class="btn sm soft" data-act="sync-off">Отключить</button>'
-        : '<button class="btn sm" data-act="sync-on">Включить</button>') +
-    '</div>';
-  if (on){
-    h += '<div class="acts">' +
-      '<button class="btn sm" data-act="sync-code">Связать новое устройство</button>' +
-      '<button class="btn sm soft" data-act="sync-join-open">Ввести код</button>' +
-      '<button class="btn sm soft" data-act="sync-now">Синхронизировать сейчас</button>' +
+  var здоровье = on ? syncЗдоровье() : { k: 'off' };
+  var h = '<section class="card sync-card"><h3>Синхронизация устройств</h3>';
+  if (!on){
+    /* Синхронизации здесь ещё нет: один выбор из двух. Ввод кода — только
+       здесь, на новом устройстве; на подключённом его нет вовсе, чтобы
+       случайно не уйти в чужую группу. */
+    h += '<p class="sub">Задачи, цели, списки и заметки — на айфоне, в вебе и на андроиде. Зашифровано: прочитать записи можете только вы.</p>';
+    h += '<div class="sync-opts">' +
+      '<button class="sync-opt" data-act="sync-on"><i class="sync-opt-ic main" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></i>' +
+        '<span><b>Это моё первое устройство</b><span>Начать синхронизацию здесь. Остальные устройства подключите кодом.</span></span></button>' +
+      '<button class="sync-opt' + (SYNC.joinOpen ? ' on' : '') + '" data-act="sync-join-open" aria-expanded="' + !!SYNC.joinOpen + '"><i class="sync-opt-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></i>' +
+        '<span><b>Синхронизация уже есть на другом устройстве</b><span>Введите код, который покажет айфон, андроид или другой браузер.</span></span></button>' +
       '</div>';
-    if (SYNC.code) h += '<p class="hint">Код для связки (введите его на другом устройстве):</p>' +
-      '<p style="font-size:28px;font-weight:800;letter-spacing:3px;font-family:monospace">' + esc(SYNC.code) + '</p>';
-    if (SYNC.joinOpen) h += '<div class="acts" style="gap:8px">' +
-      '<input id="sync-code-input" placeholder="ABCD-EFGH" autocapitalize="characters" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line,#ccc);flex:1">' +
-      '<button class="btn sm" data-act="sync-join-do">Связать</button></div>';
-    h += '<div class="acts"><button class="btn sm soft" data-act="sync-delete">Удалить копию с сервера</button></div>';
+  } else {
+    h += '<p class="sync-health sync-h-' + здоровье.k + '"><i aria-hidden="true"></i><span>' + esc(здоровье.t) + '</span></p>';
+    if (здоровье.k === 'token') h += '<div class="acts"><button class="btn sm" data-act="sync-on">Переподключить</button></div>';
+    if (здоровье.k === 'key') h += '<div class="acts"><button class="btn sm" data-act="sync-join-open">Ввести код</button></div>';
+    syncЗагрузитьУстройства();
+    var devs = SYNC.devices;
+    /* Как на макете: список в своей карточке, одна большая кнопка «Добавить
+       устройство», остальное — тихими ссылками ниже. */
+    h += '<div class="sync-devs"><p class="sync-devs-t">Мои устройства</p>';
+    if (!devs) h += '<p class="hint">Загружаем список…</p>';
+    else if (!devs.length) h += '<p class="hint">Устройства появятся здесь после их следующей сверки.</p>';
+    else devs.forEach(function(d){
+      h += '<div class="sync-dev"><i class="sync-dev-ic" aria-hidden="true">' + esc(syncЗнакУстройства(d)) + '</i>' +
+        '<span class="sync-dev-t"><b>' + esc(syncИмяУстройства(d)) + '</b><span>' + esc(syncКогдаУстройство(d)) + '</span></span>' +
+        (d.current ? '' : '<button class="sync-link" data-act="sync-dev-remove" data-id="' + esc(d.id) + '" data-name="' + esc(syncИмяУстройства(d)) + '">Отвязать</button>') +
+        '</div>';
+    });
+    h += '</div>';
+    h += '<button class="sync-primary" data-act="sync-code">Добавить устройство</button>';
+    h += '<div class="sync-links">' +
+      '<button class="sync-link" data-act="sync-now">Синхронизировать сейчас</button>' +
+      // В приложении на андроиде браузера человек не видит — «на этом телефоне».
+      '<button class="sync-link" data-act="sync-off">' + (inApp() ? 'Выключить на этом телефоне' : 'Выключить в этом браузере') + '</button>' +
+      '<button class="sync-link quiet" data-act="sync-delete">Удалить копию с сервера</button>' +
+      '</div>';
+  }
+  if (SYNC.joinOpen && (!on || здоровье.k === 'key')){
+    var клетки = function(от){ var r = ''; for (var i = от; i < от + 4; i++) r += '<span class="sync-cell" data-i="' + i + '"></span>'; return r; };
+    h += '<div class="sync-join">' +
+      '<label for="sync-code-input">Код с другого устройства</label>' +
+      '<div class="sync-cells">' + клетки(0) + '<span class="sync-dash" aria-hidden="true">–</span>' + клетки(4) +
+      '<input id="sync-code-input" class="sync-code-in" value="' + esc(SYNC.prefill || '') + '" maxlength="9" autocapitalize="characters" autocorrect="off" autocomplete="one-time-code" spellcheck="false" inputmode="text" aria-label="Код связки">' +
+      '</div>' +
+      '<p class="hint">Дефис ставится сам · регистр и раскладка не важны</p>' +
+      '<button class="sync-primary" data-act="sync-join-do">Подключить</button>' +
+      // Сканер есть только в приложении на андроиде (мост AndroidScanner).
+      // Внутри карточки, под «Подключить»: снаружи он слипался с подсказкой
+      // ниже — та же заливка, — и выходила кривая стопка плашек.
+      (window.AndroidScanner ? '<button class="sync-scan" data-act="sync-scan">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg>' +
+        'Сканировать QR</button>' : '') +
+      '</div>' +
+      '<p class="pair-hint sync-merge">Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.</p>';
   }
   if (SYNC.busy) h += '<p class="hint">Секунду…</p>';
   if (SYNC.status) h += '<p class="hint">' + esc(SYNC.status) + '</p>';
@@ -17247,6 +17686,8 @@ function syncWatchStart(){
     }).then(function(d){
       if (gen !== syncWatch.gen) return;
       d = d || {};
+      // Сервер ответил на ожидание — связь с группой есть.
+      syncStoreSet('lastOkAt', String(Date.now())); syncStoreSet('lastErrAt', null);
       syncWatch.known = d.updatedAt || '';
       if (d.changed){
         // Пауза в четверть секунды: наш же снимок мог прийти раньше ответа на
@@ -17285,9 +17726,101 @@ if (typeof window !== 'undefined' && !window.__syncPullTimer){
 ACTS['sync-on'] = function(){ syncTurnOn(); };
 ACTS['sync-off'] = function(){ syncTurnOff(); };
 ACTS['sync-code'] = function(){ syncShowCode(); };
-ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; render(); };
+ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; SYNC.prefill = ''; render(); if (SYNC.joinOpen) setTimeout(function(){ var el = document.getElementById('sync-code-input'); if (el){ try { el.focus({ preventScroll: false }); } catch (e) { el.focus(); } syncКлетки(el); } }, 50); };
+/* Код связки набирается как есть: «abcdefgh», «ABCD EFGH», с русской
+   раскладкой — поле само приводит к виду ABCD-EFGH (заглавные, дефис после
+   четвёртого знака), а набрав все восемь, само связывает устройство.
+   Владелец: «бесит, что тире вставлять нужно всюду — лучше бы оно само
+   ставилось». Сравнивается код без дефиса (SynSyncCrypto.normalize), так
+   что дефис нигде и не был нужен — его требовала только подсказка. */
+var syncКодОтправлен = '';
+function syncКлетки(el){
+  var чисто = window.SynSyncCrypto ? SynSyncCrypto.normalize(el.value).slice(0, 8) : '';
+  var фокус = document.activeElement === el;
+  document.querySelectorAll('.sync-cell').forEach(function(c){
+    var i = +c.dataset.i;
+    c.textContent = чисто[i] || '';
+    c.classList.toggle('on', фокус && (i === чисто.length || (i === 7 && чисто.length === 8)));
+  });
+}
+['focusin', 'focusout'].forEach(function(t){
+  document.addEventListener(t, function(e){ if (e.target && e.target.id === 'sync-code-input') syncКлетки(e.target); });
+});
+document.addEventListener('input', function(e){
+  var el = e.target;
+  if (!el || el.id !== 'sync-code-input' || !window.SynSyncCrypto) return;
+  var чисто = SynSyncCrypto.normalize(el.value).slice(0, 8);
+  var вид = чисто.length > 4 ? чисто.slice(0, 4) + '-' + чисто.slice(4) : чисто;
+  if (el.value !== вид){
+    el.value = вид;
+    try { el.setSelectionRange(вид.length, вид.length); } catch (er) {}
+  }
+  syncКлетки(el);
+  if (чисто.length === 8 && syncКодОтправлен !== чисто && !(SYNC && SYNC.busy)){
+    syncКодОтправлен = чисто;
+    syncJoin(вид);
+  } else if (чисто.length < 8) {
+    syncКодОтправлен = '';
+  }
+});
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Enter' && e.target && e.target.id === 'sync-code-input') ACTS['sync-join-do']();
+});
+/* QR с другого устройства — сканером приложения на андроиде.
+
+   В QR лежит ссылка https://synapseapp.ru/app/#pair=КОД (её открывает и
+   системная камера), но на всякий случай понимаем и просто код, и pair в
+   строке запроса. Подошло — вписываем в клетки и связываем сразу, как при
+   наборе восьмого знака. Чужой QR — так и говорим. */
+function syncКодИзQR(текст){
+  var t = String(текст || '').trim(), код = t;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(t)){
+    код = '';
+    try {
+      var u = new URL(t);
+      код = new URLSearchParams((u.hash || '').replace(/^#/, '')).get('pair') || u.searchParams.get('pair') || '';
+    } catch (e) {}
+  }
+  var чисто = '';
+  try { чисто = SynSyncCrypto.normalize(код).slice(0, 8); } catch (e) {}
+  return чисто.length === 8 ? чисто.slice(0, 4) + '-' + чисто.slice(4) : '';
+}
+ACTS['sync-scan'] = function(){
+  if (!window.AndroidScanner) return;
+  SYNC.status = '';
+  try { window.AndroidScanner.scan(); } catch (e) {}
+};
+window.addEventListener('android-scan', function(event){
+  var d = (event && event.detail) || {};
+  if (d.cancel) return;
+  var вид = syncКодИзQR(d.text);
+  if (!вид){ SYNC.status = 'Это не QR-код связки Synapse'; render(); return; }
+  SYNC.joinOpen = true;
+  SYNC.prefill = вид;
+  render();
+  var el = document.getElementById('sync-code-input');
+  if (el){ el.value = вид; syncКлетки(el); }
+  syncКодОтправлен = вид.replace('-', '');
+  syncJoin(вид);
+});
 ACTS['sync-join-do'] = function(){ var el = document.getElementById('sync-code-input'); syncJoin(el ? el.value : ''); };
-ACTS['sync-now'] = function(){ syncNow(); };
+ACTS['sync-now'] = function(){ SYNC.devicesAt = 0; syncNow(); };
+/* Отвязать другое устройство: оно сразу перестаёт получать и отправлять
+   записи. Данные на нём остаются; вернуть — новым кодом. */
+ACTS['sync-dev-remove'] = function(d){
+  SYNC.removeId = d.id;
+  openModal(
+    '<h3>Отвязать «' + esc(d.name || '') + '»?</h3>' +
+    '<p class="s">Это устройство перестанет получать и отправлять записи. Всё, что на нём уже есть, останется на месте.</p>' +
+    '<p class="s">Подключить его снова можно кодом из «Добавить устройство».</p>' +
+    '<button class="btn full danger" data-act="sync-dev-remove-confirm">Отвязать</button>' +
+    '<div class="acts"><button class="btn sm soft" data-act="close-modal">Отмена</button></div>');
+};
+ACTS['sync-dev-remove-confirm'] = function(){
+  var id = SYNC.removeId; closeModal();
+  if (!id) return;
+  syncDo(function(){ return syncApiRemoveDevice(id).then(function(r){ SYNC.devices = (r && r.devices) || SYNC.devices; SYNC.devicesAt = Date.now(); SYNC.status = 'Устройство отвязано.'; }); });
+};
 /* Удаление копии с сервера необратимо и касается всех связанных устройств —
    поэтому своим окном, как «Стереть навсегда» в корзине. */
 ACTS['sync-delete'] = function(){
@@ -17310,6 +17843,19 @@ ACTS['sync-delete-confirm'] = function(){ closeModal(); syncDeleteRemote(); };
 });
 
 try { syncPullOnLoad(); } catch (e) { if (синхроЖдёт()) перекатПосле(null); }
+try { syncКодИзАдреса(); } catch (e) {}
+/* После каждой отрисовки клетки кода заново берут буквы из поля: поле
+   переживает перерисовку (renderKeepingInput), а клетки рисуются пустыми. */
+(function(){
+  var база = render;
+  render = function(){
+    var r = база.apply(this, arguments);
+    var el = document.getElementById('sync-code-input');
+    if (el) syncКлетки(el);
+    return r;
+  };
+})();
+window.addEventListener('hashchange', function(){ try { syncКодИзАдреса(); } catch (e) {} });
 
 /* Окно плавно едет вслед за клавиатурой.
 
@@ -17367,6 +17913,13 @@ try { syncPullOnLoad(); } catch (e) { if (синхроЖдёт()) перекат
    уехал бы вниз страницы на всё время жеста. */
 var листание = null;
 
+/* Листание разделов выключено (22.10.2026). Владелец: «убрать свайп между
+   экранами, так как иногда ложно срабатывает» — косой мах при прокрутке
+   списка уносил на соседний раздел. Разделы переключает нижняя панель; от
+   жеста осталось только меню, которое в финансах тянут с левого края. Код
+   листания не удалён: вернуть — поставить true. */
+var ЛИСТАТЬ_РАЗДЕЛЫ = false;
+
 function листаемыйРаздел(){
   return ПАНЕЛЬ_ПРИЛОЖЕНИЯ.indexOf(activeTab());
 }
@@ -17419,6 +17972,7 @@ document.addEventListener('touchstart', function(event){
   // (см. краеваяЗона).
   var менюСКрая = листаемыйРаздел() === 0 && t.clientX < 24;
   if ((t.clientX < 24 && !менюСКрая) || t.clientX > w - 24) return;
+  if (!ЛИСТАТЬ_РАЗДЕЛЫ && !менюСКрая) return;
   if (листаниеЗапрещено(event.target)) return;
   var строка = event.target.closest('.swipe');
   листание = {
@@ -17438,7 +17992,9 @@ document.addEventListener('touchmove', function(event){
     if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
     л.решено = true;
     л.наше = Math.abs(dx) > Math.abs(dy) * 1.4 &&
-      !(л.строка === 'вся') && !(л.строка === 'влево' && dx < 0);
+      !(л.строка === 'вся') && !(л.строка === 'влево' && dx < 0) &&
+      // Без листания с края тянут только меню — вправо.
+      (ЛИСТАТЬ_РАЗДЕЛЫ || dx > 0);
     if (!л.наше){ листание = null; return; }
     // Свайп строки уже мог начаться на том же движении — гасим его.
     if (typeof swipe !== 'undefined' && swipe){

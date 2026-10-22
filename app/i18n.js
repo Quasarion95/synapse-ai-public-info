@@ -176,6 +176,96 @@
     'Регулярная операция': 'Recurring entry', 'Регулярные операции': 'Recurring entries',
     'В месяц': 'Per month', 'в месяц': 'per month', 'В год': 'Per year', 'в год': 'per year',
     'Бюджет': 'Budget', 'Квартплата': 'Utilities', 'Жильё и ЖКХ': 'Housing and utilities',
+    'Компактный вид задач': 'Compact task view', 'Задача в одну строку — на экран помещается больше.': 'One line per task — more fits on the screen.',
+    'Обычный вид задач': 'Regular task view', 'Обычный': 'Regular', 'Компактный': 'Compact', 'Как выглядят задачи': 'How tasks look',
+    'Урок английского': 'English lesson', 'Английский до B2': 'English to B2', 'Оплатить квартплату': 'Pay the rent', 'Позвонить маме': 'Call mom',
+    'ИИ временно недоступен — ведутся технические работы, скоро он снова заработает. Задачи, цели и всё остальное работают как обычно.': 'AI is temporarily unavailable due to maintenance and will be back soon. Tasks, goals and everything else work as usual.',
+    'Нет интернета — Syn ответит, как только связь появится.': 'No internet — Syn will answer as soon as you are back online.',
+    'Syn задумался слишком долго. Попробуй ещё раз.': 'Syn took too long to think. Please try again.',
+    'ИИ временно недоступен — цель записана с одним названием.': 'AI is temporarily unavailable — the goal is saved with just its title.',
+    'Синхронизировано · только что': 'Synced · just now', 'Первая сверка ещё не прошла.': 'The first sync hasn’t happened yet.',
+    'Синхронизация включена, но это устройство потеряло доступ к ней. Нажмите «Переподключить».': 'Sync is on, but this device has lost access to it. Press “Reconnect”.',
+    'Синхронизация включена, но на этом устройстве нет ключа. Введите код с другого устройства.': 'Sync is on, but this device has no key. Enter a code from another device.',
+    'Задачи, цели, списки и заметки — на айфоне, в вебе и на андроиде. Зашифровано: прочитать записи можете только вы.': 'Tasks, goals, lists and notes — on iPhone, on the web and on Android. Encrypted: only you can read your entries.',
+    'Это моё первое устройство': 'This is my first device', 'Начать синхронизацию здесь. Остальные устройства подключите кодом.': 'Start sync here. Connect your other devices with a code.',
+    'Синхронизация уже есть на другом устройстве': 'Sync is already on another device', 'Введите код, который покажет айфон, андроид или другой браузер.': 'Enter the code shown on your iPhone, Android or another browser.',
+    'Мои устройства': 'My devices', 'Загружаем список…': 'Loading the list…', 'Добавить устройство': 'Add a device', 'Выключить в этом браузере': 'Turn off in this browser', 'Выключить на этом телефоне': 'Turn off on this phone',
+    'Отвязать': 'Unlink', 'Подключить': 'Connect', 'Код с другого устройства': 'Code from another device', 'Это устройство · сейчас': 'This device · now', 'Ещё не сверялось': 'Not synced yet',
+    'Дефис ставится сам, регистр и раскладка не важны. Набрали восемь знаков — подключится само.': 'The dash is added for you; case and keyboard layout don’t matter. Type all eight characters and it connects by itself.',
+    'Код — в «Синхронизация → Добавить устройство» на айфоне, андроиде или в другом браузере. Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.': 'The code is in “Sync → Add a device” on your iPhone, Android or another browser. Entries already here are merged with the shared ones — nothing is lost.',
+    'На новом устройстве откройте синхронизацию и выберите «Синхронизация уже есть на другом устройстве» — там введите этот код.': 'On the new device, open sync and choose “Sync is already on another device”, then enter this code.',
+    'Одним кодом можно подключить и айфон, и андроид, и другой браузер. Закроете окно и откроете снова — будет этот же код.': 'One code connects your iPhone, Android and another browser. Close this window and open it again — you’ll see the same code.',
+    'Код истёк. Нажмите «Добавить устройство» ещё раз — появится новый.': 'The code has expired. Press “Add a device” again to get a new one.',
+    'Это устройство перестанет получать и отправлять записи. Всё, что на нём уже есть, останется на месте.': 'That device will stop receiving and sending entries. Everything already on it stays.',
+    'Подключить его снова можно кодом из «Добавить устройство».': 'You can connect it again with a code from “Add a device”.',
+    'Устройство отвязано.': 'Device unlinked.', 'Устройство подключено. Записи объединены.': 'Device connected. Entries merged.',
+    'Синхронизация в этом браузере выключена. Записи остались.': 'Sync is off in this browser. Your entries are still here.',
+    'Синхронизация на этом телефоне выключена. Записи остались.': 'Sync is off on this phone. Your entries are still here.',
+    'Этот браузер отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.': 'This browser was unlinked from sync on another device. Your entries are still here. You can connect again with a code.',
+    'Этот телефон отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.': 'This phone was unlinked from sync on another device. Your entries are still here. You can connect again with a code.',
+    'Это устройство выключают в его собственных настройках.': 'Turn this device off in its own settings.', 'Такого устройства в синхронизации уже нет.': 'That device is no longer in sync.',
+    'Код связки': 'Pairing code',
+    'Дефис ставится сам · регистр и раскладка не важны': 'The dash is added for you · case and layout don’t matter',
+    'Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.': 'Entries already here are merged with the shared ones — nothing is lost.',
+    'Телефоном — наведите камеру в Synapse на QR. В браузере — введите код.': 'On a phone, point the camera in Synapse at the QR. In a browser, type the code.',
+    'На новом устройстве: Настройки → Синхронизация → «Синхронизация уже есть на другом устройстве». Одним кодом можно подключить и айфон, и андроид, и другой браузер. Закроете окно и откроете снова — будет этот же код.': 'On the new device: Settings → Sync → “Sync is already on another device”. One code connects your iPhone, Android and another browser. Close this window and open it again — you’ll see the same code.',
+    'Синхронизация здесь уже включена. Чтобы подключить это устройство к другой группе, сначала выключите её.': 'Sync is already on here. To connect this device to another group, turn it off first.',
+    'Код из QR вписан. Нажмите «Подключить», чтобы связать это устройство.': 'The code from the QR is filled in. Press “Connect” to link this device.',
+    'QR-код для связки устройств': 'QR code for linking devices',
+    'Сканировать QR': 'Scan QR', 'Это не QR-код связки Synapse': 'This isn’t a Synapse device-linking QR code',
+    // — приложение: меню, настройки группами, «Тема» (22.10.2026) —
+    'создавай причины': 'create your reasons',
+    'Как в системе': 'System',
+    'Режим и цвет темы': 'Mode and theme colour',
+    'Светлая, тёмная или как в системе. Цвет темы от этого не меняется.': 'Light, dark or as on your phone. The theme colour stays the same.',
+    // названия цветов тем
+    'Закат': 'Sunset',
+    'Коралл': 'Coral',
+    'Ночная кора': 'Night Bark',
+    'Эмбер': 'Ember',
+    'Слейт': 'Slate',
+    'Крафт': 'Kraft',
+    'Ультрафиолет': 'Ultraviolet',
+    'Атенеум': 'Athenaeum',
+    'Кобальт': 'Cobalt',
+    'Хантер': 'Hunter',
+    'Винный клуб': 'Wine Club',
+    'Нэви клуб': 'Navy Club',
+    'Слоновая кость': 'Ivory',
+    'Тёмный кабинет': 'Dark Study',
+    'Соглашение': 'Terms',
+    'Язык': 'Language',
+    'Аккаунт и данные': 'Account and data',
+    'Помощь': 'Help',
+    'Светлая или тёмная, цвет темы': 'Light or dark, theme colour',
+    'Шрифт, размер текста и отметка задач': 'Font, text size and task check mark',
+    'Старт и задачи': 'Start and tasks',
+    'С чего начинать и компактный вид': 'Where to start and compact view',
+    'Задачи, утренний план и вечерний итог': 'Tasks, morning plan and evening summary',
+    'Синхронизация': 'Sync',
+    'Айфон, андроид и веб': 'iPhone, Android and web',
+    'Включена': 'On',
+    'Выключена': 'Off',
+    'Резервная копия и очистка': 'Backup and clean-up',
+    'Обучение': 'Tutorial',
+    'Показать знакомство заново': 'Show the introduction again',
+    'О приложении': 'About the app',
+    'Что умеет приложение и документы': 'What the app can do, and documents',
+    'Режим': 'Mode',
+    'Светлая или тёмная. Цвет темы от этого не меняется.': 'Light or dark. The theme colour stays the same.',
+    'Задача в этой теме': 'A task in this theme',
+    'Сегодня · 12:00': 'Today · 12:00',
+    'Кнопка': 'Button',
+    'Так будут выглядеть задачи': 'This is how tasks will look',
+    'Цвет темы': 'Theme colour',
+    'Кнопки, выбранное и главные цифры. Первые четыре — бесплатно.': 'Buttons, selections and key numbers. The first four are free.',
+    'Pro': 'Pro',
+    'Устройства появятся здесь после их следующей сверки.': 'Devices will appear here after their next sync.',
+    'Синхронизация устройств': 'Device sync', 'Удалить копию с сервера': 'Delete the server copy',
+    'Переподключить': 'Reconnect', '8 букв и цифр': '8 letters and digits', 'Синхронизировать сейчас': 'Sync now', 'Синхронизация не проходит — загляните в Настройки → Данные.': 'Sync isn’t going through — check Settings → Data.',
+    'Сфокусируйся на задаче': 'Focus on this task', 'Сфокусируйся на цели': 'Focus on this goal',
+    'Показать полностью': 'Show all', 'Цветёт!': 'Blooming!', 'Растёт': 'Growing',
+    'Грустит — ему не хватает дел': 'Sad — it needs more tasks', 'Засохло — полей его делами': 'Dry — water it with tasks', 'Свернуть': 'Show less', 'Накоплено': 'Saved', 'В день': 'Per day',
     'Аренда жилья': 'Rent', 'Транспорт': 'Transport', 'Здоровье': 'Health',
     'Развлечения': 'Entertainment', 'Дети и учёба': 'Kids and education',
     'Детский сад': 'Kindergarten', 'Прочее': 'Other', 'Мобильная связь': 'Mobile',
@@ -1062,6 +1152,42 @@
   function items(n) { return n + (n === '1' ? ' item' : ' items'); }
 
   var PATTERNS = [
+    // — «Мой фокус», цели: фразы с числами внутри (21.10.2026, снимки для
+    //   английской страницы сайта показали их русскими) —
+    [/^Сегодня в фокусе (\d+) (?:задача|задачи|задач)$/, function (m) {
+      return 'In focus today: ' + m[1] + (m[1] === '1' ? ' task' : ' tasks');
+    }],
+    [/^(\d+) из (\d+) (?:закрыта|закрыты|закрыто)\. Осталось (\d+) (?:задача|задачи|задач)\.$/, function (m) {
+      return m[1] + ' of ' + m[2] + ' done. ' + m[3] + (m[3] === '1' ? ' task' : ' tasks') + ' left.';
+    }],
+    [/^из (\d+)$/, function (m) { return 'of ' + m[1]; }],
+    [/^Сверялось (?:только что|(\d+) (мин|ч|дн) назад)$/, function (m) {
+      return m[1] ? 'Synced ' + m[1] + (m[2] === 'мин' ? ' min' : m[2] === 'ч' ? ' h' : ' d') + ' ago' : 'Synced just now';
+    }],
+    [/^(Айфон|Айпад|Андроид|Веб|Устройство)(?:[ \u00a0]· (.+))?$/, function (m) {
+      var вид = { 'Айфон': 'iPhone', 'Айпад': 'iPad', 'Андроид': 'Android', 'Веб': 'Web', 'Устройство': 'Device' }[m[1]];
+      return m[2] ? вид + '\u00a0· ' + m[2].replace('Яндекс Браузер', 'Yandex Browser').replace(' на ', ' on ').replace(/^Браузер/, 'Browser') : вид;
+    }],
+    [/^Сверялось (сегодня|вчера) в (\d+:\d\d)$/, function (m) { return 'Synced ' + (m[1] === 'сегодня' ? 'today' : 'yesterday') + ' at ' + m[2]; }],
+    [/^Код действует ещё (\d+:\d\d)$/, function (m) { return 'Code valid for ' + m[1]; }],
+    [/^Отвязать «(.+)»\?$/, function (m) { return 'Unlink “' + m[1] + '”?'; }],
+    [/^Синхронизировано · (\d+) (мин|ч|дн) назад$/, function (m) {
+      return 'Synced · ' + m[1] + (m[2] === 'мин' ? ' min' : m[2] === 'ч' ? ' h' : ' d') + ' ago';
+    }],
+    [/^Последняя удачная сверка — (\d+) (мин|ч|дн) назад\. Нажмите «Синхронизировать сейчас»\.$/, function (m) {
+      return 'Last successful sync — ' + m[1] + (m[2] === 'мин' ? ' min' : m[2] === 'ч' ? ' h' : ' d') + ' ago. Press “Sync now”.';
+    }],
+    [/^(\d+) \/ (\d+) (этап|этапа|этапов|задача|задачи|задач)$/, function (m) {
+      return m[1] + ' / ' + m[2] + (/^этап/.test(m[3]) ? ' stages' : ' tasks');
+    }],
+    [/^(\d+)% задач целей сделано$/, function (m) { return m[1] + '% of goal tasks done'; }],
+    [/^(Бесплатно|В подписке) (\d+) запросов к Syn в день\.$/, function (m) {
+      return (m[1] === 'Бесплатно' ? 'Free: ' : 'With Pro: ') + m[2] + ' Syn requests a day.';
+    }],
+    [/^(\d+) из (\d+) (этапов|этапа|этап|задачи|задача|задач) · (\d+) (?:этапов|этапа|этап)(.*)$/, function (m) {
+      var unit = /^этап/.test(m[3]) ? 'stages' : 'tasks';
+      return m[1] + ' of ' + m[2] + ' ' + unit + ' · ' + m[4] + (m[4] === '1' ? ' stage' : ' stages') + m[5];
+    }],
     // — сообщения внизу экрана (тосты), собранные в app.js сложением —
     [/^Задача в блоке «(.+)»$/, function (m) { return 'Task added to "' + known(m[1]) + '"'; }],
     [/^Перенесено в «(.+)»$/, function (m) { return 'Moved to "' + known(m[1]) + '"'; }],

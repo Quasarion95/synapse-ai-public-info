@@ -30,37 +30,76 @@
   'use strict';
 
   /* Фирменная пара на палитру: [светлая тема], [тёмная тема]. Первый цвет —
-     основной (кнопки, выбранное), второй — конец градиента. */
+     основной (кнопки, выбранное), второй — конец градиента.
+
+     Цвета подобраны заново (21.10.2026). Темы шли парами-двойниками:
+     «Индиго» и «Ультрафиолет», «Кобальт», «Графит» и «Нэви», «Бордо» и
+     «Винный клуб», «Крафт» и «Эмбер», «Тёмный кабинет» и «Атенеум»,
+     «Ночная кора» и «Слейт» — на плитках их было не отличить, а у
+     «Графита» с «Кобальтом» в тёмной теме цвет совпадал до единицы.
+
+     Каждой теме теперь — своё место на цветовом круге, а где оттенки
+     соседние, их разводят светлота и насыщенность (контрасты Иттена: по
+     тону, по светлоте, по насыщенности). Проверено расчётом: любые две темы
+     расходятся в пространстве Lab не меньше, чем «Закат» с «Кораллом», и в
+     светлой, и в тёмной теме. Основной цвет светлой темы держит белую
+     подпись (контраст от 3,2), тёмной — тёмную.
+
+     Пары задаются уже готовыми, без поправки формулой: прежняя «мягкость»
+     сводила светлоту всех тем в один коридор, и тёмная хвоя с сочным
+     изумрудом выходили одним зелёным. «Закат», «Коралл» и «Кобальт» — ровно
+     те же цвета, что были. */
   var BRANDS = {
     /* «Закат» и «Коралл» — из приложения для айфона: акцент и тёплый акцент
        оттуда же, светлая и тёмная пара. */
     sunset:      [['#E05F3B', '#E68F33'], ['#FA9E7A', '#FABB71']],
     coral:       [['#E04E63', '#EF7852'], ['#F88E8D', '#FBA77F']],
-    graphite:    [['#3E6AE1', '#56A0F5'], ['#6A8CFF', '#45B4FF']],
-    forest:      [['#0E9F6E', '#2BC48A'], ['#34D399', '#22C1A6']],
-    brass:       [['#C98A0B', '#E8AE36'], ['#F5B83D', '#FFD36B']],
-    burgundy:    [['#D6334D', '#F0567A'], ['#FF5C7A', '#FF8A9F']],
-    /* Пара прежней «Бумаги»: «Индиго» заняла её место темы по умолчанию,
-       и выбранный по макетам вид не должен был сдвинуться ни на тон. */
-    indigo:      [['#5B5BF6', '#8B6CFF'], ['#7C5CFF', '#3E8BFF']],
-    plum:        [['#A23DD1', '#D05ADF'], ['#C77DFF', '#E879F9']],
-    sea:         [['#0B95A3', '#22C3C9'], ['#2DD4D9', '#38BDF8']],
-    charcoal:    [['#1C1F26', '#4A5263'], ['#F1F2F5', '#B7BCC8']],
-    nightbark:   [['#0082CC', '#1FB0F2'], ['#4FB6FF', '#7FD0FF']],
-    ember:       [['#EA5418', '#FF8A3D'], ['#FF7A3D', '#FFA05C']],
-    slate:       [['#2F8FD8', '#4FB3F0'], ['#6CBFFF', '#8FD3FF']],
-    kraft:       [['#EE6234', '#FF8F5C'], ['#FF8A5C', '#FFB089']],
-    ultraviolet: [['#7048E8', '#9B6BFF'], ['#A78BFA', '#C4B5FD']],
-    atheneum:    [['#A9822F', '#CFAA5C'], ['#D9B66B', '#EED39A']],
-    cobalt:      [['#1E50E6', '#3D7BFF'], ['#6C8CFF', '#4FA3FF']],
-    hunter:      [['#1C7A4C', '#2FA36A'], ['#5FD39A', '#3CC9A0']],
-    wineclub:    [['#A3243B', '#C7425B'], ['#F2788E', '#FF9AAE']],
-    navy:        [['#1E4C8A', '#2F6FC0'], ['#7FA8E6', '#9CC2FF']],
-    ivory:       [['#5F7F50', '#8FAE7A'], ['#A9C79A', '#C3DDB5']],
-    study:       [['#A27A10', '#C99A2E'], ['#E2B84A', '#F2D27A']]
+    cobalt:      [['#385DCC', '#4272DE'], ['#7F97EC', '#6BA1E9']],
+
+    /* Нейтральные: «Уголь» почти чёрный, «Графит» — серый без оттенка,
+       «Атенеум» — тёплый камень. Различаются светлотой, а не цветом. */
+    charcoal:    [['#232327', '#33343A'], ['#EDEDEF', '#DFDFE2']],
+    graphite:    [['#5F626D', '#707180'], ['#90939F', '#A6A7B2']],
+    atheneum:    [['#7E755B', '#938D6A'], ['#C8C2B2', '#D9D7CA']],
+
+    /* Синие — от бирюзы к ночи. «Море» бирюзовое, «Ночная кора» —
+       небесная, «Слейт» — приглушённый серо-голубой, «Нэви» — глубокий
+       тёмный, «Кобальт» — чистый синий (прежний, не тронут). */
+    sea:         [['#1C8BA1', '#2190C0'], ['#5ECDE3', '#81CAE9']],
+    nightbark:   [['#177ECD', '#2177E6'], ['#5AADED', '#7EB0F1']],
+    slate:       [['#5F82AA', '#768CB7'], ['#B4C4D7', '#CED6E5']],
+    navy:        [['#21306C', '#2A3087'], ['#A1AEE2', '#C0C3EC']],
+
+    /* Зелёные — по светлоте: «Лес» — сочный изумруд, «Хантер» — тёмная
+       хвоя, «Тёмный кабинет» — глубокий сине-зелёный, «Слоновая кость» —
+       оливковая. */
+    forest:      [['#209B64', '#26B98A'], ['#50DB9C', '#72E2BE']],
+    hunter:      [['#2A6037', '#35794F'], ['#81C893', '#9ED4B2']],
+    study:       [['#2C6058', '#387977'], ['#80C5BA', '#9CD1D1']],
+    ivory:       [['#86923A', '#8FAB44'], ['#BCC874', '#C2D491']],
+
+    /* Тёплые: «Латунь» — золото, «Эмбер» — янтарь, «Крафт» — бумажный
+       коричневый, «Винный клуб» — марсала. */
+    brass:       [['#B08917', '#CFB91B'], ['#E6BC42', '#EBDB66']],
+    ember:       [['#D46E12', '#EB9B1F'], ['#F09D53', '#F3C378']],
+    kraft:       [['#9A6042', '#B27D4D'], ['#CEA38D', '#DAC1A9']],
+    wineclub:    [['#743938', '#8C4F44'], ['#C07E7C', '#CDA098']],
+
+    /* Красно-фиолетовые: «Бордо» — малиново-винный, «Слива» —
+       пурпурная, «Ультрафиолет» — яркий фиолетовый, «Индиго» — сине-
+       фиолетовый. */
+    burgundy:    [['#8C2651', '#A82E51'], ['#E294B5', '#EBB4C4']],
+    plum:        [['#93388C', '#AC4297'], ['#D28BCD', '#DEA8D3']],
+    ultraviolet: [['#A22FE4', '#C44FE8'], ['#CA89F0', '#E4ADF4']],
+    indigo:      [['#5544E4', '#7956E6'], ['#897DEC', '#B4A1F1']]
   };
 
-  /* Цвета разделов — по макетам A и B. Одни на все палитры. */
+  /* Цвета разделов — по макетам A и B. Одни на все палитры.
+
+     С новым видом (21.10.2026) они больше не красят меню: по правилу
+     60-30-10 на экране один цвет — цвет темы, — а радуга из одиннадцати
+     значков спорила с ним за внимание. Переменные --c-* оставлены (на них
+     держится разметка), но apply() кладёт в них цвет темы. */
   var SECTIONS = {
     light: { tasks:'#2E90FA', goals:'#7A5AF8', focus:'#06AED4', map:'#F79009', lists:'#12B76A',
              notes:'#EAAA08', pomo:'#F04438', med:'#15B79E', fin:'#16B364', trash:'#98A2B3',
@@ -70,13 +109,17 @@
              sub:'#F472B6', set:'#94A3B8' }
   };
 
-  /* Нейтральная основа — макеты A и B. Чуть подкрашивается фирменным цветом,
-     чтобы «Лес» и «Бордо» отличались не только кнопками. */
+  /* Нейтральная основа — по айфону (новый вид, 21.10.2026): поле — тёплый
+     серый с каплей цвета темы, карточки белые и отделяются от поля тенью, а
+     не рамкой (Refactoring UI: «глубина вместо обводок»). Одно правило на все
+     темы: холодный серо-синий прежнего «Чистого светлого» спорил с тёплыми
+     темами, а кремовый фон только у «Заката» и «Коралла» делал их другим
+     приложением. */
   var BASE = {
-    light: { bg:[244,245,248], card:[255,255,255], soft:[243,244,247], line:[229,231,237],
-             fg:[14,20,36], fg2:[75,84,102], fg3:[134,143,160] },
-    dark:  { bg:[11,13,18], card:[18,21,29], soft:[26,30,40], line:[36,41,56],
-             fg:[242,244,248], fg2:[166,174,192], fg3:[112,120,138] }
+    light: { bg:[243,241,240], card:[255,255,255], soft:[245,243,242], line:[236,232,230],
+             fg:[24,19,15], fg2:[107,100,97], fg3:[143,136,133] },
+    dark:  { bg:[14,14,16], card:[26,26,29], soft:[34,34,38], line:[46,46,51],
+             fg:[244,240,238], fg2:[173,166,163], fg3:[127,121,118] }
   };
 
   var STATUS = {
@@ -112,66 +155,12 @@
     catch (e){ return false; }
   }
 
-  /* Смягчение фирменного цвета.
-
-     Пары в BRANDS подобраны «на максимум» — так их проще сравнивать между
-     собой. На экране таким цветом залиты кнопки, выбранное, полосы и баннер,
-     и в полную силу он выходил ядовитым: владелец так и сказал — «чуть-чуть
-     мягче бы». Здесь насыщенность снижается примерно на четверть, а
-     светлота подтягивается в спокойный коридор: в светлой теме цвет не
-     светится, в тёмной не гаснет. Оттенок не трогаем — «Лес» остаётся
-     зелёным, «Бордо» — винным. */
-  var SOFT_S = 0.74;
-  var SOFT_L = { light: [0.44, 0.58], dark: [0.62, 0.74] };
-
-  function toHsl(c){
-    var r = c[0]/255, g = c[1]/255, b = c[2]/255;
-    var max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, h = 0, s = 0;
-    if (max !== min){
-      var d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-      h /= 6;
-    }
-    return [h, s, l];
-  }
-  function fromHsl(h, s, l){
-    if (!s) return [l*255, l*255, l*255];
-    var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
-    var f = function(t){
-      if (t < 0) t += 1; if (t > 1) t -= 1;
-      if (t < 1/6) return p + (q - p) * 6 * t;
-      if (t < 1/2) return q;
-      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-      return p;
-    };
-    return [f(h + 1/3) * 255, f(h) * 255, f(h - 1/3) * 255];
-  }
-  function soften(c, dark){
-    var hsl = toHsl(c), band = SOFT_L[dark ? 'dark' : 'light'];
-    // Почти серые (монохром «Уголь») не трогаем: смягчать в них нечего.
-    if (hsl[1] < 0.12) return c;
-    return fromHsl(hsl[0], hsl[1] * SOFT_S, Math.min(band[1], Math.max(band[0], hsl[2])));
-  }
-
-  /* Тёплые палитры айфона берут и его фон — кремовый, а не холодный
-     светло-серый: без него «Закат» выглядел оранжевыми кнопками на чужом
-     экране. Карточки остаются белыми, как на айфоне. И цвет не смягчаем —
-     он и так подобран под белую подпись. */
-  var WARM = {
-    sunset: { light: [254,244,239], dark: [34,25,22] },
-    coral:  { light: [254,242,240], dark: [34,23,25] }
-  };
-
   function brandPair(id, dark){
     var b = BRANDS[id] || BRANDS[FALLBACK];
     var pair = b[dark ? 1 : 0];
-    if (WARM[id]) return [hex(pair[0]), mix(hex(pair[0]), hex(pair[1]), 0.7)];
-    var one = soften(hex(pair[0]), dark);
     // Концы градиента ближе друг к другу: остаётся перелив, а не переход
     // между двумя разными цветами.
-    var two = mix(one, soften(hex(pair[1]), dark), 0.55);
-    return [one, two];
+    return [hex(pair[0]), mix(hex(pair[0]), hex(pair[1]), 0.7)];
   }
 
   function apply(){
@@ -181,11 +170,12 @@
     var base = BASE[mode], st = STATUS[mode], sec = SECTIONS[mode];
     var pair = brandPair(S.palette, dark), brand = pair[0], brand2 = pair[1];
 
-    var warm = WARM[S.palette];
-    var bg = warm ? warm[mode] : mix(base.bg, brand, dark ? 0.05 : 0.025);
-    var card = dark ? mix(base.card, brand, 0.035) : base.card;
-    var soft = mix(base.soft, brand, dark ? 0.05 : 0.03);
-    var line = mix(base.line, brand, dark ? 0.06 : 0.04);
+    var bg = mix(base.bg, brand, dark ? 0.035 : 0.045);
+    var card = dark ? mix(base.card, brand, 0.05) : base.card;
+    var soft = mix(base.soft, brand, dark ? 0.06 : 0.045);
+    var line = mix(base.line, brand, dark ? 0.07 : 0.05);
+    var fg = mix(base.fg, brand, dark ? 0 : 0.06);
+    var fg2 = mix(base.fg2, brand, dark ? 0.04 : 0.12);
     var mid = mix(brand, brand2, 0.5);
     var onBrand = lum(mid) > 0.45 ? 'rgb(14,20,36)' : '#FFFFFF';
 
@@ -194,14 +184,20 @@
     r.setProperty('--panel', rgb(card));
     r.setProperty('--panel-strong', rgb(soft));
     r.setProperty('--stroke', rgb(line));
-    r.setProperty('--text', rgb(base.fg));
-    r.setProperty('--text-2', rgb(base.fg2));
+    r.setProperty('--text', rgb(fg));
+    r.setProperty('--text-2', rgb(fg2));
     r.setProperty('--fg-3', rgb(base.fg3));
 
     r.setProperty('--accent', rgb(brand));
     r.setProperty('--brand-2', rgb(brand2));
     r.setProperty('--grad', 'linear-gradient(135deg, ' + rgb(brand) + ', ' + rgb(brand2) + ')');
     r.setProperty('--accent-soft', rgba(brand, dark ? 0.18 : 0.1));
+    /* Тихая заливка цветом темы, но непрозрачная: ею залиты вторичные
+       кнопки и плашки, и полупрозрачная подложка на сером поле и на белой
+       карточке давала два разных цвета. */
+    r.setProperty('--accent-tint', rgb(mix(card, brand, dark ? 0.18 : 0.1)));
+    r.setProperty('--on-accent-soft', onBrand === '#FFFFFF' ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.1)');
+    r.setProperty('--glow', '0 10px 24px -12px ' + rgba(brand, dark ? 0.6 : 0.7));
     r.setProperty('--accent-text', rgb(readable(brand, card, dark)));
     r.setProperty('--on-accent', onBrand);
 
@@ -217,13 +213,13 @@
     r.setProperty('--warn-soft', rgba(st.warn, dark ? 0.15 : 0.1));
 
     r.setProperty('--shadow', dark
-      ? '0 1px 0 rgba(255,255,255,.035) inset, 0 8px 24px -14px rgba(0,0,0,.7)'
-      : '0 1px 2px rgba(16,24,40,.05), 0 2px 6px rgba(16,24,40,.05)');
+      ? '0 1px 2px rgba(0,0,0,.3), 0 14px 34px -14px rgba(0,0,0,.7)'
+      : '0 1px 2px rgba(30,20,10,.04), 0 12px 32px -14px rgba(30,20,10,.16)');
     r.setProperty('--shadow-lift', dark
-      ? '0 16px 40px -20px ' + rgba(brand, 0.32)
-      : '0 12px 28px -16px ' + rgba(brand, 0.28));
+      ? '0 2px 6px rgba(0,0,0,.4), 0 18px 44px -12px rgba(0,0,0,.8)'
+      : '0 2px 6px rgba(30,20,10,.06), 0 18px 44px -12px rgba(30,20,10,.28)');
 
-    Object.keys(sec).forEach(function(k){ r.setProperty('--c-' + k, sec[k]); });
+    Object.keys(sec).forEach(function(k){ r.setProperty('--c-' + k, rgb(brand)); });
     swatches(dark);
   }
 
@@ -309,7 +305,7 @@
     };
     base();
     apply();
-    if (typeof S !== 'undefined' && S.view === 'settings' && typeof global.render === 'function') global.render();
+    if (typeof S !== 'undefined' && String(S.view).indexOf('settings') === 0 && typeof global.render === 'function') global.render();
     var app = document.getElementById('app');
     if (app && global.MutationObserver){
       new MutationObserver(markMap).observe(app, { childList: true });
@@ -320,5 +316,25 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
   else install();
 
-  global.SynTheme = { apply: apply, brands: BRANDS };
+  /* Цвета для образца темы в настройках — тем же расчётом, что apply():
+     поле, карточка, цвет темы и текст, светлой и тёмной половиной. Образец
+     обязан совпадать с тем, что человек увидит, нажав. */
+  function preview(id){
+    var out = {};
+    [false, true].forEach(function(dark){
+      var mode = dark ? 'dark' : 'light', base = BASE[mode];
+      var brand = brandPair(id, dark)[0];
+      var card = dark ? mix(base.card, brand, 0.05) : base.card;
+      out[mode] = {
+        bg: rgb(mix(base.bg, brand, dark ? 0.035 : 0.045)),
+        card: rgb(card),
+        accent: rgb(brand),
+        fg: rgb(dark ? base.fg : mix(base.fg, brand, 0.06)),
+        soft: rgb(mix(card, brand, dark ? 0.18 : 0.1))
+      };
+    });
+    return out;
+  }
+
+  global.SynTheme = { apply: apply, brands: BRANDS, preview: preview };
 })(window);

@@ -67,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
        руками, вот он. */
     private ValueCallback<Uri[]> ждётФайл;
     private ActivityResultLauncher<String> выборФайла;
+    private ActivityResultLauncher<com.journeyapps.barcodescanner.ScanOptions> сканерQR;
     private String код;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -127,6 +128,16 @@ public class MainActivity extends AppCompatActivity {
                     if (ждётФайл == null) return;
                     ждётФайл.onReceiveValue(uri == null ? null : new Uri[]{uri});
                     ждётФайл = null;
+                });
+
+        /* Сканер QR для связки устройств — тот же порядок: контракт заводим до
+           WebView. Что прочитано, страница разбирает сама (syncКодИзQR):
+           ссылку synapseapp.ru/app/#pair=…, просто код или чужой QR. */
+        сканерQR = registerForActivityResult(
+                new com.journeyapps.barcodescanner.ScanContract(),
+                итог -> {
+                    String текст = итог == null ? null : итог.getContents();
+                    отдатьСкан(текст == null ? "" : текст, текст == null);
                 });
 
         web = new WebView(this);
@@ -317,6 +328,15 @@ public class MainActivity extends AppCompatActivity {
                     web.setSystemGestureExclusionRects(полосы);
                 });
             }
+
+            /* Тёмный ли сейчас телефон — для темы «Как в системе». Спрашиваем
+               систему, а не prefers-color-scheme: WebView узнаёт о смене
+               режима не всегда — активность не пересоздаётся (uiMode в
+               configChanges), — а здесь ответ всегда свежий. */
+            @android.webkit.JavascriptInterface
+            public boolean systemDark() {
+                return системаТёмная();
+            }
         }, "AndroidBars");
 
         /* Тактильный отклик — системный, а не navigator.vibrate.
@@ -334,6 +354,41 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(() -> web.performHapticFeedback(видОтклика(вид)));
             }
         }, "AndroidHaptic");
+
+        /* Имя телефона для «Моих устройств»: из строки браузера достаётся
+           только заводской код «SM-A515F». Берём системное имя телефона,
+           но без имени владельца — см. DeviceName. */
+        web.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public String name() {
+                String системное = null;
+                try {
+                    системное = android.provider.Settings.Global.getString(getContentResolver(), "device_name");
+                } catch (Throwable ignored) { }
+                return DeviceName.of(системное, android.os.Build.MANUFACTURER, android.os.Build.MODEL);
+            }
+        }, "AndroidDevice");
+
+        /* «Сканировать QR» в «Синхронизация уже есть на другом устройстве».
+           Камера — окном сканера: разрешение он спрашивает сам при первом
+           нажатии, а без камеры у человека остаются клетки для кода. */
+        web.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public void scan() {
+                runOnUiThread(() -> {
+                    com.journeyapps.barcodescanner.ScanOptions о = new com.journeyapps.barcodescanner.ScanOptions();
+                    о.setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE);
+                    о.setPrompt("Наведите камеру на QR-код на другом устройстве");
+                    о.setBeepEnabled(false);
+                    о.setOrientationLocked(true);
+                    try {
+                        сканерQR.launch(о);
+                    } catch (Throwable e) {
+                        отдатьСкан("", true);
+                    }
+                });
+            }
+        }, "AndroidScanner");
 
         // Оценка и обновление через RuStore (StoreBridge).
         магазин = new StoreBridge(this, web);
@@ -611,5 +666,28 @@ public class MainActivity extends AppCompatActivity {
             case "tap":     return android.view.HapticFeedbackConstants.KEYBOARD_TAP;
             default:        return android.view.HapticFeedbackConstants.CLOCK_TICK;
         }
+    }
+
+    /** Итог сканера — странице событием android-scan: { text } или { cancel: true }. */
+    private void отдатьСкан(String текст, boolean отмена) {
+        if (web == null) return;
+        String detail = отмена ? "{cancel:true}" : "{text:" + org.json.JSONObject.quote(текст) + "}";
+        String js = "window.dispatchEvent(new CustomEvent('android-scan',{detail:" + detail + "}))";
+        runOnUiThread(() -> web.evaluateJavascript(js, null));
+    }
+
+    private boolean системаТёмная() {
+        int режим = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        return режим == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    /* Человек переключил тёмный режим телефона — говорим странице: при теме
+       «Как в системе» она перекрасится сразу, без перезапуска. */
+    @Override
+    public void onConfigurationChanged(@androidx.annotation.NonNull android.content.res.Configuration конф) {
+        super.onConfigurationChanged(конф);
+        if (web == null) return;
+        String js = "window.dispatchEvent(new CustomEvent('android-uimode',{detail:{dark:" + системаТёмная() + "}}))";
+        web.evaluateJavascript(js, null);
     }
 }
