@@ -565,6 +565,8 @@ body { background: var(--bg); }
 .term-note { font-size: 14.5px; color: var(--muted); flex: 1; }
 .term .btn { margin-top: 12px; width: 100%; }
 .term-best { background: var(--b1); color: #fff; box-shadow: var(--glow); }
+/* Зачёркнутая цена года помесячно — якорь рядом с ценой. */
+.term-was { font-size: 17px; font-weight: 600; letter-spacing: 0; opacity: .7; margin-left: 6px; }
 .term-best .term-month, .term-best .term-note { color: rgba(255,255,255,.9); }
 .term-best .term-bar { background: rgba(255,255,255,.28); }
 .term-best .term-bar i { background: #fff; }

@@ -170,15 +170,15 @@
           <h2>Сколько это в деньгах</h2>
           <p>
             Посчитайте на своих числах. Тарифы настоящие: 149&nbsp;₽ за неделю,
-            590&nbsp;₽ за месяц, 4&nbsp;990&nbsp;₽ за год.
+            490&nbsp;₽ за месяц, 3&nbsp;990&nbsp;₽ за год.
           </p>
 
           <div class="calc-fields">
             <label class="calc-field">
               <span>Какой тариф берут</span>
               <select id="plan">
-                <option value="month" selected>Месяц — 590 ₽</option>
-                <option value="year">Год — 4 990 ₽</option>
+                <option value="month" selected>Месяц — 490 ₽</option>
+                <option value="year">Год — 3 990 ₽</option>
                 <option value="week">Неделя — 149 ₽</option>
               </select>
             </label>
@@ -349,7 +349,7 @@
         "use strict";
 
         // Настоящие цены, те же, что на странице тарифов.
-        var PRICES = { month: 590, year: 4990, week: 149 };
+        var PRICES = { month: 490, year: 3990, week: 149 };
         var SHARE = 0.30;
         // В месяце 4,345 недели — иначе недельный тариф считался бы заниженно.
         var WEEKS_IN_MONTH = 4.345;
