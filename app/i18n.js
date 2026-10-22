@@ -215,6 +215,9 @@
     'Сканировать QR': 'Scan QR', 'Это не QR-код связки Synapse': 'This isn’t a Synapse device-linking QR code',
     // — приложение: меню, настройки группами, «Тема» (22.10.2026) —
     'создавай причины': 'create your reasons',
+    'Как в системе': 'System',
+    'Режим и цвет темы': 'Mode and theme colour',
+    'Светлая, тёмная или как в системе. Цвет темы от этого не меняется.': 'Light, dark or as on your phone. The theme colour stays the same.',
     // названия цветов тем
     'Закат': 'Sunset',
     'Коралл': 'Coral',

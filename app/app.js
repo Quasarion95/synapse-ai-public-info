@@ -639,7 +639,7 @@ function load(){
     }
     // «Как в системе» больше нет: тема теперь решение человека, а не среды.
     // Тем, у кого стояла системная, ставим ту, которую они и видели.
-    if (parsed.theme !== 'light' && parsed.theme !== 'dark') parsed.theme = systemPrefersDark() ? 'dark' : 'light';
+    if (parsed.theme !== 'light' && parsed.theme !== 'dark' && parsed.theme !== 'system') parsed.theme = systemPrefersDark() ? 'dark' : 'light';
     if (!parsed.mm) parsed.mm = { zoom: 1 };
     if (!parsed.notify) parsed.notify = { on: true, tasks: true, goals: true, brief: true, morning: '08:00', evening: '21:00', заранее: 0 };
     if (typeof parsed.notify.заранее !== 'number') parsed.notify.заранее = 0;
@@ -2818,12 +2818,28 @@ function rgba(c, alpha){
    не знаешь, что получишь. Системная настройка используется ровно один раз, в
    самом начале, чтобы первое открытие не било по глазам. */
 function systemPrefersDark(){
+  // В приложении — ответ самой системы: WebView узнаёт о смене тёмного
+  // режима телефона не всегда (см. AndroidBars.systemDark).
+  try { if (window.AndroidBars && window.AndroidBars.systemDark) return !!window.AndroidBars.systemDark(); } catch (e) {}
   return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
 }
 
+/* Тема: светлая, тёмная или «Как в системе» (system) — как на айфоне.
+   Системная следует за тёмным режимом телефона и меняется вместе с ним. */
 function isDarkNow(){
-  return S.theme === 'dark';
+  return S.theme === 'system' ? systemPrefersDark() : S.theme === 'dark';
 }
+(function(){
+  function перекрасить(){
+    if (typeof S === 'undefined' || !S || S.theme !== 'system') return;
+    try { applyTheme(); render(); } catch (e) {}
+  }
+  window.addEventListener('android-uimode', перекрасить);
+  try {
+    var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq && mq.addEventListener) mq.addEventListener('change', перекрасить);
+  } catch (e) {}
+})();
 
 /// Цвета, которыми пользуется и CSS, и mind map. Считаются по тем же
 /// правилам, что AppTheme.panel / .panelStrong / .stroke.
@@ -3215,19 +3231,6 @@ function рисоватьМеню(){
         '<button class="dr-x" data-act="drawer-close" aria-label="Закрыть меню">' + NAV_ICONS.close + '</button>' +
       '</div>' +
       '<div class="dr-group">' + ['lists', 'notes', 'pomodoro', 'meditation'].map(пунктМеню).join('') + '</div>' +
-      /* Тема и язык — над подпиской, как просил владелец: это быстрые
-         переключатели, а не переходы, поэтому своей карточкой, без шеврона. */
-      '<div class="dr-group dr-quick">' +
-        '<button class="dr-row" data-act="theme" role="switch" aria-checked="' + isDarkNow() + '">' +
-          '<span class="dr-ic" data-k="dark">' + NAV_ICONS.moon + '</span>' +
-          '<span class="dr-tx">Тёмная тема</span>' +
-          '<span class="dr-sw' + (isDarkNow() ? ' on' : '') + '" aria-hidden="true"><i></i></span></button>' +
-        '<button class="dr-row" data-act="lang" aria-label="' + (SynI18n.isEnglish() ? 'Переключить на русский' : 'Переключить на английский') + '">' +
-          '<span class="dr-ic" data-k="lang">' + navIcon('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5S9.7 5.9 12 3.5z"/>') + '</span>' +
-          '<span class="dr-tx">Язык</span>' +
-          '<span class="dr-val" translate="no">' + (SynI18n.isEnglish() ? 'English' : 'Русский') + '</span>' +
-          '<span class="dr-ch">' + navIcon('<path d="M7 8l-3 3 3 3M4 11h11M17 10l3 3-3 3M20 13H9"/>') + '</span></button>' +
-      '</div>' +
       '<div class="dr-group dr-bottom">' + ['subscription', 'settings', 'trash', 'support'].map(пунктМеню).join('') + '</div>' +
       /* Документы — под меню, мелко, но всегда в одном касании. Модерация
          RuStore просит, чтобы политика конфиденциальности была видна внутри
@@ -9738,7 +9741,7 @@ var РАЗДЕЛЫ_НАСТРОЕК = [
    то, что ищут чаще остального в данных. */
 var ГРУППЫ_НАСТРОЕК = [
   { t: 'Оформление', rows: [
-    { view: 'settings-theme', k: 'theme', title: 'Тема', sub: 'Светлая или тёмная, цвет темы',
+    { view: 'settings-theme', k: 'theme', title: 'Тема', sub: 'Режим и цвет темы',
       value: function(){ return paletteOf(S.palette).title; },
       icon: '<circle cx="12" cy="12" r="8.5"/><circle cx="8.6" cy="10" r="1.2"/><circle cx="12" cy="7.6" r="1.2"/><circle cx="15.4" cy="10" r="1.2"/><path d="M12 20.5c-1.6 0-2.2-1.4-1.3-2.6.9-1.3.2-2.9-1.6-2.9"/>' },
     { view: 'settings-look', k: 'look', title: 'Вид', en: 'Look', sub: 'Шрифт, размер текста и отметка задач',
@@ -9801,7 +9804,7 @@ function vSettingsTheme(){
       '<div class="stb-task"><span class="stb-box"></span><span><b>Задача в этой теме</b><i>Сегодня · 12:00</i></span></div>' +
       '<div class="stb-demo-foot"><span class="stb-btn">Кнопка</span><span class="stb-note">Так будут выглядеть задачи</span></div>' +
     '</div>' +
-    '<div class="stb-seg" role="radiogroup" aria-label="Режим">' + [['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
+    '<div class="stb-seg" role="radiogroup" aria-label="Режим">' + [['system', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map(function(p){
       return '<button role="radio" aria-checked="' + (S.theme === p[0]) + '" data-act="set-theme" data-theme="' + p[0] + '">' + p[1] + '</button>';
     }).join('') + '</div>' +
   '</section>';
@@ -9819,7 +9822,7 @@ function vSettingsTheme(){
     '</button>';
   }).join('') + '</div>';
   return страницаНастроек('<p class="setgroup-t">Тема</p>' +
-    блокТемы('Режим', 'Светлая или тёмная. Цвет темы от этого не меняется.',
+    блокТемы('Режим', 'Светлая, тёмная или как в системе. Цвет темы от этого не меняется.',
       '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>', режим) +
     блокТемы('Цвет темы', 'Кнопки, выбранное и главные цифры. Первые четыре — бесплатно.',
       '<circle cx="12" cy="12" r="8.5"/><circle cx="8.6" cy="10" r="1.2"/><circle cx="12" cy="7.6" r="1.2"/><circle cx="15.4" cy="10" r="1.2"/>', плитки));
@@ -12592,13 +12595,13 @@ synAct('start_meditation stop_meditation', function(a, done, skipped){
 
 synAct('set_theme_mode', function(a, done, skipped){
   var value = String(a.value || a.mode || '');
-  // «Как в системе» сервер прислать может — в приложении такой режим есть.
-  // В вебе его нет, поэтому системную превращаем в ту, что сейчас в системе:
-  // это ближе к просьбе, чем отказ.
-  if (value === 'system') value = systemPrefersDark() ? 'dark' : 'light';
-  if (value !== 'light' && value !== 'dark') return skipped.push('не понял тему');
+  // «Как в системе» есть в приложении на айфоне и на андроиде. В вебе её
+  // нет, поэтому там системную превращаем в ту, что сейчас в системе: это
+  // ближе к просьбе, чем отказ.
+  if (value === 'system' && !inApp()) value = systemPrefersDark() ? 'dark' : 'light';
+  if (value !== 'light' && value !== 'dark' && value !== 'system') return skipped.push('не понял тему');
   S.theme = value;
-  done.push('тема — ' + (value === 'dark' ? 'тёмная' : 'светлая'));
+  done.push('тема — ' + (value === 'system' ? 'как в системе' : value === 'dark' ? 'тёмная' : 'светлая'));
 });
 
 synAct('set_color_theme', function(a, done, skipped){

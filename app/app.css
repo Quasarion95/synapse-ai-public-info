@@ -3737,17 +3737,6 @@ html.in-app[data-dense="1"] .tasklist > .item.swipe.open > .detail-wrap{padding-
 .in-app .dr-ic[data-k="settings"]{background:linear-gradient(160deg, #B2B2B9, #7F7F88)}
 .in-app .dr-ic[data-k="trash"]{background:linear-gradient(160deg, #FF7070, #E5393A)}
 .in-app .dr-ic[data-k="support"]{background:linear-gradient(160deg, #48D6D9, #18A3B6)}
-.in-app .dr-ic[data-k="dark"]{background:linear-gradient(160deg, #6E6AF0, #3F3AB8)}
-.in-app .dr-ic[data-k="lang"]{background:linear-gradient(160deg, #3FD0E0, #129AB8)}
-/* Тема и язык — над подпиской: прижаты к низу вместе с ней, промежуток
-   между двумя нижними карточками меньше, чем до верхней группы. */
-.in-app .dr-panel .dr-quick{margin-top:auto}
-.in-app .dr-panel .dr-quick + .dr-bottom{margin-top:-8px}
-.in-app .dr-val{font-size:13.5px; color:var(--fg-2)}
-.in-app .dr-sw{width:44px; height:26px; border-radius:13px; background:var(--stroke); position:relative; flex:none; transition:background .2s}
-.in-app .dr-sw i{position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:left .2s}
-.in-app .dr-sw.on{background:var(--accent)}
-.in-app .dr-sw.on i{left:21px}
 
 /* Настройки группами: подпись группы прописными, под ней одна карточка. */
 .stg-t{margin:18px 16px 7px; font-size:12px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--fg-2)}
@@ -3790,7 +3779,7 @@ html.in-app[data-dense="1"] .tasklist > .item.swipe.open > .detail-wrap{padding-
 .stb-demo-foot{display:flex; align-items:center; justify-content:space-between; gap:8px}
 .stb-btn{font-size:12.5px; font-weight:600; color:var(--on-accent, #fff); background:var(--accent); border-radius:999px; padding:5px 12px}
 .stb-note{font-size:12.5px; color:var(--fg-2)}
-.stb-seg{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:3px; background:var(--soft); border-radius:12px; padding:3px}
+.stb-seg{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:3px; background:var(--soft); border-radius:12px; padding:3px}
 .stb-seg button{display:grid; place-items:center; height:36px; border-radius:10px; border:0; background:none; font:inherit; font-size:14px; color:var(--fg-2); cursor:pointer; text-align:center}
 .stb-seg button[aria-checked="true"]{background:var(--card); color:var(--fg); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .stb-pals{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px}

@@ -328,6 +328,15 @@ public class MainActivity extends AppCompatActivity {
                     web.setSystemGestureExclusionRects(полосы);
                 });
             }
+
+            /* Тёмный ли сейчас телефон — для темы «Как в системе». Спрашиваем
+               систему, а не prefers-color-scheme: WebView узнаёт о смене
+               режима не всегда — активность не пересоздаётся (uiMode в
+               configChanges), — а здесь ответ всегда свежий. */
+            @android.webkit.JavascriptInterface
+            public boolean systemDark() {
+                return системаТёмная();
+            }
         }, "AndroidBars");
 
         /* Тактильный отклик — системный, а не navigator.vibrate.
@@ -665,5 +674,20 @@ public class MainActivity extends AppCompatActivity {
         String detail = отмена ? "{cancel:true}" : "{text:" + org.json.JSONObject.quote(текст) + "}";
         String js = "window.dispatchEvent(new CustomEvent('android-scan',{detail:" + detail + "}))";
         runOnUiThread(() -> web.evaluateJavascript(js, null));
+    }
+
+    private boolean системаТёмная() {
+        int режим = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        return режим == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    /* Человек переключил тёмный режим телефона — говорим странице: при теме
+       «Как в системе» она перекрасится сразу, без перезапуска. */
+    @Override
+    public void onConfigurationChanged(@androidx.annotation.NonNull android.content.res.Configuration конф) {
+        super.onConfigurationChanged(конф);
+        if (web == null) return;
+        String js = "window.dispatchEvent(new CustomEvent('android-uimode',{detail:{dark:" + системаТёмная() + "}}))";
+        web.evaluateJavascript(js, null);
     }
 }
