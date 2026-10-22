@@ -3801,3 +3801,30 @@ html.in-app[data-dense="1"] .tasklist > .item.swipe.open > .detail-wrap{padding-
 .stb-pro{font-size:10.5px; font-weight:700; color:var(--card); background:var(--fg); border-radius:6px; padding:2px 6px; flex:none}
 .stb-check{color:var(--pa); display:grid; flex:none}
 .stb-check svg{width:18px; height:18px}
+
+/* «Оформить» на карточке тарифа — кнопкой, а не подписью.
+
+   Владелец: «кнопку оформить не видно». Это была строчка цветного текста
+   13px под ценой: на телефоне её читали как пояснение, а не как действие.
+   Теперь — плашка цвета темы во всю ширину карточки, белые буквы, высота
+   под палец. Вся карточка по-прежнему ссылка, кнопка — её видимая часть. */
+.in-app .planbuy{display:flex; align-items:center; justify-content:center; height:46px; margin-top:12px; border-radius:14px;
+  background:var(--accent); color:var(--on-accent, #fff); font-size:16px; font-weight:700;
+  box-shadow:0 8px 18px -10px var(--accent)}
+.in-app .plancard:active .planbuy{transform:scale(.99)}
+
+/* Карточка тарифа в приложении: шапка «название — цена / период», строка
+   пересчёта и выгоды, три пункта с галочками, кнопка. */
+.in-app .pc-app{padding:16px 16px 14px; gap:0; border-radius:20px}
+.in-app .pc-app.main{box-shadow:0 0 0 1.5px var(--accent), var(--shadow)}
+.in-app .pc-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding-right:2px}
+.in-app .pc-app .planname{font-size:18px; font-weight:700; color:var(--fg)}
+.in-app .pc-price{display:flex; align-items:baseline; gap:4px; flex:none}
+.in-app .pc-app .planprice{font-size:26px; font-weight:800}
+.in-app .pc-price i{font-style:normal; font-size:13px; color:var(--fg-2)}
+.in-app .pc-app .plantag{position:static; align-self:flex-start; margin-bottom:8px; font-weight:700}
+.in-app .pc-note{margin-top:4px; font-size:13px; line-height:1.4; color:var(--accent-text, var(--accent)); font-weight:500}
+.in-app .pc-feats{display:flex; flex-direction:column; gap:6px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line)}
+.in-app .pc-feats span{display:flex; align-items:center; gap:8px; font-size:14px; color:var(--fg)}
+.in-app .pc-feats em{font-style:normal}
+.in-app .pc-feats svg{width:16px; height:16px; flex:none; fill:none; stroke:var(--ok); stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round}
