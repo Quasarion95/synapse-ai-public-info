@@ -33,8 +33,8 @@ android {
         applicationId 'ru.synapseapp.app'
         minSdk 24            // Android 7: ниже WebView слишком стар для нашего JS
         targetSdk 34
-        versionCode 12
-        versionName '2.2'
+        versionCode 13
+        versionName '2.3'
         buildConfigField 'String', 'MYTRACKER_KEY', '"' + (аналитика['mytrackerKey'] ?: '') + '"'
     }
 
