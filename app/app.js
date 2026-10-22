@@ -17532,7 +17532,7 @@ function разделСинхро(){
     if (SYNC.code) h += '<p class="hint">Код для связки (введите его на другом устройстве):</p>' +
       '<p style="font-size:28px;font-weight:800;letter-spacing:3px;font-family:monospace">' + esc(SYNC.code) + '</p>';
     if (SYNC.joinOpen) h += '<div class="acts" style="gap:8px">' +
-      '<input id="sync-code-input" placeholder="ABCD-EFGH" autocapitalize="characters" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line,#ccc);flex:1">' +
+      '<input id="sync-code-input" placeholder="8 букв и цифр" maxlength="9" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line,#ccc);flex:1">' +
       '<button class="btn sm" data-act="sync-join-do">Связать</button></div>';
     h += '<div class="acts"><button class="btn sm soft" data-act="sync-delete">Удалить копию с сервера</button></div>';
   }
@@ -17702,6 +17702,32 @@ ACTS['sync-on'] = function(){ syncTurnOn(); };
 ACTS['sync-off'] = function(){ syncTurnOff(); };
 ACTS['sync-code'] = function(){ syncShowCode(); };
 ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; render(); };
+/* Код связки набирается как есть: «abcdefgh», «ABCD EFGH», с русской
+   раскладкой — поле само приводит к виду ABCD-EFGH (заглавные, дефис после
+   четвёртого знака), а набрав все восемь, само связывает устройство.
+   Владелец: «бесит, что тире вставлять нужно всюду — лучше бы оно само
+   ставилось». Сравнивается код без дефиса (SynSyncCrypto.normalize), так
+   что дефис нигде и не был нужен — его требовала только подсказка. */
+var syncКодОтправлен = '';
+document.addEventListener('input', function(e){
+  var el = e.target;
+  if (!el || el.id !== 'sync-code-input' || !window.SynSyncCrypto) return;
+  var чисто = SynSyncCrypto.normalize(el.value).slice(0, 8);
+  var вид = чисто.length > 4 ? чисто.slice(0, 4) + '-' + чисто.slice(4) : чисто;
+  if (el.value !== вид){
+    el.value = вид;
+    try { el.setSelectionRange(вид.length, вид.length); } catch (er) {}
+  }
+  if (чисто.length === 8 && syncКодОтправлен !== чисто && !(SYNC && SYNC.busy)){
+    syncКодОтправлен = чисто;
+    syncJoin(вид);
+  } else if (чисто.length < 8) {
+    syncКодОтправлен = '';
+  }
+});
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Enter' && e.target && e.target.id === 'sync-code-input') ACTS['sync-join-do']();
+});
 ACTS['sync-join-do'] = function(){ var el = document.getElementById('sync-code-input'); syncJoin(el ? el.value : ''); };
 ACTS['sync-now'] = function(){ syncNow(); };
 /* Удаление копии с сервера необратимо и касается всех связанных устройств —

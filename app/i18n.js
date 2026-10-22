@@ -186,7 +186,7 @@
     'Синхронизировано · только что': 'Synced · just now', 'Первая сверка ещё не прошла.': 'The first sync hasn’t happened yet.',
     'Синхронизация включена, но это устройство потеряло доступ к ней. Нажмите «Переподключить».': 'Sync is on, but this device has lost access to it. Press “Reconnect”.',
     'Синхронизация включена, но на этом устройстве нет ключа. Введите код с другого устройства.': 'Sync is on, but this device has no key. Enter a code from another device.',
-    'Переподключить': 'Reconnect', 'Синхронизировать сейчас': 'Sync now', 'Синхронизация не проходит — загляните в Настройки → Данные.': 'Sync isn’t going through — check Settings → Data.',
+    'Переподключить': 'Reconnect', '8 букв и цифр': '8 letters and digits', 'Синхронизировать сейчас': 'Sync now', 'Синхронизация не проходит — загляните в Настройки → Данные.': 'Sync isn’t going through — check Settings → Data.',
     'Сфокусируйся на задаче': 'Focus on this task', 'Сфокусируйся на цели': 'Focus on this goal',
     'Показать полностью': 'Show all', 'Цветёт!': 'Blooming!', 'Растёт': 'Growing',
     'Грустит — ему не хватает дел': 'Sad — it needs more tasks', 'Засохло — полей его делами': 'Dry — water it with tasks', 'Свернуть': 'Show less', 'Накоплено': 'Saved', 'В день': 'Per day',
