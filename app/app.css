@@ -2456,6 +2456,16 @@ html[data-dense="1"] .titleline{gap:6px}
 /* Погашенный выбор стартового раздела: настройка перекрыта соседней.
    Не disabled — по нажатию она включается обратно, поэтому кнопки живые,
    просто приглушены. */
+/* Строка состояния синхронизации: зелёная точка — всё в порядке, жёлтая —
+   давно не было сверки или первая ещё не прошла, красная — устройство
+   потеряло доступ или ключ. */
+.sync-health{display:flex; align-items:flex-start; gap:8px; margin:8px 0 10px; font-size:13.5px; line-height:1.45; color:var(--fg-2)}
+.sync-health i{width:9px; height:9px; border-radius:50%; flex:none; margin-top:5px; background:var(--fg-3)}
+.sync-h-ok i{background:var(--ok, #12b76a)}
+.sync-h-wait i, .sync-h-stale i{background:var(--warn, #e28008)}
+.sync-h-token i, .sync-h-key i{background:var(--danger, #e23b31)}
+.sync-h-token, .sync-h-key{color:var(--text)}
+
 /* Технические работы у Syn — не тревога: обычный тихий текст, не красный.
    Человек ничего не сломал и чинить ему нечего. */
 .err.calm, .fx-err.calm{color:var(--fg-2)}

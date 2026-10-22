@@ -17345,7 +17345,22 @@ function syncSerial(вид, fn){
 function syncReady(){ return !!(syncToken() && syncDataKeyRaw()); }
 function syncLocalDirty(){ return syncLastHash === null || syncContentHash() !== syncLastHash; }
 
-function syncPullApply(){ return syncSerial('pull', syncPullInner); }
+/* Отметка удачной сверки — для строки состояния в «Данных» и для
+   предупреждения. Синхронизация шла в фоне молча: ошибка — «таймер
+   повторит», нет пропуска или ключа — тихо ничего. Владелец так и сказал:
+   «синхра включена, но не происходила», а экран показывал только кнопку
+   «Отключить», как будто всё в порядке. Теперь видно, когда была последняя
+   удачная сверка, и если давно — об этом говорится. */
+function syncОтметить(обещание){
+  return обещание.then(function(v){
+    if (syncReady()){ syncStoreSet('lastOkAt', String(Date.now())); syncStoreSet('lastErrAt', null); }
+    return v;
+  }, function(e){
+    syncStoreSet('lastErrAt', String(Date.now()));
+    throw e;
+  });
+}
+function syncPullApply(){ return syncОтметить(syncSerial('pull', syncPullInner)); }
 function syncPullInner(){
   if (!syncReady()) return Promise.resolve();
   // «Сначала принять» (после «Стереть всё»/«Примеры», см. заменитьВсеДанные):
@@ -17382,7 +17397,7 @@ function syncPullInner(){
   });
 }
 
-function syncPushCurrent(){ return syncSerial('push', function(){ return syncPushInner(true); }); }
+function syncPushCurrent(){ return syncОтметить(syncSerial('push', function(){ return syncPushInner(true); })); }
 function syncPushInner(можноСлить){
   if (!syncReady()) return Promise.resolve();
   // Приём после замены всех данных ещё не прошёл (сеть, расшифровка) — молчим,
@@ -17453,6 +17468,44 @@ function syncPullOnLoad(){
   else if (синхроЖдёт()) перекатПосле(null);
 }
 
+/* Состояние синхронизации человеческими словами. */
+var SYNC_ДАВНО_МС = 6 * 60 * 60 * 1000;
+function syncКогда(ts){
+  var мин = Math.floor((Date.now() - ts) / 60000);
+  if (мин < 1) return 'только что';
+  if (мин < 60) return мин + ' мин назад';
+  var ч = Math.floor(мин / 60);
+  if (ч < 24) return ч + ' ч назад';
+  return Math.floor(ч / 24) + ' дн назад';
+}
+function syncЗдоровье(){
+  if (!syncEnabled()) return { k: 'off', t: '' };
+  if (!syncToken()) return { k: 'token', t: 'Синхронизация включена, но это устройство потеряло доступ к ней. Нажмите «Переподключить».' };
+  if (!syncDataKeyRaw()) return { k: 'key', t: 'Синхронизация включена, но на этом устройстве нет ключа. Введите код с другого устройства.' };
+  var ok = +syncStore('lastOkAt') || 0;
+  if (!ok) return { k: 'wait', t: 'Первая сверка ещё не прошла.' };
+  if (Date.now() - ok > SYNC_ДАВНО_МС)
+    return { k: 'stale', t: 'Последняя удачная сверка — ' + syncКогда(ok) + '. Нажмите «Синхронизировать сейчас».' };
+  return { k: 'ok', t: 'Синхронизировано · ' + syncКогда(ok) };
+}
+/* Раз в день, если синхронизация включена, а сверки давно нет или
+   устройство потеряло доступ, — короткое напоминание. Первая проверка —
+   через полторы минуты после открытия: фоновая сверка успевает пройти. */
+function syncПроверитьЗдоровье(){
+  if (document.hidden || !isPro()) return;
+  var з = syncЗдоровье();
+  if (з.k !== 'token' && з.k !== 'key' && з.k !== 'stale') return;
+  var день = isoOf(todayDate());
+  if (syncStore('warnDay') === день) return;
+  syncStoreSet('warnDay', день);
+  toast('Синхронизация не проходит — загляните в Настройки → Данные.');
+}
+if (typeof window !== 'undefined' && !window.__syncHealthTimer){
+  window.__syncHealthTimer = true;
+  setTimeout(function(){ try { syncПроверитьЗдоровье(); } catch (e) {} }, 90000);
+  setInterval(function(){ try { syncПроверитьЗдоровье(); } catch (e) {} }, 10 * 60000);
+}
+
 /* ---- экран в разделе «Данные» ---- */
 function разделСинхро(){
   if (!SYNC) SYNC = { code: '', status: '', busy: false, joinOpen: false };
@@ -17468,6 +17521,9 @@ function разделСинхро(){
         : '<button class="btn sm" data-act="sync-on">Включить</button>') +
     '</div>';
   if (on){
+    var здоровье = syncЗдоровье();
+    h += '<p class="sync-health sync-h-' + здоровье.k + '"><i aria-hidden="true"></i><span>' + esc(здоровье.t) + '</span></p>';
+    if (здоровье.k === 'token') h += '<div class="acts"><button class="btn sm" data-act="sync-on">Переподключить</button></div>';
     h += '<div class="acts">' +
       '<button class="btn sm" data-act="sync-code">Связать новое устройство</button>' +
       '<button class="btn sm soft" data-act="sync-join-open">Ввести код</button>' +
@@ -17605,6 +17661,8 @@ function syncWatchStart(){
     }).then(function(d){
       if (gen !== syncWatch.gen) return;
       d = d || {};
+      // Сервер ответил на ожидание — связь с группой есть.
+      syncStoreSet('lastOkAt', String(Date.now())); syncStoreSet('lastErrAt', null);
       syncWatch.known = d.updatedAt || '';
       if (d.changed){
         // Пауза в четверть секунды: наш же снимок мог прийти раньше ответа на
