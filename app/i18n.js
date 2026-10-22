@@ -202,6 +202,7 @@
     'Синхронизация в этом браузере выключена. Записи остались.': 'Sync is off in this browser. Your entries are still here.',
     'Синхронизация на этом телефоне выключена. Записи остались.': 'Sync is off on this phone. Your entries are still here.',
     'Этот браузер отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.': 'This browser was unlinked from sync on another device. Your entries are still here. You can connect again with a code.',
+    'Этот телефон отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.': 'This phone was unlinked from sync on another device. Your entries are still here. You can connect again with a code.',
     'Это устройство выключают в его собственных настройках.': 'Turn this device off in its own settings.', 'Такого устройства в синхронизации уже нет.': 'That device is no longer in sync.',
     'Код связки': 'Pairing code',
     'Устройства появятся здесь после их следующей сверки.': 'Devices will appear here after their next sync.',

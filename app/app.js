@@ -17229,7 +17229,7 @@ function syncОтвязано(){
   ['enabled', 'token', 'dataKey', 'lastServerUpdatedAt', 'pairCode', 'pairUntil', 'lastOkAt'].forEach(function(k){ syncStoreSet(k, null); });
   syncForgetSynced();
   SYNC.devices = null; SYNC.devicesAt = 0; SYNC.joinOpen = false;
-  SYNC.status = 'Этот браузер отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.';
+  SYNC.status = (inApp() ? 'Этот телефон' : 'Этот браузер') + ' отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.';
   render();
 }
 
