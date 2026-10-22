@@ -3564,3 +3564,15 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
   background:rgba(127,127,127,.1); background:color-mix(in srgb, var(--fg-2) 10%, transparent)}
 .in-app .item .chips .mi.late, .in-app .item .tsub .mi.late{border-radius:999px; padding:0 7px}
 .in-app .item .chips{gap:4px}
+
+/* Компактный вид в приложении — плотнее, а не выше.
+
+   Общее правило плотного режима (html[data-dense="1"] .item) даёт поля самой
+   строке. В приложении поля строки лежат на её лице (.swipe-face), и эти
+   семь пикселей прибавлялись к ним сверху и снизу: владелец включал
+   «компактно» — задачи становились выше, 46 пикселей вместо 33. Здесь
+   плотный режим убирает внешние поля и ужимает внутренние. */
+html.in-app[data-dense="1"] .tasklist > .item.swipe{padding-top:0; padding-bottom:0}
+html.in-app[data-dense="1"] .tasklist > .item.swipe > .swipe-face{padding-top:5px; padding-bottom:5px}
+html.in-app[data-dense="1"] .tasklist > .item:not(.swipe){padding-top:5px; padding-bottom:5px}
+html.in-app[data-dense="1"] .tasklist > .item.swipe.open > .detail-wrap{padding-bottom:5px}
