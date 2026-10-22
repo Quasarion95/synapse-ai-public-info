@@ -3893,10 +3893,53 @@ function finOpSign(op){ return FIN_KINDS[op.kind] ? FIN_KINDS[op.kind].sign : -1
    минус, которому нечем объясниться. */
 function finBalance(){
   var kop = S.finance.opening || 0;
+  var при = finReconciledMs();
+  if (при) kop += S.finance.reconciledHistory || 0;
   for (var i = 0; i < S.finance.ops.length; i++){
-    kop += S.finance.ops[i].amount * finOpSign(S.finance.ops[i]);
+    var op = S.finance.ops[i];
+    if (при && finOpTime(op) <= при) continue;
+    kop += op.amount * finOpSign(op);
   }
   return kop;
+}
+
+/* Сверка «Свободно» — так же, как на айфоне (FinanceState.reconciledAt).
+
+   Вписанное «Свободно» — деньги на руках в эту минуту: все операции до неё в
+   нём уже сидят. Их итог замораживается в reconciledHistory, а стартовый
+   остаток подбирается так, чтобы и старый счёт «остаток + все операции −
+   копилки» дал то же число. Раньше веб менял только стартовый остаток и не
+   знал о сверке айфона: вписал «0» здесь — на айфоне «Свободно» осталось
+   прежним, потому что айфон считал от своей сверки. */
+function finOpTime(op){
+  // Записано в тот же день, что и дата операции, — берём настоящее время
+  // записи: «кофе 350» после сверки должен уменьшить «Свободно». Иначе —
+  // полдень дня. Так же время уходит на айфон (sync-bridge, opTime).
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(op.date || '');
+  if (!m) return Number(op.at) || 0;
+  var at = Number(op.at) || 0;
+  if (at && isoOf(new Date(at)) === op.date) return at;
+  return new Date(+m[1], +m[2] - 1, +m[3], 12).getTime();
+}
+function finReconciledMs(){
+  var t = S.finance.reconciledAt ? Date.parse(S.finance.reconciledAt) : 0;
+  return isFinite(t) ? t : 0;
+}
+function finSetAvailable(targetKop){
+  var now = Date.now(), history = 0, after = 0;
+  S.finance.ops.forEach(function(op){
+    var v = op.amount * finOpSign(op);
+    if (finOpTime(op) <= now) history += v; else after += v;
+  });
+  S.finance.reconciledAt = new Date(now).toISOString();
+  S.finance.reconciledHistory = history;
+  S.finance.opening = Math.round(targetKop) - history - after + finSaved();
+}
+/// «Начальный остаток» — от него считаются все операции; сверка снимается.
+function finSetOpening(kop){
+  S.finance.opening = Math.round(kop);
+  S.finance.reconciledAt = null;
+  S.finance.reconciledHistory = 0;
 }
 
 function finDebtSums(){
@@ -4965,9 +5008,8 @@ function vFinSyn(){
       NAV_ICONS.send + '</button>' +
   '</form>';
 
-  if (listening){
-    html += '<p class="hint finsyn-note">Слушаю. Нажмите микрофон ещё раз — и Syn всё запишет.</p>';
-  }
+  // «Слушаю…» теперь в окошке над полосой (finSynPanel) — второй подсказки
+  // под строкой не нужно.
   return html + '</div>';
 }
 
@@ -4977,6 +5019,7 @@ function finSynPanel(){
   var items = start >= 0 ? S.synChat.slice(start) : [];
   var body = items.map(function(item){ return synItemHTML(item); }).join('');
   if (SYN.busy) body += '<div class="syn-msg wait"><span>Syn думает…</span></div>';
+  if (finVoice.on) body += '<div class="syn-msg wait"><span>Слушаю… Говорите, а когда закончите — нажмите микрофон ещё раз.</span></div>';
 
   if (FINSYN.error){
     body += '<p class="err syn-error">' + esc(FINSYN.error) + '</p>';
@@ -5026,6 +5069,8 @@ function finSynSend(text){
 /* Голос — тот же движок диктовки, что у Syn (см. dictStart):
    нажал — пишет в строку, нажал ещё раз — сказанное ушло Syn. */
 function finVoiceStart(){
+  FINSYN.open = true;
+  FINSYN.error = '';
   dictStart('fin', 'finsyn', function(text){
     FINSYN.draft = '';
     if (text) finSynSend(text);
@@ -5592,6 +5637,15 @@ function finApplyBatch(actions){
       return;
     }
 
+    if (kind === 'fin_set_available' || kind === 'fin_set_opening'){
+      var sum = Math.round(Number(a.amount) * 100);
+      if (!isFinite(sum)) return;
+      if (kind === 'fin_set_available') finSetAvailable(sum); else finSetOpening(sum);
+      S.finance.openingHidden = true;
+      said.push(kind === 'fin_set_available' ? 'свободно ' + finMoney(sum) : 'начальный остаток ' + finMoney(sum));
+      return;
+    }
+
     if (kind === 'fin_set_budget'){
       var cat = finCat(a.category || a.cat || 'other').id;
       var plan = Math.round(Number(a.amount) * 100);
@@ -5659,6 +5713,10 @@ function finPreview(actions){
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) + ' ' +
         (FIN_EVERY[a.every] || FIN_EVERY.month).title +
         (/^\d{4}-\d{2}-\d{2}$/.test(a.since || '') ? ', ближайшее списание ' + humanDate(a.since) : ''));
+    } else if (kind === 'fin_set_available'){
+      rows.push('Свободно сейчас — ' + finMoney(Math.round(Number(a.amount) * 100)));
+    } else if (kind === 'fin_set_opening'){
+      rows.push('Начальный остаток — ' + finMoney(Math.round(Number(a.amount) * 100)));
     } else if (kind === 'fin_set_budget'){
       rows.push('Конверт «' + finCat(a.category || a.cat || 'other').title + '» — ' +
         finMoney(Math.round(Math.abs(Number(a.amount)) * 100)) + ' в месяц');
@@ -11490,7 +11548,12 @@ function dictStart(owner, fieldId, onDone){
     voiceNative().start();
     return;
   }
-  dictListen();
+  try { dictListen(); }
+  catch (error){
+    dictFail(inApp()
+      ? 'Приложению не дали доступ к микрофону — разрешите его в настройках телефона или напишите текстом.'
+      : 'Браузер не дал включить микрофон. Разрешите доступ к микрофону для synapseapp.ru или напишите текстом.');
+  }
 }
 
 /// Одно слушание браузером. Кончилось само — поднимаем следующее.
@@ -11575,6 +11638,7 @@ function dictFail(message){
   dictCancel();
   if (!d) return;
   if (d.owner === 'syn') synRender($('syn-input') ? $('syn-input').value : '', message);
+  else if (d.owner === 'fin'){ FINSYN.open = true; FINSYN.error = message; FINSYN.said = ''; render(); }
   else { toast(message); render(); }
 }
 
@@ -14472,7 +14536,7 @@ var ACTS = {
        у вас есть» при этом гасим тем же флагом, что и её крестик: иначе она
        вернулась бы, потому что ноль для неё неотличим от пустоты. */
     if (/^\s*[-−]?\s*0+(?:[.,]0{1,2})?\s*(?:₽|р\.?|руб[а-яё.]*)?\s*$/i.test(raw)){
-      S.finance.opening = 0;
+      finSetAvailable(0);
       S.finance.openingHidden = true;
       closeModal();
       commit('Записано');
@@ -14481,7 +14545,8 @@ var ACTS = {
     var parsed = finParse(raw, 'spend');
     if (!parsed) return fieldError('m-amount', 'Сколько у вас сейчас? Одним числом.');
     // Минус тоже бывает: на кредитке остаток отрицательный.
-    S.finance.opening = /^\s*[-−]/.test(raw) ? -parsed.amount : parsed.amount;
+    finSetAvailable(/^\s*[-−]/.test(raw) ? -parsed.amount : parsed.amount);
+    S.finance.openingHidden = true;
     closeModal();
     commit('Записано');
   },
@@ -17635,7 +17700,7 @@ function syncHashOf(value){
 }
 function syncFinPart(st){
   var f = (st && st.finance) || {};
-  return { fo: f.ops||[], fd: f.debts||[], fj: f.jars||[], fs: f.subs||[], fb: f.budgets||{}, fc: f.cats||[], fop: f.opening||0 };
+  return { fo: f.ops||[], fd: f.debts||[], fj: f.jars||[], fs: f.subs||[], fb: f.budgets||{}, fc: f.cats||[], fop: f.opening||0, fra: f.reconciledAt||null, frh: f.reconciledHistory||0 };
 }
 // Корзина (только задачные записи — они синхронизируются) тоже входит в хэш:
 // иначе удаление/восстановление/очистка не считались бы изменением, и авто-
