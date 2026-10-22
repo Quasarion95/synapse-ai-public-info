@@ -203,6 +203,8 @@
     'Этот браузер отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.': 'This browser was unlinked from sync on another device. Your entries are still here. You can connect again with a code.',
     'Это устройство выключают в его собственных настройках.': 'Turn this device off in its own settings.', 'Такого устройства в синхронизации уже нет.': 'That device is no longer in sync.',
     'Код связки': 'Pairing code',
+    'Слушаю… Говорите, а когда закончите — нажмите микрофон ещё раз.': 'Listening… Speak, then tap the mic again when you are done.',
+    'Браузер не дал включить микрофон. Разрешите доступ к микрофону для synapseapp.ru или напишите текстом.': 'The browser did not allow the microphone. Allow microphone access for synapseapp.ru or type instead.',
     'Выгоднее всего': 'Best value',
     'Дефис ставится сам · регистр и раскладка не важны': 'The dash is added for you · case and layout don’t matter',
     'Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.': 'Entries already here are merged with the shared ones — nothing is lost.',
