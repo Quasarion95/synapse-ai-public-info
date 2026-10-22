@@ -2428,9 +2428,24 @@ body:has(.finsyn) main{ padding-bottom: 150px; }
 .sl-text i{font-style:normal; font-size:12.5px; color:var(--fg-2)}
 .sl-arrow{flex:none; color:var(--fg-3); display:flex}
 
-/* Плотный список задач: ниже строки, тише пояснения. Признак стоит на корне,
-   поэтому правило одно, а не десяток условий в разметке. */
-html[data-dense="1"] .item{padding-top:7px; padding-bottom:7px}
+/* Компактный вид задач: задача в одну строку. Признак стоит на корне,
+   поэтому правила общие, а не условия в разметке.
+
+   Было: .item{padding:7px 0} поверх отступов лица строки — на компьютере
+   задача становилась ниже на 2 пикселя, а на телефоне, где отступы у лица
+   (свайп), наоборот выше на 14: переключатель работал в обратную сторону.
+   Теперь отступы уменьшаются там, где они есть, а цель, счётчик подзадач и
+   дата под названием прячутся — остаются название, время и «просрочено». */
+html[data-dense="1"] .item:not(.swipe),
+html[data-dense="1"] .item.swipe > .swipe-face{padding-top:4px; padding-bottom:4px}
+html[data-dense="1"] .item .t{font-size:14.5px; line-height:1.25}
+html[data-dense="1"] .item .chip.goal,
+html[data-dense="1"] .item .chip.sub,
+html[data-dense="1"] .item .tsub .mi.exp,
+html[data-dense="1"] .item .chips .mi + .mi{display:none}
+html[data-dense="1"] .item:not(.swipe) .body{display:flex; align-items:center; gap:10px; min-width:0}
+html[data-dense="1"] .item:not(.swipe) .body .t{flex:1 1 auto; width:auto; min-width:0}
+html[data-dense="1"] .item:not(.swipe) .body .chips{margin-top:0; flex:none; flex-wrap:nowrap}
 /* Описание прячется только у свёрнутой карточки. Раскрыл задачу — значит,
    хочешь видеть всё: раньше в плотном режиме описание пропадало и у
    раскрытой, и найденные Syn адрес и телефон оказывались невидимы, хотя
@@ -2441,6 +2456,27 @@ html[data-dense="1"] .titleline{gap:6px}
 /* Погашенный выбор стартового раздела: настройка перекрыта соседней.
    Не disabled — по нажатию она включается обратно, поэтому кнопки живые,
    просто приглушены. */
+/* Пример «обычный — компактный» под переключателем. */
+.dense-demo{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; padding:4px 0 14px}
+.dd-pane{display:flex; flex-direction:column; gap:8px; padding:10px; border-radius:16px; background:var(--panel-strong, var(--soft)); text-align:left; color:var(--text); border:0; cursor:pointer; min-width:0}
+.dd-pane[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
+.dd-cap{font-size:12.5px; font-weight:700; color:var(--fg-2)}
+.dd-pane[aria-pressed="true"] .dd-cap{color:var(--accent-text, var(--accent))}
+.dd-list{display:flex; flex-direction:column; background:var(--card); border-radius:12px; padding:2px 0}
+.dd-row{display:flex; align-items:flex-start; gap:8px; padding:8px 10px}
+.dd-row + .dd-row{border-top:1px solid var(--line, var(--stroke))}
+.dd-box{width:13px; height:13px; border-radius:4px; border:1.5px solid var(--fg-3); flex:none; margin-top:2px}
+.dd-tx{display:flex; flex-direction:column; gap:4px; min-width:0; flex:1}
+.dd-t{font-size:13px; font-weight:600; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dd-m{display:flex; flex-wrap:wrap; gap:4px}
+.dd-m em{font-style:normal; font-size:10.5px; padding:1px 6px; border-radius:999px; background:var(--soft); color:var(--fg-2)}
+.dd-compact .dd-row{padding:4px 10px; align-items:center}
+.dd-compact .dd-box{margin-top:0}
+.dd-compact .dd-t{font-size:12.5px}
+.dd-time{font-size:11px; color:var(--fg-2); flex:none}
+/* На узком экране две колонки обрезали названия — примеры друг под другом. */
+@media (max-width:560px){ .dense-demo{grid-template-columns:minmax(0, 1fr)} }
+
 .radios.off{opacity:.42}
 .radios.off .radio[aria-pressed="true"]{background:transparent;border-color:var(--stroke);color:var(--text-2)}
 
