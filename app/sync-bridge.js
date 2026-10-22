@@ -197,6 +197,13 @@ var SynSyncBridge = (function () {
     return isNaN(d.getTime()) ? null : d.toISOString();
   }
   function isoFromMs(ms){ var d = new Date(Number(ms) || Date.now()); return d.toISOString(); }
+  // Время операции для айфона: записана в тот же день, что и её дата, —
+  // настоящее время записи (важно для сверки «Свободно»), иначе полдень дня.
+  function opTime(o){
+    var at = Number(o.at) || 0;
+    if (at && /^\d{4}-\d{2}-\d{2}$/.test(String(o.date || '')) && webDate(isoFromMs(at)) === o.date) return isoFromMs(at);
+    return isoDate(o.date) || isoFromMs(o.at);
+  }
   // ISO с айфона → 'YYYY-MM-DD' для веба
   var д2 = function(n){ return (n < 10 ? '0' : '') + n; };
   function webDate(iso){ if (!iso) return null; var d = new Date(iso); return isNaN(d.getTime()) ? null : (d.getFullYear()+'-'+д2(d.getMonth()+1)+'-'+д2(d.getDate())); }
@@ -217,7 +224,7 @@ var SynSyncBridge = (function () {
     for (var i = 0; i < (fin.ops||[]).length; i++) { var o = fin.ops[i];
       ops.push({ id: await toUUID(o.id), kind: (o.kind === 'income' ? 'income' : 'spend'),
                  title: String(o.title || ''), amount: kop(o.amount), categoryID: String(o.cat || ''),
-                 date: isoDate(o.date) || isoFromMs(o.at), createdAt: isoFromMs(o.at) }); }
+                 date: opTime(o), createdAt: isoFromMs(o.at) }); }
     var debts = [];
     for (var j = 0; j < (fin.debts||[]).length; j++) { var d = fin.debts[j];
       var deb = { id: await toUUID(d.id), who: String(d.who || ''), isMine: d.mine !== false,
@@ -245,7 +252,11 @@ var SynSyncBridge = (function () {
       cats.push({ id: String(c.id || ''), title: String(c.title || c.id || ''),
                   hue: Number(c.hue) || 200, words: c.words || [], isCustom: c.isCustom !== false }); }
     return { ops: ops, debts: debts, jars: jars, subscriptions: subs,
-             budgets: fin.budgets || {}, customCategories: cats, opening: kop(fin.opening) };
+             budgets: fin.budgets || {}, customCategories: cats, opening: kop(fin.opening),
+             // Сверка «Свободно» — те же поля, что у айфона; без них айфон
+             // считал от своей сверки и вписанное в вебе не видел.
+             reconciledAt: fin.reconciledAt ? isoDate(fin.reconciledAt) : null,
+             reconciledHistory: kop(fin.reconciledHistory) };
   }
 
   // iOS FinanceState → веб S.finance (для приёма). accounts/recurring не приходят
@@ -305,6 +316,8 @@ var SynSyncBridge = (function () {
         oldCats[String(c.id||'')], ['id', 'title', 'hue', 'words', 'isCustom']); }),
       budgets: iosFin.budgets || {},
       opening: kop(iosFin.opening),
+      reconciledAt: iosFin.reconciledAt || null,
+      reconciledHistory: kop(iosFin.reconciledHistory),
       accounts: existing.accounts || [],     // веб-только, не трогаем
       recurring: existing.recurring || []    // веб-только, не трогаем
     };
