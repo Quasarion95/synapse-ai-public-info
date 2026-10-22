@@ -17122,8 +17122,14 @@ function syncApiRemoveDevice(id){ return syncAuthed(function(){ return synFetch(
 function syncЭтоУстройство(){
   var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
   if (уведомленияДоступны()){
+    /* Имя отдаёт мост AndroidDevice: системное имя телефона без имени
+       владельца («Samsung A51», а не «A51 пользователя …» — список
+       устройств лежит на сервере открытым текстом). В строке браузера
+       только заводской код («SM-A515F») — он запасом для сборок без моста. */
+    var своё = '';
+    try { своё = window.AndroidDevice && window.AndroidDevice.name ? String(window.AndroidDevice.name() || '').trim() : ''; } catch (e) {}
     var m = ua.match(/Android [\d.]+;\s*([^;)]+?)(?:\s+Build\/|;|\))/);
-    var модель = m && m[1].trim().length > 2 ? m[1].trim() : '';
+    var модель = своё || (m && m[1].trim().length > 2 ? m[1].trim() : '');
     return { platform: 'android', name: модель };
   }
   var br = /YaBrowser/.test(ua) ? 'Яндекс Браузер' : /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera'
@@ -17532,6 +17538,8 @@ function syncЗагрузитьУстройства(){
 }
 function syncИмяУстройства(d){
   var вид = { ios: 'Айфон', android: 'Андроид', web: 'Веб' }[d.platform] || 'Устройство';
+  // Айфонное приложение шлёт родовое имя модели: «iPhone» или «iPad».
+  if (d.platform === 'ios') return d.name === 'iPad' ? 'Айпад' : 'Айфон';
   return d.name && d.name !== вид ? вид + ' · ' + d.name : вид;
 }
 function syncЗнакУстройства(d){ return { ios: 'iP', android: 'A', web: 'W' }[d.platform] || '•'; }
