@@ -2456,6 +2456,10 @@ html[data-dense="1"] .titleline{gap:6px}
 /* Погашенный выбор стартового раздела: настройка перекрыта соседней.
    Не disabled — по нажатию она включается обратно, поэтому кнопки живые,
    просто приглушены. */
+/* Технические работы у Syn — не тревога: обычный тихий текст, не красный.
+   Человек ничего не сломал и чинить ему нечего. */
+.err.calm{color:var(--fg-2)}
+
 /* Пример «обычный — компактный» под переключателем. */
 .dense-demo{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; padding:4px 0 14px}
 .dd-pane{display:flex; flex-direction:column; gap:8px; padding:10px; border-radius:16px; background:var(--panel-strong, var(--soft)); text-align:left; color:var(--text); border:0; cursor:pointer; min-width:0}

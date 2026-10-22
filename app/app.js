@@ -6962,7 +6962,7 @@ function goalAiRefine(id, raw){
     if (error && error.data && error.data.quota) SYN.quota = error.data.quota;
     settle(error && error.status === 402
       ? 'Запросы к Syn на сегодня закончились — цель записана с одним названием.'
-      : 'Syn не ответил — цель записана с одним названием.');
+      : 'Syn сейчас на технических работах — цель записана с одним названием.');
   });
 }
 
@@ -7362,7 +7362,7 @@ function vFocusCard(today, todayDone, overdue, withTime){
       }).join('') +
     '</div>' +
     (brief && brief.main ? '<p class="focus-main"><span>Главное</span>' + esc(brief.main) + '</p>' : '') +
-    (отказ ? '<p class="err" style="margin-top:12px">' + esc(отказ) + '</p>' : '') +
+    (отказ ? '<p class="err' + (отказ === SYN_ТЕХРАБОТЫ ? ' calm' : '') + '" style="margin-top:12px">' + esc(отказ) + '</p>' : '') +
     /* Прослушать — отдельной широкой кнопкой под остальным.
 
        Голос — единственное, ради чего этот экран стоит открыть за рулём или
@@ -7879,7 +7879,8 @@ function briefingRun(){
     synQuotaSet(data.quota);
     var raw = String(data.note || '').trim();
     if (!raw){
-      S.briefing.error = 'Syn не собрал брифинг. Попробуй ещё раз.';
+      // Пустой ответ — сбой на нашей стороне или у поставщика ИИ.
+      S.briefing.error = SYN_ТЕХРАБОТЫ;
       // Без даты ошибка не показывалась вовсе: экран выводит отказ, только
       // если errorDate — сегодня. Человек жал «Собрать», кнопка оживала, и
       // ничего не происходило — ни брифинга, ни слова о том, почему.
@@ -11100,7 +11101,7 @@ function modalSyn(draft, error){
       (S.synChat.length ? '<button class="btn sm soft" data-act="syn-clear">Очистить</button>' : '') +
     '</div>' +
     '<div class="syn-log" id="syn-log">' + synLogHTML() + '</div>' +
-    (error ? '<p class="err syn-error">' + esc(error) + '</p>' : '') +
+    (error ? '<p class="err syn-error' + (error === SYN_ТЕХРАБОТЫ ? ' calm' : '') + '">' + esc(error) + '</p>' : '') +
     /* Поле во всю ширину и одна кнопка, как в Telegram.
 
        Пока в поле пусто — кнопка микрофона: держишь — идёт запись,
@@ -11377,7 +11378,7 @@ function synSend(text, where){
 
     var result = synApplyActions(rest);
     SYN.busy = false;
-    synChatPush('assistant', data.reply || 'Готово.', result);
+    synChatPush('assistant', synСлужебныйОтвет(data.reply) ? SYN_ТЕХРАБОТЫ : (data.reply || 'Готово.'), result);
     // Разговор с Syn — четвёртый шаг обучения, и записать это надо здесь:
     // ответ ассистента идёт мимо commit().
     tourCheck();
@@ -11419,7 +11420,6 @@ function synSend(text, where){
        лечится. Показываем один раз за сутки — окно, которое выскакивает на
        каждую попытку, из предложения превращается в помеху. */
     if (error && error.status === 402) synOfferPro();
-    if (onDone) onDone({ ok: false, error: error, text: synErrorText(error) });
   });
 }
 
@@ -11472,19 +11472,45 @@ function planPrice(id){
   return '';
 }
 
+/* Что сказать человеку, если Syn не ответил.
+
+   Раньше сюда доходил текст сервера как есть: «error code: 502», «Backend
+   вернул код 500», «OpenRouter …» — по-английски и про внутренности.
+   Владелец: «нужно указывать не ошибку на английском какую-то непонятную
+   для человека, а что-то вроде „ведутся технические работы“ — это не так
+   пугает». То же сделано в приложении для iPhone, текст общий.
+
+   Правило одно: всё, что сломалось у нас или у поставщика ИИ (5xx, «Модель
+   недоступна.», пустой ответ, любой служебный текст), — одна спокойная
+   фраза про технические работы. Отдельно — только то, что человек исправит
+   сам: нет интернета, слишком долгий ответ, исчерпанный лимит. */
+var SYN_ТЕХРАБОТЫ = 'У Syn сейчас технические работы — скоро он снова будет на связи. Задачи, цели и всё остальное работают как обычно.';
+var SYN_НЕТ_СЕТИ = 'Нет интернета — Syn ответит, как только связь появится.';
+var SYN_ДОЛГО = 'Syn задумался слишком долго. Попробуй ещё раз.';
+
 function synErrorText(error){
-  var message = error && error.message ? error.message : 'Не получилось';
-  if (!error) return message;
-  if (error.status === 503) return 'Syn для веба ещё не включён на сервере.';
-  if (error.status === 404) return 'Syn в браузере ещё не включён на сервере.';
-  if (error.status === 402){
+  if (error && error.timeout) return SYN_ДОЛГО;
+  if (error && error.status === 402){
     if (error.data && error.data.quota) synQuotaSet(error.data.quota);
     return error.data && error.data.error ? error.data.error : 'Запросы к Syn на сегодня закончились.';
   }
-  if (error.status === 403) return 'Сервер не принял запрос с этого адреса.';
-  if (error.status === 429) return 'Слишком часто. Подожди минуту и попробуй снова.';
-  if (error.status === undefined) return 'Сервер не ответил. Проверь соединение.';
-  return message;
+  if (error && error.status === 429) return 'Слишком часто. Подожди минуту и попробуй снова.';
+  // Запрос не дошёл вовсе. Без связи — так и говорим; со связью это сервер
+  // лежит так, что не отвечает даже ошибкой, — значит, технические работы.
+  if (!error || !error.status){
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return SYN_НЕТ_СЕТИ;
+    return SYN_ТЕХРАБОТЫ;
+  }
+  return SYN_ТЕХРАБОТЫ;
+}
+
+/* Ответ пришёл «успешно», но вместо слов Syn — служебная строка сервера.
+   Такое показываем как технические работы, а не как реплику ассистента. */
+function synСлужебныйОтвет(text){
+  var t = String(text || '').trim();
+  if (!t) return false;
+  return /^(error code|backend|openrouter|internal server error|bad gateway|service unavailable|gateway time-?out|upstream)/i.test(t) ||
+    /^модель недоступна/i.test(t);
 }
 
 /* ---- диктовка ---- */

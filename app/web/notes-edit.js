@@ -443,8 +443,10 @@
     if (error && error.outdated) return 'Эта функция заработает после обновления сервера Syn. Попробуй позже.';
     if (error && error.status === 402) return (error.data && error.data.error) || 'Запросы к Syn на сегодня закончились. Завтра снова будут.';
     if (error && error.status === 413) return 'Текст слишком длинный для Syn. Выдели часть и попробуй ещё раз.';
-    if (error && !error.status) return 'Нет соединения. Проверь интернет и попробуй ещё раз.';
-    return 'Syn не смог переписать текст. Попробуй ещё раз.';
+    // Остальное — по общему правилу (app.js, synErrorText): технические
+    // работы, нет интернета или слишком долгий ответ, без кодов сервера.
+    if (typeof global.synErrorText === 'function') return global.synErrorText(error);
+    return 'У Syn сейчас технические работы — скоро он снова будет на связи. Задачи, цели и всё остальное работают как обычно.';
   }
 
   function aiRun(instruction){
