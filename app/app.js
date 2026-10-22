@@ -10357,7 +10357,32 @@ function подпискаИстекла(){
 /* Три карточки тарифов. Каждая — ссылка на оплату целиком, а не кнопка
    внутри: палец попадает в любую точку карточки, а не только в слово
    «Оформить». */
+/* Карточка тарифа в приложении — не «название, цена, кнопка», а то, по чему
+   выбирают: период, цена в пересчёте на месяц и выгода, и что даёт тариф.
+   Владелец: «карточка тарифов пустая». Цифры — из тех же констант, что
+   считают норму Syn (PLAN_SYN_LIMITS), чтобы карточка не разошлась с делом. */
+var ТАРИФ_ПОДРОБНО = {
+  'pro.weekly':  { per: '/ нед', note: '≈ 646 ₽ в месяц · чтобы попробовать' },
+  'pro.monthly': { per: '/ мес', note: 'Каждый месяц, отменить можно в любой момент' },
+  'pro.yearly':  { per: '/ год', note: '≈ 416 ₽ в месяц · выгода 2 090 ₽ в год' }
+};
+function карточкаТарифа(plan){
+  var п = ТАРИФ_ПОДРОБНО[plan.id] || { per: '', note: '' };
+  var галка = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var пункты = ['Все разделы без ограничений', 'Syn — ' + proSynLimit(plan.id) + ' запросов в день', 'Синхронизация устройств'];
+  return '<a class="plancard pc-app' + (plan.main ? ' main' : '') + '" href="../checkout/?plan=' + plan.id + '">' +
+    (plan.tag ? '<span class="plantag">' + esc(plan.tag) + '</span>' : '') +
+    '<span class="pc-head"><b class="planname">' + esc(plan.title) + '</b>' +
+      '<span class="pc-price"><span class="planprice">' + esc(plan.price) + '</span><i>' + esc(п.per) + '</i></span></span>' +
+    '<span class="pc-note">' + esc(п.note) + '</span>' +
+    '<span class="pc-feats">' + пункты.map(function(т){ return '<span>' + галка + '<em>' + esc(т) + '</em></span>'; }).join('') + '</span>' +
+    '<span class="planbuy">Оформить</span>' +
+  '</a>';
+}
+
 function тарифыБлок(){
+  if (inApp()) return '<p class="lbl">Тарифы</p><div class="plancards">' + PLANS.map(карточкаТарифа).join('') + '</div>' +
+    '<p class="hint">Оплата проходит на сайте — карта или СБП.</p>';
   return '<p class="lbl">Тарифы</p>' +
     '<div class="plancards">' +
       PLANS.map(function(plan){

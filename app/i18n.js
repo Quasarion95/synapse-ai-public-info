@@ -258,6 +258,15 @@
     'ДЕНЬГИ': 'MONEY',
     'Прослушать отчёт': 'Listen to the report',
     'Собрать брифинг заново': 'Rebuild the briefing',
+    // карточки тарифов в приложении
+    '/ нед': '/ week',
+    '/ мес': '/ month',
+    '/ год': '/ year',
+    '≈ 646 ₽ в месяц · чтобы попробовать': '≈ 646 ₽ a month · to try it out',
+    'Каждый месяц, отменить можно в любой момент': 'Every month, cancel any time',
+    '≈ 416 ₽ в месяц · выгода 2 090 ₽ в год': '≈ 416 ₽ a month · save 2 090 ₽ a year',
+    'Все разделы без ограничений': 'Every section, no limits',
+    'Оплата проходит на сайте — карта или СБП.': 'Payment is on the website — card or SBP.',
     // названия цветов тем
     'Закат': 'Sunset',
     'Коралл': 'Coral',
@@ -1192,6 +1201,7 @@
   function items(n) { return n + (n === '1' ? ' item' : ' items'); }
 
   var PATTERNS = [
+    [/^Syn — (\d+) запросов в день$/, function (m) { return 'Syn — ' + m[1] + ' requests a day'; }],
     // — приложение: корзина, брифинг, дерево целей (22.10.2026) —
     [/^Задача · (\d+) (?:день|дня|дней)$/, function (m) { return 'Task · ' + m[1] + (m[1] === '1' ? ' day' : ' days'); }],
     [/^Syn собрал (\d{1,2}:\d{2})$/, function (m) { return 'Syn put it together at ' + m[1]; }],
