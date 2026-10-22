@@ -10382,10 +10382,13 @@ function vAbout(){
 /* Те же три тарифа и те же цены, что на странице оплаты. Ключи совпадают с
    PLANS в checkout/index.html — они уезжают в ссылку параметром plan, и
    страница открывается с уже выбранным тарифом. */
+/* Цены с 22.10.2026: месяц 490, год 3 990. Год — посередине и выделен: из
+   трёх вариантов чаще берут средний, а рядом с неделей (≈ 640 ₽ в месяц)
+   год выглядит очевидной выгодой. */
 var PLANS = [
   { id: 'pro.weekly',  title: 'Неделя', price: '149 ₽' },
-  { id: 'pro.monthly', title: 'Месяц',  price: '590 ₽', main: true },
-  { id: 'pro.yearly',  title: 'Год',    price: '4 990 ₽', tag: 'выгодно' }
+  { id: 'pro.yearly',  title: 'Год',    price: '3 990 ₽', tag: 'выгодно', main: true },
+  { id: 'pro.monthly', title: 'Месяц',  price: '490 ₽' }
 ];
 
 function planTitle(id){
@@ -10419,13 +10422,22 @@ function подпискаИстекла(){
    выбирают: период, цена в пересчёте на месяц и выгода, и что даёт тариф.
    Владелец: «карточка тарифов пустая». Цифры — из тех же констант, что
    считают норму Syn (PLAN_SYN_LIMITS), чтобы карточка не разошлась с делом. */
-var ТАРИФ_ПОДРОБНО = {
-  'pro.weekly':  { per: '/ нед', note: '≈ 646 ₽ в месяц · чтобы попробовать' },
-  'pro.monthly': { per: '/ мес', note: 'Каждый месяц, отменить можно в любой момент' },
-  'pro.yearly':  { per: '/ год', note: '≈ 416 ₽ в месяц · выгода 2 090 ₽ в год' }
-};
+/* Пересчёт и выгода считаются из цен в PLANS, а не хранятся готовыми
+   строками: цены уже менялись (22.10.2026: месяц 490, год 3 990), и
+   зашитые «≈ 416 ₽» остались бы старыми. */
+function ценаЧислом(id){
+  for (var i = 0; i < PLANS.length; i++) if (PLANS[i].id === id) return parseInt(String(PLANS[i].price).replace(/\D/g, ''), 10) || 0;
+  return 0;
+}
+function рублиТекстом(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽'; }
+function подробноТарифа(id){
+  var неделя = ценаЧислом('pro.weekly'), месяц = ценаЧислом('pro.monthly'), год = ценаЧислом('pro.yearly');
+  if (id === 'pro.weekly') return { per: '/ нед', note: '≈ ' + рублиТекстом(неделя * 52 / 12) + ' в месяц · чтобы попробовать' };
+  if (id === 'pro.yearly') return { per: '/ год', note: '≈ ' + рублиТекстом(год / 12) + ' в месяц · выгода ' + рублиТекстом(месяц * 12 - год) + ' в год' };
+  return { per: '/ мес', note: 'Каждый месяц, отменить можно в любой момент' };
+}
 function карточкаТарифа(plan){
-  var п = ТАРИФ_ПОДРОБНО[plan.id] || { per: '', note: '' };
+  var п = подробноТарифа(plan.id);
   var галка = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   var пункты = ['Все разделы без ограничений', 'Syn — ' + proSynLimit(plan.id) + ' запросов в день', 'Синхронизация устройств'];
   return '<a class="plancard pc-app' + (plan.main ? ' main' : '') + '" href="../checkout/?plan=' + plan.id + '">' +
@@ -13884,8 +13896,8 @@ function кнопкаОплаты(){
    нужно, чтобы выбрать; уговоры на ценнике только удлиняют окно. */
 function ценникиPro(){
   return '<b>' + planPrice('pro.weekly') + '</b><span>раз в неделю</span>' +
-    '<b>' + planPrice('pro.monthly') + '</b><span>раз в месяц</span>' +
-    '<b>' + planPrice('pro.yearly') + '</b><span>раз в год</span>';
+    '<b>' + planPrice('pro.yearly') + '</b><span>раз в год</span>' +
+    '<b>' + planPrice('pro.monthly') + '</b><span>раз в месяц</span>';
 }
 
 function modalPaywall(kind){
