@@ -17702,6 +17702,10 @@ function разделСинхро(){
       '<p class="hint">Дефис ставится сам · регистр и раскладка не важны</p>' +
       '<button class="sync-primary" data-act="sync-join-do">Подключить</button>' +
       '</div>' +
+      // Сканер есть только в приложении на андроиде (мост AndroidScanner).
+      (window.AndroidScanner ? '<button class="sync-scan" data-act="sync-scan">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg>' +
+        'Сканировать QR</button>' : '') +
       '<p class="pair-hint sync-merge">Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.</p>';
   }
   if (SYNC.busy) h += '<p class="hint">Секунду…</p>';
@@ -17908,6 +17912,43 @@ document.addEventListener('input', function(e){
 });
 document.addEventListener('keydown', function(e){
   if (e.key === 'Enter' && e.target && e.target.id === 'sync-code-input') ACTS['sync-join-do']();
+});
+/* QR с другого устройства — сканером приложения на андроиде.
+
+   В QR лежит ссылка https://synapseapp.ru/app/#pair=КОД (её открывает и
+   системная камера), но на всякий случай понимаем и просто код, и pair в
+   строке запроса. Подошло — вписываем в клетки и связываем сразу, как при
+   наборе восьмого знака. Чужой QR — так и говорим. */
+function syncКодИзQR(текст){
+  var t = String(текст || '').trim(), код = t;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(t)){
+    код = '';
+    try {
+      var u = new URL(t);
+      код = new URLSearchParams((u.hash || '').replace(/^#/, '')).get('pair') || u.searchParams.get('pair') || '';
+    } catch (e) {}
+  }
+  var чисто = '';
+  try { чисто = SynSyncCrypto.normalize(код).slice(0, 8); } catch (e) {}
+  return чисто.length === 8 ? чисто.slice(0, 4) + '-' + чисто.slice(4) : '';
+}
+ACTS['sync-scan'] = function(){
+  if (!window.AndroidScanner) return;
+  SYNC.status = '';
+  try { window.AndroidScanner.scan(); } catch (e) {}
+};
+window.addEventListener('android-scan', function(event){
+  var d = (event && event.detail) || {};
+  if (d.cancel) return;
+  var вид = syncКодИзQR(d.text);
+  if (!вид){ SYNC.status = 'Это не QR-код связки Synapse'; render(); return; }
+  SYNC.joinOpen = true;
+  SYNC.prefill = вид;
+  render();
+  var el = document.getElementById('sync-code-input');
+  if (el){ el.value = вид; syncКлетки(el); }
+  syncКодОтправлен = вид.replace('-', '');
+  syncJoin(вид);
 });
 ACTS['sync-join-do'] = function(){ var el = document.getElementById('sync-code-input'); syncJoin(el ? el.value : ''); };
 ACTS['sync-now'] = function(){ SYNC.devicesAt = 0; syncNow(); };

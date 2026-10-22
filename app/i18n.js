@@ -210,6 +210,7 @@
     'Синхронизация здесь уже включена. Чтобы подключить это устройство к другой группе, сначала выключите её.': 'Sync is already on here. To connect this device to another group, turn it off first.',
     'Код из QR вписан. Нажмите «Подключить», чтобы связать это устройство.': 'The code from the QR is filled in. Press “Connect” to link this device.',
     'QR-код для связки устройств': 'QR code for linking devices',
+    'Сканировать QR': 'Scan QR', 'Это не QR-код связки Synapse': 'This isn’t a Synapse device-linking QR code',
     'Выключить на этом телефоне': 'Turn off on this phone', 'Синхронизация на этом телефоне выключена. Записи остались.': 'Sync is off on this phone. Your entries are still here.',
     'Этот телефон отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.': 'This phone was unlinked from sync on another device. Your entries are still here. You can connect again with a code.',
     'Устройства появятся здесь после их следующей сверки.': 'Devices will appear here after their next sync.',
