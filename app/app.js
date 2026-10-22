@@ -10464,10 +10464,13 @@ function vAbout(){
 /* Те же три тарифа и те же цены, что на странице оплаты. Ключи совпадают с
    PLANS в checkout/index.html — они уезжают в ссылку параметром plan, и
    страница открывается с уже выбранным тарифом. */
+/* Цены с 22.10.2026: месяц 490, год 3 990. Год — посередине и выделен: из
+   трёх вариантов чаще берут средний, а рядом с неделей (≈ 640 ₽ в месяц)
+   год выглядит очевидной выгодой. */
 var PLANS = [
   { id: 'pro.weekly',  title: 'Неделя', price: '149 ₽' },
-  { id: 'pro.monthly', title: 'Месяц',  price: '590 ₽', main: true },
-  { id: 'pro.yearly',  title: 'Год',    price: '4 990 ₽', tag: 'выгодно' }
+  { id: 'pro.yearly',  title: 'Год',    price: '3 990 ₽', tag: 'выгодно', main: true },
+  { id: 'pro.monthly', title: 'Месяц',  price: '490 ₽' }
 ];
 
 function planTitle(id){
@@ -13935,8 +13938,8 @@ function кнопкаОплаты(){
    нужно, чтобы выбрать; уговоры на ценнике только удлиняют окно. */
 function ценникиPro(){
   return '<b>' + planPrice('pro.weekly') + '</b><span>раз в неделю</span>' +
-    '<b>' + planPrice('pro.monthly') + '</b><span>раз в месяц</span>' +
-    '<b>' + planPrice('pro.yearly') + '</b><span>раз в год</span>';
+    '<b>' + planPrice('pro.yearly') + '</b><span>раз в год</span>' +
+    '<b>' + planPrice('pro.monthly') + '</b><span>раз в месяц</span>';
 }
 
 function modalPaywall(kind){
