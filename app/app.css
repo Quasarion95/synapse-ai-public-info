@@ -2448,37 +2448,78 @@ html[data-dense="1"] .titleline{gap:6px}
 .sync-h-token i, .sync-h-key i{background:var(--danger, #e23b31)}
 .sync-h-token, .sync-h-key{color:var(--text)}
 
-/* Синхронизация по макету: выбор из двух, «Мои устройства», ввод кода. */
-.sync-opts{display:grid; gap:10px; margin:12px 0 4px}
-.sync-opt{display:flex; gap:12px; align-items:flex-start; text-align:left; padding:16px; border-radius:18px; border:0; cursor:pointer;
-  background:var(--bg-2, var(--card)); color:var(--text); font:inherit; box-shadow:inset 0 0 0 1px var(--line)}
-.sync-opt.on{box-shadow:inset 0 0 0 2px var(--accent)}
+/* Синхронизация по макету: выбор из двух, «Мои устройства», ввод кода,
+   окно «Добавить устройство» с QR. Свои классы, а не .btn: кнопки здесь
+   крупнее и тише обычных, как на макете. */
+.sync-opts{display:grid; gap:12px; margin:14px 0 4px}
+.sync-opt{display:flex; gap:14px; align-items:flex-start; text-align:left; padding:18px; border-radius:20px; border:0; cursor:pointer;
+  background:var(--card); color:var(--fg); font:inherit; box-shadow:0 1px 2px rgba(30,20,10,.04), 0 12px 32px -14px rgba(30,20,10,.18), inset 0 0 0 1px var(--stroke)}
+.sync-opt:active{transform:scale(.99)}
+.sync-opt.on{box-shadow:0 12px 32px -14px rgba(30,20,10,.18), inset 0 0 0 2px var(--accent)}
 .sync-opt > span{display:flex; flex-direction:column; gap:4px}
-.sync-opt b{font-size:15.5px}
-.sync-opt > span > span{font-size:13.5px; line-height:1.45; color:var(--fg-2)}
-.sync-opt-ic{width:40px; height:40px; border-radius:13px; flex:none; display:grid; place-items:center; font-style:normal;
-  background:var(--accent-soft, color-mix(in srgb, var(--accent) 14%, transparent)); color:var(--accent)}
+.sync-opt b{font-size:16.5px; line-height:1.3}
+.sync-opt > span > span{font-size:14.5px; line-height:1.45; color:var(--fg-2)}
+.sync-opt-ic{width:46px; height:46px; border-radius:15px; flex:none; display:grid; place-items:center; font-style:normal;
+  background:var(--accent-soft); color:var(--accent-text, var(--accent))}
 .sync-opt-ic.main{background:var(--accent); color:var(--on-accent, #fff)}
-.sync-devs{margin:6px 0 12px; border-radius:16px; box-shadow:inset 0 0 0 1px var(--line); overflow:hidden}
-.sync-devs-t{margin:0; padding:10px 14px 4px; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--fg-2)}
-.sync-devs .hint{padding:0 14px 10px}
-.sync-dev{display:flex; align-items:center; gap:12px; padding:10px 14px}
-.sync-dev + .sync-dev{border-top:1px solid var(--line)}
-.sync-dev-ic{width:36px; height:36px; border-radius:12px; flex:none; display:grid; place-items:center; font-style:normal; font-size:12px; font-weight:700;
-  background:var(--accent-soft, color-mix(in srgb, var(--accent) 14%, transparent)); color:var(--accent)}
+
+.sync-devs{margin:10px 0 14px; border-radius:20px; background:var(--card); overflow:hidden;
+  box-shadow:0 1px 2px rgba(30,20,10,.04), 0 12px 32px -14px rgba(30,20,10,.16), inset 0 0 0 1px var(--stroke)}
+.sync-devs-t{margin:0; padding:14px 16px 6px; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--fg-2)}
+.sync-devs .hint{padding:0 16px 14px}
+.sync-dev{display:flex; align-items:center; gap:12px; padding:13px 16px}
+.sync-dev + .sync-dev{border-top:1px solid var(--line, var(--stroke))}
+.sync-dev-ic{width:40px; height:40px; border-radius:13px; flex:none; display:grid; place-items:center; font-style:normal; font-size:13px; font-weight:700;
+  background:var(--accent-soft); color:var(--accent-text, var(--accent))}
 .sync-dev-t{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
-.sync-dev-t b{font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.sync-dev-t span{font-size:13px; color:var(--fg-2)}
-.sync-quiet{opacity:.9}
-.sync-join{display:flex; flex-direction:column; gap:8px; margin-top:12px; padding:14px; border-radius:16px; box-shadow:inset 0 0 0 1px var(--line)}
-.sync-join label{font-size:13px; font-weight:600; color:var(--fg-2)}
-.sync-code-in{font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:26px; font-weight:700; letter-spacing:5px; text-align:center;
-  padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:var(--bg); color:var(--text); text-transform:uppercase}
-.sync-code-in:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)}
-.pair-code{margin:6px 0 2px; text-align:center; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:36px; font-weight:800; letter-spacing:4px}
-.pair-left{display:flex; justify-content:center; align-items:center; gap:7px; margin:0 0 12px; font-size:14px; color:var(--fg-2)}
+.sync-dev-t b{font-size:16px; line-height:1.3; overflow-wrap:anywhere}
+.sync-dev-t span{font-size:14px; color:var(--fg-2)}
+
+.sync-primary{display:flex; align-items:center; justify-content:center; width:100%; height:54px; border:0; border-radius:16px; cursor:pointer;
+  background:var(--accent); color:var(--on-accent, #fff); font:inherit; font-size:17px; font-weight:600;
+  box-shadow:0 10px 24px -10px color-mix(in srgb, var(--accent) 70%, transparent)}
+/* «Сканировать QR» — как на макете: вторая по весу кнопка, мягкая заливка
+   цветом темы и значок рамки. Только в приложении на андроиде. */
+.sync-scan{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; height:54px; border:0; border-radius:16px;
+  cursor:pointer; font:inherit; font-size:17px; font-weight:600; margin-top:12px;
+  background:var(--accent-tint, var(--accent-soft)); color:var(--accent-text, var(--accent))}
+.sync-scan svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+.sync-primary:active{transform:scale(.99)}
+.sync-links{display:flex; flex-direction:column; align-items:center; gap:2px; margin-top:10px}
+.sync-link{border:0; background:none; cursor:pointer; font:inherit; font-size:15px; font-weight:600; padding:9px 10px; border-radius:10px;
+  color:var(--accent-text, var(--accent))}
+.sync-link:hover{background:var(--accent-soft)}
+.sync-link.quiet{color:var(--fg-2); font-weight:500; font-size:14px}
+.sync-dev .sync-link{font-size:14px; padding:8px}
+
+.sync-join{display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:14px; padding:20px 14px; border-radius:20px; background:var(--card);
+  box-shadow:0 1px 2px rgba(30,20,10,.04), 0 12px 32px -14px rgba(30,20,10,.16), inset 0 0 0 1px var(--stroke); text-align:center}
+.sync-join label{font-size:14px; font-weight:600; color:var(--fg-2)}
+.sync-join .hint{margin:0}
+.sync-join .acts{justify-content:center}
+.sync-cells{position:relative; display:flex; align-items:center; justify-content:center; gap:5px; width:100%; max-width:440px}
+.sync-cell{flex:1 1 0; min-width:0; max-width:44px; height:50px; border-radius:11px; display:grid; place-items:center; background:var(--bg-2, var(--bg));
+  font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:24px; font-weight:700; color:var(--fg);
+  box-shadow:inset 0 0 0 1px var(--stroke)}
+.sync-cell.on{box-shadow:0 0 0 2px var(--accent)}
+.sync-dash{color:var(--fg-3); padding:0 2px; font-weight:700}
+/* Настоящее поле — поверх клеток, прозрачное: нажатие, вставка и клавиатура
+   работают как у обычного поля. 16px — чтобы айфон не увеличивал страницу. */
+.sync-code-in{position:absolute; inset:0; width:100%; height:100%; opacity:0; font-size:16px; border:0; padding:0; cursor:text; caret-color:transparent}
+@media (min-width:600px){ .sync-cell{height:54px; border-radius:12px; font-size:26px} .sync-cells{gap:6px} }
+.sync-join .sync-primary{margin-top:4px}
+.sync-merge{margin:12px 0 0}
+
+.pair-box{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px 22px; margin:8px 0 14px}
+.pair-qr{width:176px; height:176px; padding:6px; border-radius:16px; background:#fff; box-shadow:inset 0 0 0 1px var(--stroke)}
+.pair-qr svg{display:block; width:100%; height:100%}
+.pair-side{display:flex; flex-direction:column; align-items:center; gap:8px; min-width:200px}
+.pair-code{margin:0; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:34px; font-weight:800; letter-spacing:4px; color:var(--fg)}
+.pair-left{display:flex; align-items:center; gap:7px; margin:0; font-size:14.5px; color:var(--fg-2)}
 .pair-left i{width:8px; height:8px; border-radius:50%; background:var(--accent)}
 .pair-left.off i{background:var(--fg-3)}
+.pair-how{margin:0; font-size:13.5px; line-height:1.45; color:var(--fg-2); text-align:center; max-width:240px}
+.pair-hint{margin:0 0 16px; padding:13px 15px; border-radius:16px; background:var(--accent-soft); font-size:14.5px; line-height:1.5; color:var(--fg); text-align:left}
 
 /* Технические работы у Syn — не тревога: обычный тихий текст, не красный.
    Человек ничего не сломал и чинить ему нечего. */

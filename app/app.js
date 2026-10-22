@@ -17206,16 +17206,46 @@ function syncОсталось(){
   var с = Math.ceil(мс / 1000);
   return Math.floor(с / 60) + ':' + (с % 60 < 10 ? '0' : '') + (с % 60);
 }
+/* Что зашито в QR. Обычная ссылка, а не своя схема: сканер в приложениях
+   вынимает из неё код (#pair=…), а системная камера телефона без нашего
+   приложения просто откроет веб с уже вписанным кодом. */
+function syncСсылкаКода(code){ return 'https://synapseapp.ru/app/#pair=' + encodeURIComponent(code); }
+/* Открыли по ссылке из QR: код вписываем в поле, но подключаем только по
+   нажатию — открыть ссылку ещё не значит согласиться на связку. */
+function syncКодИзАдреса(){
+  var m = /[#&]pair=([^&]+)/.exec(location.hash || '');
+  if (!m) return;
+  var чисто = '';
+  try { чисто = SynSyncCrypto.normalize(decodeURIComponent(m[1])).slice(0, 8); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  if (чисто.length !== 8) return;
+  S.view = 'settings-data';
+  if (syncEnabled() && syncDataKeyRaw()){
+    SYNC.status = 'Синхронизация здесь уже включена. Чтобы подключить это устройство к другой группе, сначала выключите её.';
+  } else {
+    SYNC.joinOpen = true;
+    SYNC.prefill = чисто.slice(0, 4) + '-' + чисто.slice(4);
+    SYNC.status = 'Код из QR вписан. Нажмите «Подключить», чтобы связать это устройство.';
+  }
+  render();
+}
 var syncТаймерКода = null;
 function syncОкноКода(){
   var живой = syncЖивойКод() || { code: syncStore('pairCode') || '' };
+  var qr = '';
+  try { if (window.SynapseQR) qr = SynapseQR.svg(syncСсылкаКода(живой.code), 176).replace('QR-код со ссылкой активации', 'QR-код для связки устройств'); } catch (e) {}
   openModal(
     '<h3>Добавить устройство</h3>' +
-    '<p class="pair-code" aria-label="Код связки">' + esc(живой.code) + '</p>' +
-    '<p class="pair-left" id="pair-left"><i aria-hidden="true"></i><span>Код действует ещё ' + syncОсталось() + '</span></p>' +
-    '<p class="s">На новом устройстве откройте синхронизацию и выберите «Синхронизация уже есть на другом устройстве» — там введите этот код.</p>' +
-    '<p class="s">Одним кодом можно подключить и айфон, и андроид, и другой браузер. Закроете окно и откроете снова — будет этот же код.</p>' +
-    '<button class="btn full" data-act="close-modal">Готово</button>');
+    '<div class="pair-box">' +
+      (qr ? '<div class="pair-qr">' + qr + '</div>' : '') +
+      '<div class="pair-side">' +
+        '<p class="pair-code" aria-label="Код связки">' + esc(живой.code) + '</p>' +
+        '<p class="pair-left" id="pair-left"><i aria-hidden="true"></i><span>Код действует ещё ' + syncОсталось() + '</span></p>' +
+        '<p class="pair-how">Телефоном — наведите камеру в Synapse на QR. В браузере — введите код.</p>' +
+      '</div>' +
+    '</div>' +
+    '<p class="pair-hint">На новом устройстве: Настройки → Синхронизация → «Синхронизация уже есть на другом устройстве». Одним кодом можно подключить и айфон, и андроид, и другой браузер. Закроете окно и откроете снова — будет этот же код.</p>' +
+    '<button class="sync-primary" data-act="close-modal">Готово</button>');
   clearInterval(syncТаймерКода);
   syncТаймерКода = setInterval(function(){
     var el = document.getElementById('pair-left');
@@ -17281,7 +17311,7 @@ function syncJoin(code){ return syncDo(function(){ if (!SynSyncCrypto.isComplete
   // с пришедшим, ничего не стирая.
   syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced();
   if (!syncStoreSet('enabled', '1')){ SYNC.status = 'Браузер не даёт сохранить настройки синхронизации: нет места.'; return; }
-  SYNC.joinOpen = false; SYNC.devicesAt = 0; return syncPullApply().then(function(){ SYNC.status = 'Устройство подключено. Записи объединены.'; }); }); }); }); }
+  SYNC.joinOpen = false; SYNC.prefill = ''; SYNC.devicesAt = 0; return syncPullApply().then(function(){ SYNC.status = 'Устройство подключено. Записи объединены.'; }); }); }); }); }
 function syncNow(){ return syncDo(function(){ return syncPullApply().then(function(){ return syncPushCurrent(); }).then(function(){ SYNC.status = 'Синхронизировано.'; }); }); }
 function syncDeleteRemote(){ return syncDo(function(){ return syncSerial('delete', function(){ return syncApiDelete(); }).then(function(){ syncStoreSet('enabled', null); syncStoreSet('token', null); syncStoreSet('dataKey', null); syncStoreSet('lastServerUpdatedAt', null); syncForgetSynced(); SYNC.code = ''; SYNC.status = 'Копия с сервера удалена. Данные в браузере остались.'; }); }); }
 function syncPullOnLoad(){
@@ -17358,34 +17388,41 @@ function разделСинхро(){
     if (здоровье.k === 'key') h += '<div class="acts"><button class="btn sm" data-act="sync-join-open">Ввести код</button></div>';
     syncЗагрузитьУстройства();
     var devs = SYNC.devices;
+    /* Как на макете: список в своей карточке, одна большая кнопка «Добавить
+       устройство», остальное — тихими ссылками ниже. */
     h += '<div class="sync-devs"><p class="sync-devs-t">Мои устройства</p>';
     if (!devs) h += '<p class="hint">Загружаем список…</p>';
     else if (!devs.length) h += '<p class="hint">Устройства появятся здесь после их следующей сверки.</p>';
     else devs.forEach(function(d){
       h += '<div class="sync-dev"><i class="sync-dev-ic" aria-hidden="true">' + esc(syncЗнакУстройства(d)) + '</i>' +
         '<span class="sync-dev-t"><b>' + esc(syncИмяУстройства(d)) + '</b><span>' + esc(syncКогдаУстройство(d)) + '</span></span>' +
-        (d.current ? '' : '<button class="btn sm soft" data-act="sync-dev-remove" data-id="' + esc(d.id) + '" data-name="' + esc(syncИмяУстройства(d)) + '">Отвязать</button>') +
+        (d.current ? '' : '<button class="sync-link" data-act="sync-dev-remove" data-id="' + esc(d.id) + '" data-name="' + esc(syncИмяУстройства(d)) + '">Отвязать</button>') +
         '</div>';
     });
     h += '</div>';
-    h += '<div class="acts">' +
-      '<button class="btn sm" data-act="sync-code">Добавить устройство</button>' +
-      '<button class="btn sm soft" data-act="sync-now">Синхронизировать сейчас</button>' +
-      '</div>';
-    h += '<div class="acts sync-quiet">' +
+    h += '<button class="sync-primary" data-act="sync-code">Добавить устройство</button>';
+    h += '<div class="sync-links">' +
+      '<button class="sync-link" data-act="sync-now">Синхронизировать сейчас</button>' +
       // В приложении на андроиде браузера человек не видит — «на этом телефоне».
-      '<button class="btn sm soft" data-act="sync-off">' + (inApp() ? 'Выключить на этом телефоне' : 'Выключить в этом браузере') + '</button>' +
-      '<button class="btn sm soft" data-act="sync-delete">Удалить копию с сервера</button>' +
+      '<button class="sync-link" data-act="sync-off">' + (inApp() ? 'Выключить на этом телефоне' : 'Выключить в этом браузере') + '</button>' +
+      '<button class="sync-link quiet" data-act="sync-delete">Удалить копию с сервера</button>' +
       '</div>';
   }
   if (SYNC.joinOpen && (!on || здоровье.k === 'key')){
+    var клетки = function(от){ var r = ''; for (var i = от; i < от + 4; i++) r += '<span class="sync-cell" data-i="' + i + '"></span>'; return r; };
     h += '<div class="sync-join">' +
       '<label for="sync-code-input">Код с другого устройства</label>' +
-      '<input id="sync-code-input" class="sync-code-in" placeholder="ABCD-EFGH" maxlength="9" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" inputmode="text">' +
-      '<p class="hint">Дефис ставится сам, регистр и раскладка не важны. Набрали восемь знаков — подключится само.</p>' +
-      '<p class="hint">Код — в «Синхронизация → Добавить устройство» на айфоне, андроиде или в другом браузере. Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.</p>' +
-      '<div class="acts"><button class="btn sm" data-act="sync-join-do">Подключить</button></div>' +
-      '</div>';
+      '<div class="sync-cells">' + клетки(0) + '<span class="sync-dash" aria-hidden="true">–</span>' + клетки(4) +
+      '<input id="sync-code-input" class="sync-code-in" value="' + esc(SYNC.prefill || '') + '" maxlength="9" autocapitalize="characters" autocorrect="off" autocomplete="one-time-code" spellcheck="false" inputmode="text" aria-label="Код связки">' +
+      '</div>' +
+      '<p class="hint">Дефис ставится сам · регистр и раскладка не важны</p>' +
+      '<button class="sync-primary" data-act="sync-join-do">Подключить</button>' +
+      '</div>' +
+      // Сканер есть только в приложении на андроиде (мост AndroidScanner).
+      (window.AndroidScanner ? '<button class="sync-scan" data-act="sync-scan">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg>' +
+        'Сканировать QR</button>' : '') +
+      '<p class="pair-hint sync-merge">Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.</p>';
   }
   if (SYNC.busy) h += '<p class="hint">Секунду…</p>';
   if (SYNC.status) h += '<p class="hint">' + esc(SYNC.status) + '</p>';
@@ -17552,7 +17589,7 @@ if (typeof window !== 'undefined' && !window.__syncPullTimer){
 ACTS['sync-on'] = function(){ syncTurnOn(); };
 ACTS['sync-off'] = function(){ syncTurnOff(); };
 ACTS['sync-code'] = function(){ syncShowCode(); };
-ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; render(); if (SYNC.joinOpen) setTimeout(function(){ var el = document.getElementById('sync-code-input'); if (el) try { el.focus({ preventScroll: false }); } catch (e) { el.focus(); } }, 50); };
+ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status=''; SYNC.prefill = ''; render(); if (SYNC.joinOpen) setTimeout(function(){ var el = document.getElementById('sync-code-input'); if (el){ try { el.focus({ preventScroll: false }); } catch (e) { el.focus(); } syncКлетки(el); } }, 50); };
 /* Код связки набирается как есть: «abcdefgh», «ABCD EFGH», с русской
    раскладкой — поле само приводит к виду ABCD-EFGH (заглавные, дефис после
    четвёртого знака), а набрав все восемь, само связывает устройство.
@@ -17560,6 +17597,18 @@ ACTS['sync-join-open'] = function(){ SYNC.joinOpen = !SYNC.joinOpen; SYNC.status
    ставилось». Сравнивается код без дефиса (SynSyncCrypto.normalize), так
    что дефис нигде и не был нужен — его требовала только подсказка. */
 var syncКодОтправлен = '';
+function syncКлетки(el){
+  var чисто = window.SynSyncCrypto ? SynSyncCrypto.normalize(el.value).slice(0, 8) : '';
+  var фокус = document.activeElement === el;
+  document.querySelectorAll('.sync-cell').forEach(function(c){
+    var i = +c.dataset.i;
+    c.textContent = чисто[i] || '';
+    c.classList.toggle('on', фокус && (i === чисто.length || (i === 7 && чисто.length === 8)));
+  });
+}
+['focusin', 'focusout'].forEach(function(t){
+  document.addEventListener(t, function(e){ if (e.target && e.target.id === 'sync-code-input') syncКлетки(e.target); });
+});
 document.addEventListener('input', function(e){
   var el = e.target;
   if (!el || el.id !== 'sync-code-input' || !window.SynSyncCrypto) return;
@@ -17569,6 +17618,7 @@ document.addEventListener('input', function(e){
     el.value = вид;
     try { el.setSelectionRange(вид.length, вид.length); } catch (er) {}
   }
+  syncКлетки(el);
   if (чисто.length === 8 && syncКодОтправлен !== чисто && !(SYNC && SYNC.busy)){
     syncКодОтправлен = чисто;
     syncJoin(вид);
@@ -17578,6 +17628,43 @@ document.addEventListener('input', function(e){
 });
 document.addEventListener('keydown', function(e){
   if (e.key === 'Enter' && e.target && e.target.id === 'sync-code-input') ACTS['sync-join-do']();
+});
+/* QR с другого устройства — сканером приложения на андроиде.
+
+   В QR лежит ссылка https://synapseapp.ru/app/#pair=КОД (её открывает и
+   системная камера), но на всякий случай понимаем и просто код, и pair в
+   строке запроса. Подошло — вписываем в клетки и связываем сразу, как при
+   наборе восьмого знака. Чужой QR — так и говорим. */
+function syncКодИзQR(текст){
+  var t = String(текст || '').trim(), код = t;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(t)){
+    код = '';
+    try {
+      var u = new URL(t);
+      код = new URLSearchParams((u.hash || '').replace(/^#/, '')).get('pair') || u.searchParams.get('pair') || '';
+    } catch (e) {}
+  }
+  var чисто = '';
+  try { чисто = SynSyncCrypto.normalize(код).slice(0, 8); } catch (e) {}
+  return чисто.length === 8 ? чисто.slice(0, 4) + '-' + чисто.slice(4) : '';
+}
+ACTS['sync-scan'] = function(){
+  if (!window.AndroidScanner) return;
+  SYNC.status = '';
+  try { window.AndroidScanner.scan(); } catch (e) {}
+};
+window.addEventListener('android-scan', function(event){
+  var d = (event && event.detail) || {};
+  if (d.cancel) return;
+  var вид = syncКодИзQR(d.text);
+  if (!вид){ SYNC.status = 'Это не QR-код связки Synapse'; render(); return; }
+  SYNC.joinOpen = true;
+  SYNC.prefill = вид;
+  render();
+  var el = document.getElementById('sync-code-input');
+  if (el){ el.value = вид; syncКлетки(el); }
+  syncКодОтправлен = вид.replace('-', '');
+  syncJoin(вид);
 });
 ACTS['sync-join-do'] = function(){ var el = document.getElementById('sync-code-input'); syncJoin(el ? el.value : ''); };
 ACTS['sync-now'] = function(){ SYNC.devicesAt = 0; syncNow(); };
@@ -17619,6 +17706,19 @@ ACTS['sync-delete-confirm'] = function(){ closeModal(); syncDeleteRemote(); };
 });
 
 try { syncPullOnLoad(); } catch (e) { if (синхроЖдёт()) перекатПосле(null); }
+try { syncКодИзАдреса(); } catch (e) {}
+/* После каждой отрисовки клетки кода заново берут буквы из поля: поле
+   переживает перерисовку (renderKeepingInput), а клетки рисуются пустыми. */
+(function(){
+  var база = render;
+  render = function(){
+    var r = база.apply(this, arguments);
+    var el = document.getElementById('sync-code-input');
+    if (el) syncКлетки(el);
+    return r;
+  };
+})();
+window.addEventListener('hashchange', function(){ try { syncКодИзАдреса(); } catch (e) {} });
 
 /* Окно плавно едет вслед за клавиатурой.
 

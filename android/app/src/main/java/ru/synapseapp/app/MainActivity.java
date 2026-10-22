@@ -67,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
        руками, вот он. */
     private ValueCallback<Uri[]> ждётФайл;
     private ActivityResultLauncher<String> выборФайла;
+    private ActivityResultLauncher<com.journeyapps.barcodescanner.ScanOptions> сканерQR;
     private String код;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -127,6 +128,16 @@ public class MainActivity extends AppCompatActivity {
                     if (ждётФайл == null) return;
                     ждётФайл.onReceiveValue(uri == null ? null : new Uri[]{uri});
                     ждётФайл = null;
+                });
+
+        /* Сканер QR для связки устройств — тот же порядок: контракт заводим до
+           WebView. Что прочитано, страница разбирает сама (syncКодИзQR):
+           ссылку synapseapp.ru/app/#pair=…, просто код или чужой QR. */
+        сканерQR = registerForActivityResult(
+                new com.journeyapps.barcodescanner.ScanContract(),
+                итог -> {
+                    String текст = итог == null ? null : итог.getContents();
+                    отдатьСкан(текст == null ? "" : текст, текст == null);
                 });
 
         web = new WebView(this);
@@ -348,6 +359,27 @@ public class MainActivity extends AppCompatActivity {
                 return DeviceName.of(системное, android.os.Build.MANUFACTURER, android.os.Build.MODEL);
             }
         }, "AndroidDevice");
+
+        /* «Сканировать QR» в «Синхронизация уже есть на другом устройстве».
+           Камера — окном сканера: разрешение он спрашивает сам при первом
+           нажатии, а без камеры у человека остаются клетки для кода. */
+        web.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public void scan() {
+                runOnUiThread(() -> {
+                    com.journeyapps.barcodescanner.ScanOptions о = new com.journeyapps.barcodescanner.ScanOptions();
+                    о.setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE);
+                    о.setPrompt("Наведите камеру на QR-код на другом устройстве");
+                    о.setBeepEnabled(false);
+                    о.setOrientationLocked(true);
+                    try {
+                        сканерQR.launch(о);
+                    } catch (Throwable e) {
+                        отдатьСкан("", true);
+                    }
+                });
+            }
+        }, "AndroidScanner");
 
         // Оценка и обновление через RuStore (StoreBridge).
         магазин = new StoreBridge(this, web);
@@ -625,5 +657,13 @@ public class MainActivity extends AppCompatActivity {
             case "tap":     return android.view.HapticFeedbackConstants.KEYBOARD_TAP;
             default:        return android.view.HapticFeedbackConstants.CLOCK_TICK;
         }
+    }
+
+    /** Итог сканера — странице событием android-scan: { text } или { cancel: true }. */
+    private void отдатьСкан(String текст, boolean отмена) {
+        if (web == null) return;
+        String detail = отмена ? "{cancel:true}" : "{text:" + org.json.JSONObject.quote(текст) + "}";
+        String js = "window.dispatchEvent(new CustomEvent('android-scan',{detail:" + detail + "}))";
+        runOnUiThread(() -> web.evaluateJavascript(js, null));
     }
 }
