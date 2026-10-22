@@ -7191,7 +7191,13 @@ function vFocusApp(){
     '</div>' +
     (длинный ? '<button class="fx-more" data-act="fx-more">' + (фокусРазвёрнут ? 'Свернуть' : 'Показать полностью') +
       '<span class="fx-chev' + (фокусРазвёрнут ? ' up' : '') + '">' + NAV_ICONS.caret + '</span></button>' : '') +
-    (отказ && !BRIEFING.busy ? '<p class="fx-err">Брифинг не собрался — ' + esc(отказ) + '</p>' : '') +
+    // Сбой ИИ — одна спокойная фраза серым, без «брифинг не собрался»
+    // (так же сделано в приложении для Android).
+    (отказ && !BRIEFING.busy
+      ? (отказ === SYN_ТЕХРАБОТЫ
+        ? '<p class="fx-err calm">' + esc(отказ) + '</p>'
+        : '<p class="fx-err">Брифинг не собрался — ' + esc(отказ) + '</p>')
+      : '') +
     (brief && speechSupported()
       ? '<button class="fx-listen' + (speech.on ? ' on' : '') + '" data-act="briefing-say"' + (speech.busy ? ' disabled' : '') + '>' +
           '<span class="listen-ic">' + (speech.on ? (ICON.stop || '■') : '▶') + '</span>' +

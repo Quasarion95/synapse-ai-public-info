@@ -2458,7 +2458,7 @@ html[data-dense="1"] .titleline{gap:6px}
    просто приглушены. */
 /* Технические работы у Syn — не тревога: обычный тихий текст, не красный.
    Человек ничего не сломал и чинить ему нечего. */
-.err.calm{color:var(--fg-2)}
+.err.calm, .fx-err.calm{color:var(--fg-2)}
 
 /* Пример «обычный — компактный» под переключателем. */
 .dense-demo{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; padding:4px 0 14px}
