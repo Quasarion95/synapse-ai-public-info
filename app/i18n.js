@@ -205,6 +205,7 @@
     'Этот телефон отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.': 'This phone was unlinked from sync on another device. Your entries are still here. You can connect again with a code.',
     'Это устройство выключают в его собственных настройках.': 'Turn this device off in its own settings.', 'Такого устройства в синхронизации уже нет.': 'That device is no longer in sync.',
     'Код связки': 'Pairing code',
+    'Выгоднее всего': 'Best value',
     'Дефис ставится сам · регистр и раскладка не важны': 'The dash is added for you · case and layout don’t matter',
     'Записи, которые уже есть здесь, объединятся с общими — ничего не пропадёт.': 'Entries already here are merged with the shared ones — nothing is lost.',
     'Телефоном — наведите камеру в Synapse на QR. В браузере — введите код.': 'On a phone, point the camera in Synapse at the QR. In a browser, type the code.',
@@ -262,9 +263,7 @@
     '/ нед': '/ week',
     '/ мес': '/ month',
     '/ год': '/ year',
-    '≈ 646 ₽ в месяц · чтобы попробовать': '≈ 646 ₽ a month · to try it out',
     'Каждый месяц, отменить можно в любой момент': 'Every month, cancel any time',
-    '≈ 416 ₽ в месяц · выгода 2 090 ₽ в год': '≈ 416 ₽ a month · save 2 090 ₽ a year',
     'Все разделы без ограничений': 'Every section, no limits',
     'Оплата проходит на сайте — карта или СБП.': 'Payment is on the website — card or SBP.',
     // названия цветов тем
@@ -798,11 +797,11 @@
     'Дальше — в подписке': 'Anything beyond that is in the subscription',
     'Попробовать без длинного обязательства.': 'Try it without a long commitment.',
     'Основной тариф.': 'The main plan.',
-    'Примерно 416 ₽ в месяц.': 'About 416 ₽ a month.',
+    'Примерно 333 ₽ в месяц.': 'About 333 ₽ a month.',
     'выгодно': 'best value',
     'за неделю, чтобы попробовать': 'for a week, to try it out',
     'за месяц': 'per month',
-    'за год — 416 ₽ в месяц': 'per year — 416 ₽ a month',
+    'за год — 333 ₽ в месяц': 'per year — 333 ₽ a month',
     'Оплата проходит на сайте, после неё придёт код. Он включает Pro и здесь, и на телефоне.': 'Payment goes through the website, and the code arrives afterwards. It turns on Pro both here and on your phone.',
     'Код приходит после оплаты на сайте. Выглядит так: XXXX-XXXX-XXXX.': 'The code arrives after payment on the website. It looks like this: XXXX-XXXX-XXXX.',
     'Один код работает и здесь, и на телефоне. Записи при этом остаются раздельными.': 'One code works both here and on your phone. Your records stay separate, though.',
@@ -1201,6 +1200,9 @@
   function items(n) { return n + (n === '1' ? ' item' : ' items'); }
 
   var PATTERNS = [
+    // — карточка тарифа в приложении: пересчёт считается из цен —
+    [/^≈ ([\d  ]+) ₽ в месяц · чтобы попробовать$/, function (m) { return '≈ ' + m[1] + ' ₽ a month · to try it out'; }],
+    [/^≈ ([\d  ]+) ₽ в месяц · выгода ([\d  ]+) ₽ в год$/, function (m) { return '≈ ' + m[1] + ' ₽ a month · save ' + m[2] + ' ₽ a year'; }],
     [/^Syn — (\d+) запросов в день$/, function (m) { return 'Syn — ' + m[1] + ' requests a day'; }],
     // — приложение: корзина, брифинг, дерево целей (22.10.2026) —
     [/^Задача · (\d+) (?:день|дня|дней)$/, function (m) { return 'Task · ' + m[1] + (m[1] === '1' ? ' day' : ' days'); }],
@@ -1225,6 +1227,8 @@
       return m[2] ? вид + '\u00a0· ' + m[2].replace('Яндекс Браузер', 'Yandex Browser').replace(' на ', ' on ').replace(/^Браузер/, 'Browser') : вид;
     }],
     [/^Сверялось (сегодня|вчера) в (\d+:\d\d)$/, function (m) { return 'Synced ' + (m[1] === 'сегодня' ? 'today' : 'yesterday') + ' at ' + m[2]; }],
+    [/^≈ ([\d  ]+) ₽ в месяц ·$/, function (m) { return '≈ ' + m[1] + ' ₽ a month ·'; }],
+    [/^экономия ([\d  ]+) ₽ в год$/, function (m) { return 'save ' + m[1] + ' ₽ a year'; }],
     [/^Код действует ещё (\d+:\d\d)$/, function (m) { return 'Code valid for ' + m[1]; }],
     [/^Отвязать «(.+)»\?$/, function (m) { return 'Unlink “' + m[1] + '”?'; }],
     [/^Синхронизировано · (\d+) (мин|ч|дн) назад$/, function (m) {
