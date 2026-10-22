@@ -17525,7 +17525,7 @@ function syncЗагрузитьУстройства(){
   SYNC.devLoading = true;
   syncApiDevices().then(function(d){
     SYNC.devices = (d && d.devices) || [];
-  }).catch(function(){}).then(function(){
+  }).catch(function(){ if (!SYNC.devices) SYNC.devices = []; }).then(function(){
     SYNC.devLoading = false; SYNC.devicesAt = Date.now();
     if (document.querySelector('.sync-devs')) renderKeepingInput();
   });
@@ -17636,6 +17636,7 @@ function разделСинхро(){
     var devs = SYNC.devices;
     h += '<div class="sync-devs"><p class="sync-devs-t">Мои устройства</p>';
     if (!devs) h += '<p class="hint">Загружаем список…</p>';
+    else if (!devs.length) h += '<p class="hint">Устройства появятся здесь после их следующей сверки.</p>';
     else devs.forEach(function(d){
       h += '<div class="sync-dev"><i class="sync-dev-ic" aria-hidden="true">' + esc(syncЗнакУстройства(d)) + '</i>' +
         '<span class="sync-dev-t"><b>' + esc(syncИмяУстройства(d)) + '</b><span>' + esc(syncКогдаУстройство(d)) + '</span></span>' +

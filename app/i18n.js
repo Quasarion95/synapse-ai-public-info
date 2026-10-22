@@ -203,6 +203,7 @@
     'Этот браузер отвязали от синхронизации на другом устройстве. Записи здесь остались. Подключить снова можно кодом.': 'This browser was unlinked from sync on another device. Your entries are still here. You can connect again with a code.',
     'Это устройство выключают в его собственных настройках.': 'Turn this device off in its own settings.', 'Такого устройства в синхронизации уже нет.': 'That device is no longer in sync.',
     'Код связки': 'Pairing code',
+    'Устройства появятся здесь после их следующей сверки.': 'Devices will appear here after their next sync.',
     'Синхронизация устройств': 'Device sync', 'Удалить копию с сервера': 'Delete the server copy',
     'Переподключить': 'Reconnect', '8 букв и цифр': '8 letters and digits', 'Синхронизировать сейчас': 'Sync now', 'Синхронизация не проходит — загляните в Настройки → Данные.': 'Sync isn’t going through — check Settings → Data.',
     'Сфокусируйся на задаче': 'Focus on this task', 'Сфокусируйся на цели': 'Focus on this goal',
