@@ -93,8 +93,10 @@
       var tag = '';
       if (p.main) tag = '<span class="sx-tag">Популярный</span>';
       if (p.id === 'pro.yearly' && month){
-        var perMonth = price / 12, save = Math.round((1 - price / (month * 12)) * 100);
-        note = '≈ ' + money(perMonth) + ' в месяц · <span class="sx-save">экономия ' + save + '%</span>';
+        // Экономия рублями, а не процентами: для цен больше сотни «1 890 ₽»
+        // ощущается весомее, чем «32%».
+        var perMonth = price / 12, save = month * 12 - price;
+        note = '≈ ' + money(perMonth) + ' в месяц · <span class="sx-save">экономия ' + money(save) + ' в год</span>';
         tag = '<span class="sx-tag best">Выгоднее всего</span>';
       }
       var feats = p.id === 'pro.yearly'
