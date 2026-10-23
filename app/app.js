@@ -477,6 +477,7 @@ function починитьЗаписи(данные){
     // Пометка «Syn уточняет…» живёт, пока ждём ответ. Страницу перезагрузили —
     // ответа уже не будет, задача остаётся разобранной кодом.
     if (t.aiPending) delete t.aiPending;
+    if (t.aiResearchKey) delete t.aiResearchKey;
     t.subtasks = (Array.isArray(t.subtasks) ? t.subtasks : []).filter(Boolean).map(function(s){
       return { id: s.id || uid(), title: String(s && s.title == null ? '' : s.title), done: !!(s && s.done) };
     });
@@ -7067,6 +7068,18 @@ function taskResearchAsk(text){
   return 'contacts';
 }
 
+/* Очередь поисков по задаче. Syn на «найди телефон, адрес и часы работы»
+   возвращает два поиска сразу (contacts и hours); второй раньше отбрасывался,
+   пока шёл первый, и часы в описание не попадали. Теперь он ждёт своей
+   очереди и дописывает найденное. Тот же самый запрос второй раз не ставим. */
+var taskResearchQueue = {};
+function taskResearchNext(id){
+  var q = taskResearchQueue[id];
+  if (!q || !q.length) { delete taskResearchQueue[id]; return; }
+  var next = q.shift();
+  taskResearch(id, next.query, next.mode, true);
+}
+
 function taskResearch(id, query, mode, append){
   function task(){
     for (var i = 0; i < S.tasks.length; i++) if (S.tasks[i].id === id) return S.tasks[i];
@@ -7077,14 +7090,23 @@ function taskResearch(id, query, mode, append){
   // Поиск для этой задачи уже идёт — второй не нужен. Так бывает, когда Syn
   // сам вернул research_task_note рядом с create_task (новый договор
   // сервера), а веб уже запустил поиск по фразе: иначе ушло бы два запроса.
-  if (t.aiPending === 'research') return;
+  if (t.aiPending === 'research'){
+    var key = String(query || '') + '|' + String(mode || '');
+    if (t.aiResearchKey !== key){
+      var q = taskResearchQueue[id] || (taskResearchQueue[id] = []);
+      if (!q.some(function(x){ return x.key === key; })) q.push({ key: key, query: query, mode: mode });
+    }
+    return;
+  }
   t.aiPending = 'research';
+  t.aiResearchKey = String(query || '') + '|' + String(mode || '');
   var guess = t.note;
+  var sent = append ? (t.note || '') : '';
   synSession().then(function(token){
     return synFetch('/v1/synapse/research', {
       query: String(query || t.title).slice(0, 600),
       taskTitle: t.title,
-      existingNote: append ? (t.note || '') : '',
+      existingNote: sent,
       mode: mode || 'contacts'
     }, token);
   }).then(function(data){
@@ -7092,11 +7114,16 @@ function taskResearch(id, query, mode, append){
     var x = task();
     if (!x) return;
     delete x.aiPending;
+    delete x.aiResearchKey;
     var found = String(data && data.note || '').trim();
     // Описание правили руками, пока шёл поиск, — найденное дописываем, а не
     // затираем им правку.
     if (found){
-      if (append || (x.note && x.note !== guess)) x.note = x.note ? x.note + '\n\n' + found : found;
+      // Получив прежнее описание, сервер возвращает его целиком вместе с
+      // найденным. Описание за время поиска не трогали — ставим ответ как
+      // есть; дописывать к старому значило бы повторить его дважды.
+      if (append && sent && x.note === sent) x.note = found;
+      else if (append || (x.note && x.note !== guess)) x.note = x.note ? x.note + '\n\n' + found : found;
       else x.note = found;
       // Найденное показываем сразу: раскрываем карточку и её блок, иначе
       // человек видел тост «нашёл», а самих сведений — нигде.
@@ -7104,10 +7131,12 @@ function taskResearch(id, query, mode, append){
       S.closed[x.bucket] = false;
     }
     commit(found ? 'Syn нашёл сведения для «' + x.title + '»' : '');
+    taskResearchNext(id);
   }).catch(function(error){
     if (error && error.data && error.data.quota) SYN.quota = error.data.quota;
     var x = task();
-    if (x && x.aiPending){ delete x.aiPending; commit(); }
+    if (x && x.aiPending){ delete x.aiPending; delete x.aiResearchKey; commit(); }
+    taskResearchNext(id);
   });
 }
 
