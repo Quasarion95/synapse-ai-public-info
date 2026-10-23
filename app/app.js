@@ -2046,6 +2046,17 @@ function deadlineText(deadline){
   return parts.join(' ');
 }
 
+/* Срок прошёл, а задача не выполнена — отметить её уже нельзя.
+
+   Так решил владелец 24 октября 2026: крайний срок — это «после него поздно»,
+   а не напоминание. Снять запрет можно одним способом — продлить срок в
+   задаче: человек сам решает, что ещё успевает. Выполненную раньше срока
+   задачу открыть обратно можно, запрет только на закрытие. */
+function deadlineLocked(task){
+  return !!task && !task.done && deadlinePassed(task);
+}
+var СРОК_ПРОШЁЛ = 'Срок прошёл — отметить уже нельзя. Если ещё успеваете, продлите срок в задаче.';
+
 function deadlinePassed(task){
   if (task.done || !task.deadline) return false;
   var d = task.deadline;
@@ -6588,7 +6599,9 @@ function itemRow(t, внутриЦели){
   // Отдельный чип срока «до …» убран: дата и время задачи уже стоят выше, а
   // «до 16 августа 10:00» рядом с ними — третий чип на ту же мысль. Сам дедлайн
   // остаётся в данных задачи, просто не дублируется на карточке.
-  if (isOverdue(t)){
+  if (deadlineLocked(t)){
+    meta.push('<span class="chip late">срок прошёл</span>');
+  } else if (isOverdue(t)){
     var дней = днейПросрочки(t);
     meta.push('<span class="chip late">' +
       // В плотной строке приложения — одно слово: на сколько, видно по дате.
@@ -6657,7 +6670,7 @@ function itemRow(t, внутриЦели){
        Справа столбик из времени, повтора и метки делал строку втрое выше
        названия, и между задачами появлялись провалы. Под названием метка
        занимает ту строку, где и так стоят подпункты. */
-    if (isOverdue(t)) подстрока += '<span class="mi late">не выполнено</span>';
+    if (isOverdue(t) || deadlineLocked(t)) подстрока += '<span class="mi late">не выполнено</span>';
   }
 
   /* Внутренность рисуется всегда, а не только у раскрытой карточки: чтобы
@@ -6702,10 +6715,13 @@ function itemRow(t, внутриЦели){
      pointermove, и наш перенос замирает на месте. Отсюда «тень-клон ходит, а
      карточка стоит». На сенсоре его давно убрали по этой причине; на
      компьютере он оставался по недосмотру и ровно так же ломал перенос мышью. */
-  return '<article class="item' + (touchUI() ? ' swipe' : '') + (t.done ? ' done' : '') + (open ? ' open' : '') + '"' +
+  var заперта = deadlineLocked(t);
+  return '<article class="item' + (touchUI() ? ' swipe' : '') + (t.done ? ' done' : '') + (open ? ' open' : '') +
+    (заперта ? ' missed' : '') + '"' +
     ' data-task="' + t.id + '">' +
     '<div class="item-main' + (touchUI() ? ' swipe-face' : '') + '" data-act="expand" data-task="' + t.id + '">' +
-      '<button class="box' + (t.done ? ' on' : '') + '" data-act="toggle" data-task="' + t.id + '" aria-label="Выполнено">✓</button>' +
+      '<button class="box' + (t.done ? ' on' : '') + (заперта ? ' locked' : '') + '" data-act="toggle" data-task="' + t.id + '"' +
+        (заперта ? ' aria-disabled="true" title="Срок прошёл"' : '') + ' aria-label="Выполнено">✓</button>' +
       '<div class="body">' +
         (подстрока ? '<div class="tcol">' : '') +
         '<button class="t" data-act="expand" data-task="' + t.id + '" aria-expanded="' + open + '" translate="no">' +
@@ -7568,7 +7584,12 @@ function briefingTaskLine(t, подробно){
   var части = ['«' + t.title + '»'];
   if (t.time) части.push('в ' + t.time);
   if (t.date) части.push(t.date);
-  if (t.deadline) части.push('срок ' + deadlineText(t.deadline));
+  if (t.deadline){
+    var окноС = t.windowFrom && t.windowFrom.time ? 'с ' + t.windowFrom.time + ' ' : '';
+    части.push((окноС ? 'промежуток ' + окноС : 'жёсткий срок ') + 'до ' + deadlineText(t.deadline) +
+      // Syn должен знать, что отметить её уже нельзя, — и не обещать этого.
+      (deadlineLocked(t) ? ' — СРОК ПРОШЁЛ, отметить нельзя' : ''));
+  }
   var цель = t.goalId && findGoal(t.goalId);
   if (цель) части.push('цель «' + цель.title + '»');
   if (t.done) части.push('выполнено');
@@ -11107,6 +11128,13 @@ function synContext(){
       lines.push('- «' + t.title + '»' +
         (t.time ? ' · ' + t.time : '') +
         (t.done ? ' (сделано)' : '') +
+        // Жёсткий срок и его прошедшее состояние: Syn не должен обещать
+        // «отметил» там, где приложение откажет (deadlineLocked).
+        (t.deadline && t.deadline.date
+          ? ' [' + (t.windowFrom && t.windowFrom.time ? 'промежуток с ' + t.windowFrom.time + ' ' : 'жёсткий срок ') +
+            'до ' + t.deadline.date + (t.deadline.time ? ' ' + t.deadline.time : '') +
+            (deadlineLocked(t) ? ' — СРОК ПРОШЁЛ, отметить нельзя' : '') + ']'
+          : '') +
         (t.note ? ' [описание: ' + cut(String(t.note).replace(/\s*\n\s*/g, ' / '), 200) + ']' : '') +
         (t.subtasks.length ? ' [подпункты: ' + t.subtasks.map(function(s){ return s.title; }).join(', ') + ']' : ''));
     });
@@ -12235,9 +12263,11 @@ function synPushPast(task, source, done){
 /// Крайний срок. Хранится отдельно от даты в плане: «стоит на завтра» и
 /// «должно быть сделано до пятницы» — разные вещи, и в приложении тоже.
 function synDeadline(a){
-  var when = synSplitDateTime(a.deadline || a.datetime);
+  // Как на айфоне: «не жёсткий» срок — это не срок вовсе, а срок — всегда жёсткий.
+  if (a.hardDeadline === false) return null;
+  var when = synSplitDateTime(a.deadline || a.deadlineAt || a.datetime);
   if (!when.date && !when.time) return null;
-  return { date: when.date, time: when.time, hard: a.hardDeadline === true };
+  return { date: when.date, time: when.time, hard: true };
 }
 
 /// Граница бесплатного. Проверяется и здесь, иначе третью цель можно было бы
@@ -12284,6 +12314,11 @@ synAct('create_task create_task_for_goal', function(a, done, skipped){
     // Окно выполнения: «сделай между двумя и шестью». В приложении это
     // отдельное поле, и в вебе теперь тоже — иначе начало окна терялось.
     windowFrom: synWindowStart(a),
+    // Конец промежутка — сам срок: так карточка покажет «9:00–11:00», а не «с 9:00».
+    windowTo: (function(){
+      var начало = synWindowStart(a), срок = synDeadline(a);
+      return начало && срок && срок.time ? { date: срок.date || начало.date, time: срок.time } : null;
+    })(),
     goalId: null, stageId: null,
     subtasks: (a.subtasks || []).map(function(t){ return { id: uid(), title: String(t), done: false }; })
   };
@@ -12425,14 +12460,26 @@ synAct('set_task_deadline', function(a, done, skipped){
   if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var deadline = synDeadline(a);
   if (!deadline) return skipped.push('не понял срок для «' + task.title + '»');
+  if (!deadline.date) deadline.date = task.date || isoOf(todayDate());
   task.deadline = deadline;
-  done.push('срок у «' + task.title + '» — ' + deadlineText(deadline));
+  // «С 14 до 18» — промежуток: начало отдельно, конец — сам срок.
+  var начало = synWindowStart(a);
+  if (начало && начало.time){
+    task.windowFrom = { date: начало.date || deadline.date, time: начало.time };
+    task.windowTo = deadline.time ? { date: deadline.date, time: deadline.time } : null;
+  } else {
+    task.windowFrom = null;
+    task.windowTo = null;
+  }
+  done.push('срок у «' + task.title + '» — ' + deadlineText(deadline) + ', после него отметить будет нельзя');
 });
 
 synAct('clear_task_deadline', function(a, done, skipped){
   var task = synFindTask(synTaskName(a));
   if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   task.deadline = null;
+  task.windowFrom = null;
+  task.windowTo = null;
   done.push('снят срок у «' + task.title + '»');
 });
 
@@ -12457,6 +12504,9 @@ synAct('complete_task mark_task_done reopen_task uncomplete_task', function(a, d
   var task = synFindTask(synTaskName(a));
   if (!task) return skipped.push('не нашёл задачу «' + synTaskName(a) + '»');
   var closing = a.kind === 'complete_task' || a.kind === 'mark_task_done';
+  if (closing && deadlineLocked(task)){
+    return skipped.push('срок у «' + task.title + '» прошёл — отметить нельзя; можно продлить срок');
+  }
   task.done = closing;
   // Подпункты закрываются вместе с задачей, как у галочки на карточке. Иначе
   // syncCompletion на ближайшем сохранении видел открытые подпункты и
@@ -13425,6 +13475,12 @@ function изКопииПриложения(конверт){
 
   var задачи = (снимок.tasks || []).map(function(t){
     var когда = деньИВремя(t.scheduledTime);
+    /* Жёсткий срок айфона (deadlineAt) и начало промежутка
+       (executionWindowStartAt). 23:59 — это «до конца дня», так веб и пишет
+       срок без времени. */
+    var срок = деньИВремя(t.deadlineAt);
+    var начало = деньИВремя(t.executionWindowStartAt);
+    var deadline = срок.date ? { date: срок.date, time: срок.time === '23:59' ? null : срок.time, hard: true } : null;
     return {
       id: String(t.id || uid()),
       title: String(t.title || ''),
@@ -13435,6 +13491,9 @@ function изКопииПриложения(конверт){
       // иначе у каждой задачи появится «00:00», которого он не писал.
       time: t.hasExplicitTime ? когда.time : null,
       done: !!t.isDone,
+      deadline: deadline,
+      windowFrom: deadline && начало.date ? { date: начало.date, time: начало.time } : null,
+      windowTo: deadline && начало.date && deadline.time ? { date: deadline.date, time: deadline.time } : null,
       repeat: '', rule: null, series: null,
       goalId: t.goalID ? String(t.goalID) : null,
       stageId: t.goalStageID ? String(t.goalStageID) : null,
@@ -13884,43 +13943,54 @@ function modalTask(t){
         '</select></div>' +
       '<div class="field"><label>Связь с целью</label><select class="inp" id="m-goal">' + goalOptions + '</select></div>' +
     '</div>' +
-    '<div class="row2">' +
-      '<div class="field"><label>Крайний срок</label>' +
-        полеДаты('m-dl-date', t.deadline && t.deadline.date || '') + '</div>' +
-      '<div class="field"><label>Время срока</label>' +
-        '<input class="inp" id="m-dl-time" type="time" value="' + esc(t.deadline && t.deadline.time || '') + '"></div>' +
-    '</div>' +
-    /* Срок и день — разные вещи, и это надо сказать вслух.
+    /* Срок выполнения — три режима, как на айфоне (TaskDeadlineMode):
+       без жёсткого срока, «выполнить до» и «в промежутке».
 
-       Человек поставил крайний срок на послезавтра и ждал, что задача туда и
-       переедет. Она осталась в «Сегодня»: срок отвечает на «до когда», а день
-       на «когда делать». Разница верная, но неочевидная — если о ней не
-       сказать, выглядит как поломка.
-
-       Показываем подсказку только когда срок вообще стоит: пустому полю
-       объяснять нечего. */
-    (t.deadline && t.deadline.date
-      ? '<p class="fieldhint">Срок не переносит задачу — он только помечает её ' +
-        'просроченной, когда день пройдёт. Чтобы задача переехала, поменяйте ' +
-        '«Когда делать».</p>'
-      : '') +
-    /* Окно выполнения — «сделать между двумя и шестью».
-
-       Оно тут было наполовину: если Syn ставил окно голосом, чип «с 14:00»
-       на карточке появлялся, а выставить его руками было нечем. Половина
-       возможности хуже её отсутствия — про неё узнаёшь случайно и не можешь
-       повторить.
-
-       Отличается от срока по смыслу: срок — «не позже», окно — «не раньше и
-       не позже». Поэтому стоит отдельной строкой, а не рядом с ним. */
-    '<div class="row2">' +
-      '<div class="field"><label>Начать не раньше</label>' +
-        '<input class="inp" id="m-win-from" type="time" value="' +
-          esc(t.windowFrom && t.windowFrom.time || '') + '"></div>' +
-      '<div class="field"><label>Закончить не позже</label>' +
-        '<input class="inp" id="m-win-to" type="time" value="' +
-          esc(t.windowTo && t.windowTo.time || '') + '"></div>' +
-    '</div>' +
+       Раньше здесь стояли четыре отдельных поля — срок, время срока, «начать
+       не раньше», «закончить не позже», — и было непонятно, что из них
+       жёсткое. Теперь срок всегда жёсткий: после него задачу уже нельзя
+       отметить выполненной (решение владельца 24.10.2026). Поля появляются
+       под выбранный режим через класс, без перерисовки — как блок своего
+       повтора. */
+    (function(){
+      var режим = t.deadline && t.windowFrom ? 'window'
+        : t.deadline ? 'before'
+        : (t.windowFrom || t.windowTo) ? 'window' : 'none';
+      var деньОкна = (t.deadline && t.deadline.date) || (t.windowFrom && t.windowFrom.date) || t.date || '';
+      var конецОкна = (t.windowTo && t.windowTo.time) || (t.windowFrom && t.deadline && t.deadline.time) || '';
+      function вариант(id, title){
+        return '<option value="' + id + '"' + (режим === id ? ' selected' : '') + '>' + title + '</option>';
+      }
+      return '<div class="field"><label>Срок выполнения</label><select class="inp" id="m-dl-mode">' +
+          вариант('none', 'Без жёсткого срока') + вариант('before', 'Выполнить до') + вариант('window', 'В промежутке') +
+        '</select></div>' +
+        '<div class="dlblock' + (режим === 'none' ? ' on' : '') + '" data-dl="none">' +
+          '<p class="fieldhint">Время задачи — только подсказка: выполнить её можно и позже.</p>' +
+        '</div>' +
+        '<div class="dlblock' + (режим === 'before' ? ' on' : '') + '" data-dl="before">' +
+          '<div class="row2">' +
+            '<div class="field"><label>Выполнить до (день)</label>' +
+              полеДаты('m-dl-date', (режим === 'before' && t.deadline && t.deadline.date) || t.date || '') + '</div>' +
+            '<div class="field"><label>Время</label>' +
+              '<input class="inp" id="m-dl-time" type="time" value="' +
+                esc(режим === 'before' && t.deadline && t.deadline.time || '') + '"></div>' +
+          '</div>' +
+          '<p class="fieldhint">После срока задачу уже нельзя отметить выполненной. Срок не переносит ' +
+            'задачу — чтобы она переехала, поменяйте «Когда делать».</p>' +
+        '</div>' +
+        '<div class="dlblock' + (режим === 'window' ? ' on' : '') + '" data-dl="window">' +
+          '<div class="field"><label>День</label>' + полеДаты('m-win-date', деньОкна) + '</div>' +
+          '<div class="row2">' +
+            '<div class="field"><label>С</label>' +
+              '<input class="inp" id="m-win-from" type="time" value="' +
+                esc(t.windowFrom && t.windowFrom.time || '') + '"></div>' +
+            '<div class="field"><label>До</label>' +
+              '<input class="inp" id="m-win-to" type="time" value="' + esc(конецОкна) + '"></div>' +
+          '</div>' +
+          '<p class="fieldhint">Выполнить нужно в этом промежутке: после его конца отметить задачу ' +
+            'уже нельзя.</p>' +
+        '</div>';
+    })() +
     /* Напоминание у отдельной задачи.
 
        В настройках есть общий переключатель «напоминать про задачи со
@@ -14155,6 +14225,8 @@ function syncCompletion(){
     var t = S.tasks[i];
     if (!t.subtasks || !t.subtasks.length) continue;
     var былаЗакрыта = !!t.done;
+    // Срок прошёл — задачу не закрывают и подпункты: запрет тот же, что у галочки.
+    if (!былаЗакрыта && deadlineLocked(t)) continue;
     t.done = t.subtasks.every(function(sub){ return sub.done; });
     /* Задача, закрытая последним подпунктом, — тоже закрытая задача.
 
@@ -15256,6 +15328,7 @@ var ACTS = {
   toggle: function(d){
     var t = findTask(d.task);
     if (!t) return;
+    if (deadlineLocked(t)){ тактильно('tick'); toast(СРОК_ПРОШЁЛ); return; }
     t.done = !t.done;
     тактильно(t.done ? 'confirm' : 'tick');
     if (t.done){ оценкаПослеДела(); метка('task_done'); }
@@ -15375,14 +15448,29 @@ var ACTS = {
     } else {
       t.rule = null;
     }
-    var dlDate = mval('m-dl-date');
-    var dlTime = mval('m-dl-time');
-    // Время без даты — это «сегодня до»: срок без дня недоказуем.
-    t.deadline = (dlDate || dlTime)
-      ? { date: dlDate || isoOf(todayDate()), time: dlTime || null, hard: !!(t.deadline && t.deadline.hard) }
-      : null;
-    /* Окно выполнения. Одно только «не позже» без «не раньше» — это уже срок,
-       и путать их нельзя: срок красит задачу просроченной, окно — нет. */
+    /* Срок — по режиму. Любой срок жёсткий: hard остаётся для старых
+       записей и для Syn, но смысл у всех один — после срока закрыть нельзя. */
+    var режимСрока = mval('m-dl-mode') || 'none';
+    if (режимСрока === 'before'){
+      var dlDate = mval('m-dl-date');
+      var dlTime = mval('m-dl-time');
+      // Время без даты — это «в день задачи до»: срок без дня недоказуем.
+      t.deadline = { date: dlDate || t.date || isoOf(todayDate()), time: dlTime || null, hard: true };
+      t.windowFrom = null;
+      t.windowTo = null;
+    } else if (режимСрока === 'window'){
+      var winDate = mval('m-win-date') || t.date || isoOf(todayDate());
+      var winFrom = mval('m-win-from');
+      var winTo = mval('m-win-to');
+      // Конец промежутка и есть срок; без конца — до конца того дня.
+      t.deadline = { date: winDate, time: winTo || null, hard: true };
+      t.windowFrom = winFrom ? { date: winDate, time: winFrom } : null;
+      t.windowTo = winTo ? { date: winDate, time: winTo } : null;
+    } else {
+      t.deadline = null;
+      t.windowFrom = null;
+      t.windowTo = null;
+    }
     /* Напоминание: `false` значит «эту задачу не напоминать». Отсутствие поля
        значит «как у всех» — так старые задачи не меняют поведения. */
     var кнопкаНапоминания = document.querySelector('[data-act="task-remind-toggle"]');
@@ -15390,10 +15478,6 @@ var ACTS = {
       t.remind = кнопкаНапоминания.getAttribute('aria-pressed') === 'true';
     }
 
-    var winFrom = mval('m-win-from');
-    var winTo = mval('m-win-to');
-    t.windowFrom = winFrom ? { date: t.date || isoOf(todayDate()), time: winFrom } : null;
-    t.windowTo = winTo ? { date: t.date || isoOf(todayDate()), time: winTo } : null;
 
     var link = mval('m-goal');
     if (!link){ t.goalId = null; t.stageId = null; }
@@ -15425,6 +15509,8 @@ var ACTS = {
   subtoggle: function(d){
     var t = findTask(d.task);
     if (!t) return;
+    // Как на айфоне: у задачи с прошедшим сроком подпункты не отмечаются.
+    if (deadlineLocked(t)){ тактильно('tick'); toast(СРОК_ПРОШЁЛ); return; }
     for (var i = 0; i < t.subtasks.length; i++){
       if (t.subtasks[i].id === d.sub) t.subtasks[i].done = !t.subtasks[i].done;
     }
@@ -16060,6 +16146,13 @@ document.addEventListener('change', function(event){
   // Своя длительность применяется, когда поле отпустили: пересчитывать на
   // каждой цифре значит менять круг с «1» на «14» по дороге к «140».
   if (event.target.id === 'medown'){ ACTS['med-own']({}); return; }
+  if (event.target.id === 'm-dl-mode'){
+    var режим = event.target.value;
+    document.querySelectorAll('.dlblock').forEach(function(блок){
+      блок.classList.toggle('on', блок.getAttribute('data-dl') === режим);
+    });
+    return;
+  }
   if (event.target.id !== 'm-repeat') return;
   var block = $('m-ruleblock');
   if (block) block.classList.toggle('on', event.target.value === CUSTOM_REPEAT);

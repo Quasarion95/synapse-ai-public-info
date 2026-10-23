@@ -70,7 +70,7 @@ var SynSyncBridge = (function () {
       var s = t.subtasks[i];
       subs.push(under(iosSubs[s.id], { id: await toUUID(s.id), title: String(s.title || ''), isDone: !!s.done }));
     }
-    return under(ios.rec, {
+    return under(under(ios.rec, {
       id: await toUUID(t.id),
       title: String(t.title || ''),
       note: String(t.note || ''),
@@ -83,7 +83,29 @@ var SynSyncBridge = (function () {
       hasExplicitTime: !!t.time,
       isDone: !!t.done,
       subtasks: subs
-    });
+    }), deadlineFields(t, ios.rec));
+  }
+
+  // Жёсткий срок веба → deadlineAt айфона; начало промежутка →
+  // executionWindowStartAt. Срок без времени — до конца дня (23:59).
+  // Продлили или сняли срок в вебе — снимаем и отметку «пропущено», которую
+  // айфон ставил из-за прошлого срока: иначе там задача так и осталась бы
+  // «не выполнено».
+  //
+  // undefined — веб о сроке этой задачи ещё не знает (пришла с айфона до того,
+  // как мост научился сроку): поля айфона не трогаем, иначе стёрли бы срок.
+  // null — срока нет, это сказали здесь.
+  function deadlineFields(t, rec) {
+    if (t.deadline === undefined) return {};
+    var d = t.deadline && t.deadline.date ? t.deadline : null;
+    var at = d ? isoFrom(d.date, d.time || '23:59') : null;
+    var out = {
+      deadlineAt: at,
+      executionWindowStartAt: d && t.windowFrom && t.windowFrom.time
+        ? isoFrom(t.windowFrom.date || d.date, t.windowFrom.time) : null
+    };
+    if (rec && rec.missedAt && rec.deadlineAt && (!at || new Date(at) > new Date())) out.missedAt = null;
+    return out;
   }
 
   // links: { веб-id этапа: [UUID задач] } и taskStage: { UUID задачи: веб-id

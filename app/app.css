@@ -1627,6 +1627,11 @@ a.tab{text-decoration:none; color:var(--fg-3)}
 /* Своё правило повтора: три поля, нужные одному человеку из десяти. Скрыто,
    пока его не выбрали в списке — иначе модалка задачи вырастает вдвое у всех. */
 .ruleblock{display:none}
+.dlblock{display:none}
+.dlblock.on{display:block}
+/* Срок прошёл: задача приглушена, галочка не нажимается (см. deadlineLocked). */
+.item.missed .t{color:var(--fg-3)}
+.box.locked{opacity:.45; cursor:not-allowed}
 .ruleblock.on{display:block; margin-top:4px; padding-top:14px; border-top:1px solid var(--line)}
 
 /* ============ МОИ ФИНАНСЫ ============ */
