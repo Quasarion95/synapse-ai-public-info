@@ -7123,8 +7123,14 @@ function taskResearch(id, query, mode, append){
       // найденным. Описание за время поиска не трогали — ставим ответ как
       // есть; дописывать к старому значило бы повторить его дважды.
       if (append && sent && x.note === sent) x.note = found;
-      else if (append || (x.note && x.note !== guess)) x.note = x.note ? x.note + '\n\n' + found : found;
-      else x.note = found;
+      else {
+        // Описание правили, пока шёл поиск: ответ сервера начинается с
+        // прежнего текста — дописываем только новое, без повтора.
+        if (append && sent && found.indexOf(sent) === 0) found = found.slice(sent.length).trim();
+        if (append || (x.note && x.note !== guess)) x.note = x.note ? (found ? x.note + '\n\n' + found : x.note) : found;
+        else x.note = found;
+      }
+
       // Найденное показываем сразу: раскрываем карточку и её блок, иначе
       // человек видел тост «нашёл», а самих сведений — нигде.
       S.open[x.id] = true;
