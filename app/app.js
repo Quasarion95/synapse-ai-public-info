@@ -17143,7 +17143,21 @@ function сверитьПодписку(){
    Раньше веб всегда стартовал с того, что осталось в состоянии, — то есть с
    последнего экрана, и выбора у человека не было. Теперь открывается
    выбранный раздел, а последний — только если это включили. */
+/* Обновили страницу — остаёмся, где были.
+
+   Стартовый раздел — для нового открытия сайта. Перезагрузка вкладки (F5,
+   «обновить», потянуть вниз) — продолжение того же сеанса: раньше она
+   выкидывала на стартовый раздел с любого экрана, хоть из глубины настроек. */
+function страницуОбновили(){
+  try {
+    var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    if (nav) return nav.type === 'reload';
+    return !!(performance.navigation && performance.navigation.type === 1);
+  } catch (e) { return false; }
+}
+
 (function стартовыйЭкран(){
+  if (страницуОбновили() && S.view && VIEWS[S.view]) return;
   var цель = S.openLast ? (S.lastView || S.startView) : S.startView;
   if (цель && VIEWS[цель]){
     S.view = цель;
