@@ -8038,8 +8038,14 @@ function briefingRun(){
        разбор устаревшим. */
     БРИФИНГ_СЛЕД = брифингСледОтДел();
     commit('Брифинг собран');
+    // Syn попросили прочитать отчёт, а его ещё не было: собрали — читаем.
+    if (BRIEFING.вслухПосле){
+      BRIEFING.вслухПосле = false;
+      speechSay(briefingSpeech(), function(){ render(); });
+    }
   }).catch(function(error){
     BRIEFING.busy = false;
+    BRIEFING.вслухПосле = false;
     S.briefing = S.briefing || {};
     S.briefing.error = synErrorText(error);
     S.briefing.errorDate = isoOf(todayDate());
@@ -12831,6 +12837,29 @@ synAct('start_meditation stop_meditation', function(a, done, skipped){
   S.view = 'meditation';
   medStart();
   done.push('медитация на ' + S.meditation.minutes + ' мин, среда «' + S.meditation.sound + '»');
+});
+
+/* ---- отчёт дня вслух ----
+   То же, что кнопка «Прослушать отчёт» в «Моём фокусе». Отчёта на сегодня
+   нет — сначала собираем, потом читаем. */
+synAct('play_briefing stop_briefing', function(a, done, skipped){
+  if (a.kind === 'stop_briefing'){
+    BRIEFING.вслухПосле = false;
+    if (speech.on) speechStop();
+    done.push('чтение отчёта остановлено');
+    return;
+  }
+  if (!speechSupported()) return skipped.push('этот браузер не умеет читать вслух');
+  S.view = 'focus';
+  var brief = S.briefing && S.briefing.text && S.briefing.date === isoOf(todayDate()) ? S.briefing : null;
+  if (brief){
+    speechSay(briefingSpeech(), function(){ render(); });
+    done.push('читаю отчёт дня');
+    return;
+  }
+  BRIEFING.вслухПосле = true;
+  briefingRun();
+  done.push('собираю отчёт дня и прочитаю его');
 });
 
 /* ---- оформление ---- */
