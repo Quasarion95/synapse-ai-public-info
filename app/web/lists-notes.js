@@ -31,6 +31,7 @@
         '<label class="visually-hidden" for="lnfield">' + LABEL[kind] + '</label>' +
         '<input id="lnfield" type="text" autocomplete="off" enterkeyhint="done" data-kind="' + kind + '" ' +
           'placeholder="' + PH[kind] + '" value="' + esc(drafts[kind] || '') + '">' +
+        (typeof barMicHTML === 'function' ? barMicHTML('lnfield') : '') +
         '<button class="ai" type="button" data-act="ln-ai" data-kind="' + kind + '" aria-label="Ассистент Syn" title="Ассистент Syn">' + ICON.ai + '</button>' +
         '<button class="send" type="submit" aria-label="' + ASK[kind] + '">' + NAV_ICONS.send + '</button>' +
       '</form>' +

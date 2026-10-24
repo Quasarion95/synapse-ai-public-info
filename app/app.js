@@ -5002,10 +5002,11 @@ function vFinSyn(){
       'placeholder="' + (listening ? 'Говорите — нажмите микрофон, когда закончите'
         : 'Скажите Syn: «кофе 350»') + '">' + esc(FINSYN.draft) + '</textarea>' +
     (voiceSupported()
-      ? '<button class="ai' + (listening ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
+      ? '<button class="mic' + (listening ? ' on' : '') + '" type="button" data-act="fin-voice" ' +
         'aria-label="' + (listening ? 'Отправить сказанное' : 'Сказать голосом') + '" ' +
         'title="' + (listening ? 'Отправить сказанное' : 'Сказать голосом') + '">' + FIN_MIC + '</button>'
       : '') +
+    '<button class="ai" type="button" data-act="fin-ai" aria-label="Ассистент Syn" title="Ассистент Syn">' + ICON.ai + '</button>' +
     '<button class="send" type="submit" aria-label="Отправить Syn"' + (SYN.busy ? ' disabled' : '') + '>' +
       NAV_ICONS.send + '</button>' +
   '</form>';
@@ -6760,6 +6761,7 @@ function vComposer(){
       // Кнопка ассистента рядом с отправкой: написанное в строке уходит
       // Syn как есть, поэтому «разбери мой день» можно набрать там же, где
       // обычную задачу, и нажать искру вместо стрелки.
+      barMicHTML('field') +
       '<button class="ai" type="button" data-act="ai" aria-label="Ассистент Syn" title="Ассистент Syn">' + ICON.ai + '</button>' +
       '<button class="send" type="submit" aria-label="Добавить задачу">' + NAV_ICONS.send + '</button>' +
     '</form>' +
@@ -8396,6 +8398,7 @@ function vGoalComposer(){
          цель с одним названием и пустой серединой — это правильно, когда
          человек уже знает, чего хочет. AI нужен, когда не знает: Syn
          сам придумает этапы, сроки и первые задачи. */
+      barMicHTML('gfield') +
       '<button class="ai" type="button" data-act="ai-goal" aria-label="Придумать цель с Syn" title="Придумать цель с Syn">' + ICON.ai + '</button>' +
       '<button class="send" type="submit" aria-label="Создать цель">' + NAV_ICONS.send + '</button>' +
     '</form>' +
@@ -11678,6 +11681,37 @@ function synСлужебныйОтвет(text){
 var dict = null;   // { owner, field, onDone, base, heard, rec, native, sending, timer }
 var voice = { on: false };      // диктовка у Syn — для разметки окна
 var finVoice = { on: false };   // диктовка у строки трат
+var barVoice = { on: false, field: '' };   // диктовка в строке экрана: задачи, цели, списки, заметки
+
+/* Микрофон в строке экрана — вариант A владельца (25.10.2026): микрофон, AI и
+   стрелка одинаково на всех экранах. Нажал — слушает и пишет в строку, нажал
+   ещё раз — текст остаётся в строке, а дальше человек сам выбирает: AI (Syn)
+   или стрелка (как обычно на этом экране). */
+function barMicHTML(fieldId){
+  if (!voiceSupported()) return '';
+  var on = barVoice.on && barVoice.field === fieldId;
+  var подпись = on ? 'Закончить диктовку' : 'Сказать голосом';
+  return '<button class="mic' + (on ? ' on' : '') + '" type="button" data-act="bar-voice" data-field="' + fieldId + '" ' +
+    'aria-label="' + подпись + '" title="' + подпись + '">' + FIN_MIC + '</button>';
+}
+
+/// Кнопку перекрашиваем на месте: перерисовка экрана стёрла бы надиктованное.
+function barMicSync(){
+  document.querySelectorAll('.say .mic[data-act="bar-voice"]').forEach(function(кнопка){
+    var on = barVoice.on && кнопка.getAttribute('data-field') === barVoice.field;
+    кнопка.classList.toggle('on', on);
+    кнопка.setAttribute('aria-label', on ? 'Закончить диктовку' : 'Сказать голосом');
+    кнопка.setAttribute('title', on ? 'Закончить диктовку' : 'Сказать голосом');
+  });
+}
+
+/// Отдать надиктованное строке: черновики экранов живут по событию input.
+function barVoiceToField(fieldId, text){
+  var field = $(fieldId);
+  if (!field) return;
+  field.value = text;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
 
 /* Приложение на андроиде слушает через систему, а не через браузер.
 
@@ -11698,6 +11732,7 @@ function voiceSupported(){
 function dictMark(owner, on){
   if (owner === 'syn') voice.on = on;
   if (owner === 'fin') finVoice.on = on;
+  if (owner === 'bar'){ barVoice.on = on; barMicSync(); }
 }
 
 /// Показать услышанное в поле. Поле правим напрямую, без перерисовки:
@@ -14844,6 +14879,24 @@ var ACTS = {
   'fin-voice': function(){
     if (finVoice.on) finVoiceStop(); else finVoiceStart();
   },
+  /* AI в строке трат — как на других экранах: написанное уходит Syn, пустая
+     строка открывает окно Syn. */
+  'fin-ai': function(){
+    var field = $('finsyn');
+    if (field && field.value.trim()) ACTS['fin-syn']();
+    else ACTS.ai();
+  },
+  'bar-voice': function(d){
+    var id = d.field;
+    // Второе нажатие — закончить: текст остаётся в строке.
+    if (dict && dict.owner === 'bar'){ dictFinish(); return; }
+    barVoice.field = id;
+    dictStart('bar', id, function(text){
+      barVoiceToField(id, text);
+      var field = $(id);
+      if (field) field.focus();
+    });
+  },
   'fin-syn': function(){
     var field = $('finsyn');
     var text = field ? field.value.trim() : '';
@@ -16133,6 +16186,21 @@ document.addEventListener('click', function(event){
 
 /* Отправка формы — самый надёжный путь к «создать»: Enter, кнопка и «Go» на
    мобильной клавиатуре приходят сюда одинаково. */
+/* Отправили строку посреди диктовки — стрелкой, Enter или AI: слушание
+   останавливаем, а уже услышанное оставляем в строке, оно и уходит. */
+function barVoiceSettle(){
+  if (!dict || dict.owner !== 'bar') return;
+  var id = dict.field;
+  var field = $(id);
+  var text = field ? field.value : '';
+  dictCancel();
+  barVoiceToField(id, text);
+}
+document.addEventListener('submit', barVoiceSettle, true);
+document.addEventListener('click', function(event){
+  if (event.target.closest && event.target.closest('.say .ai, .say .send')) barVoiceSettle();
+}, true);
+
 document.addEventListener('submit', function(event){
   var form = event.target.closest ? event.target.closest('[data-form]') : null;
   if (!form) return;

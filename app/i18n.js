@@ -493,7 +493,7 @@
     'Скажите Syn: «кофе 350»': 'Tell Syn: "coffee 350"',
     'Говорите — нажмите микрофон, когда закончите': 'Speak — tap the mic when you are done',
     'Слушаю. Нажмите микрофон ещё раз — и Syn всё запишет.': 'Listening. Tap the mic again and Syn will save it all.',
-    'Что записать': 'What to save', 'Сказать голосом': 'Say it', 'Отправить Syn': 'Send to Syn',
+    'Что записать': 'What to save', 'Сказать голосом': 'Say it', 'Закончить диктовку': 'Stop dictation', 'Отправить Syn': 'Send to Syn',
     'Скрыть ответ': 'Hide the answer', 'Записано без Syn': 'Saved without Syn',
     'Скажите или напишите, что записать: «кофе 350»': 'Say or type what to save: "coffee 350"',
     'Скажите Syn в строке внизу: «кофе 350», «вчера такси 450 и обед 600». Через месяц раздел покажет, куда уходят деньги.': 'Tell Syn in the bar below: "coffee 350", "taxi 450 and lunch 600 yesterday". In a month this section will show you where the money goes.',
