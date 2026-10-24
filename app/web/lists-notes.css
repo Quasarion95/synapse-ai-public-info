@@ -97,3 +97,18 @@
 
 /* Переключатель вида — компактнее: кнопки «+ Новый список» рядом больше нет. */
 .ln-lists .listbar { margin-bottom: 14px; }
+
+/* ---- списки: перестановка блоков удержанием (web/lists-notes.js) ---- */
+.ld-box { position: relative; }
+.listcol[data-list], .listtile[data-list], .accitem[data-list], .ls-item[data-list], article.row-card[data-list] {
+  -webkit-touch-callout: none;
+}
+.ld-lifted {
+  position: relative; z-index: 30;
+  transition: none !important;
+  cursor: grabbing;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .16), 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent) !important;
+}
+.ld-shift { transition: transform .2s cubic-bezier(.2, .7, .3, 1); }
+html.ld-dragging, html.ld-dragging * { cursor: grabbing !important; user-select: none !important; }
+@media (prefers-reduced-motion: reduce) { .ld-shift { transition: none; } }
