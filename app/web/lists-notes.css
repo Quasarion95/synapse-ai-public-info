@@ -23,7 +23,8 @@
   box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-lift);
   transform: translateY(-1px);
 }
-.composer .say:hover input::placeholder { color: var(--fg-2); }
+.composer .say:hover input::placeholder,
+.composer .say:hover textarea::placeholder { color: var(--fg-2); }
 @media (prefers-reduced-motion: reduce) { .composer .say:hover { transform: none; } }
 
 /* ============ ЗАМЕТКИ — сеткой ============
