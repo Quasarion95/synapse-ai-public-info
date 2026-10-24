@@ -741,7 +741,7 @@
 
   // Сетка — родитель несомой карточки: на широком окне заметки стоят ещё и
   // левой колонкой внутри страницы (vNotesDesk), а не только сеткой.
-  function grid(){ return drag && drag.card && drag.card.parentElement ? drag.card.parentElement : document.querySelector('.ln-notes'); }
+  function grid(){ return drag && drag.card && drag.card.parentElement ? drag.card.parentElement : document.querySelector('.nlist'); }
   function cardsOf(g){
     return Array.prototype.filter.call(g.children, function(c){ return c.classList.contains('row-card') && c.hasAttribute('data-note'); });
   }
@@ -758,6 +758,7 @@
     var gr = g.getBoundingClientRect(), z = zoomOf(g, gr), s = slot(drag.card, g, gr, z);
     drag.active = true;
     drag.grid = g;
+    drag.order = cardsOf(g).map(function(c){ return c.getAttribute('data-note'); }).join();
     drag.gx = drag.x - s.l; drag.gy = drag.y - s.t;
     // Свайп начинается так же; кто первым себя опознал, тот и ведёт.
     if (global.swipe){ if (global.swipe.лицо) global.swipe.лицо.style.left = ''; global.swipe.карточка.classList.remove('swiping'); global.swipe = null; }
@@ -827,10 +828,12 @@
     d.card.style.transform = '';
     // Щелчок, которым кончается перенос, заметку не открывает.
     global.перенёсВ = Date.now();
+    // На экране порядок — по выбранной сортировке и с учётом поиска; как
+    // уложить его в общий порядок, знает app.js (notesApplyOrder).
+    if (d.order && ids.join() === d.order) return;
+    if (typeof global.notesApplyOrder === 'function'){ global.notesApplyOrder(ids); return; }
     var rank = {};
     ids.forEach(function(id, i){ rank[id] = i; });
-    var moved = ids.join() !== S.notes.map(function(n){ return n.id; }).filter(function(id){ return id in rank; }).join();
-    if (!moved) return;
     S.notes.sort(function(a, b){
       return (a.id in rank ? rank[a.id] : 1e9) - (b.id in rank ? rank[b.id] : 1e9);
     });
@@ -842,19 +845,21 @@
       if (S.view !== 'notes') return;
       var t = e.target;
       if (!t || !t.closest) return;
-      var card = t.closest('.ln-notes > .row-card[data-note]');
+      var card = t.closest('.nlist > .row-card[data-note]');
       if (!card || t.closest('.side')) return;
       var mouse = e.pointerType === 'mouse';
       if (mouse && e.button !== 0) return;
+      // Удержание берёт карточку и пальцем, и мышью (просьба владельца
+      // 25.10: «при зажиме можно перетаскивать»); мышью — ещё и потянув.
       drag = { card: card, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, mouse: mouse, active: false,
-               timer: mouse ? null : setTimeout(lift, HOLD) };
+               timer: setTimeout(lift, HOLD) };
     });
     document.addEventListener('pointermove', function(e){
       if (!drag) return;
       drag.x = e.clientX; drag.y = e.clientY;
       if (!drag.active){
         var dist = Math.max(Math.abs(drag.x - drag.x0), Math.abs(drag.y - drag.y0));
-        if (drag.mouse){ if (dist > MOVE_MOUSE && (e.buttons & 1)) lift(); }
+        if (drag.mouse){ if (dist > MOVE_MOUSE && (e.buttons & 1)){ clearTimeout(drag.timer); lift(); } }
         else if (dist > MOVE_TOUCH){ clearTimeout(drag.timer); drag = null; }   // это прокрутка или свайп
         return;
       }
@@ -868,7 +873,7 @@
     // Удержание на телефоне вызывает меню и выделение текста — здесь оно
     // означает «взять карточку».
     document.addEventListener('contextmenu', function(e){
-      if (e.target && e.target.closest && e.target.closest('.ln-notes > .row-card') && touchUI()) e.preventDefault();
+      if (e.target && e.target.closest && e.target.closest('.nlist > .row-card') && touchUI()) e.preventDefault();
     });
   }
 
@@ -910,7 +915,7 @@
     if (S.view === 'note' || S.view === 'notes') render();
   }
 
-  global.SynNotes = { toHTML: toHTML, fromHTML: fromHTML, plain: plain };
+  global.SynNotes = { toHTML: toHTML, fromHTML: fromHTML, plain: plain, preview: preview };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
   else install();

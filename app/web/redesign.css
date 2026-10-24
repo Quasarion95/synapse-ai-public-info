@@ -505,9 +505,8 @@ h1.page{ font-size: 36px; font-weight: 800; letter-spacing: -.035em; line-height
    заметки. Левая колонка — тоже «сетка» заметок (класс ln-notes), поэтому
    порядок меняется перетаскиванием, как раньше. */
 @media (min-width:1040px){
-  .ln-page.ln-notes:has(> .nsplit){ display: block }
   .nsplit{ display: grid; grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.6fr); gap: 20px; align-items: start }
-  .ln-notes.ns-nav{
+  .nlist.ns-nav{
     display: flex !important; flex-direction: column; gap: 2px; grid-template-columns: none;
     background: var(--card); border-radius: 24px; box-shadow: var(--shadow); padding: 8px; position: sticky; top: 24px;
   }

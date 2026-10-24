@@ -732,6 +732,7 @@ function load(){
 var storageBroken = false;
 function save(){
   if (хранилищеЗаперто) return;
+  try { заметкиОтметить(); } catch (e) {}
   try {
     localStorage.setItem(KEY, JSON.stringify(S));
     storageBroken = false;
@@ -9218,21 +9219,200 @@ function заметкиСтолом(){
   return !appLook() && !!(window.matchMedia && window.matchMedia('(min-width: 1040px)').matches);
 }
 
-function vNotesDesk(){
-  var открыта = findNote(S.activeNote) || S.notes[0];
+/* ============ ЗАМЕТКИ: поиск, вид и сортировка ============
+   По макету владельца 25.10.2026 («Идеально, делай»): сверху тот же
+   переключатель вида, что у списков, рядом поиск по названию и тексту и
+   меню сортировки. Порядок «вручную» — перетаскиванием (web/notes-edit.js);
+   перетащил при другой сортировке — сортировка сама становится «вручную»,
+   иначе новый порядок тут же перемешался бы обратно. */
+var NOTE_VIEWS = [
+  { id: 'split',   title: 'Две колонки', desk: true },
+  { id: 'tiles',   title: 'Плитки' },
+  { id: 'rows',    title: 'Список' },
+  { id: 'compact', title: 'Компактно' }
+];
+var NOTE_SORTS = [
+  { id: 'new',    title: 'Сначала новые' },
+  { id: 'old',    title: 'Сначала старые' },
+  { id: 'edited', title: 'Недавно изменённые' },
+  { id: 'title',  title: 'По названию, А–Я' },
+  { id: 'manual', title: 'Вручную — перетаскиванием', sep: true }
+];
+var NOTESQ = '';   // строка поиска: живёт в памяти вкладки, в сохранение не идёт
+
+function noteView(){
+  var v = S.noteView || (заметкиСтолом() ? 'split' : 'tiles');
+  return v === 'split' && !заметкиСтолом() ? 'tiles' : v;
+}
+function noteSort(){ return S.noteSort || 'new'; }
+
+/* Когда заметку создали и правили. Записываем при сохранении: у заметки
+   поменялись название или текст — значит, правка, сейчас. Так ловится любой
+   путь — строка внизу, редактор, Syn, синхронизация. Время держим отдельно
+   от самих заметок (S.noteTimes по id): заметки при приёме синхронизации
+   собираются заново, а id у них постоянный. Заметки, бывшие до этой правки,
+   дат не получают — у них «неизвестно», и они стоят старше всех датированных. */
+function заметкиОтметить(){
+  if (!S.notes) return;
+  var times = S.noteTimes || (S.noteTimes = {});
+  var первый = !S.noteTimesSince;
+  var now = Date.now(), есть = {};
+  S.notes.forEach(function(n){
+    есть[n.id] = true;
+    var h = (n.title || '') + '\u0001' + (n.body || '');
+    var k = h.length + ':' + (function(str){ var x = 0; for (var i = 0; i < str.length; i++) x = (x * 31 + str.charCodeAt(i)) | 0; return x; })(h);
+    var t = times[n.id];
+    if (!t){ times[n.id] = первый ? { h: k } : { h: k, c: now, u: now }; return; }
+    if (t.h !== k){ t.h = k; if (!первый) t.u = now; }
+  });
+  Object.keys(times).forEach(function(id){ if (!есть[id]) delete times[id]; });
+  if (первый) S.noteTimesSince = now;
+}
+function заметкаСоздана(n, i){
+  var rec = n._ios && n._ios.rec;
+  var ios = rec && rec.createdAt ? Date.parse(rec.createdAt) : NaN;
+  if (!isNaN(ios)) return ios;
+  var t = S.noteTimes && S.noteTimes[n.id];
+  if (t && t.c) return t.c;
+  return -1e15 + (i || 0);   // неизвестно: старше всех датированных, в прежнем порядке
+}
+function заметкаПравлена(n, i){
+  var t = S.noteTimes && S.noteTimes[n.id];
+  return t && t.u ? t.u : заметкаСоздана(n, i);
+}
+function заметкаКогда(ms){
+  if (!ms || ms < 0) return '';
+  var d = new Date(ms), сегодня = todayDate();
+  var день = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  var разница = Math.round((сегодня - день) / 864e5);
+  var два = function(x){ return (x < 10 ? '0' : '') + x; };
+  if (разница === 0) return 'сегодня, ' + два(d.getHours()) + ':' + два(d.getMinutes());
+  if (разница === 1) return 'вчера';
+  var мес = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  return d.getDate() + ' ' + мес[d.getMonth()] + (d.getFullYear() !== сегодня.getFullYear() ? ' ' + d.getFullYear() : '');
+}
+
+function заметкиПоПорядку(){
+  var вид = noteSort();
+  var список = S.notes.map(function(n, i){ return { n: n, c: заметкаСоздана(n, i), u: заметкаПравлена(n, i), i: i }; });
+  if (вид === 'new') список.sort(function(a, b){ return b.c - a.c || b.i - a.i; });
+  else if (вид === 'old') список.sort(function(a, b){ return a.c - b.c || a.i - b.i; });
+  else if (вид === 'edited') список.sort(function(a, b){ return b.u - a.u || b.i - a.i; });
+  else if (вид === 'title') список.sort(function(a, b){
+    return String(a.n.title || '').localeCompare(String(b.n.title || ''), 'ru', { sensitivity: 'base' }) || a.i - b.i;
+  });
+  return список.map(function(x){ return x.n; });
+}
+
+function заметкаТекст(n){
+  var t = window.SynNotes && SynNotes.plain ? SynNotes.plain(n.body || '') : (n.body || '');
+  return String(t).replace(/\s+/g, ' ').trim();
+}
+function поискНорм(s){ return String(s || '').toLowerCase().replace(/ё/g, 'е'); }
+function заметкиНайти(список){
+  var q = поискНорм(NOTESQ.trim());
+  if (!q) return список;
+  return список.filter(function(n){
+    return поискНорм(n.title).indexOf(q) >= 0 || поискНорм(заметкаТекст(n)).indexOf(q) >= 0;
+  });
+}
+/// Текст с подсветкой найденного; длина и регистр исходные.
+function подсветить(text, q){
+  text = String(text || '');
+  var nq = поискНорм(q.trim());
+  if (!nq) return esc(text);
+  var nt = поискНорм(text), out = '', from = 0, at;
+  while ((at = nt.indexOf(nq, from)) >= 0){
+    out += esc(text.slice(from, at)) + '<mark>' + esc(text.slice(at, at + nq.length)) + '</mark>';
+    from = at + nq.length;
+  }
+  return out + esc(text.slice(from));
+}
+/// Отрывок текста вокруг первого совпадения — чтобы было видно, почему нашлось.
+function отрывок(text, q){
+  var nq = поискНорм(q.trim()), at = поискНорм(text).indexOf(nq);
+  if (!nq || at < 0) return esc(text.slice(0, 160));
+  var начало = Math.max(0, at - 40);
+  return (начало ? '…' : '') + подсветить(text.slice(начало, начало + 160), q);
+}
+
+function заметкиПанель(найдено){
+  var вид = noteView(), сорт = noteSort();
+  var подпись = (NOTE_SORTS.filter(function(x){ return x.id === сорт; })[0] || NOTE_SORTS[0]).title;
+  return '<div class="listbar ntool">' +
+    '<div class="listseg nseg" role="group" aria-label="Вид заметок">' + NOTE_VIEWS.filter(function(v){ return !v.desk || заметкиСтолом(); }).map(function(v){
+      return '<button class="lv-btn' + (вид === v.id ? ' on' : '') + '" data-act="note-view" data-nview="' + v.id + '" aria-pressed="' + (вид === v.id) + '">' + v.title + '</button>';
+    }).join('') + '</div>' +
+    '<label class="nsearch">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
+      '<input id="nsearch" type="search" autocomplete="off" enterkeyhint="search" placeholder="Поиск по заметкам" aria-label="Поиск по заметкам" value="' + esc(NOTESQ) + '">' +
+      '<span class="ncount" id="ncount"' + (NOTESQ.trim() ? '' : ' hidden') + '>Найдено: ' + найдено + '</span>' +
+      '<button type="button" class="nclear" data-act="note-search-clear" aria-label="Очистить поиск"' + (NOTESQ ? '' : ' hidden') + '>✕</button>' +
+    '</label>' +
+    '<div class="nsort">' +
+      '<button type="button" class="nsort-btn" data-act="note-sort-toggle" aria-haspopup="menu" aria-expanded="false" aria-label="Сортировка: ' + подпись + '">' +
+        '<span class="nsort-l">Сортировка:</span> <span class="nsort-v">' + подпись + '</span>' +
+        '<svg class="nsort-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5"/><path d="M13 6h8M13 11h6M13 16h4"/></svg>' +
+        '<svg class="nsort-car" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>' +
+      '</button>' +
+      '<div class="nsort-menu" role="menu" aria-label="Сортировка">' + NOTE_SORTS.map(function(x){
+        return (x.sep ? '<div class="nsort-sep"></div>' : '') +
+          '<button type="button" role="menuitemradio" aria-checked="' + (сорт === x.id) + '" class="' + (сорт === x.id ? 'on' : '') + '" data-act="note-sort" data-sort="' + x.id + '">' +
+          x.title + (сорт === x.id ? ICON.check : '') + '</button>';
+      }).join('') + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+/// Карточка заметки — одна разметка на плитки, список и компактный вид:
+/// разница в CSS контейнера. В левой колонке «Двух колонок» — свой вид.
+function заметкаКарточка(n){
+  var q = NOTESQ, текст = заметкаТекст(n);
+  var когда = заметкаКогда(noteSort() === 'edited' ? заметкаПравлена(n, 0) : заметкаСоздана(n, 0));
+  var кусок = q.trim() ? отрывок(текст, q)
+    : (window.SynNotes && SynNotes.preview && n.body ? SynNotes.preview(n.body) : (текст ? esc(текст.slice(0, 160)) : 'Пустая запись'));
+  return '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-note="' + n.id + '">' +
+    '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-note" data-note="' + n.id + '">' +
+      '<h3 translate="no">' + подсветить(n.title || 'Без названия', q) + '</h3>' +
+      '<p class="sub" translate="no">' + кусок + '</p>' +
+      (когда ? '<span class="ndate">' + когда + '</span>' : '') +
+    '</button>' +
+    '<div class="side">' +
+      '<button data-act="rename-note" data-note="' + n.id + '" aria-label="Переименовать запись" title="Переименовать">' + ICON.edit + '</button>' +
+      '<button class="kill" data-act="kill-note" data-note="' + n.id + '" aria-label="Удалить запись">' + ICON.kill + '</button>' +
+    '</div>' +
+  '</article>';
+}
+
+function заметкиПусто(){
+  return '<p class="nnone">Ничего не нашлось по «' + esc(NOTESQ.trim()) + '». Ищем и в названии, и в тексте.</p>';
+}
+
+/// То, что меняется при наборе в поиске: перерисовываем только это, поле не трогаем.
+function заметкиРезультаты(){
+  var список = заметкиНайти(заметкиПоПорядку());
+  var вид = noteView();
+  if (вид === 'split') return vNotesDesk(список);
+  if (!список.length) return заметкиПусто();
+  var класс = вид === 'rows' ? 'nrows' : вид === 'compact' ? 'ncompact' : 'ngrid';
+  return '<div class="nlist ' + класс + '">' + список.map(заметкаКарточка).join('') + '</div>';
+}
+
+function vNotesDesk(список){
+  if (!список.length) return заметкиПусто();
+  var открыта = findNote(S.activeNote);
+  if (!открыта || список.indexOf(открыта) < 0) открыта = список[0];
   S.activeNote = открыта.id;
-  var текст = function(n){
-    var t = window.SynNotes && SynNotes.plain ? SynNotes.plain(n.body || '') : (n.body || '');
-    t = String(t).replace(/\s+/g, ' ').trim();
-    return t ? esc(t.slice(0, 110)) : 'Пустая запись';
-  };
+  var q = NOTESQ;
   return '<div class="nsplit">' +
-    '<nav class="ln-notes ns-nav" aria-label="Все заметки">' + S.notes.map(function(n){
-      var on = n.id === открыта.id;
+    '<nav class="nlist ns-nav" aria-label="Все заметки">' + список.map(function(n){
+      var on = n.id === открыта.id, текст = заметкаТекст(n);
+      var когда = заметкаКогда(noteSort() === 'edited' ? заметкаПравлена(n, 0) : заметкаСоздана(n, 0));
       return '<article class="row-card ns-item' + (on ? ' on' : '') + '" data-note="' + n.id + '">' +
         '<button class="main" data-act="desk-note" data-note="' + n.id + '" aria-pressed="' + on + '">' +
-          '<b translate="no">' + esc(n.title || 'Без названия') + '</b>' +
-          '<span translate="no">' + текст(n) + '</span>' +
+          '<b translate="no">' + подсветить(n.title || 'Без названия', q) + '</b>' +
+          '<span translate="no">' + (q.trim() ? отрывок(текст, q) : (текст ? esc(текст.slice(0, 110)) : 'Пустая запись')) + '</span>' +
+          (когда ? '<i class="ndate">' + когда + '</i>' : '') +
         '</button></article>';
     }).join('') + '</nav>' +
     '<section class="nsplit-main">' + VIEWS.note.render() + '</section>' +
@@ -9240,29 +9420,53 @@ function vNotesDesk(){
 }
 
 function vNotes(){
-  var html = '';
   if (!S.notes.length){
-    return html + blank(NAV_ICONS.notes, 'Заметок пока нет',
+    return blank(NAV_ICONS.notes, 'Заметок пока нет',
       'Сюда складывают то, что не задача: итоги встречи, мысль, список вопросов.',
       'new-note', 'Новая запись');
   }
-  if (заметкиСтолом()) return vNotesDesk();
-  html += '<div class="acts" style="margin:0 0 16px"><button class="btn" data-act="new-note">+ Новая запись</button></div>';
-  for (var i = 0; i < S.notes.length; i++){
-    var n = S.notes[i];
-    html += '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-note="' + n.id + '">' +
-      '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-note" data-note="' + n.id + '">' +
-        '<h3 translate="no">' + esc(n.title) + '</h3>' +
-        (n.body ? '<p class="sub" translate="no">' + esc(n.body.slice(0, 120)) + '</p>' : '<p class="sub">Пустая запись</p>') +
-      '</button>' +
-      '<div class="side">' +
-        '<button data-act="rename-note" data-note="' + n.id + '" aria-label="Переименовать запись" title="Переименовать">' + ICON.edit + '</button>' +
-        '<button class="kill" data-act="kill-note" data-note="' + n.id + '" aria-label="Удалить запись">' + ICON.kill + '</button>' +
-      '</div>' +
-    '</article>';
-  }
-  return html;
+  var найдено = заметкиНайти(S.notes).length;
+  return заметкиПанель(найдено) + '<div id="nres">' + заметкиРезультаты() + '</div>';
 }
+
+/// Порядок, который человек выложил перетаскиванием. ids — заметки на экране
+/// в новом порядке; скрытые поиском остаются на своих местах.
+function notesApplyOrder(ids){
+  var база = noteSort() === 'manual' ? S.notes.slice() : заметкиПоПорядку();
+  var видно = {};
+  ids.forEach(function(id){ видно[id] = true; });
+  var места = [];
+  база.forEach(function(n, i){ if (видно[n.id]) места.push(i); });
+  var новые = ids.map(function(id){ return findNote(id); }).filter(Boolean);
+  if (новые.length !== места.length) return;
+  места.forEach(function(место, k){ база[место] = новые[k]; });
+  var был = noteSort();
+  S.notes = база;
+  S.noteSort = 'manual';
+  commit(был !== 'manual' ? 'Сортировка — вручную' : '');
+}
+
+/// Набор в поиске: только результаты и счётчик, поле с кареткой остаётся.
+document.addEventListener('input', function(event){
+  if (event.target.id !== 'nsearch') return;
+  NOTESQ = event.target.value;
+  var res = $('nres');
+  if (res) res.innerHTML = заметкиРезультаты();
+  var n = $('ncount'), x = document.querySelector('.nsearch .nclear');
+  if (n){ n.hidden = !NOTESQ.trim(); n.textContent = 'Найдено: ' + заметкиНайти(S.notes).length; }
+  if (x) x.hidden = !NOTESQ;
+});
+/// Меню сортировки закрывается щелчком мимо и клавишей Esc.
+document.addEventListener('click', function(event){
+  var открыто = document.querySelector('.nsort.open');
+  if (открыто && !(event.target.closest && event.target.closest('.nsort'))) открыто.classList.remove('open');
+}, true);
+document.addEventListener('keydown', function(event){
+  if (event.key !== 'Escape') return;
+  var открыто = document.querySelector('.nsort.open');
+  if (открыто){ открыто.classList.remove('open'); return; }
+  if (event.target && event.target.id === 'nsearch' && NOTESQ){ ACTS['note-search-clear'](); }
+});
 
 function vNote(){
   var n = findNote(S.activeNote);
@@ -16013,6 +16217,22 @@ var ACTS = {
     go('note');
   },
   'desk-note': function(d){ S.activeNote = d.note; render(); },
+  'note-view': function(d){ S.noteView = d.nview || 'tiles'; save(); render(); },
+  'note-sort': function(d){ S.noteSort = d.sort || 'new'; save(); render(); },
+  'note-sort-toggle': function(){
+    var box = document.querySelector('.nsort');
+    if (!box) return;
+    var open = !box.classList.contains('open');
+    box.classList.toggle('open', open);
+    var b = box.querySelector('.nsort-btn');
+    if (b) b.setAttribute('aria-expanded', String(open));
+  },
+  'note-search-clear': function(){
+    NOTESQ = '';
+    render();
+    var f = $('nsearch');
+    if (f) f.focus();
+  },
   'rename-note': function(d){
     var note = findNote(d.note);
     if (!note) return;
