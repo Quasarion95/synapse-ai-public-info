@@ -9369,8 +9369,11 @@ function заметкиПанель(найдено){
 function заметкаКарточка(n){
   var q = NOTESQ, текст = заметкаТекст(n);
   var когда = заметкаКогда(noteSort() === 'edited' ? заметкаПравлена(n, 0) : заметкаСоздана(n, 0));
+  // Превью с оформлением и строками — только у плиток; в списке строка одна,
+  // и переносы там склеивали слова («переосмыслить1. Время»).
   var кусок = q.trim() ? отрывок(текст, q)
-    : (window.SynNotes && SynNotes.preview && n.body ? SynNotes.preview(n.body) : (текст ? esc(текст.slice(0, 160)) : 'Пустая запись'));
+    : (noteView() === 'tiles' && window.SynNotes && SynNotes.preview && n.body ? SynNotes.preview(n.body)
+      : (текст ? esc(текст.slice(0, 200)) : 'Пустая запись'));
   return '<article class="card row-card' + (touchUI() ? ' swipe' : '') + '" data-note="' + n.id + '">' +
     '<button class="main' + (touchUI() ? ' swipe-face' : '') + '" data-act="open-note" data-note="' + n.id + '">' +
       '<h3 translate="no">' + подсветить(n.title || 'Без названия', q) + '</h3>' +

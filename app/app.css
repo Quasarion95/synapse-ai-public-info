@@ -3740,7 +3740,13 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 
 /* Список и компактный: строки в одной карточке, дата справа. */
 .nlist.nrows, .nlist.ncompact{display:flex; flex-direction:column; background:var(--card); border-radius:22px;
-  box-shadow:var(--shadow); padding:4px 0}
+  box-shadow:var(--shadow); padding:0}
+/* Крайние строки скруглены как сама карточка: квадратные углы строк торчали
+   за её скругление (жалоба 25.10). overflow:hidden нельзя — он обрезал бы
+   строку, которую несут перетаскиванием. */
+.nrows > .row-card:first-child, .ncompact > .row-card:first-child{border-top-left-radius:22px; border-top-right-radius:22px}
+.nrows > .row-card:last-child, .ncompact > .row-card:last-child{border-bottom-left-radius:22px; border-bottom-right-radius:22px}
+.nrows > .row-card.ne-lifted, .ncompact > .row-card.ne-lifted{border-radius:16px}
 .nrows > .row-card, .ncompact > .row-card{margin:0; border-radius:0; box-shadow:none; background:var(--card);
   border:0; border-bottom:1px solid var(--line)}
 .nrows > .row-card:last-child, .ncompact > .row-card:last-child{border-bottom:0}
@@ -3749,7 +3755,6 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
 .nrows .row-card h3, .ncompact .row-card h3{grid-column:1; margin:0; font-size:15px; line-height:1.3}
 .nrows .row-card .sub{grid-column:1; margin:2px 0 0; font-size:13px; color:var(--fg-2);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block}
-.nrows .row-card .sub br{display:none}
 .nrows .ndate, .ncompact .ndate{grid-column:2; grid-row:1 / span 2; margin:0; white-space:nowrap}
 .ncompact .row-card .sub{display:none}
 .ncompact .row-card h3{font-size:14px; font-weight:600}
