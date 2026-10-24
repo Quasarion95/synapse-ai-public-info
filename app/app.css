@@ -3772,3 +3772,16 @@ html.hv-on .syn-bar .syn-mic{transform:scale(1.15); box-shadow:0 0 0 6px var(--a
   html .ngrid .row-card h3{font-size:14px}
   html .ngrid .row-card .sub{font-size:12.5px}
 }
+
+/* Удаление заметки в «Двух колонках» — крестиком на карточке, как у плиток:
+   по наведению и всегда у открытой. Нижняя кнопка редактора здесь не нужна. */
+.ns-nav > .row-card.ns-item{position:relative}
+.ns-item > .side{position:absolute; top:8px; right:8px; display:flex; opacity:0; transition:opacity .15s ease}
+.nlist.ns-nav .ns-item:hover > .side, .nlist.ns-nav .ns-item:focus-within > .side, .nlist.ns-nav .ns-item.on > .side{opacity:1}
+.ns-item > .side button{width:28px; height:28px; border:0; border-radius:999px; display:grid; place-items:center;
+  background:transparent; color:var(--fg-3); cursor:pointer}
+.ns-item > .side button:hover{background:var(--soft); color:var(--danger, #d0453a)}
+.ns-item > .side svg{width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round}
+.ns-item .main{padding-right:40px !important}
+.nsplit-main .ne-foot{display:none}
+@media (hover:none){ .nlist.ns-nav .ns-item > .side{opacity:1} }

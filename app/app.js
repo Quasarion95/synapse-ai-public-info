@@ -9416,7 +9416,11 @@ function vNotesDesk(список){
           '<b translate="no">' + подсветить(n.title || 'Без названия', q) + '</b>' +
           '<span translate="no">' + (q.trim() ? отрывок(текст, q) : (текст ? esc(текст.slice(0, 110)) : 'Пустая запись')) + '</span>' +
           (когда ? '<i class="ndate">' + когда + '</i>' : '') +
-        '</button></article>';
+        '</button>' +
+        // Удаление — на самой карточке: внизу редактора кнопку закрывала
+        // строка Syn (жалоба 25.10).
+        '<div class="side"><button class="kill" data-act="kill-note" data-note="' + n.id + '" aria-label="Удалить запись" title="Удалить">' + ICON.kill + '</button></div>' +
+      '</article>';
     }).join('') + '</nav>' +
     '<section class="nsplit-main">' + VIEWS.note.render() + '</section>' +
   '</div>';
