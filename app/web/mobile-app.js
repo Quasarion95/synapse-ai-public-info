@@ -71,16 +71,58 @@
   /* Одного viewport мало: Телеграм на айфоне его ограничение пропускает и
      всё равно приближает поле мельче 16px. Поэтому поля в мини-аппе — 16px:
      тогда приближать нечего. Разница с 15px на глаз почти не видна. */
+  /* Нижняя панель — по видимому низу окна Телеграма (--tg-gap ниже), и без
+     «резинки»: оттянутая страница на айфоне утаскивала панель за край. */
   var style = document.createElement('style');
   style.textContent = '.in-telegram input, .in-telegram textarea, .in-telegram select,' +
-    ' .in-telegram [contenteditable]{font-size:16px !important}';
+    ' .in-telegram [contenteditable]{font-size:16px !important}' +
+    ' html.in-telegram, html.in-telegram body{overscroll-behavior:none}' +
+    ' html.in-telegram .tabbar{bottom:calc(var(--dock) + var(--vv-shift, 0px) + var(--tg-gap, 0px)) !important}';
   (document.head || document.documentElement).appendChild(style);
 
   // Если приближение всё же случилось — после ввода возвращаем масштаб 1.
+  // И страницу на место: айфон после клавиатуры оставлял её сдвинутой, и
+  // нижняя панель висела за краем окна до первой прокрутки.
   document.addEventListener('focusout', function () {
-    if (!viewport) return;
-    viewport.setAttribute('content', FIXED.replace('maximum-scale=1', 'maximum-scale=1.01'));
-    setTimeout(function () { viewport.setAttribute('content', FIXED); }, 60);
+    if (viewport) {
+      viewport.setAttribute('content', FIXED.replace('maximum-scale=1', 'maximum-scale=1.01'));
+      setTimeout(function () { viewport.setAttribute('content', FIXED); }, 60);
+    }
+    setTimeout(function () { global.scrollTo(global.scrollX, global.scrollY); }, 250);
+  });
+
+  /* Окно Телеграма — шторка, и её можно опустить: страница тогда считает,
+     что окно во весь экран, а нижняя её часть за краем — вместе с панелью.
+     Сколько видно на самом деле, Телеграм сообщает событием viewport_changed
+     (его же ловит telegram-web-app.js, которого у нас нет). По нему: шторку
+     раскрываем обратно, а панель поднимаем на скрытую часть (--tg-gap). */
+  function onTelegramEvent(type, data) {
+    if (type !== 'viewport_changed' || !data) return;
+    if (data.is_expanded === false) post('web_app_expand');
+    var height = Number(data.height) || 0;
+    if (height <= 0) return;
+    var gap = Math.max(0, Math.round(global.innerHeight - height));
+    // Клавиатура тоже уменьшает высоту — её учитывает --vv-shift, а панель
+    // при вводе и так спрятана.
+    if (document.documentElement.classList.contains('kbd')) gap = 0;
+    // Высота — в экранных пикселях, а вёрстка живёт под html{zoom} (размер
+    // шрифта в настройках): переводим, как app.js делает с --vv-shift.
+    var zoom = parseFloat(global.getComputedStyle(document.documentElement).zoom) || 1;
+    document.documentElement.style.setProperty('--tg-gap', Math.round(gap / zoom) + 'px');
+  }
+  var tgNS = global.Telegram = global.Telegram || {};
+  var webView = tgNS.WebView = tgNS.WebView || {};
+  var earlier = webView.receiveEvent;
+  webView.receiveEvent = function (type, data) {
+    try { onTelegramEvent(type, data); } catch (e) {}
+    if (typeof earlier === 'function') { try { earlier(type, data); } catch (e) {} }
+  };
+  // web.telegram.org шлёт события сообщениями во фрейм.
+  global.addEventListener('message', function (event) {
+    try {
+      var msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      if (msg && msg.eventType) onTelegramEvent(msg.eventType, msg.eventData);
+    } catch (e) {}
   });
 
   function post(type, data) {
@@ -124,6 +166,8 @@
   post('web_app_ready');
   // Во весь рост сразу, а не шторкой на полэкрана.
   post('web_app_expand');
+  // Сразу узнать, сколько окна видно (ответ — viewport_changed).
+  post('web_app_request_viewport');
   // Прокрутка списка вниз не должна сворачивать мини-апп.
   post('web_app_setup_swipe_behavior', { allow_vertical_swipe: false });
   global.addEventListener('load', paint);
