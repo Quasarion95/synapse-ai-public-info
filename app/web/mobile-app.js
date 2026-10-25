@@ -77,7 +77,10 @@
   style.textContent = '.in-telegram input, .in-telegram textarea, .in-telegram select,' +
     ' .in-telegram [contenteditable]{font-size:16px !important}' +
     ' html.in-telegram, html.in-telegram body{overscroll-behavior:none}' +
-    ' html.in-telegram .tabbar{bottom:calc(var(--dock) + var(--vv-shift, 0px) + var(--tg-gap, 0px)) !important}';
+    ' html.in-telegram .tabbar{bottom:calc(var(--dock) + var(--vv-shift, 0px) + var(--tg-gap, 0px)) !important}' +
+    // Строка Syn стоит над панелью — поднимается на ту же скрытую часть,
+    // иначе при опущенной шторке она осталась бы за краем или на панели.
+    ' html.in-telegram:not(.kbd) .composer{bottom:calc(var(--dock) + 62px + var(--vv-shift, 0px) + var(--tg-gap, 0px)) !important}';
   (document.head || document.documentElement).appendChild(style);
 
   // Если приближение всё же случилось — после ввода возвращаем масштаб 1.
@@ -119,6 +122,8 @@
   };
   // web.telegram.org шлёт события сообщениями во фрейм.
   global.addEventListener('message', function (event) {
+    // Только от самого Телеграма: чужая страница не должна двигать панель.
+    if (!/^https:\/\/([a-z0-9-]+\.)*telegram\.org$/.test(String(event.origin || ''))) return;
     try {
       var msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
       if (msg && msg.eventType) onTelegramEvent(msg.eventType, msg.eventData);
