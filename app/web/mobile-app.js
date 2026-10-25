@@ -65,10 +65,23 @@
      и обратно сам не отдаляет: мини-апп оставался увеличенным. В браузере
      масштаб не трогаем — там пальцами увеличивать нужно для доступности. */
   var viewport = document.querySelector('meta[name="viewport"]');
-  if (viewport) {
-    viewport.setAttribute('content',
-      'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
-  }
+  var FIXED = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+  if (viewport) viewport.setAttribute('content', FIXED);
+
+  /* Одного viewport мало: Телеграм на айфоне его ограничение пропускает и
+     всё равно приближает поле мельче 16px. Поэтому поля в мини-аппе — 16px:
+     тогда приближать нечего. Разница с 15px на глаз почти не видна. */
+  var style = document.createElement('style');
+  style.textContent = '.in-telegram input, .in-telegram textarea, .in-telegram select,' +
+    ' .in-telegram [contenteditable]{font-size:16px !important}';
+  (document.head || document.documentElement).appendChild(style);
+
+  // Если приближение всё же случилось — после ввода возвращаем масштаб 1.
+  document.addEventListener('focusout', function () {
+    if (!viewport) return;
+    viewport.setAttribute('content', FIXED.replace('maximum-scale=1', 'maximum-scale=1.01'));
+    setTimeout(function () { viewport.setAttribute('content', FIXED); }, 60);
+  });
 
   function post(type, data) {
     var body = data === undefined ? '' : JSON.stringify(data);
