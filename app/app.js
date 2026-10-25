@@ -2349,6 +2349,11 @@ function go(view){
 var historyReady = false;
 
 function pushView(view){
+  /* В мини-аппе Телеграма история браузера не нужна и вредна: кнопки
+     «назад» у окна нет (возврат — своей «← Назад»), а в Телеграме на Mac
+     переход в раздел настроек не открывался вовсе. Без записей в истории
+     переход — это просто render(), ему нечему помешать. */
+  if (window.SynInTelegram) return;
   if (!window.history || !window.history.pushState) return;
   var state = { view: view };
   if (!historyReady){
@@ -2362,6 +2367,8 @@ function pushView(view){
 }
 
 window.addEventListener('popstate', function(event){
+  // В мини-аппе своих записей в истории нет — чужой popstate не слушаем.
+  if (window.SynInTelegram) return;
   // Открытое окно перехватывает «назад» первым: пока оно на экране, менять
   // раздел под ним нельзя — человек не увидит, что что-то произошло.
   if (modalOpen()){
@@ -14012,7 +14019,7 @@ function openModal(html, toInput){
      озвучки. */
   setPageInert(true);
 
-  if (!былоОткрыто && window.history && window.history.pushState){
+  if (!былоОткрыто && !window.SynInTelegram && window.history && window.history.pushState){
     modalDepth++;
     window.history.pushState({ modal: modalDepth }, '', location.href);
   }
@@ -18582,6 +18589,15 @@ function tgWebappLogin(){
     if (isPro() && !было) commit('Вход через Телеграм — Pro включён');
     else renderKeepingInput();
   }).catch(function(){});
+}
+
+/* В мини-аппе нет консоли, куда заглянуть: сбой показываем плашкой — по
+   снимку экрана видно, что сломалось. Только в Телеграме. */
+if (window.SynInTelegram && !window.__tgErrToast){
+  window.__tgErrToast = true;
+  window.addEventListener('error', function(e){
+    try { toast('Сбой: ' + ((e && e.message) || 'неизвестная ошибка')); } catch (x) {}
+  });
 }
 
 /* Когда забирать входящие: при открытии, при возврате на вкладку, по сигналу
