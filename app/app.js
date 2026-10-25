@@ -18513,6 +18513,10 @@ function tgPullInbox(){
 }
 
 function разделТелеграм(){
+  // Первая отрисовка идёт раньше, чем этот кусок файла выполнился, — если
+  // приложение открылось сразу на «Данных». Место держим, карточка встанет,
+  // когда придёт ответ сервера.
+  if (typeof TG === 'undefined' || !TG) return '<div class="tg-slot"></div>';
   if (TG.off) return '';
   tgLoadStatus();
   var st = TG.status;
