@@ -79,7 +79,7 @@
   }
 
   function render(){
-    return head('', '', 'settings') + '<div class="pf">' + hero() + cards() + '</div>';
+    return pageHead('', '', 'settings') + '<div class="pf">' + hero() + cards() + '</div>';
   }
 
   /* Имя в баннере — вслед за полем. Сохраняет его app.js (data-name), а

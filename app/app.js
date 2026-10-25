@@ -3477,7 +3477,7 @@ function systemBack(){
 
 /// своё — заголовок написан человеком (название цели, списка, заметки):
 /// переводчик интерфейса его не трогает.
-function head(sub, title, backView, своё){
+function pageHead(sub, title, backView, своё){
   return (backView && !systemBack() ? '<button class="chip" data-act="go" data-view="' + backView + '" style="margin-bottom:12px">← Назад</button>' : '') +
     (sub ? '<p class="hi">' + esc(sub) + '</p>' : '') +
     (title ? '<h1 class="page"' + (своё ? ' translate="no"' : '') + '>' + esc(title) + '</h1>' : '');
@@ -6293,7 +6293,7 @@ function modalSub(sub){
 }
 
 function vTrash(){
-  var html = head('', 'Корзина');
+  var html = pageHead('', 'Корзина');
 
   if (!S.trash.length){
     return html + blank(NAV_ICONS.trash, 'Корзина пуста',
@@ -8419,11 +8419,11 @@ function vGoalComposer(){
 function vGoal(){
   if (целиСтолом() && findGoal(S.activeGoal)) return vGoalsDesk();
   var g = findGoal(S.activeGoal);
-  if (!g) return head('Цель', 'Цель не найдена', 'goals') +
+  if (!g) return pageHead('Цель', 'Цель не найдена', 'goals') +
     blank(NAV_ICONS.goals, 'Похоже, она уже была удалена', 'Вернись к списку целей.', 'go', 'Все цели', ' data-view="goals"');
 
   var p = goalProgress(g);
-  var html = head('Цель', g.title, 'goals', true);
+  var html = pageHead('Цель', g.title, 'goals', true);
 
   html += '<section class="card">' +
     (g.purpose ? '<p class="sub" style="margin:0 0 14px" translate="no">' + esc(g.purpose) + '</p>' : '') +
@@ -9178,10 +9178,10 @@ function vLists(){
 
 function vList(){
   var l = findList(S.activeList);
-  if (!l) return head('', 'Список не найден', 'lists') +
+  if (!l) return pageHead('', 'Список не найден', 'lists') +
     blank(NAV_ICONS.lists, 'Похоже, он уже был удалён', 'Вернись к спискам.', 'go', 'Списки', ' data-view="lists"');
 
-  var html = head('', l.title, 'lists', true);
+  var html = pageHead('', l.title, 'lists', true);
   html += '<section class="card">' +
     (l.note ? '<p class="sub" style="margin:0 0 10px" translate="no">' + esc(l.note) + '</p>' : '') +
     (l.items.length
@@ -9488,7 +9488,7 @@ document.addEventListener('keydown', function(event){
 
 function vNote(){
   var n = findNote(S.activeNote);
-  if (!n) return head('', 'Заметка не найдена', 'notes') +
+  if (!n) return pageHead('', 'Заметка не найдена', 'notes') +
     blank(NAV_ICONS.notes, 'Похоже, она уже была удалена', 'Вернись к заметкам.', 'go', 'Заметки', ' data-view="notes"');
 
   /* Поле во всю карточку, без пояснений и кнопок.
@@ -9501,14 +9501,14 @@ function vNote(){
      текстом: удаление живёт в списке записей на свайпе, и держать его ещё и
      здесь, где на него можно ткнуть промахнувшись мимо текста, незачем. */
   if (!touchUI()){
-    return head('', n.title, 'notes', true) +
+    return pageHead('', n.title, 'notes', true) +
       '<section class="card">' +
         '<textarea class="note-field" data-notebody="' + n.id + '" placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>' +
         '<p class="hint">Сохраняется по мере набора — заметка, которую надо не забыть сохранить, это заметка, которую теряют.</p>' +
         '<div class="acts"><button class="btn sm soft" data-act="kill-note" data-note="' + n.id + '">Удалить запись</button></div>' +
       '</section>';
   }
-  return head('', n.title, 'notes', true) +
+  return pageHead('', n.title, 'notes', true) +
     '<textarea class="note-field solo" data-notebody="' + n.id + '" ' +
       'placeholder="Текст записи" rows="1">' + esc(n.body) + '</textarea>';
 }
@@ -9981,7 +9981,7 @@ function clockText(seconds){
    данные, переехало в настройки: раньше и то и другое лежало одной лентой,
    и найти в ней что-либо можно было только прокруткой. */
 function vProfile(){
-  var html = head('', 'Профиль', 'settings');
+  var html = pageHead('', 'Профиль', 'settings');
 
   html += '<section class="card profile-card">' +
     '<div class="avatar-row">' +
@@ -10323,7 +10323,7 @@ var РАЗДЕЛЫ_НАСТРОЕК = [
 
 /// Страница одного раздела в приложении: крупный заголовок и тело раздела.
 function страницаНастроек(тело){
-  return head('', '', 'settings') + '<div class="setpage">' + тело + '</div>';
+  return pageHead('', '', 'settings') + '<div class="setpage">' + тело + '</div>';
 }
 
 function vSettingsNotify(){
@@ -10518,8 +10518,8 @@ function vSettingsView(){
      плитками, режим и шрифт сегментами): его оформление есть только в
      веб-стилях, поэтому в андроиде остаётся прежний телоВида. */
   var новый = !inApp() && !window.AndroidVoice;
-  if (новый && !appLook()) return head('', 'Оформление', 'settings') + телоВидаСтолом();
-  return head('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Оформление</p>' : '') + (новый ? телоВидаСтолом() : телоВида());
+  if (новый && !appLook()) return pageHead('', 'Оформление', 'settings') + телоВидаСтолом();
+  return pageHead('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Оформление</p>' : '') + (новый ? телоВидаСтолом() : телоВида());
 }
 
 /* Напоминания — свой раздел, а не начало «Вида».
@@ -10664,7 +10664,7 @@ function телоВида(){
 
 function vSettingsData(){
   if (настройкиСтолом()) return vSettingsDesk('settings-data');
-  return head('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Данные</p>' : '') + телоДанных();
+  return pageHead('', '', 'settings') + (appLook() ? '<p class="setgroup-t">Данные</p>' : '') + телоДанных();
 }
 
 function телоДанных(){
@@ -10709,7 +10709,7 @@ function телоДанных(){
 /* ---- о сервисе ---- */
 
 function vAbout(){
-  var html = head('', 'О сервисе', 'settings');
+  var html = pageHead('', 'О сервисе', 'settings');
 
   /* Экран отвечает на два вопроса подряд, каждый своей карточкой: что это и
      где лежат мои записи. Раньше второй ответ стоял в «Данных», а сюда человек
@@ -10997,7 +10997,7 @@ function humanDateTime(iso){
 /* Экран под замком. Не пустая страница с ценой, а рассказ о том, что здесь
    лежит: человек должен понимать, что покупает, ещё не купив. */
 function vLocked(view){
-  var html = head('Synapse', PRO_ONLY[view]);
+  var html = pageHead('Synapse', PRO_ONLY[view]);
   // Текст под замком — про то, что человек получит, а не про то, чего он
   // лишён: экран открывается ровно в ту секунду, когда упёрлись, и должен
   // отвечать «вот что там», а не «заплати».

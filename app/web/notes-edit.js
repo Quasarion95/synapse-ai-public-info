@@ -233,7 +233,7 @@
       // Открыли другую запись — панель Syn прежней сюда не переезжает.
       if (AI.noteId !== n.id){ AI.noteId = n.id; AI.open = false; AI.error = ''; AI.range = null; }
       var touch = touchUI();
-      return head('', '', 'notes') +
+      return pageHead('', '', 'notes') +
         '<section class="ne' + (touch ? ' ne-touch' : ' card') + '" data-note="' + n.id + '">' +
           '<input class="ne-title" type="text" data-notetitle="' + n.id + '" value="' + escH(n.title) + '" ' +
             'placeholder="Название" aria-label="Название заметки" autocomplete="off" maxlength="140" enterkeyhint="next">' +
