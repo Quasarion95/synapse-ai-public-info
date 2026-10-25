@@ -60,6 +60,16 @@
   if (!inTelegram) return;
   document.documentElement.classList.add('in-telegram');
 
+  /* Масштаб окна — как у приложения, неизменный. Айфон приближает страницу,
+     как только встаёшь в поле со шрифтом мельче 16px (строка задачи — 15px),
+     и обратно сам не отдаляет: мини-апп оставался увеличенным. В браузере
+     масштаб не трогаем — там пальцами увеличивать нужно для доступности. */
+  var viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport) {
+    viewport.setAttribute('content',
+      'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  }
+
   function post(type, data) {
     var body = data === undefined ? '' : JSON.stringify(data);
     try {
