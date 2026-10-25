@@ -18470,7 +18470,9 @@ function tgLoadLink(){
   if (TG.link && Date.now() - TG.linkAt < 10 * 60000) return;
   TG.linking = true;
   tgCall('link', { tzOffsetMinutes: -new Date().getTimezoneOffset() }).then(function(d){
-    TG.link = d && d.url || null; TG.linkAt = Date.now(); TG.err = '';
+    // Ссылка — только на сам Телеграм: её ставим в кнопку как есть.
+    var url = d && d.url;
+    TG.link = /^https:\/\/t\.me\//.test(String(url || '')) ? url : null; TG.linkAt = Date.now(); TG.err = '';
   }).catch(function(e){
     TG.err = (e && e.message) || 'Не получилось получить ссылку';
   }).then(function(){
@@ -18489,7 +18491,12 @@ function tgPullInbox(){
     var fresh = items.filter(function(it){ return it && it.id && seen.indexOf(it.id) < 0; });
     var tasks = 0, money = 0, other = 0;
     fresh.forEach(function(it){
-      var actions = Array.isArray(it.actions) ? it.actions : [];
+      // Из бота — только то, что создаёт и правит: массовые удаления молча,
+      // без человека перед экраном, не применяем (то же правило, что у
+      // сервера для пачек — BATCH_DESTRUCTIVE_KINDS).
+      var actions = (Array.isArray(it.actions) ? it.actions : []).filter(function(a){
+        return !/^(delete_all|clear_|reset_|remove_all|empty_trash|delete_trash)/.test(String(a && a.kind || ''));
+      });
       var finance = actions.filter(finIsFinanceAction);
       var rest = actions.filter(function(a){ return !finIsFinanceAction(a); });
       rest.forEach(function(a){
