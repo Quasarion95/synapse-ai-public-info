@@ -33,6 +33,16 @@
   } catch (e) {}
   global.SynInTelegram = inTelegram;
 
+  // Подписанная Телеграмом initData — ею мини-апп входит в аккаунт
+  // (/telegram/webapp/login). Живёт сутки, на каждое открытие — новая.
+  var initData = '';
+  try {
+    initData = new URLSearchParams(String(global.location.hash || '').slice(1)).get('tgWebAppData') || '';
+    if (initData) global.sessionStorage.setItem('synapse.tg.init', initData);
+    else initData = global.sessionStorage.getItem('synapse.tg.init') || '';
+  } catch (e) {}
+  global.SynTelegramInitData = inTelegram ? initData : '';
+
   // В Телеграме — всегда вид приложения, даже в Телеграме на компьютере.
   global.SynMobileApp = inTelegram || !!(mq &&
     mq('(hover: none) and (pointer: coarse)').matches &&

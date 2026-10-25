@@ -18555,12 +18555,42 @@ ACTS['tg-unlink'] = function(){
   }).then(function(){ toast('Телеграм отключён'); }, function(){ toast('Не получилось отключить — попробуйте ещё раз'); });
 };
 
+/* Мини-апп из бота входит в аккаунт сам.
+
+   Открыт кнопкой «Синапс» в @syn_appbot — значит, Телеграм подписал, кто
+   это. Сервер по подписи находит устройство, к которому привязан бот, и
+   цепляет мини-апп к той же подписке: Pro и синхронизация здесь те же, что
+   у человека на телефоне или в браузере, без кодов и SMS. Сверяемся на
+   каждом открытии — подпись свежая, а подписку могли продлить или снять. */
+function tgWebappLogin(){
+  if (!window.SynInTelegram || !window.SynTelegramInitData) return;
+  synFetch('/v1/synapse/telegram/webapp/login', {
+    initData: window.SynTelegramInitData,
+    installID: webInstallID()
+  }).then(function(d){
+    if (!d || !d.account) return;
+    var было = isPro();
+    S.pro = {
+      active: String(d.status || '') === 'active',
+      plan: d.plan || '',
+      expiresAt: d.expiresAt || '',
+      code: '',
+      via: 'telegram',
+      checkedAt: Date.now()
+    };
+    save();
+    if (isPro() && !было) commit('Вход через Телеграм — Pro включён');
+    else renderKeepingInput();
+  }).catch(function(){});
+}
+
 /* Когда забирать входящие: при открытии, при возврате на вкладку, по сигналу
    живой синхронизации (/sync/watch сообщает telegramInbox) и раз в минуту,
    пока бот привязан к этому устройству, — синхронизации может и не быть. */
 if (typeof window !== 'undefined' && !window.__tgInboxTimer){
   window.__tgInboxTimer = true;
   setTimeout(function(){ tgLoadStatus(true); }, 2000);
+  setTimeout(tgWebappLogin, 1200);
   document.addEventListener('visibilitychange', function(){
     // Вернулись из Телеграма: код в ссылке одноразовый — берём свежий.
     if (!document.hidden){ TG.link = null; tgLoadStatus(true); }
