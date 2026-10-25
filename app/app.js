@@ -10664,6 +10664,7 @@ function телоДанных(){
   var html = '';
 
   html += разделСинхро();
+  html += разделТелеграм();
 
   html += '<section class="card">' +
     '<h3>Резервная копия</h3>' +
@@ -18380,6 +18381,7 @@ function syncWatchStart(){
       // Сервер ответил на ожидание — связь с группой есть.
       syncStoreSet('lastOkAt', String(Date.now())); syncStoreSet('lastErrAt', null);
       syncWatch.known = d.updatedAt || '';
+      if (d.telegramInbox && typeof tgPullInbox === 'function') tgPullInbox();
       if (d.changed){
         // Пауза в четверть секунды: наш же снимок мог прийти раньше ответа на
         // его отправку — тогда версия совпадёт, и тянуть нечего.
@@ -18411,6 +18413,149 @@ if (typeof window !== 'undefined' && !window.__syncPullTimer){
       syncPullApply().catch(function(){});
       syncWatchStart();
     }
+  }, 60000);
+}
+
+/* ---- Syn в Телеграме ----
+
+   Бот отвечает голосом Syn, а созданное кладёт на сервер во «Входящие из
+   Телеграма»: записать прямо в данные он не может — они зашифрованы здесь, на
+   устройстве, и ключа у сервера нет. Эта вкладка забирает входящие, применяет
+   их теми же обработчиками, что и действия из чата Syn, и только потом
+   подтверждает серверу. Ответ на подтверждение потерялся — придут те же записи
+   ещё раз; их отсекаем по id, чтобы задача не задвоилась.
+
+   Деньги здесь пишутся без карточки: человек уже нажал «✅ Записать» в боте. */
+var TG = { status: null, statusAt: 0, loading: false, link: null, linkAt: 0, linking: false, pulling: false, off: false, err: '' };
+var TG_APPLIED_KEY = 'synapse.tg.applied';
+
+function tgApplied(){
+  try { var v = JSON.parse(localStorage.getItem(TG_APPLIED_KEY) || '[]'); return Array.isArray(v) ? v : []; }
+  catch (e) { return []; }
+}
+function tgRemember(ids){
+  try { localStorage.setItem(TG_APPLIED_KEY, JSON.stringify(tgApplied().concat(ids).slice(-300))); } catch (e) {}
+}
+
+function tgCall(path, body){
+  return synWithSession(function(token){
+    return synFetch('/v1/synapse/telegram/' + path, body || {}, token);
+  }).catch(function(e){
+    // 404 — на сервере бот не включён: раздел не показываем вовсе.
+    if (e && e.status === 404) TG.off = true;
+    throw e;
+  });
+}
+
+function tgLoadStatus(force){
+  if (TG.off || TG.loading) return Promise.resolve(TG.status);
+  // Срок — и для неудачи тоже: иначе каждая перерисовка звала бы сервер снова.
+  if (!force && TG.statusAt && Date.now() - TG.statusAt < 60000) return Promise.resolve(TG.status);
+  TG.loading = true;
+  return tgCall('status').then(function(d){
+    TG.status = d || null;
+    if (d && d.inbox) tgPullInbox();
+  }).catch(function(){}).then(function(){
+    TG.loading = false; TG.statusAt = Date.now();
+    if (document.querySelector('.tg-card, .tg-slot')) renderKeepingInput();
+    return TG.status;
+  });
+}
+
+/* Ссылку берём заранее, пока рисуется карточка, и ставим её в обычную
+   ссылку: окно, открытое из-под ответа сервера, Сафари считает всплывающим и
+   глушит. Код в ссылке живёт 15 минут — обновляем через 10. */
+function tgLoadLink(){
+  if (TG.off || TG.linking || TG.err || !TG.status || TG.status.linked || !TG.status.botUsername) return;
+  if (TG.link && Date.now() - TG.linkAt < 10 * 60000) return;
+  TG.linking = true;
+  tgCall('link', { tzOffsetMinutes: -new Date().getTimezoneOffset() }).then(function(d){
+    TG.link = d && d.url || null; TG.linkAt = Date.now(); TG.err = '';
+  }).catch(function(e){
+    TG.err = (e && e.message) || 'Не получилось получить ссылку';
+  }).then(function(){
+    TG.linking = false;
+    if (document.querySelector('.tg-card')) renderKeepingInput();
+  });
+}
+
+function tgPullInbox(){
+  if (TG.off || TG.pulling) return Promise.resolve();
+  TG.pulling = true;
+  return tgCall('inbox').then(function(d){
+    var items = (d && d.items) || [];
+    if (!items.length) return;
+    var seen = tgApplied();
+    var fresh = items.filter(function(it){ return it && it.id && seen.indexOf(it.id) < 0; });
+    var tasks = 0, money = 0, other = 0;
+    fresh.forEach(function(it){
+      var actions = Array.isArray(it.actions) ? it.actions : [];
+      var finance = actions.filter(finIsFinanceAction);
+      var rest = actions.filter(function(a){ return !finIsFinanceAction(a); });
+      rest.forEach(function(a){
+        if (/^create_task/.test(String(a && a.kind || ''))) tasks++; else other++;
+      });
+      if (rest.length) synApplyActions(rest);
+      if (finance.length && finApplyBatch(finance).length) money++;
+    });
+    if (fresh.length){
+      tgRemember(fresh.map(function(it){ return it.id; }));
+      var said = [];
+      if (tasks) said.push(tasks + ' ' + plural(tasks, 'задача', 'задачи', 'задач'));
+      if (money) said.push('финансы');
+      if (other) said.push(other + ' ' + plural(other, 'запись', 'записи', 'записей'));
+      commit('Из Телеграма: ' + (said.join(', ') || 'готово'));
+    }
+    return tgCall('inbox/ack', { ids: items.map(function(it){ return it.id; }) }).then(function(){
+      if (TG.status) TG.status.inbox = 0;
+    });
+  }).catch(function(){}).then(function(){ TG.pulling = false; });
+}
+
+function разделТелеграм(){
+  if (TG.off) return '';
+  tgLoadStatus();
+  var st = TG.status;
+  if (!st) return '<div class="tg-slot"></div>';
+  var h = '<section class="card tg-card"><h3>Syn в Телеграме</h3>';
+  if (st.linked){
+    h += '<p class="sub">Подключён' + (st.name ? ' — ' + esc(st.name) : '') + '. Пишите боту задачи, траты и мысли обычными словами — они появятся здесь.</p>';
+    h += '<div class="acts">' +
+      (st.botUsername ? '<a class="btn sm" href="https://t.me/' + esc(st.botUsername) + '" target="_blank" rel="noopener noreferrer">Открыть бота</a>' : '') +
+      '<button class="btn sm soft" data-act="tg-unlink">Отключить</button>' +
+      '</div>';
+  } else {
+    tgLoadLink();
+    h += '<p class="sub">Пишите Syn прямо в Телеграм: «завтра в 10 позвонить маме», «кофе 250». Задачи и траты попадут сюда сами.</p>';
+    if (TG.link) h += '<div class="acts"><a class="btn sm" href="' + esc(TG.link) + '" target="_blank" rel="noopener noreferrer">Подключить Телеграм</a></div>';
+    else if (TG.err) h += '<p class="hint">' + esc(TG.err) + '</p><div class="acts"><button class="btn sm" data-act="tg-retry">Попробовать ещё раз</button></div>';
+    else h += '<p class="hint">Готовим ссылку…</p>';
+    h += '<p class="hint">Откроется Телеграм — нажмите там «Запустить».</p>';
+  }
+  h += '</section>';
+  return h;
+}
+
+ACTS['tg-retry'] = function(){ TG.err = ''; TG.link = null; render(); };
+ACTS['tg-unlink'] = function(){
+  tgCall('unlink').then(function(){
+    TG.status = null; TG.statusAt = 0; TG.link = null;
+    return tgLoadStatus(true);
+  }).then(function(){ toast('Телеграм отключён'); }, function(){ toast('Не получилось отключить — попробуйте ещё раз'); });
+};
+
+/* Когда забирать входящие: при открытии, при возврате на вкладку, по сигналу
+   живой синхронизации (/sync/watch сообщает telegramInbox) и раз в минуту,
+   пока бот привязан к этому устройству, — синхронизации может и не быть. */
+if (typeof window !== 'undefined' && !window.__tgInboxTimer){
+  window.__tgInboxTimer = true;
+  setTimeout(function(){ tgLoadStatus(true); }, 2000);
+  document.addEventListener('visibilitychange', function(){
+    // Вернулись из Телеграма: код в ссылке одноразовый — берём свежий.
+    if (!document.hidden){ TG.link = null; tgLoadStatus(true); }
+  });
+  setInterval(function(){
+    if (!document.hidden && TG.status && TG.status.linked) tgPullInbox();
   }, 60000);
 }
 
