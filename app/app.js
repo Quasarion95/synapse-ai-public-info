@@ -2472,7 +2472,9 @@ function render(){
   $('app').innerHTML = SynI18n.tr((PRO_ONLY[S.view] && !isPro()) ? vLocked(S.view) : view.render());
   // Полоса Syn живёт внизу всего раздела — на каждой вкладке и на дашборде:
   // записать можно только через неё (см. vFinSyn).
-  if (S.view === 'finance' && !finLocked){
+  // В приложении полосы нет — деньги записывает та же кнопка Syn, что и
+  // всё остальное (как на айфоне: «кнопка Syn вместо своей полосы»).
+  if (S.view === 'finance' && !finLocked && !inApp()){
     $('app').insertAdjacentHTML('beforeend', SynI18n.tr(vFinSyn()));
     var finField = $('finsyn');
     if (finField) growInput(finField);
@@ -4510,7 +4512,7 @@ function vFinSummary(){
           '</div>';
         }).join('') + '</div>'
       : '<p class="sub" style="margin:0">В этом месяце ещё ничего не записано. ' +
-        'Скажите Syn в строке внизу, на что потратили.</p>') +
+        (inApp() ? 'Удержите кнопку Syn и скажите, на что потратили.' : 'Скажите Syn в строке внизу, на что потратили.') + '</p>') +
   '</section>';
 
   return html;
@@ -4903,7 +4905,7 @@ function vFinOpsApp(){
   if (!ops.length){
     return html + '<div class="fa-empty">' + NAV_ICONS.finance +
       '<b>В этом месяце ещё ничего не записано.</b>' +
-      '<p>Скажи Syn внизу: «кофе 350» — или нажми микрофон и расскажи.</p></div></div>';
+      '<p>Нажми Syn внизу и скажи: «кофе 350». Сумма и категория определятся сами.</p></div></div>';
   }
   var дни = [], поДню = {};
   ops.forEach(function(op){
@@ -6744,6 +6746,9 @@ function itemRow(t, внутриЦели){
 }
 
 function vComposer(){
+  // В приложении строки нет, как на айфоне: задачу вручную — потягиванием
+  // списка вниз, остальное — кнопкой Syn (см. «КНОПКА SYN»).
+  if (inApp()) return '';
   // Форма, а не просто поле: submit прилетает и от Enter на десктопе, и от
   // кнопки «Go» на мобильной клавиатуре, где keydown с Enter приходит не
   // всегда. Обработчик Enter ниже остаётся — он ловит поля вне форм.
@@ -7275,9 +7280,12 @@ function vFocusApp(){
           : '<span class="fx-title">День свободен</span>') +
         '<div class="fx-sub"><span>' + подпись + '</span>' +
           (BRIEFING.busy ? '<i class="fx-spin"></i>'
-            : '<button class="fx-refresh" data-act="briefing" aria-label="' +
-                (brief ? 'Собрать брифинг заново' : 'Собрать брифинг') + '">' + NAV_ICONS.refresh +
-                (brief ? '' : '<span>Брифинг</span>') + '</button>') +
+            /* Кнопка с подписью, а не голый значок. Владелец: «кнопку для
+               обновления брифинга не видно и непонятно, что надо на неё
+               нажать». Стрелка без слов читалась как украшение рядом со
+               временем; теперь сказано, что она делает. */
+            : '<button class="fx-refresh labeled" data-act="briefing">' + NAV_ICONS.refresh +
+                '<span>' + (brief ? 'Обновить брифинг' : 'Собрать брифинг') + '</span></button>') +
         '</div>' +
       '</div>' +
       '<div class="fx-pct' + (percent > 0 ? ' on' : '') + '"><b>' + percent + '<small>%</small></b><span>Прогресс дня</span></div>' +
@@ -7304,7 +7312,7 @@ function vFocusApp(){
 
   // День и горизонт — одной карточкой: что сегодня и что дальше.
   html += '<section class="fx-card fx-strips">' +
-    '<div class="fx-h"><span class="fx-hic">' + NAV_ICONS.sun + '</span><b>День</b>' +
+    '<div class="fx-h"><span class="fx-hic">' + NAV_ICONS.sun + '</span><b>Сделано за день</b>' +
       (today.length ? '<span class="fx-of"><b>' + done + '</b> из ' + today.length + '</span>' : '') + '</div>' +
     (today.length
       ? '<div class="fx-seg">' + today.map(function(t){
@@ -7354,7 +7362,7 @@ function фокусГоризонт(){
       день: d.getDate(), нед: WEEKDAYS_SHORT[(d.getDay() + 6) % 7], сегодня: i === 0 });
     if (задачи.length > пик) пик = задачи.length;
   }
-  return '<div class="fx-h"><span class="fx-hic">' + NAV_ICONS.calendar + '</span><b>Горизонт</b></div>' +
+  return '<div class="fx-h"><span class="fx-hic">' + NAV_ICONS.calendar + '</span><b>Загруженность</b></div>' +
     '<p class="fx-note fx-note-top">14 дней вперёд: столбик — сколько задач, точка — задача со временем</p>' +
     '<div class="fx-hz">' + дни.map(function(д){
       var h = д.n ? 6 + (д.n / пик) * 40 : 4;
@@ -8166,7 +8174,9 @@ function vGoals(){
 
   if (!S.goals.length){
     return blank(NAV_ICONS.goals, 'Целей пока нет',
-      'Цель — это то, ради чего задачи вообще существуют. Назови её в строке внизу, а этапы добавишь потом.') +
+      inApp()
+        ? 'Цель — это то, ради чего задачи вообще существуют. Жми «Создать цель» — хватит одной строки, детали допишешь потом.'
+        : 'Цель — это то, ради чего задачи вообще существуют. Назови её в строке внизу, а этапы добавишь потом.') +
       vGoalComposer();
   }
 
@@ -8304,6 +8314,12 @@ function goalBody(g){
 /// Строка создания цели — такая же, как строка задачи: одно место внизу
 /// экрана, куда пишут, вместо кнопки, открывающей модалку.
 function vGoalComposer(){
+  /* В приложении вместо строки — кнопка «Создать цель», как на айфоне:
+     строку ввода убрали ради одной кнопки Syn, а без неё цель было бы
+     нечем создать. Цель с этапами от Syn — через ту же кнопку Syn. */
+  if (inApp()) return '<button class="goal-new" data-act="new-goal">' +
+    '<span class="goal-new-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>' +
+    'Создать цель</button>';
   return '<div class="composer">' +
     '<form class="say" data-form="add-goal">' +
       '<label class="visually-hidden" for="gfield">Новая цель</label>' +
@@ -11344,12 +11360,13 @@ function synSend(text, where){
   voiceStop();
   // Из полосы финансов разговор идёт прямо на экране, без окна Syn.
   // Ответ, пришедший после закрытия окна, окно заново не открывает (synRedraw).
-  var draw = where === 'fin' ? finSynDraw : synRedraw;
+  var draw = where === 'fin' ? finSynDraw : where === 'quick' ? qvDraw : synRedraw;
 
   SYN.busy = true;
   метка('syn_request');
   synChatPush('user', text, null);
   if (where === 'fin') FINSYN.from = S.synChat[S.synChat.length - 1];
+  if (where === 'quick') QV.from = S.synChat[S.synChat.length - 1];
   save();
   draw('', '');
 
@@ -11563,6 +11580,7 @@ function dictShow(interim){
   var field = $(dict.field);
   if (!field) return;
   field.value = (dict.base + ' ' + dict.heard + ' ' + (interim || '')).replace(/\s+/g, ' ').trim();
+  if (dict.owner === 'quick') qvSaid(field.value);
   if (field.tagName === 'TEXTAREA'){
     growInput(field);
     field.scrollTop = field.scrollHeight;
@@ -11674,6 +11692,7 @@ function dictFail(message){
   if (!d) return;
   if (d.owner === 'syn') synRender($('syn-input') ? $('syn-input').value : '', message);
   else if (d.owner === 'fin'){ FINSYN.open = true; FINSYN.error = message; FINSYN.said = ''; render(); }
+  else if (d.owner === 'quick') qvFail(message);
   else { toast(message); render(); }
 }
 
@@ -19283,3 +19302,346 @@ ACTS['nt-hint-off'] = function(){ ntHintDone(); };
 })();
 document.addEventListener('touchend', потягКонец);
 document.addEventListener('touchcancel', потягКонец);
+
+/* ============ КНОПКА SYN — ОДНА НА ВСЕ РАЗДЕЛЫ (приложение) ============ */
+
+/* Как на айфоне (GlobalSynLauncherButton): одна плавающая кнопка «Syn»
+   справа внизу, над панелью разделов, на каждом экране. Нажал — открылся
+   чат. Удержал — говоришь команду: над кнопкой окошко с услышанным,
+   отпустил — команда ушла и выполнилась, увёл палец с кнопки — отмена.
+
+   Владелец: «кнопку вызова ИИ и быстрого голосового ввода сделай как на
+   айфоне одной кнопкой во всех разделах, чтобы управление и команды уходили
+   оттуда». Строки ввода внизу задач, целей и финансов в приложении убраны
+   (выбор владельца, 27.10.2026): задачу вручную создают потягиванием
+   списка вниз, цель — кнопкой «Создать цель», остальное — через Syn.
+
+   Удержание здесь — только у этой кнопки. Микрофон в окне Syn остался
+   «нажал — пишет, нажал — отправил»: запись с зажатием там убирали
+   намеренно. Запись начинается не с касания, как на айфоне, а через
+   четверть секунды удержания: системное распознавание андроида на каждом
+   коротком нажатии включалось бы и тут же гасло. Касание короче — это
+   просто «открыть чат». */
+
+var QV = { phase: '', said: '', from: null, error: '', hideTimer: null };
+var SYNFAB = null;
+var SYNFAB_HOLD = 250;        // столько держать, чтобы пошла запись
+var SYNFAB_TAP_GRACE = 550;   // отпустил быстрее и ничего не сказал — это нажатие
+var SYNFAB_SLACK = 20;        // на сколько за край кнопки увести палец для отмены
+
+var SYNFAB_MIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v3"/></svg>';
+var SYNFAB_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+
+/// Откуда спросили — так Syn и понимает: в финансах фраза без другого
+/// раздела — про деньги, как было у полосы финансов (intentOnCurrentScreen).
+function synFabIntent(){
+  S.synGoalCreate = false;
+  S.synIntent = S.view === 'finance' ? 'finance' : '';
+}
+
+function synFabOpenChat(){
+  qvHide();
+  synFabIntent();
+  synRender('', '');
+}
+
+function synFabEl(){
+  var b = $('synfab');
+  if (b) return b;
+  b = document.createElement('button');
+  b.id = 'synfab';
+  b.className = 'synfab';
+  b.type = 'button';
+  b.innerHTML = '<span class="sf-ring" aria-hidden="true"></span>' +
+    '<span class="sf-face"><b class="sf-t">Syn</b><span class="sf-mic">' + SYNFAB_MIC + '</span>' +
+    '<span class="sf-x">' + SYNFAB_X + '</span></span>';
+  b.addEventListener('pointerdown', synFabDown);
+  b.addEventListener('pointermove', synFabMove);
+  b.addEventListener('pointerup', synFabUp);
+  b.addEventListener('pointercancel', synFabCancel);
+  b.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  // Клавиатура и читалка: «нажать» — открыть чат.
+  b.addEventListener('click', function(e){
+    if (e.detail === 0) synFabOpenChat();
+  });
+  document.body.appendChild(b);
+  return b;
+}
+
+/// После каждой перерисовки: кнопка на месте, подпись на языке экрана,
+/// а над строкой списков и заметок она встаёт выше, чтобы её не закрыть.
+function synFabSync(){
+  if (!inApp()){
+    var старая = $('synfab');
+    if (старая) старая.remove();
+    return;
+  }
+  var b = synFabEl();
+  b.setAttribute('aria-label', 'Syn');
+  b.title = SynI18n.tr('Нажми, чтобы открыть чат. Удерживай, чтобы сказать команду голосом.');
+  document.documentElement.classList.toggle('fab-high', !!document.querySelector('.ln-composer'));
+  document.documentElement.classList.toggle('fab-off', !!($('tabbar') && $('tabbar').classList.contains('hidden')));
+  if (QV.phase) qvRender();
+}
+
+function synFabDown(event){
+  if (event.button && event.button !== 0) return;
+  event.preventDefault();
+  var b = synFabEl();
+  try { b.setPointerCapture(event.pointerId); } catch (e){}
+  if (SYNFAB && SYNFAB.timer) clearTimeout(SYNFAB.timer);
+  SYNFAB = { id: event.pointerId, listening: false, cancel: false, t0: Date.now(), timer: null };
+  b.classList.add('pressed');
+  SYNFAB.timer = setTimeout(function(){
+    if (!SYNFAB) return;
+    SYNFAB.timer = null;
+    synFabHoldStart();
+  }, SYNFAB_HOLD);
+}
+
+function synFabMove(event){
+  var g = SYNFAB;
+  if (!g || !g.listening) return;
+  var r = synFabEl().getBoundingClientRect();
+  var снаружи = event.clientX < r.left - SYNFAB_SLACK || event.clientX > r.right + SYNFAB_SLACK ||
+    event.clientY < r.top - SYNFAB_SLACK || event.clientY > r.bottom + SYNFAB_SLACK;
+  if (снаружи === g.cancel) return;
+  g.cancel = снаружи;
+  if (снаружи) тактильно('tick');
+  synFabEl().classList.toggle('cancel', снаружи);
+  QV.phase = снаружи ? 'cancel' : 'listening';
+  qvRender();
+}
+
+function synFabUp(event){
+  var g = SYNFAB;
+  var b = synFabEl();
+  b.classList.remove('pressed');
+  if (!g) return;
+  /* Палец уже поднят, а браузер следом шлёт свой click — по тому, что
+     теперь под пальцем, то есть по затемнению только что открытого окна
+     Syn, и окно тут же закрывалось. На телефоне чат «не открывался» именно
+     так. Гасим этот запоздалый click тем же способом, что после переноса
+     задачи. */
+  перенёсВ = Date.now();
+  if (g.timer){
+    // Отпустил до начала записи — обычное нажатие.
+    clearTimeout(g.timer);
+    SYNFAB = null;
+    synFabOpenChat();
+    return;
+  }
+  if (g.listening) synFabHoldEnd(g.cancel);
+  else SYNFAB = null;
+}
+
+function synFabCancel(){
+  var g = SYNFAB;
+  synFabEl().classList.remove('pressed');
+  if (!g) return;
+  if (g.timer){ clearTimeout(g.timer); SYNFAB = null; return; }
+  if (g.listening) synFabHoldEnd(true);
+  else SYNFAB = null;
+}
+
+function synFabHoldStart(){
+  var g = SYNFAB;
+  if (!g) return;
+  if (!voiceSupported()){
+    SYNFAB = null;
+    synFabEl().classList.remove('pressed');
+    synFabOpenChat();
+    return;
+  }
+  if (SYN.busy){
+    // Предыдущая команда ещё выполняется — новую не принимаем, а показываем,
+    // чем Syn занят, чтобы не казалось, что кнопка не работает.
+    SYNFAB = null;
+    synFabEl().classList.remove('pressed');
+    QV.phase = 'executing';
+    qvRender();
+    return;
+  }
+  g.listening = true;
+  тактильно('long');
+  clearTimeout(QV.hideTimer);
+  QV.phase = 'listening'; QV.said = ''; QV.error = ''; QV.from = null;
+  synFabEl().classList.add('listening');
+  qvRender();
+  dictStart('quick', 'qv-field', function(text){ qvDone(text); });
+}
+
+function synFabHoldEnd(cancelled){
+  var g = SYNFAB;
+  SYNFAB = null;
+  var b = synFabEl();
+  b.classList.remove('listening', 'cancel', 'pressed');
+  if (!g) return;
+  QV.heldFor = Date.now() - g.t0;
+  if (cancelled){
+    dictCancel();
+    тактильно('reject');
+    qvHide();
+    return;
+  }
+  QV.phase = 'executing';
+  qvRender();
+  // Дослушать последнее слово и отдать текст — тот же путь, что у второго
+  // нажатия микрофона в чате.
+  if (dict && dict.owner === 'quick') dictFinish();
+  else qvDone(QV.said);
+}
+
+function qvDone(text){
+  text = String(text || '').trim();
+  if (!text){
+    if ((QV.heldFor || 0) < SYNFAB_TAP_GRACE){
+      // Держал совсем недолго и ничего не сказал — хотел нажать.
+      qvHide();
+      synFabOpenChat();
+      return;
+    }
+    qvFail('Я ничего не расслышал. Попробуй ещё раз.');
+    return;
+  }
+  QV.said = text;
+  QV.phase = 'executing';
+  qvRender();
+  synFabIntent();
+  synSend(text, 'quick');
+}
+
+/// synSend рисует быструю команду здесь: ответ — в окошке, экран — заново.
+function qvDraw(draft, error){
+  if (SYN.busy){ QV.phase = 'executing'; qvRender(); return; }
+  if (error){
+    QV.error = error;
+    QV.phase = 'failed';
+    render();
+    qvAutoHide();
+    return;
+  }
+  QV.phase = 'result';
+  render();
+  qvAutoHide();
+}
+
+function qvFail(message){
+  SYNFAB = null;
+  var b = $('synfab');
+  if (b) b.classList.remove('listening', 'cancel', 'pressed');
+  QV.error = message;
+  QV.phase = 'failed';
+  qvRender();
+  qvAutoHide();
+}
+
+function qvSaid(text){
+  QV.said = text;
+  var el = $('qv-said');
+  if (el) el.textContent = text || SynI18n.tr('Говори — я записываю');
+}
+
+/// Пачка денег ждёт «Записать» — окошко само не гаснет.
+function qvPendingCard(){
+  var start = QV.from ? S.synChat.indexOf(QV.from) : -1;
+  if (start < 0) return false;
+  return S.synChat.slice(start).some(function(item){
+    return item.finance && !item.finance.state && item.finance.actions && item.finance.actions.length;
+  });
+}
+
+/// Итог висит пять секунд и гаснет сам, как на айфоне: палец уже убран,
+/// второго нажатия ничего не должно требовать.
+function qvAutoHide(){
+  clearTimeout(QV.hideTimer);
+  QV.hideTimer = setTimeout(function(){
+    // Пачка денег ждёт решения — ждём и мы, а решилась — гаснем следом.
+    if (qvPendingCard()){ qvAutoHide(); return; }
+    if (QV.phase === 'result' || QV.phase === 'failed') qvHide();
+  }, 5000);
+}
+
+function qvHide(){
+  clearTimeout(QV.hideTimer);
+  QV.phase = ''; QV.error = '';
+  var el = $('qv');
+  if (el) el.remove();
+}
+
+function qvRender(){
+  if (!QV.phase || !inApp()) return qvHide();
+  var el = $('qv');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'qv';
+    el.className = 'qv';
+    el.setAttribute('role', 'status');
+    document.body.appendChild(el);
+    // Коснулся окошка — значит, читает: само не гаснет.
+    el.addEventListener('pointerdown', function(){ clearTimeout(QV.hideTimer); });
+  }
+  var ph = QV.phase;
+  var заголовок = { listening: 'Слушаю. Отпусти, чтобы выполнить', cancel: 'Отпусти, чтобы отменить',
+    executing: 'Выполняю', result: 'Готово', failed: 'Не получилось' }[ph] || '';
+  var значок = ph === 'listening' ? '<i class="qv-dot"></i>'
+    : ph === 'cancel' ? SYNFAB_X
+    : ph === 'executing' ? '<i class="qv-spin"></i>'
+    : ph === 'failed' ? '<b class="qv-bang">!</b>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var html = '<div class="qv-h"><span class="qv-ic">' + значок + '</span><b>' + esc(заголовок) + '</b>' +
+    (ph === 'result' || ph === 'failed' ? '<button class="qv-close" data-act="qv-close" aria-label="Закрыть">' + SYNFAB_X + '</button>' : '') +
+    '</div>';
+  if (ph === 'listening' || ph === 'cancel'){
+    html += '<div class="qv-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>' +
+      '<p class="qv-said" id="qv-said">' + esc(QV.said || (ph === 'cancel' ? 'Запись будет удалена' : 'Говори — я записываю')) + '</p>' +
+      '<input type="hidden" id="qv-field" value="' + esc(QV.said) + '">';
+  } else if (ph === 'executing'){
+    if (QV.said) html += '<p class="qv-said">' + esc('«' + QV.said + '»') + '</p>';
+    // Движок ещё может дописать последнее слово — поле для него остаётся.
+    html += '<input type="hidden" id="qv-field" value="' + esc(QV.said) + '">';
+  } else {
+    var start = QV.from ? S.synChat.indexOf(QV.from) : -1;
+    var items = start >= 0 ? S.synChat.slice(start + 1) : [];
+    if (QV.error) html += '<p class="qv-said qv-err">' + esc(QV.error) + '</p>';
+    else if (items.length) html += '<div class="qv-log">' + items.map(function(item){ return synItemHTML(item); }).join('') + '</div>';
+    html += '<button class="qv-chat" data-act="qv-chat">Открыть чат</button>';
+  }
+  el.className = 'qv on ph-' + ph;
+  el.innerHTML = SynI18n.tr(html);
+  // Поле, куда диктовка пишет услышанное, пересоздано — пусть движок пишет в новое.
+  if (ph === 'listening' || ph === 'cancel' || ph === 'executing'){ var f = $('qv-field'); if (f) f.value = QV.said; }
+}
+
+ACTS['qv-close'] = function(){ qvHide(); };
+ACTS['qv-chat'] = function(){ synFabOpenChat(); };
+
+/* Перерисовка экрана — и кнопку, и окошко за ней. */
+(function(){
+  var прежний = render;
+  render = function(){
+    var итог = прежний.apply(this, arguments);
+    try { synFabSync(); } catch (e){}
+    return итог;
+  };
+})();
+
+/* Обучение и подсказки в приложении говорят про кнопку Syn, а не про
+   строку внизу, которой здесь больше нет. */
+(function(){
+  function подменить(id, текст){
+    var шаг = TOUR_STEPS.filter(function(s){ return s.id === id; })[0];
+    if (!шаг) return;
+    var свой = шаг.hint;
+    Object.defineProperty(шаг, 'hint', { configurable: true, get: function(){ return inApp() ? текст : свой; } });
+  }
+  подменить('task', 'Потяни список задач вниз — откроется окно новой задачи. Или удержи кнопку Syn и скажи: «купить молоко завтра в 9 утра».');
+  подменить('syn', 'Syn — встроенный ИИ-помощник. Нажми кнопку Syn внизу справа и напиши, как человеку: «спланируй мой день» или «перенеси звонок на субботу». А удержишь её — скажешь голосом.');
+})();
+
+/* Первая отрисовка при запуске случается раньше, чем этот раздел
+   подключается, — без этого кнопка Syn появлялась только после первого
+   перехода между разделами. */
+try { synFabSync(); } catch (e){}
+setTimeout(function(){ try { synFabSync(); } catch (e){} }, 0);

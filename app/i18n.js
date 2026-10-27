@@ -510,6 +510,22 @@
     // — задачи, цели и карта —
     'Новая задача': 'New task',
     // — приложение: окно «Новая задача» вручную (27.10.2026) —
+    // — приложение: кнопка Syn, аналитика, брифинг (27.10.2026) —
+    'Сделано за день': 'Done today',
+    'Загруженность': 'Workload',
+    'Слушаю. Отпусти, чтобы выполнить': 'Listening. Release to run',
+    'Отпусти, чтобы отменить': 'Release to cancel',
+    'Выполняю': 'Working on it',
+    'Говори — я записываю': 'Speak — I’m listening',
+    'Запись будет удалена': 'The recording will be discarded',
+    'Открыть чат': 'Open chat',
+    'Я ничего не расслышал. Попробуй ещё раз.': 'I didn’t catch anything. Try again.',
+    'Нажми, чтобы открыть чат. Удерживай, чтобы сказать команду голосом.': 'Tap to open the chat. Hold to say a command.',
+    'Нажми Syn внизу и скажи: «кофе 350». Сумма и категория определятся сами.': 'Tap Syn below and say “coffee 350”. The amount and category are worked out for you.',
+    'Удержите кнопку Syn и скажите, на что потратили.': 'Hold the Syn button and say what you spent on.',
+    'Цель — это то, ради чего задачи вообще существуют. Жми «Создать цель» — хватит одной строки, детали допишешь потом.': 'A goal is what your tasks are for. Tap “Create goal” — one line is enough, add details later.',
+    'Потяни список задач вниз — откроется окно новой задачи. Или удержи кнопку Syn и скажи: «купить молоко завтра в 9 утра».': 'Pull the task list down to open a new task. Or hold the Syn button and say “buy milk tomorrow at 9am”.',
+    'Syn — встроенный ИИ-помощник. Нажми кнопку Syn внизу справа и напиши, как человеку: «спланируй мой день» или «перенеси звонок на субботу». А удержишь её — скажешь голосом.': 'Syn is the built-in AI assistant. Tap the Syn button at the bottom right and write as you would to a person: “plan my day” or “move the call to Saturday”. Hold it to speak instead.',
     'Что нужно сделать?': 'What needs to be done?',
     'Задачу можно создать вручную': 'You can create a task by hand',
     'Добавить описание': 'Add a description',
@@ -1447,6 +1463,7 @@
           'ноябр': 'November', 'декабр': 'December' };
         return (months[m[2]] || m[2]) + ' ' + m[1];
       }],
+    [/^«(.+)»$/, function (m) { return '“' + m[1] + '”'; }],
     // — приложение: окно «Новая задача» (27.10.2026) —
     [/^(пн|вт|ср|чт|пт|сб|вс), (\d{1,2})$/, function (m) { return known(m[1]) + ', ' + m[2]; }],
     [/^в (\d{1,2}:\d{2})$/, function (m) { return 'at ' + m[1]; }],
