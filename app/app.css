@@ -3828,3 +3828,131 @@ html.in-app[data-dense="1"] .tasklist > .item.swipe.open > .detail-wrap{padding-
 .in-app .pc-feats span{display:flex; align-items:center; gap:8px; font-size:14px; color:var(--fg)}
 .in-app .pc-feats em{font-style:normal}
 .in-app .pc-feats svg{width:16px; height:16px; flex:none; fill:none; stroke:var(--ok); stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round}
+
+/* ============ НОВАЯ ЗАДАЧА ВРУЧНУЮ (приложение) ============
+   Окно «Новая задача», как на айфоне (QuickTaskAddSheet): лист во всю
+   высоту, карточки 24, большие кнопки дня, плитки 2×2, итог и кнопка снизу.
+   Цвета — из темы: panel/stroke/accent/accent-warm, как AppTheme. */
+#modal.nt-on{align-items:flex-end; padding:max(14px, env(safe-area-inset-top)) 0 0}
+#modal.nt-on .modal-in{max-width:560px; width:100%; height:100%; max-height:none; padding:0; overflow:hidden;
+  border-radius:26px 26px 0 0; background:linear-gradient(160deg, var(--background), var(--panel-strong));
+  display:flex; flex-direction:column; animation:nt-up .26s cubic-bezier(.2,.8,.2,1)}
+@keyframes nt-up{from{transform:translateY(40px); opacity:.4}to{transform:none; opacity:1}}
+@media (prefers-reduced-motion:reduce){ #modal.nt-on .modal-in{animation:none} }
+.nt-scroll{flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:14px 16px 12px; display:flex; flex-direction:column; gap:12px}
+.nt-head{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:0 2px 2px}
+#modal .nt-head h3{font-size:28px; font-weight:800; letter-spacing:-.02em; margin:0; text-align:left; font-family:var(--display)}
+.nt-close{width:34px; height:34px; border-radius:50%; display:grid; place-items:center; background:var(--panel); border:1px solid var(--stroke); color:var(--text-2); flex:none}
+.nt-close svg{width:14px; height:14px}
+.nt-card{background:var(--panel); border:1px solid var(--stroke); border-radius:24px; box-shadow:0 6px 12px rgba(0,0,0,.05)}
+.nt-task{padding:16px}
+.nt-task textarea{display:block; width:100%; border:0; outline:0; background:transparent; resize:none; padding:0; font-family:var(--body); overflow:hidden}
+.nt-title{font-size:21px; font-weight:600; color:var(--text); line-height:1.25}
+.nt-note{font-size:15px; color:var(--text-2); margin-top:8px; line-height:1.35}
+.nt-task textarea::placeholder, .nt-sub input::placeholder{color:var(--text-2); opacity:.7}
+.nt-sep{height:1px; background:var(--stroke); margin:12px -16px}
+.nt-sub{display:flex; align-items:center; gap:10px; padding:6px 0; min-height:32px}
+.nt-box{width:20px; height:20px; border-radius:7px; border:1.6px solid color-mix(in srgb, var(--text-2) 45%, transparent); flex:none}
+.nt-subt{flex:1; font-size:15px; font-weight:500; color:var(--text); min-width:0; overflow-wrap:anywhere}
+.nt-subx{color:var(--text-2); opacity:.55; width:28px; height:28px; display:grid; place-items:center; flex:none}
+.nt-subx svg{width:18px; height:18px}
+.nt-plus{width:20px; height:20px; border-radius:7px; background:var(--accent-soft, rgba(0,0,0,.06)); color:var(--accent); display:grid; place-items:center; flex:none}
+.nt-plus svg{width:12px; height:12px; stroke-width:3}
+.nt-subadd input{flex:1; min-width:0; border:0; outline:0; background:transparent; font:600 15px var(--body); color:var(--text); padding:4px 0}
+.nt-subok{font-size:13px; font-weight:700; color:var(--accent); padding:4px 2px}
+.nt-subok.off{display:none}
+.nt-lbl{font-size:12px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--text-2); margin:2px 4px -4px}
+.nt-when{padding:12px; display:flex; flex-direction:column; gap:12px}
+.nt-days{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px}
+.nt-day{display:flex; flex-direction:column; align-items:center; gap:3px; padding:12px 4px; border-radius:16px;
+  background:var(--accent-soft, rgba(0,0,0,.06)); color:var(--text); min-width:0}
+.nt-day svg{width:20px; height:20px}
+.nt-day b{font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%}
+.nt-day span{font-size:11px; font-weight:500; opacity:.8; white-space:nowrap}
+.nt-day.on{background:linear-gradient(135deg, var(--accent), var(--accent-warm)); color:var(--on-accent, #fff);
+  box-shadow:0 5px 10px color-mix(in srgb, var(--accent) 28%, transparent)}
+.nt-times{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; margin:0 -12px; padding:0 12px}
+.nt-times::-webkit-scrollbar{display:none}
+.nt-pill{display:inline-flex; align-items:center; gap:5px; flex:none; padding:9px 12px; border-radius:14px; border:1px solid var(--stroke);
+  font-size:13px; font-weight:600; color:var(--text); background:transparent; white-space:nowrap}
+.nt-pill.on{border-color:var(--accent); color:var(--accent); background:var(--accent-soft, rgba(0,0,0,.06))}
+.nt-pill:disabled{opacity:.4}
+.nt-pill-ic svg{width:13px; height:13px; display:block; stroke-width:2.4}
+.nt-pick{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.nt-pick > span:not(.datefield):not(.nt-pair){font-size:14px; font-weight:600; color:var(--text)}
+.nt-pick > span:first-child{margin-right:auto}
+.nt-pick .inp{width:auto; min-width:0; padding:8px 10px; font-size:15px}
+.nt-pick .datefield{flex:none}
+.nt-pair{display:flex; gap:8px; align-items:center}
+.nt-panel{padding:16px; display:flex; flex-direction:column; gap:12px}
+.nt-ph{display:flex; align-items:center; gap:10px}
+.nt-ph b{font-size:16px; font-weight:700; flex:1}
+.nt-x{width:28px; height:28px; border-radius:50%; background:var(--accent-soft, rgba(0,0,0,.06)); color:var(--text-2); display:grid; place-items:center}
+.nt-x svg{width:11px; height:11px; stroke-width:3}
+.nt-tic{width:34px; height:34px; border-radius:11px; display:grid; place-items:center; background:var(--accent-soft, rgba(0,0,0,.06)); color:var(--accent); flex:none}
+.nt-tic svg{width:17px; height:17px}
+.nt-tic.on{background:linear-gradient(135deg, var(--accent), var(--accent-warm)); color:var(--on-accent, #fff)}
+.nt-seg{display:flex; gap:4px; padding:4px; border-radius:14px; background:var(--accent-soft, rgba(0,0,0,.06))}
+.nt-seg button{flex:1; min-width:0; padding:9px 4px; border-radius:11px; font-size:12.5px; font-weight:600; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.nt-seg button.on{background:var(--panel); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.nt-every{display:flex; align-items:center; gap:10px}
+.nt-every > span{font-size:15px; font-weight:600; margin-right:auto}
+.nt-step{width:40px; height:36px; border-radius:12px; border:1px solid var(--stroke); font-size:20px; font-weight:600; color:var(--text); background:var(--panel)}
+.nt-step:disabled{opacity:.35}
+.nt-num{min-width:28px; text-align:center; font-size:18px}
+.nt-mini{font-size:12px; font-weight:600; color:var(--text-2); margin:0}
+.nt-wdays{display:grid; grid-template-columns:repeat(7, 1fr); gap:6px}
+.nt-mdays{display:grid; grid-template-columns:repeat(7, 1fr); gap:6px}
+.nt-wdays button, .nt-mdays button{height:34px; border-radius:12px; border:1px solid var(--stroke); background:var(--panel); font-size:12px; font-weight:600; color:var(--text)}
+.nt-mdays button{height:30px; border-radius:10px; font-size:11px}
+.nt-wdays button.on, .nt-mdays button.on{background:var(--accent); border-color:var(--accent); color:var(--on-accent, #fff)}
+.nt-hint{font-size:12px; font-weight:500; color:var(--text-2); margin:0}
+.nt-hint:empty{display:none}
+.nt-tiles{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.nt-tile{display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:14px; border-radius:22px; text-align:left;
+  background:var(--panel); border:1px solid var(--stroke); box-shadow:0 4px 8px rgba(0,0,0,.04); min-width:0}
+.nt-tile b{font-size:15px; font-weight:700; color:var(--text)}
+.nt-tval{font-size:12px; font-weight:500; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%}
+.nt-tile.on{border-color:color-mix(in srgb, var(--accent) 70%, transparent)}
+.nt-tile.on .nt-tval{color:var(--accent); font-weight:600}
+.nt-tpls{display:flex; flex-direction:column; gap:10px}
+.nt-cats, .nt-tlist{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; margin:0 -16px; padding:2px 16px}
+.nt-cats::-webkit-scrollbar, .nt-tlist::-webkit-scrollbar{display:none}
+.nt-cat{display:inline-flex; align-items:center; gap:7px; flex:none; padding:9px 12px; border-radius:14px; border:1px solid var(--stroke);
+  background:var(--panel); font-size:12px; font-weight:600; color:var(--text)}
+.nt-cat svg{width:13px; height:13px}
+.nt-cat.on{background:var(--accent); border-color:var(--accent); color:var(--on-accent, #fff)}
+.nt-tc{flex:none; width:148px; height:112px; padding:12px; border-radius:18px; border:1px solid var(--stroke); background:var(--panel);
+  display:flex; flex-direction:column; align-items:flex-start; text-align:left; gap:8px; box-shadow:0 4px 8px rgba(0,0,0,.04)}
+.nt-tch{display:flex; align-items:center; justify-content:space-between; width:100%; color:var(--accent)}
+.nt-tch svg{width:16px; height:16px}
+.nt-tch span{font-size:11px; font-weight:600; color:var(--text-2)}
+.nt-tc b{font-size:13px; font-weight:600; color:var(--text); line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.nt-tcu{margin-top:auto; font-size:11px; font-weight:600; color:var(--accent)}
+.nt-foot{position:relative; padding:10px 16px calc(8px + env(safe-area-inset-bottom)); background:var(--panel-strong);
+  display:flex; flex-direction:column; gap:8px}
+.nt-foot::before{content:""; position:absolute; left:0; right:0; top:-22px; height:22px; pointer-events:none;
+  background:linear-gradient(to bottom, transparent, var(--panel-strong))}
+.nt-sum{font-size:13px; font-weight:500; color:var(--text-2); text-align:center; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.nt-go{height:54px; border-radius:20px; font-size:17px; font-weight:700; color:var(--on-accent, #fff);
+  background:linear-gradient(90deg, var(--accent), var(--accent-warm)); box-shadow:0 7px 14px color-mix(in srgb, var(--accent) 30%, transparent)}
+.nt-go:disabled{opacity:.45; box-shadow:none}
+
+/* Плашка потягивания над списком задач — TaskPullHintOverlay. */
+.pullnew{position:fixed; left:50%; z-index:60; width:min(300px, calc(100% - 32px)); padding:10px 14px; border-radius:22px;
+  background:linear-gradient(135deg, var(--panel-strong), var(--panel)); border:1px solid var(--stroke);
+  box-shadow:0 8px 14px rgba(0,0,0,.1); transform:translate(-50%, -8px); opacity:0; pointer-events:none;
+  transition:opacity .15s ease, transform .15s ease; display:flex; flex-direction:column; gap:6px}
+.pullnew.on{opacity:1; transform:translate(-50%, 0)}
+.pn-t{font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pn-bar{height:7px; border-radius:999px; background:color-mix(in srgb, var(--panel-strong) 96%, transparent); overflow:hidden; box-shadow:inset 0 0 0 1px var(--stroke)}
+.pn-bar i{display:block; height:100%; border-radius:inherit; transform-origin:left center; transform:scaleX(.06);
+  background:linear-gradient(90deg, var(--accent), var(--accent-warm)); transition:transform .055s linear}
+.pullnew.armed .pn-bar i{background:linear-gradient(90deg, var(--focus-green), #5fd0a2)}
+.nt-seg button, .nt-wdays button, .nt-mdays button, .nt-step, .nt-go, .nt-day{text-align:center}
+/* Подсказка про потягивание над списком задач — FirstActionHints. */
+.nt-hintcard{display:flex; align-items:center; gap:12px; padding:12px 12px 12px 14px; margin:0 0 var(--gap);
+  background:var(--panel); border:1px solid var(--stroke); border-radius:22px; box-shadow:0 4px 8px rgba(0,0,0,.04)}
+.nt-hintt{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+.nt-hintt b{font-size:14.5px; font-weight:700; color:var(--text)}
+.nt-hintt span{font-size:12.5px; color:var(--text-2)}
