@@ -509,6 +509,108 @@
 
     // — задачи, цели и карта —
     'Новая задача': 'New task',
+    // — приложение: окно «Новая задача» вручную (27.10.2026) —
+    'Что нужно сделать?': 'What needs to be done?',
+    'Задачу можно создать вручную': 'You can create a task by hand',
+    'Добавить описание': 'Add a description',
+    'Подзадача': 'Subtask',
+    'Убрать подзадачу': 'Remove subtask',
+    'Когда': 'When',
+    'выбрать': 'pick',
+    'Без времени': 'No time',
+    'Своё…': 'Custom…',
+    'Выбрать время': 'Pick a time',
+    'Напомнить': 'Remind',
+    'выключено': 'off',
+    'к времени задачи': 'at the task time',
+    'не повторять': 'no repeat',
+    'без жёсткого срока': 'no hard deadline',
+    'Шаблоны': 'Templates',
+    'коммуналка, спорт…': 'utilities, sport…',
+    'Выключить': 'Turn off',
+    'Меньше': 'Less',
+    'Больше': 'More',
+    'Дни': 'Days',
+    'Недели': 'Weeks',
+    'Месяцы': 'Months',
+    'Дни месяца': 'Days of the month',
+    'Без срока': 'No deadline',
+    'Выполнить до': 'Done by',
+    'В промежутке': 'In a window',
+    'Жёсткий срок: успеть до момента или только в указанном промежутке.': 'Hard deadline: finish by a moment or only within a set window.',
+    'До': 'By',
+    'С': 'From',
+    'После срока задачу уже не отметить — только продлить.': 'After the deadline the task can’t be checked off — only extended.',
+    'Для каждого повтора действует выбранный промежуток.': 'The chosen window applies to every repeat.',
+    'Задачу можно выполнить только в выбранном промежутке.': 'The task can only be done within the chosen window.',
+    'Подставить': 'Use',
+    'Ритм': 'Rhythm',
+    'напомню': 'reminder on',
+    'Потяни вниз, чтобы создать задачу': 'Pull down to create a task',
+    'Отпусти, чтобы создать задачу': 'Release to create a task',
+    'Оплатить коммуналку': 'Pay utilities',
+    'Проверить все квитанции и закрыть платежи без просрочки.': 'Check all bills and pay them on time.',
+    'Сверить суммы': 'Check the amounts',
+    'Проверить списание': 'Check the charge',
+    'Оплатить кредит': 'Pay the loan',
+    'Проверить остаток и внести платёж в срок.': 'Check the balance and pay on time.',
+    'Проверить график': 'Check the schedule',
+    'Внести платёж': 'Make the payment',
+    'Проверить бюджет': 'Review the budget',
+    'Сверить траты, подписки и свободный остаток.': 'Check spending, subscriptions and what’s left.',
+    'Сверить траты': 'Check spending',
+    'Обновить бюджет': 'Update the budget',
+    'Проверить подписки': 'Check subscriptions',
+    'Оплатить интернет': 'Pay for internet',
+    'Проверить баланс и продлить тариф.': 'Check the balance and renew the plan.',
+    'Оплатить мобильную связь': 'Pay the phone bill',
+    'Пополнить баланс и проверить автоплатёж.': 'Top up and check autopay.',
+    'Продлить сервисы': 'Renew services',
+    'Проверить активные сервисы и отключить лишнее.': 'Check active services and cancel the extras.',
+    'Проверить списания': 'Check the charges',
+    'Отключить лишнее': 'Cancel the extras',
+    'Полить цветы': 'Water the plants',
+    'Быстрый домашний ритуал, чтобы не запускать растения.': 'A quick home ritual to keep the plants alive.',
+    'Сделать уборку': 'Clean up',
+    'Поддержать дом в собранном состоянии без накопления хаоса.': 'Keep the home tidy before the mess piles up.',
+    'Быстрая уборка поверхностей': 'Quick wipe of surfaces',
+    'Пол': 'Floor',
+    'Выбросить мусор': 'Take out the trash',
+    'Заказать воду': 'Order water',
+    'Проверить остаток и оформить доставку вовремя.': 'Check what’s left and order delivery in time.',
+    'Принять витамины': 'Take vitamins',
+    'Поддерживающий повторяющийся ритуал.': 'A supportive recurring ritual.',
+    'Тренировка': 'Workout',
+    'Запланировать нагрузку и довести до завершения.': 'Plan the workout and see it through.',
+    'Разминка': 'Warm-up',
+    'Основная часть': 'Main part',
+    'Заминка': 'Cool-down',
+    'Сходить к стоматологу': 'See the dentist',
+    'Записаться или прийти на назначенное время.': 'Book or show up at the set time.',
+    'Записаться': 'Book',
+    'Подготовить вопросы': 'Prepare questions',
+    'Разобрать входящие': 'Clear the inbox',
+    'Почта, сообщения и открытые хвосты.': 'Email, messages and loose ends.',
+    'Почта': 'Email',
+    'Мессенджеры': 'Messengers',
+    'Открытые хвосты': 'Loose ends',
+    'Ревью недели': 'Weekly review',
+    'Оценить прогресс, что сработало и что тормозит.': 'Assess progress: what worked and what slows you down.',
+    'Итоги': 'Results',
+    'Риски': 'Risks',
+    'План на следующую неделю': 'Plan for next week',
+    'Собрать план на завтра': 'Plan tomorrow',
+    'Выделить 1-3 важных шага заранее.': 'Pick 1–3 important steps in advance.',
+    'Выбрать главное': 'Pick the main thing',
+    'Проверить календарь': 'Check the calendar',
+    'Позвонить близким': 'Call family',
+    'Поддержать контакт и не откладывать важное.': 'Stay in touch and don’t put off what matters.',
+    'Купить продукты': 'Buy groceries',
+    'Закрыть базовые покупки без хаоса.': 'Get the basics without the chaos.',
+    'Проверить холодильник': 'Check the fridge',
+    'Собрать список': 'Make a list',
+    'Сменить постель': 'Change the bedding',
+    'Простой повтор для бытового ритма.': 'A simple repeat for your home routine.',
     'Новая цель': 'New goal',
     'Новый долг': 'New debt',
     '+ Этап': '+ Stage',
@@ -1199,6 +1301,25 @@
   /* Название блока внутри кавычек («Сегодня») переводим, если оно в словаре;
      что-то иное (название, данное человеком) — оставляем как есть. */
   function known(word) { return EN[word] || word; }
+  /* Окно «Новая задача»: итог «Завтра · 13:00 · напомню · каждый день»
+     собирается из кусков — каждый переводится сам. */
+  var NT_MON = { 'янв': 'Jan', 'фев': 'Feb', 'мар': 'Mar', 'апр': 'Apr', 'мая': 'May', 'июн': 'Jun',
+    'июл': 'Jul', 'авг': 'Aug', 'сен': 'Sep', 'окт': 'Oct', 'ноя': 'Nov', 'дек': 'Dec' };
+  function ntMon(m) { return NT_MON[m] || m; }
+  function ntOrd(n) { n = Number(n); return (n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'); }
+  function ntPart(part) {
+    if (EN[part]) return EN[part];
+    var x;
+    if ((x = /^(\d{1,2}) (янв|фев|мар|апр|мая|июн|июл|авг|сен|окт|ноя|дек)(?: (\d{1,2}:\d{2}))?$/.exec(part))) return ntMon(x[2]) + ' ' + x[1] + (x[3] ? ' ' + x[3] : '');
+    if ((x = /^до (.+)$/.exec(part))) return 'by ' + ntPart(x[1]);
+    if ((x = /^с (\d{1,2}:\d{2}) до (\d{1,2}:\d{2})$/.exec(part))) return x[1] + '–' + x[2];
+    if ((x = /^по (.+)$/.exec(part))) return 'on ' + x[1].split(', ').map(known).join(', ');
+    if ((x = /^(\d{1,2}) числа$/.exec(part))) return 'on the ' + x[1] + ntOrd(x[1]);
+    if ((x = /^каждые (\d+) (?:день|дня|дней)$/.exec(part))) return 'every ' + x[1] + ' days';
+    if ((x = /^каждые (\d+) (?:недели|недель)$/.exec(part))) return 'every ' + x[1] + ' weeks';
+    if ((x = /^каждые (\d+) (?:месяца|месяцев)$/.exec(part))) return 'every ' + x[1] + ' months';
+    return part;
+  }
   // «запись» в корзине — не заметка, а любая удалённая вещь.
   function items(n) { return n + (n === '1' ? ' item' : ' items'); }
 
@@ -1325,7 +1446,18 @@
           'август': 'August', 'сентябр': 'September', 'октябр': 'October',
           'ноябр': 'November', 'декабр': 'December' };
         return (months[m[2]] || m[2]) + ' ' + m[1];
-      }]
+      }],
+    // — приложение: окно «Новая задача» (27.10.2026) —
+    [/^(пн|вт|ср|чт|пт|сб|вс), (\d{1,2})$/, function (m) { return known(m[1]) + ', ' + m[2]; }],
+    [/^в (\d{1,2}:\d{2})$/, function (m) { return 'at ' + m[1]; }],
+    [/^(\d{1,2}) (янв|фев|мар|апр|мая|июн|июл|авг|сен|окт|ноя|дек)$/, function (m) { return ntMon(m[2]) + ' ' + m[1]; }],
+    [/^по (пн|вт|ср|чт|пт|сб|вс)$/, function (m) { return 'on ' + known(m[1]); }],
+    [/^(\d{1,2}) числа$/, function (m) { return 'on the ' + m[1] + ntOrd(m[1]); }],
+    [/^((?:каждый|каждые|каждую|по |\d{1,2} числа|\d{1,2} и ).*) в (\d{1,2}:\d{2})$/, function (m) { return ntPart(m[1]) + ' at ' + m[2]; }],
+    [/^((?:Сегодня|Завтра|Послезавтра|На неделе|Потом|\d{1,2} [а-я]{3})(?: · .+)?)$/, function (m) {
+      return m[1].split(' · ').map(ntPart).join(' · ');
+    }]
+
   ];
 
   /* Английская форма по числу: 1 — единственное, остальное — множественное.

@@ -18353,3 +18353,910 @@ function сверитьСчётАналитики(){
   };
   try { сверитьСчётАналитики(); } catch (e){}
 })();
+
+/* ============ НОВАЯ ЗАДАЧА ВРУЧНУЮ (приложение) ============ */
+
+/* Окно ручного создания задачи — как «Новая задача» на айфоне
+   (QuickTaskAddSheet): карточка с названием, описанием и подзадачами;
+   «Когда» — три большие кнопки и время одним касанием; плитки Напомнить /
+   Повтор / Срок / Шаблоны с текущим значением; внизу итог одной строкой и
+   кнопка «Добавить задачу».
+
+   Владелец: «на андроиде нет возможности вручную создавать, а только через
+   ИИ и потом редактировать… сделай, чтобы при свайпе вниз была возможность
+   создать задачу вручную с тем же интерфейсом и набором, какой у айфона».
+   Открывается, как на айфоне, потягиванием списка задач вниз.
+
+   Задача, созданная здесь, Syn не проходит: человек сам сказал, что и
+   когда, — переписывать его нечего. Поля те же, что у окна правки
+   (modalTask) и у задач от Syn: date/time, repeat/rule, deadline с hard,
+   windowFrom/windowTo, remind. */
+
+var NT = null;
+var NT_UNITS = [['day', 'Дни', 90], ['week', 'Недели', 52], ['month', 'Месяцы', 24]];
+var NT_HOURS = [9, 13, 19];
+
+/* Значки окна — рисованные, как значки блоков дня: системные символы айфона
+   на разных андроидах выглядели бы по-разному. */
+function ntIc(d){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+}
+var NT_IC = {
+  close: ntIc('<path d="M6 6l12 12M18 6L6 18"/>'),
+  plus: ntIc('<path d="M12 5v14M5 12h14"/>'),
+  x: ntIc('<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>'),
+  today: ntIc('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>'),
+  tomorrow: ntIc('<path d="M6.5 16a5.5 5.5 0 0 1 11 0M3 19.5h18M12 3v5M9.5 5.5L12 3l2.5 2.5"/>'),
+  date: ntIc('<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+  clock: ntIc('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  bell: ntIc('<path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15zM10 21h4"/>'),
+  repeat: ntIc('<path d="M4 11V9a3 3 0 0 1 3-3h12l-3-3M20 13v2a3 3 0 0 1-3 3H5l3 3"/>'),
+  hourglass: ntIc('<path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9"/>'),
+  sparkles: ntIc('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>'),
+  finance: ntIc('<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10.5h18M7 15h3"/>'),
+  subscriptions: ntIc('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.7 5.2 3.7 8.5s-1.2 6.1-3.7 8.5c-2.5-2.4-3.7-5.2-3.7-8.5s1.2-6.1 3.7-8.5z"/>'),
+  home: ntIc('<path d="M4 11l8-6.5 8 6.5M6 9.5V20h12V9.5M10 20v-5h4v5"/>'),
+  health: ntIc('<rect x="3.5" y="7" width="17" height="12.5" rx="2.5"/><path d="M9 7V5h6v2M12 10.5v6M9 13.5h6"/>'),
+  work: ntIc('<rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5V5.5h6v2M3.5 12.5h17"/>'),
+  routine: ntIc('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 11a3.5 3.5 0 0 1 6-1.5M15.5 13a3.5 3.5 0 0 1-6 1.5M14.5 7.5v2h-2M9.5 16.5v-2h2"/>')
+};
+
+/* Шаблоны — те же, что на айфоне (TaskTemplateDefinition.all). День недели
+   там с воскресенья = 1, здесь как в JS: воскресенье = 0. */
+var NT_TPL_CATS = [
+  ['finance', 'Финансы'], ['subscriptions', 'Подписки'], ['home', 'Дом'],
+  ['health', 'Здоровье'], ['work', 'Работа'], ['routine', 'Ритм']
+];
+var NT_TEMPLATES = [
+  { cat: 'finance', title: 'Оплатить коммуналку', note: 'Проверить все квитанции и закрыть платежи без просрочки.', when: ['month', 5, '10:00'], remind: true, subs: ['Сверить суммы', 'Оплатить', 'Проверить списание'] },
+  { cat: 'finance', title: 'Оплатить кредит', note: 'Проверить остаток и внести платёж в срок.', when: ['month', 10, '11:00'], remind: true, subs: ['Проверить график', 'Внести платёж'] },
+  { cat: 'finance', title: 'Проверить бюджет', note: 'Сверить траты, подписки и свободный остаток.', when: ['week', 0, '19:00'], remind: true, subs: ['Сверить траты', 'Обновить бюджет', 'Проверить подписки'] },
+  { cat: 'subscriptions', title: 'Оплатить интернет', note: 'Проверить баланс и продлить тариф.', when: ['month', 3, '10:00'], remind: true, subs: [] },
+  { cat: 'subscriptions', title: 'Оплатить мобильную связь', note: 'Пополнить баланс и проверить автоплатёж.', when: ['month', 12, '10:00'], remind: true, subs: [] },
+  { cat: 'subscriptions', title: 'Продлить сервисы', note: 'Проверить активные сервисы и отключить лишнее.', when: ['month', 1, '12:00'], remind: false, subs: ['Проверить списания', 'Отключить лишнее'] },
+  { cat: 'home', title: 'Полить цветы', note: 'Быстрый домашний ритуал, чтобы не запускать растения.', when: ['week', 6, '10:00'], remind: false, subs: [] },
+  { cat: 'home', title: 'Сделать уборку', note: 'Поддержать дом в собранном состоянии без накопления хаоса.', when: ['week', 6, '12:00'], remind: false, subs: ['Быстрая уборка поверхностей', 'Пол', 'Выбросить мусор'] },
+  { cat: 'home', title: 'Заказать воду', note: 'Проверить остаток и оформить доставку вовремя.', when: ['week', 1, '11:00'], remind: true, subs: [] },
+  { cat: 'health', title: 'Принять витамины', note: 'Поддерживающий повторяющийся ритуал.', when: ['day', 0, '09:00'], remind: true, subs: [] },
+  { cat: 'health', title: 'Тренировка', note: 'Запланировать нагрузку и довести до завершения.', when: ['day', 0, '19:00'], remind: true, subs: ['Разминка', 'Основная часть', 'Заминка'] },
+  { cat: 'health', title: 'Сходить к стоматологу', note: 'Записаться или прийти на назначенное время.', when: null, remind: false, subs: ['Записаться', 'Подготовить вопросы'] },
+  { cat: 'work', title: 'Разобрать входящие', note: 'Почта, сообщения и открытые хвосты.', when: ['day', 0, '18:00'], remind: false, subs: ['Почта', 'Мессенджеры', 'Открытые хвосты'] },
+  { cat: 'work', title: 'Ревью недели', note: 'Оценить прогресс, что сработало и что тормозит.', when: ['week', 5, '17:30'], remind: true, subs: ['Итоги', 'Риски', 'План на следующую неделю'] },
+  { cat: 'work', title: 'Собрать план на завтра', note: 'Выделить 1-3 важных шага заранее.', when: ['day', 0, '21:00'], remind: false, subs: ['Выбрать главное', 'Проверить календарь'] },
+  { cat: 'routine', title: 'Позвонить близким', note: 'Поддержать контакт и не откладывать важное.', when: ['week', 0, '17:00'], remind: false, subs: [] },
+  { cat: 'routine', title: 'Купить продукты', note: 'Закрыть базовые покупки без хаоса.', when: ['week', 6, '13:00'], remind: false, subs: ['Проверить холодильник', 'Собрать список'] },
+  { cat: 'routine', title: 'Сменить постель', note: 'Простой повтор для бытового ритма.', when: ['week', 0, '12:00'], remind: false, subs: [] }
+];
+
+function ntTodayISO(){ return isoOf(todayDate()); }
+function ntMinutes(hhmm){
+  var p = String(hhmm || '').split(':');
+  return Number(p[0]) * 60 + Number(p[1] || 0);
+}
+/// Сейчас с округлением вверх до пяти минут — раньше этого времени сегодня
+/// задачу не поставить, как и на айфоне (roundedCurrentMoment).
+function ntNowRounded(){
+  var now = new Date();
+  var m = Math.ceil((now.getHours() * 60 + now.getMinutes() + 1) / 5) * 5;
+  if (m >= 24 * 60) m = 24 * 60 - 1;
+  return clock(Math.floor(m / 60), m % 60);
+}
+/// День, на который сейчас встанет задача: выбранный или день блока.
+function ntDay(){
+  var d = NT.d;
+  return d.dateOn ? d.date : (dateForBucket(NT.from) || ntTodayISO());
+}
+function ntIsToday(iso){ return iso === ntTodayISO(); }
+function ntHourFree(h){
+  if (!ntIsToday(ntDay())) return true;
+  return h * 60 > ntMinutes(ntNowRounded()) - 1;
+}
+/// Время сегодня, которое уже прошло, подтягиваем к «сейчас».
+function ntClampTime(){
+  var d = NT.d;
+  if (!d.time || !ntIsToday(ntDay())) return;
+  var now = ntNowRounded();
+  if (ntMinutes(d.time) < ntMinutes(now)) d.time = now;
+}
+/// Время, которое ставится, когда человек просит время, не выбрав его:
+/// сегодня — ближайший целый час, в другой день — 10:00.
+function ntSeedTime(){
+  if (!ntIsToday(ntDay())) return '10:00';
+  var now = new Date();
+  var h = Math.min(23, now.getHours() + 1);
+  return clock(h, 0);
+}
+function ntEnsureDate(){
+  var d = NT.d;
+  if (!d.dateOn){ d.date = ntDay(); d.dateOn = true; }
+}
+
+function ntOpen(bucket){
+  if (modalOpen()) return;
+  NT = {
+    from: bucket || 'today',
+    d: { title: '', note: '', subtasks: [], dateOn: false, date: ntTodayISO(), time: '',
+      remind: false, rep: null, dl: 'none', dlDate: ntTodayISO(), dlTime: '18:00',
+      winFrom: '13:00', winTo: '18:00' },
+    sub: '', dateOpen: false, timeOpen: false, dlOpen: false, tplOpen: false, tplCat: 'finance',
+    detected: false
+  };
+  $('modal').classList.add('nt-on');
+  // Клавиатура сама не выскакивает: владелец про айфон — «когда открываешь,
+  // сразу клавиатура бесит». Поле названия — первое, до него один тап.
+  openModal(ntHtml(), 'none');
+  ntGrow();
+}
+
+/// Название и описание растут вместе с текстом, без своей прокрутки.
+function ntGrow(){
+  ['nt-title', 'nt-note'].forEach(function(id){
+    var el = $(id);
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  });
+}
+
+/* Перерисовка окна целиком после нажатия, с сохранением прокрутки и
+   курсора: пока человек печатает, окно не перерисовывается вовсе, а после
+   кнопки фокус и место в поле возвращаются туда же. */
+function ntRender(){
+  var box = $('modalIn');
+  if (!NT || !box || !$('modal').classList.contains('nt-on')) return;
+  var scroll = box.querySelector('.nt-scroll');
+  var top = scroll ? scroll.scrollTop : 0;
+  var active = document.activeElement;
+  var focusId = active && box.contains(active) && active.id ? active.id : '';
+  var selS = focusId && active.selectionStart != null ? active.selectionStart : null;
+  var selE = focusId && active.selectionEnd != null ? active.selectionEnd : null;
+  box.innerHTML = SynI18n.tr(ntHtml());
+  ntGrow();
+  scroll = box.querySelector('.nt-scroll');
+  if (scroll) scroll.scrollTop = top;
+  if (focusId){
+    var el = document.getElementById(focusId);
+    if (el){
+      try { el.focus({ preventScroll: true }); } catch (e){ el.focus(); }
+      if (selS != null && el.setSelectionRange) try { el.setSelectionRange(selS, selE); } catch (e){}
+    }
+  }
+}
+
+function ntSelPreset(){
+  var day = NT.d.date, today = ntTodayISO();
+  if (day === today) return 'today';
+  if (day === isoOf(addDays(todayDate(), 1))) return 'tomorrow';
+  return 'custom';
+}
+function ntDayCaption(offset){
+  var dt = addDays(todayDate(), offset);
+  return WEEKDAY_SHORT_RU[dt.getDay()] + ', ' + dt.getDate();
+}
+function ntShortDate(iso){
+  var dt = dateOf(iso);
+  var мес = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  return dt ? dt.getDate() + ' ' + мес[dt.getMonth()] : '';
+}
+/// Без даты задача ляжет в блок, откуда окно открыли, — его кнопку и
+/// подсвечиваем, чтобы было видно, куда она встанет.
+function ntImplicit(preset){
+  if (NT.d.dateOn) return false;
+  return (preset === 'today' && NT.from === 'today') || (preset === 'tomorrow' && NT.from === 'tomorrow');
+}
+function ntDayOn(preset){
+  if (ntImplicit(preset)) return true;
+  if (!NT.d.dateOn) return false;
+  if (preset === 'custom') return NT.dateOpen || ntSelPreset() === 'custom';
+  return !NT.dateOpen && ntSelPreset() === preset;
+}
+
+/* Правило повтора окна → поля задачи. Обычные случаи — пресетами, как у
+   задач из строки: подпись на карточке и перекат у них давно проверены. */
+function ntRepeatFields(){
+  var r = NT.d.rep;
+  if (!r) return { repeat: '', rule: null };
+  var dt = dateOf(ntDay());
+  var interval = Math.max(1, r.interval || 1);
+  if (r.unit === 'day'){
+    if (interval === 1) return { repeat: 'daily', rule: null };
+    if (interval === 2) return { repeat: 'every2', rule: null };
+  }
+  if (r.unit === 'week' && interval === 1 && r.days.length === 1 && dt && r.days[0] === dt.getDay()){
+    return { repeat: 'weekly', rule: null };
+  }
+  if (r.unit === 'month' && interval === 1 && r.mdays.length === 1 && dt && r.mdays[0] === dt.getDate()){
+    return { repeat: 'monthly', rule: null };
+  }
+  return { repeat: CUSTOM_REPEAT, rule: {
+    unit: r.unit, interval: interval, weekdaysOnly: false,
+    weeklyWeekdays: r.unit === 'week' ? r.days.slice() : [],
+    monthlyDays: r.unit === 'month' ? r.mdays.slice() : []
+  } };
+}
+function ntRepeatLabel(){
+  var f = ntRepeatFields();
+  if (!f.repeat) return '';
+  return f.repeat === CUSTOM_REPEAT ? ruleLabel(f.rule) : ruleLabel(repeatPreset(f.repeat).rule);
+}
+
+function ntSummary(){
+  var d = NT.d, parts = [];
+  if (d.dateOn){
+    var p = ntSelPreset();
+    parts.push(p === 'today' ? 'Сегодня' : p === 'tomorrow' ? 'Завтра' : ntShortDate(d.date));
+  } else {
+    parts.push(bucketTitle(NT.from));
+  }
+  if (d.time) parts.push(d.time);
+  if (d.remind) parts.push('напомню');
+  var rep = ntRepeatLabel();
+  if (rep) parts.push(rep);
+  if (d.dl === 'before') parts.push('до ' + (d.rep ? d.dlTime : ntShortDate(d.dlDate) + ' ' + d.dlTime));
+  if (d.dl === 'window') parts.push('с ' + d.winFrom + ' до ' + d.winTo);
+  return parts.join(' · ');
+}
+
+function ntPill(title, on, act, extra, icon){
+  return '<button class="nt-pill' + (on ? ' on' : '') + '" data-act="' + act + '"' + (extra || '') + '>' +
+    (icon ? '<span class="nt-pill-ic">' + icon + '</span>' : '') + '<span>' + esc(title) + '</span></button>';
+}
+function ntTile(icon, title, value, on, act){
+  return '<button class="nt-tile' + (on ? ' on' : '') + '" data-act="' + act + '" aria-pressed="' + !!on + '">' +
+    '<span class="nt-tic' + (on ? ' on' : '') + '">' + icon + '</span>' +
+    '<b>' + esc(title) + '</b><span class="nt-tval">' + esc(value) + '</span></button>';
+}
+function ntPanelHead(icon, title, act){
+  return '<div class="nt-ph"><span class="nt-tic on">' + icon + '</span><b>' + esc(title) + '</b>' +
+    '<button class="nt-x" data-act="' + act + '" aria-label="Выключить">' + NT_IC.close + '</button></div>';
+}
+
+function ntHtml(){
+  var d = NT.d;
+  var html = '<div class="nt-scroll">';
+
+  html += '<div class="nt-head"><h3>Новая задача</h3>' +
+    '<button class="nt-close" data-act="nt-close" aria-label="Закрыть">' + NT_IC.close + '</button></div>';
+
+  // Карточка задачи: что сделать — крупно, описание, подзадачи прямо в строке.
+  html += '<div class="nt-card nt-task">' +
+    '<textarea id="nt-title" class="nt-title" rows="1" maxlength="300" placeholder="Что нужно сделать?" enterkeyhint="next">' + esc(d.title) + '</textarea>' +
+    '<textarea id="nt-note" class="nt-note" rows="1" maxlength="2000" placeholder="Добавить описание">' + esc(d.note) + '</textarea>' +
+    '<div class="nt-sep"></div>' +
+    d.subtasks.map(function(s, i){
+      return '<div class="nt-sub"><span class="nt-box"></span><span class="nt-subt">' + esc(s) + '</span>' +
+        '<button class="nt-subx" data-act="nt-sub-del" data-i="' + i + '" aria-label="Убрать подзадачу">' + NT_IC.x + '</button></div>';
+    }).join('') +
+    '<div class="nt-sub nt-subadd"><span class="nt-plus">' + NT_IC.plus + '</span>' +
+      '<input id="nt-sub" type="text" maxlength="200" placeholder="Подзадача" enterkeyhint="done" autocomplete="off" value="' + esc(NT.sub) + '">' +
+      '<button class="nt-subok' + (NT.sub.trim() ? '' : ' off') + '" data-act="nt-sub-add">Добавить</button></div>' +
+  '</div>';
+
+  // Когда: три большие кнопки дня и время одним касанием.
+  var custom = d.dateOn && ntSelPreset() === 'custom' ? ntShortDate(d.date) : 'выбрать';
+  html += '<p class="nt-lbl">Когда</p><div class="nt-card nt-when">' +
+    '<div class="nt-days">' +
+      [['today', 'Сегодня', NT_IC.today, ntDayCaption(0)], ['tomorrow', 'Завтра', NT_IC.tomorrow, ntDayCaption(1)],
+       ['custom', 'Дата', NT_IC.date, custom]].map(function(x){
+        return '<button class="nt-day' + (ntDayOn(x[0]) ? ' on' : '') + '" data-act="nt-day" data-p="' + x[0] + '">' +
+          x[2] + '<b>' + x[1] + '</b><span>' + esc(x[3]) + '</span></button>';
+      }).join('') +
+    '</div>' +
+    (NT.dateOpen
+      ? '<div class="nt-pick"><span>Дата</span>' +
+          полеДаты('nt-date', d.dateOn ? d.date : ntDay(), ' min="' + ntTodayISO() + '"') + '</div>'
+      : '') +
+    '<div class="nt-times">' +
+      ntPill('Без времени', !d.time, 'nt-time', ' data-h="none"') +
+      NT_HOURS.map(function(h){
+        var on = d.time === clock(h, 0);
+        var free = ntHourFree(h);
+        return '<button class="nt-pill' + (on ? ' on' : '') + '" data-act="nt-time" data-h="' + h + '"' +
+          (free ? '' : ' disabled') + '><span>' + clock(h, 0) + '</span></button>';
+      }).join('') +
+      ntPill(d.time && NT_HOURS.map(function(h){ return clock(h, 0); }).indexOf(d.time) < 0 ? d.time : 'Своё…',
+        !!d.time && NT_HOURS.map(function(h){ return clock(h, 0); }).indexOf(d.time) < 0,
+        'nt-time', ' data-h="custom"', NT_IC.clock) +
+    '</div>' +
+    (NT.timeOpen && d.time
+      ? '<div class="nt-pick"><span>Выбрать время</span>' +
+          '<input id="nt-clock" class="inp" type="time" value="' + esc(d.time) + '"' +
+            (ntIsToday(ntDay()) ? ' min="' + ntNowRounded() + '"' : '') + '></div>'
+      : '') +
+  '</div>';
+
+  // Раскрытые карточки: повтор и срок.
+  if (d.rep) html += ntRepeatPanel();
+  if (d.dl !== 'none' || NT.dlOpen) html += ntDeadlinePanel();
+  if (NT.tplOpen) html += ntTemplates();
+
+  // Плитки с текущим значением.
+  html += '<div class="nt-tiles">' +
+    ntTile(NT_IC.bell, 'Напомнить', d.remind ? (d.time ? 'в ' + d.time : 'к времени задачи') : 'выключено', d.remind, 'nt-remind') +
+    (d.rep ? '' : ntTile(NT_IC.repeat, 'Повтор', 'не повторять', false, 'nt-rep-on')) +
+    (d.dl !== 'none' || NT.dlOpen ? '' : ntTile(NT_IC.hourglass, 'Срок', 'без жёсткого срока', false, 'nt-dl-open')) +
+    ntTile(NT_IC.sparkles, 'Шаблоны', NT.tplOpen ? 'Свернуть' : 'коммуналка, спорт…', NT.tplOpen, 'nt-tpl') +
+  '</div>';
+
+  html += '</div>';
+
+  // Низ окна: итог одной строкой и большая кнопка.
+  var can = !!d.title.trim();
+  html += '<div class="nt-foot"><p class="nt-sum" id="nt-sum">' + esc(ntSummary()) + '</p>' +
+    '<button class="nt-go" id="nt-go" data-act="nt-save"' + (can ? '' : ' disabled') + '>Добавить задачу</button></div>';
+  return html;
+}
+
+function ntRepeatPanel(){
+  var r = NT.d.rep;
+  var max = 90;
+  NT_UNITS.forEach(function(u){ if (u[0] === r.unit) max = u[2]; });
+  var html = '<div class="nt-card nt-panel">' + ntPanelHead(NT_IC.repeat, 'Повтор', 'nt-rep-off') +
+    '<div class="nt-every"><span>Каждые</span>' +
+      '<button class="nt-step" data-act="nt-rep-int" data-v="-1"' + (r.interval <= 1 ? ' disabled' : '') + ' aria-label="Меньше">−</button>' +
+      '<b class="nt-num">' + r.interval + '</b>' +
+      '<button class="nt-step" data-act="nt-rep-int" data-v="1"' + (r.interval >= max ? ' disabled' : '') + ' aria-label="Больше">+</button>' +
+    '</div>' +
+    '<div class="nt-seg">' + NT_UNITS.map(function(u){
+      return '<button class="' + (r.unit === u[0] ? 'on' : '') + '" data-act="nt-rep-unit" data-u="' + u[0] + '">' + u[1] + '</button>';
+    }).join('') + '</div>';
+  if (r.unit === 'week'){
+    html += '<p class="nt-mini">Дни недели</p><div class="nt-wdays">' + [1, 2, 3, 4, 5, 6, 0].map(function(w){
+      var on = r.days.indexOf(w) >= 0;
+      return '<button class="' + (on ? 'on' : '') + '" data-act="nt-rep-wd" data-w="' + w + '">' + WEEKDAY_SHORT_RU[w] + '</button>';
+    }).join('') + '</div>';
+  }
+  if (r.unit === 'month'){
+    var cells = '';
+    for (var n = 1; n <= 31; n++){
+      cells += '<button class="' + (r.mdays.indexOf(n) >= 0 ? 'on' : '') + '" data-act="nt-rep-md" data-n="' + n + '">' + n + '</button>';
+    }
+    html += '<p class="nt-mini">Дни месяца</p><div class="nt-mdays">' + cells + '</div>';
+  }
+  var label = ntRepeatLabel();
+  html += '<p class="nt-hint">' + esc(label ? (NT.d.time ? label + ' в ' + NT.d.time : label) : '') + '</p></div>';
+  return html;
+}
+
+function ntDeadlinePanel(){
+  var d = NT.d;
+  var html = '<div class="nt-card nt-panel">' + ntPanelHead(NT_IC.hourglass, 'Срок', 'nt-dl-off') +
+    '<div class="nt-seg">' +
+      [['none', 'Без срока'], ['before', 'Выполнить до'], ['window', 'В промежутке']].map(function(m){
+        return '<button class="' + (d.dl === m[0] ? 'on' : '') + '" data-act="nt-dl" data-m="' + m[0] + '">' + m[1] + '</button>';
+      }).join('') +
+    '</div>';
+  if (d.dl === 'none'){
+    html += '<p class="nt-hint">Жёсткий срок: успеть до момента или только в указанном промежутке.</p>';
+  } else if (d.dl === 'before'){
+    html += '<div class="nt-pick"><span>До</span><span class="nt-pair">' +
+      (d.rep ? '' : полеДаты('nt-dl-date', d.dlDate, ' min="' + esc(ntDay()) + '"')) +
+      '<input id="nt-dl-time" class="inp" type="time" value="' + esc(d.dlTime) + '"></span></div>' +
+      '<p class="nt-hint">После срока задачу уже не отметить — только продлить.</p>';
+  } else {
+    html += '<div class="nt-pick"><span>С</span><input id="nt-win-from" class="inp" type="time" value="' + esc(d.winFrom) + '">' +
+      '<span>До</span><input id="nt-win-to" class="inp" type="time" value="' + esc(d.winTo) + '"></div>' +
+      '<p class="nt-hint">' + (d.rep ? 'Для каждого повтора действует выбранный промежуток.' : 'Задачу можно выполнить только в выбранном промежутке.') + '</p>';
+  }
+  return html + '</div>';
+}
+
+function ntTplDate(t){
+  if (!t.when) return null;
+  var now = new Date(), today = todayDate();
+  var mins = ntMinutes(t.when[2]);
+  var nowMins = now.getHours() * 60 + now.getMinutes();
+  if (t.when[0] === 'day'){
+    return isoOf(mins > nowMins ? today : addDays(today, 1));
+  }
+  if (t.when[0] === 'week'){
+    var delta = (t.when[1] - today.getDay() + 7) % 7;
+    if (delta === 0 && mins <= nowMins) delta = 7;
+    return isoOf(addDays(today, delta));
+  }
+  for (var k = 0; k < 24; k++){
+    var base = new Date(today.getFullYear(), today.getMonth() + k, 1);
+    var last = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+    var cand = new Date(base.getFullYear(), base.getMonth(), Math.min(t.when[1], last));
+    if (cand > today || (cand.getTime() === today.getTime() && mins > nowMins)) return isoOf(cand);
+  }
+  return isoOf(today);
+}
+function ntTplRepeatLabel(t){
+  if (!t.when) return '';
+  if (t.when[0] === 'day') return 'каждый день';
+  if (t.when[0] === 'week') return 'по ' + WEEKDAY_SHORT_RU[t.when[1]];
+  return t.when[1] + ' числа';
+}
+
+function ntTemplates(){
+  var list = NT_TEMPLATES.filter(function(t){ return t.cat === NT.tplCat; });
+  return '<div class="nt-tpls">' +
+    '<div class="nt-cats">' + NT_TPL_CATS.map(function(c){
+      return '<button class="nt-cat' + (NT.tplCat === c[0] ? ' on' : '') + '" data-act="nt-tpl-cat" data-c="' + c[0] + '">' +
+        NT_IC[c[0]] + '<span>' + c[1] + '</span></button>';
+    }).join('') + '</div>' +
+    '<div class="nt-tlist">' + list.map(function(t){
+      var i = NT_TEMPLATES.indexOf(t);
+      return '<button class="nt-tc" data-act="nt-tpl-use" data-i="' + i + '">' +
+        '<span class="nt-tch">' + NT_IC[t.cat] + '<span>' + esc(ntTplRepeatLabel(t)) + '</span></span>' +
+        '<b>' + esc(t.title) + '</b><span class="nt-tcu">Подставить</span></button>';
+    }).join('') + '</div></div>';
+}
+
+function ntApplyTemplate(t){
+  var d = NT.d;
+  d.title = t.title;
+  d.note = t.note;
+  d.subtasks = t.subs.slice();
+  d.dl = 'none';
+  NT.dlOpen = false;
+  if (!t.when){
+    d.dateOn = false; d.time = ''; d.remind = false; d.rep = null;
+    NT.from = 'later';
+  } else {
+    d.dateOn = true;
+    d.date = ntTplDate(t);
+    d.time = t.when[2];
+    d.remind = !!t.remind;
+    var dt = dateOf(d.date);
+    d.rep = { unit: t.when[0], interval: 1,
+      days: t.when[0] === 'week' ? [t.when[1]] : [dt.getDay()],
+      mdays: t.when[0] === 'month' ? [dt.getDate()] : [dt.getDate()] };
+  }
+  NT.dateOpen = false;
+  NT.timeOpen = false;
+  NT.tplOpen = false;
+  тактильно('tick');
+}
+
+/* Дата и время прямо из названия: «завтра в 10 созвон» — кнопки «Когда»
+   встают сами, как на айфоне (applyDetectedScheduling). Слова о дне из
+   названия убираем только при сохранении — пока человек печатает, текст
+   его, и прыгать под курсором он не должен. */
+function ntDetect(){
+  var d = NT.d;
+  var parsed = parseSchedule(d.title, NT.from);
+  if (!parsed || (!parsed.hasDate && !parsed.hasTime)) { NT.detected = false; return false; }
+  // «В девять утра», сказанное днём, — это завтрашние девять, как в строке.
+  parsed = pushPastTimeToTomorrow(parsed, d.title);
+  NT.detected = true;
+  if (parsed.date){ d.date = parsed.date; d.dateOn = true; }
+  else if (parsed.hasTime) ntEnsureDate();
+  if (parsed.hasTime && parsed.time) d.time = parsed.time;
+  ntClampTime();
+  return true;
+}
+
+function ntSave(){
+  if (!NT) return;
+  var d = NT.d;
+  var title = d.title.trim();
+  if (!title) return;
+  if (NT.detected){
+    var parsed = parseSchedule(title, NT.from);
+    if (parsed && parsed.title && (parsed.hasDate || parsed.hasTime)) title = parsed.title;
+  }
+  ntClampTime();
+  var date = d.dateOn ? d.date : dateForBucket(NT.from);
+  var bucket = d.dateOn ? derivedBucket(date) : NT.from;
+  var time = d.time || null;
+  if (!d.dateOn && spansSeveralDays(bucket)) time = null;
+  var rep = ntRepeatFields();
+  var day = date || ntTodayISO();
+  var fresh = {
+    id: uid(), title: title, note: d.note.trim(), bucket: bucket, date: date, time: time,
+    done: false, series: null,
+    hasExplicitDate: !!d.dateOn, hasExplicitTime: !!time,
+    goalId: null, stageId: null,
+    subtasks: d.subtasks.map(function(s){ return { id: uid(), title: s, done: false }; }),
+    repeat: rep.repeat, rule: rep.rule,
+    deadline: null, windowFrom: null, windowTo: null
+  };
+  // Напоминание — как его выставили в окне: включено — напомним, выключено —
+  // эта задача молчит, даже если в настройках «напоминать про задачи со
+  // временем» включено (так же на айфоне: reminderEnabled задачи).
+  if (time) fresh.remind = !!d.remind;
+  if (d.dl === 'before'){
+    fresh.deadline = { date: d.rep ? day : (d.dlDate < day ? day : d.dlDate), time: d.dlTime || null, hard: true };
+  } else if (d.dl === 'window'){
+    var from = d.winFrom, to = d.winTo;
+    if (ntMinutes(to) <= ntMinutes(from)) to = clock(Math.min(23, Math.floor(ntMinutes(from) / 60) + 1), ntMinutes(from) % 60);
+    fresh.windowFrom = { date: day, time: from };
+    fresh.windowTo = { date: day, time: to };
+    // Конец промежутка — жёсткий срок: так его ставят Syn и айфон.
+    fresh.deadline = { date: day, time: to, hard: true };
+  }
+  S.tasks.push(fresh);
+  S.closed[bucket] = false;
+  S.hintSeen = true;
+  NT = null;
+  closeModal();
+  тактильно('confirm');
+  commit('Задача в блоке «' + bucketTitle(bucket) + '»');
+}
+
+/* Ввод текста — без перерисовки окна: только черновик, итог и кнопка. */
+document.addEventListener('input', function(event){
+  if (!NT) return;
+  var el = event.target, id = el && el.id;
+  if (id === 'nt-title' || id === 'nt-note'){
+    if (id === 'nt-title'){
+      /* Клавиатура андроида шлёт Enter в многострочное поле переносом
+         строки, а не нажатием, — ловим его здесь: название одной строкой,
+         Enter ведёт к описанию, как «далее» на айфоне. */
+      if (/\n/.test(el.value)){
+        el.value = el.value.replace(/\n+/g, ' ').replace(/\s+$/, '');
+        var дальше = $('nt-note');
+        if (дальше) setTimeout(function(){ дальше.focus(); }, 0);
+      }
+      NT.d.title = el.value;
+    } else NT.d.note = el.value;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+    if (id === 'nt-title'){
+      var было = JSON.stringify([NT.d.dateOn, NT.d.date, NT.d.time]);
+      ntDetect();
+      if (JSON.stringify([NT.d.dateOn, NT.d.date, NT.d.time]) !== было) ntRender();
+      var go = $('nt-go');
+      if (go) go.disabled = !NT.d.title.trim();
+      var sum = $('nt-sum');
+      if (sum) sum.textContent = SynI18n.tr(ntSummary());
+    }
+  } else if (id === 'nt-sub'){
+    var пусто = !NT.sub.trim();
+    NT.sub = el.value;
+    if (пусто !== !NT.sub.trim()){
+      var ok = document.querySelector('.nt-subok');
+      if (ok) ok.classList.toggle('off', !NT.sub.trim());
+    }
+  }
+});
+
+/* Поля даты и времени — после выбора в системном окне. */
+document.addEventListener('change', function(event){
+  if (!NT) return;
+  var el = event.target, id = el && el.id, d = NT.d;
+  if (!id || id.indexOf('nt-') !== 0) return;
+  if (id === 'nt-date' && el.value){
+    d.date = el.value < ntTodayISO() ? ntTodayISO() : el.value;
+    d.dateOn = true;
+    ntClampTime();
+  } else if (id === 'nt-clock' && el.value){
+    d.time = el.value;
+    ntClampTime();
+  } else if (id === 'nt-dl-date' && el.value){
+    d.dlDate = el.value;
+  } else if (id === 'nt-dl-time' && el.value){
+    d.dlTime = el.value;
+  } else if (id === 'nt-win-from' && el.value){
+    d.winFrom = el.value;
+    if (ntMinutes(d.winTo) <= ntMinutes(d.winFrom)){
+      var m = Math.min(23 * 60 + 59, ntMinutes(d.winFrom) + 60);
+      d.winTo = clock(Math.floor(m / 60), m % 60);
+    }
+  } else if (id === 'nt-win-to' && el.value){
+    d.winTo = ntMinutes(el.value) > ntMinutes(d.winFrom) ? el.value : d.winTo;
+  } else return;
+  ntRender();
+});
+
+/* Enter в названии — к описанию, в подзадаче — добавить её и остаться. */
+document.addEventListener('keydown', function(event){
+  if (!NT || event.key !== 'Enter') return;
+  var id = event.target && event.target.id;
+  if (id === 'nt-title'){ event.preventDefault(); var n = $('nt-note'); if (n) n.focus(); }
+  else if (id === 'nt-sub'){ event.preventDefault(); ACTS['nt-sub-add'](); }
+});
+
+function ntShowPicker(id){
+  setTimeout(function(){
+    var el = $(id);
+    if (!el) return;
+    try { if (el.showPicker) el.showPicker(); else el.focus(); } catch (e){ try { el.focus(); } catch (e2){} }
+  }, 60);
+}
+
+ACTS['nt-close'] = function(){ NT = null; closeModal(); };
+ACTS['nt-save'] = function(){ ntSave(); };
+ACTS['nt-sub-add'] = function(){
+  var s = (NT.sub || '').trim();
+  if (!s) return;
+  NT.d.subtasks.push(s);
+  NT.sub = '';
+  тактильно('tick');
+  ntRender();
+  var el = $('nt-sub');
+  if (el) try { el.focus({ preventScroll: true }); } catch (e){ el.focus(); }
+};
+ACTS['nt-sub-del'] = function(x){
+  NT.d.subtasks.splice(Number(x.i), 1);
+  тактильно('tick');
+  ntRender();
+};
+ACTS['nt-day'] = function(x){
+  var d = NT.d, p = x.p;
+  if (ntImplicit(p)) return;
+  if (ntDayOn(p) && p !== 'custom'){
+    // Повторное нажатие снимает дату: задача уходит в блок без дня, а с днём
+    // уходят время, напоминание, повтор и срок — как на айфоне.
+    d.dateOn = false; d.time = ''; d.remind = false; d.rep = null; d.dl = 'none';
+    NT.dlOpen = false; NT.dateOpen = false; NT.timeOpen = false;
+  } else if (p === 'custom'){
+    if (!d.dateOn) d.date = ntDay();
+    d.dateOn = true;
+    NT.dateOpen = true;
+  } else {
+    d.date = p === 'today' ? ntTodayISO() : isoOf(addDays(todayDate(), 1));
+    d.dateOn = true;
+    NT.dateOpen = false;
+  }
+  ntClampTime();
+  тактильно('tick');
+  ntRender();
+  if (p === 'custom') ntShowPicker('nt-date');
+};
+ACTS['nt-time'] = function(x){
+  var d = NT.d;
+  if (x.h === 'none'){
+    d.time = ''; d.remind = false; NT.timeOpen = false;
+  } else if (x.h === 'custom'){
+    NT.timeOpen = !NT.timeOpen || !d.time;
+    if (!d.time){ ntEnsureDate(); d.time = ntSeedTime(); }
+  } else {
+    ntEnsureDate();
+    d.time = clock(Number(x.h), 0);
+    NT.timeOpen = false;
+  }
+  ntClampTime();
+  тактильно('tick');
+  ntRender();
+  if (x.h === 'custom' && NT.timeOpen) ntShowPicker('nt-clock');
+};
+ACTS['nt-remind'] = function(){
+  var d = NT.d;
+  d.remind = !d.remind;
+  if (d.remind){
+    ntEnsureDate();
+    if (!d.time) d.time = ntSeedTime();
+    ntClampTime();
+  }
+  ntRender();
+};
+ACTS['nt-rep-on'] = function(){
+  ntEnsureDate();
+  var dt = dateOf(NT.d.date);
+  NT.d.rep = { unit: 'day', interval: 1, days: [dt.getDay()], mdays: [dt.getDate()] };
+  ntRender();
+};
+ACTS['nt-rep-off'] = function(){ NT.d.rep = null; ntRender(); };
+ACTS['nt-rep-int'] = function(x){
+  var r = NT.d.rep, max = 90;
+  NT_UNITS.forEach(function(u){ if (u[0] === r.unit) max = u[2]; });
+  r.interval = Math.max(1, Math.min(max, r.interval + Number(x.v)));
+  тактильно('tick');
+  ntRender();
+};
+ACTS['nt-rep-unit'] = function(x){
+  var r = NT.d.rep, dt = dateOf(ntDay());
+  r.unit = x.u;
+  NT_UNITS.forEach(function(u){ if (u[0] === r.unit) r.interval = Math.min(r.interval, u[2]); });
+  if (!r.days.length) r.days = [dt.getDay()];
+  if (!r.mdays.length) r.mdays = [dt.getDate()];
+  тактильно('tick');
+  ntRender();
+};
+ACTS['nt-rep-wd'] = function(x){
+  var r = NT.d.rep, w = Number(x.w), at = r.days.indexOf(w);
+  // Последний день не снимается: неделя без дней — это уже не повтор.
+  if (at >= 0){ if (r.days.length > 1) r.days.splice(at, 1); }
+  else r.days.push(w);
+  тактильно('tick');
+  ntRender();
+};
+ACTS['nt-rep-md'] = function(x){
+  var r = NT.d.rep, n = Number(x.n), at = r.mdays.indexOf(n);
+  if (at >= 0){ if (r.mdays.length > 1) r.mdays.splice(at, 1); }
+  else r.mdays.push(n);
+  тактильно('tick');
+  ntRender();
+};
+ACTS['nt-dl-open'] = function(){ NT.dlOpen = true; ntRender(); };
+ACTS['nt-dl-off'] = function(){ NT.d.dl = 'none'; NT.dlOpen = false; ntRender(); };
+ACTS['nt-dl'] = function(x){
+  var d = NT.d;
+  d.dl = x.m;
+  if (d.dl !== 'none'){
+    ntEnsureDate();
+    if (d.dl === 'before'){
+      d.dlDate = d.date;
+      d.dlTime = d.time && ntMinutes(d.time) < ntMinutes('23:00') ? clock(Math.floor(ntMinutes(d.time) / 60) + 1, ntMinutes(d.time) % 60) : '18:00';
+    } else {
+      d.winFrom = d.time || '13:00';
+      var m = Math.min(23 * 60 + 59, ntMinutes(d.winFrom) + 5 * 60);
+      d.winTo = ntMinutes(d.winFrom) < ntMinutes('18:00') ? '18:00' : clock(Math.floor(m / 60), m % 60);
+    }
+  }
+  тактильно('tick');
+  ntRender();
+};
+ACTS['nt-tpl'] = function(){ NT.tplOpen = !NT.tplOpen; ntRender(); };
+ACTS['nt-tpl-cat'] = function(x){ NT.tplCat = x.c; тактильно('tick'); ntRender(); };
+ACTS['nt-tpl-use'] = function(x){
+  var t = NT_TEMPLATES[Number(x.i)];
+  if (!t) return;
+  ntApplyTemplate(t);
+  ntRender();
+  var go = $('nt-go');
+  if (go) go.disabled = !NT.d.title.trim();
+};
+
+/* Окно закрыли «назад» или касанием мимо — черновик и признак окна уходят
+   вместе с ним, иначе следующее окно открылось бы с полноэкранной вёрсткой. */
+(function(){
+  var прежний = hideModal;
+  hideModal = function(){
+    if ($('modal')) $('modal').classList.remove('nt-on');
+    NT = null;
+    return прежний.apply(this, arguments);
+  };
+})();
+
+/* ---- потянуть список задач вниз — новая задача ----
+
+   Как на айфоне (TodayPlanView: TaskListPullObserver и TaskPullHintOverlay):
+   у верха списка тянешь вниз, сверху плашка «Потяни вниз, чтобы создать
+   задачу» с полоской; дотянул на 92 пункта — плашка зеленеет и отзывается
+   вибрацией, «Отпусти, чтобы создать задачу»; отпустил — окно открыто.
+
+   Тянуть засчитываем только жест, начатый пальцем у самого верха: список,
+   долетевший до верха по инерции, сам окно не открывает. Жест забирает
+   только движение вниз заметно круче, чем вбок, — свайпы строк и
+   перетаскивание задач остаются своими.
+
+   Перетаскивание заводит своё состояние (НЕСУ) уже при касании строки и
+   «поднимает» карточку только после удержания. Пока она не поднята, жест
+   не его — иначе потягивание работало только с заголовков дней, а со
+   строк задач молчало (владелец: «срабатывает только с заголовков»). */
+var ПОТЯГ = null;
+var ПОТЯГ_ПОРОГ = 92;
+
+function потягМожно(){
+  return inApp() && S.view === 'tasks' && !modalOpen() && !(НЕСУ && НЕСУ.активен);
+}
+
+function потягПлашка(){
+  var el = $('pullnew');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'pullnew';
+    el.className = 'pullnew';
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = '<span class="pn-t"></span><span class="pn-bar"><i></i></span>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function потягПоказать(доля, взведён, верх){
+  var el = потягПлашка();
+  // Плашка встаёт туда, где был верх списка: список уезжает вниз и
+  // освобождает под неё место. Шапки на экране задач в приложении нет.
+  el.style.top = Math.max(8, верх) + 'px';
+  el.classList.add('on');
+  el.classList.toggle('armed', взведён);
+  el.querySelector('.pn-t').textContent = SynI18n.tr(взведён ? 'Отпусти, чтобы создать задачу' : 'Потяни вниз, чтобы создать задачу');
+  el.querySelector('i').style.transform = 'scaleX(' + Math.max(0.06, доля) + ')';
+}
+
+function потягСпрятать(){
+  var el = $('pullnew');
+  if (el) el.classList.remove('on', 'armed');
+}
+
+function потягСдвиг(узлы, y, плавно){
+  узлы.forEach(function(el){
+    el.style.transition = плавно ? 'transform .22s cubic-bezier(.2,.8,.2,1)' : 'none';
+    el.style.transform = y ? 'translateY(' + y + 'px)' : '';
+  });
+}
+
+document.addEventListener('touchstart', function(event){
+  ПОТЯГ = null;
+  if (event.touches.length !== 1 || !потягМожно()) return;
+  if ((window.pageYOffset || document.documentElement.scrollTop || 0) > 0) return;
+  var цель = event.target;
+  if (цель.closest && цель.closest('#top, #tabbar, .composer, input, textarea, select, .side')) return;
+  var t = event.touches[0];
+  ПОТЯГ = { x: t.clientX, y: t.clientY, решено: false, наш: false, взведён: false, узлы: null };
+}, { passive: true });
+
+document.addEventListener('touchmove', function(event){
+  var п = ПОТЯГ;
+  if (!п) return;
+  var t = event.touches[0];
+  var dx = t.clientX - п.x, dy = t.clientY - п.y;
+  if (!п.решено){
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    п.решено = true;
+    п.наш = dy > 0 && dy > Math.abs(dx) * 1.4 && !(НЕСУ && НЕСУ.активен) &&
+      (window.pageYOffset || document.documentElement.scrollTop || 0) <= 0;
+    if (!п.наш){ ПОТЯГ = null; return; }
+    // Жест наш: карточка под пальцем уже не поднимется посреди потягивания,
+    // а открытая строка закрывается, как на айфоне (closeSwipe).
+    if (НЕСУ && !НЕСУ.активен && typeof бросить === 'function') бросить();
+    if (typeof swipeCloseAll === 'function') swipeCloseAll(null);
+    п.узлы = листаемыеУзлы();
+    п.верх = п.узлы.length ? п.узлы[0].getBoundingClientRect().top : 8;
+  }
+  if (event.cancelable) event.preventDefault();
+  var путь = Math.max(0, dy);
+  var доля = Math.min(1, путь / ПОТЯГ_ПОРОГ);
+  var взведён = доля >= 1;
+  if (взведён && !п.взведён) тактильно('long');
+  п.взведён = взведён;
+  // Список идёт за пальцем вполсилы и упирается, как у края на айфоне.
+  потягСдвиг(п.узлы, Math.min(110, путь * 0.45), false);
+  if (путь > 4) потягПоказать(доля, взведён, п.верх);
+}, { passive: false });
+
+function потягКонец(){
+  var п = ПОТЯГ;
+  ПОТЯГ = null;
+  if (!п || !п.наш) return;
+  потягСдвиг(п.узлы || [], 0, true);
+  потягСпрятать();
+  setTimeout(function(){ потягСдвиг(п.узлы || [], 0, false); (п.узлы || []).forEach(function(el){ el.style.transition = ''; }); }, 260);
+  if (п.взведён){
+    ntHintDone();
+    setTimeout(function(){ ntOpen('today'); }, 120);
+  }
+}
+
+/* Подсказка про жест — как на айфоне (FirstActionHints, tasksPullToCreate):
+   кнопки «плюс» на экране задач нет, и единственный ручной способ создать
+   задачу — потянуть список. Не узнал жест — не узнал, что так можно.
+   Показывается в трёх заходах в приложение и пропадает навсегда, как
+   только человек потянул сам или закрыл её крестиком. Хранится на
+   устройстве, а не в записях: синхронизация её разносить не должна. */
+var NT_HINT_KEY = 'syn.pullHint';
+var ntHintSeenThisRun = false;
+function ntHintState(){
+  try { return JSON.parse(localStorage.getItem(NT_HINT_KEY) || '{}') || {}; } catch (e){ return {}; }
+}
+function ntHintSave(st){
+  try { localStorage.setItem(NT_HINT_KEY, JSON.stringify(st)); } catch (e){}
+}
+function ntHintDone(){
+  var st = ntHintState();
+  if (st.done) return;
+  st.done = true;
+  ntHintSave(st);
+  var card = document.querySelector('.nt-hintcard');
+  if (card) card.remove();
+}
+function ntHintHtml(){
+  // Пока идёт обучение, оно само говорит, с чего начать, — две подсказки
+  // подряд об одном уже уговоры.
+  if (!inApp() || tourVisible()) return '';
+  var st = ntHintState();
+  if (st.done) return '';
+  if (!ntHintSeenThisRun){
+    if ((st.shows || 0) >= 3) return '';
+    ntHintSeenThisRun = true;
+    st.shows = (st.shows || 0) + 1;
+    ntHintSave(st);
+  }
+  return '<div class="nt-hintcard"><span class="nt-tic">' +
+      ntIc('<path d="M12 4v14M6 12l6 6 6-6"/>') + '</span>' +
+    '<span class="nt-hintt"><b>Задачу можно создать вручную</b>' +
+      '<span>Потяни вниз, чтобы создать задачу</span></span>' +
+    '<button class="nt-x" data-act="nt-hint-off" aria-label="Закрыть">' + NT_IC.close + '</button></div>';
+}
+ACTS['nt-hint-off'] = function(){ ntHintDone(); };
+(function(){
+  var прежний = VIEWS.tasks.render;
+  VIEWS.tasks.render = function(){ return ntHintHtml() + прежний.apply(this, arguments); };
+})();
+document.addEventListener('touchend', потягКонец);
+document.addEventListener('touchcancel', потягКонец);
