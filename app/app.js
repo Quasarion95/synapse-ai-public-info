@@ -19112,12 +19112,17 @@ ACTS['nt-tpl-use'] = function(x){
    Тянуть засчитываем только жест, начатый пальцем у самого верха: список,
    долетевший до верха по инерции, сам окно не открывает. Жест забирает
    только движение вниз заметно круче, чем вбок, — свайпы строк и
-   перетаскивание задач остаются своими. */
+   перетаскивание задач остаются своими.
+
+   Перетаскивание заводит своё состояние (НЕСУ) уже при касании строки и
+   «поднимает» карточку только после удержания. Пока она не поднята, жест
+   не его — иначе потягивание работало только с заголовков дней, а со
+   строк задач молчало (владелец: «срабатывает только с заголовков»). */
 var ПОТЯГ = null;
 var ПОТЯГ_ПОРОГ = 92;
 
 function потягМожно(){
-  return inApp() && S.view === 'tasks' && !modalOpen() && !НЕСУ;
+  return inApp() && S.view === 'tasks' && !modalOpen() && !(НЕСУ && НЕСУ.активен);
 }
 
 function потягПлашка(){
@@ -19161,7 +19166,7 @@ document.addEventListener('touchstart', function(event){
   if (event.touches.length !== 1 || !потягМожно()) return;
   if ((window.pageYOffset || document.documentElement.scrollTop || 0) > 0) return;
   var цель = event.target;
-  if (цель.closest && цель.closest('#top, #tabbar, .composer, input, textarea, select, .swipe.swiped')) return;
+  if (цель.closest && цель.closest('#top, #tabbar, .composer, input, textarea, select, .side')) return;
   var t = event.touches[0];
   ПОТЯГ = { x: t.clientX, y: t.clientY, решено: false, наш: false, взведён: false, узлы: null };
 }, { passive: true });
@@ -19174,9 +19179,13 @@ document.addEventListener('touchmove', function(event){
   if (!п.решено){
     if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
     п.решено = true;
-    п.наш = dy > 0 && dy > Math.abs(dx) * 1.4 && !НЕСУ &&
+    п.наш = dy > 0 && dy > Math.abs(dx) * 1.4 && !(НЕСУ && НЕСУ.активен) &&
       (window.pageYOffset || document.documentElement.scrollTop || 0) <= 0;
     if (!п.наш){ ПОТЯГ = null; return; }
+    // Жест наш: карточка под пальцем уже не поднимется посреди потягивания,
+    // а открытая строка закрывается, как на айфоне (closeSwipe).
+    if (НЕСУ && !НЕСУ.активен && typeof бросить === 'function') бросить();
+    if (typeof swipeCloseAll === 'function') swipeCloseAll(null);
     п.узлы = листаемыеУзлы();
     п.верх = п.узлы.length ? п.узлы[0].getBoundingClientRect().top : 8;
   }
